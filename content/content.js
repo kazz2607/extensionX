@@ -153,7 +153,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       return true;
     }
     
-    const url = new URL('https://x.com/i/api/graphql/Vf8sA4N3s0aEqA_aKusEhw/TweetResultByRestId');
+    const url = new URL('https://api.x.com/graphql/Vf8sA4N3s0aEqA_aKusEhw/TweetResultByRestId');
     url.searchParams.set('variables', JSON.stringify({
       tweetId,
       withCommunity: false,
@@ -182,6 +182,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     }));
     
     fetch(url.toString(), {
+      credentials: 'include',
       headers: {
         'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
         'x-csrf-token': ct0,
