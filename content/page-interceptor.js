@@ -110,16 +110,16 @@
     
     const response = await _originalFetch.apply(this, arguments);
     
-    // Intercept GraphQL JSON responses để lấy video URL (hỗ trợ NSFW bằng user cookie)
+    // Intercept ALL GraphQL JSON responses
     try {
-      if (url.includes('/graphql/') && (url.includes('UserMedia') || url.includes('UserTweets') || url.includes('TweetDetail'))) {
+      if (url.includes('/graphql/')) {
         const clone = response.clone();
         clone.json().then(data => {
           const mediaItems = [];
           extractMediaFromResponse(data, mediaItems);
           if (mediaItems.length > 0) {
             window.dispatchEvent(new CustomEvent('X_MEDIA_FOUND', {
-              detail: { mediaItems, sourceUrl: 'graphql-interceptor' }
+              detail: { mediaItems, sourceUrl: 'graphql-fetch' }
             }));
           }
         }).catch(()=>{});
@@ -179,8 +179,33 @@
   // ─── 2. Hook XMLHttpRequest ──────────────────────────────────────────────────
   const _originalXhrOpen = XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open = function (method, url) {
-    try { notifyVideoUrl(String(url || '')); } catch (_) {}
+    try { 
+      const urlStr = String(url || '');
+      this._interceptUrl = urlStr;
+      notifyVideoUrl(urlStr); 
+    } catch (_) {}
     return _originalXhrOpen.apply(this, arguments);
+  };
+
+  const _originalXhrSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.send = function (body) {
+    this.addEventListener('load', function() {
+      try {
+        const url = this._interceptUrl || this.responseURL || '';
+        if (url.includes('/graphql/')) {
+          const text = this.responseText;
+          const data = JSON.parse(text);
+          const mediaItems = [];
+          extractMediaFromResponse(data, mediaItems);
+          if (mediaItems.length > 0) {
+            window.dispatchEvent(new CustomEvent('X_MEDIA_FOUND', {
+              detail: { mediaItems, sourceUrl: 'graphql-xhr' }
+            }));
+          }
+        }
+      } catch (_) {}
+    });
+    return _originalXhrSend.apply(this, arguments);
   };
 
   // ─── 3. Theo dõi video elements (phát hiện src/currentSrc trực tiếp) ─────────

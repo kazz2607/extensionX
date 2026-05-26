@@ -211,7 +211,7 @@ export async function fetchVideoForTweet(tweetId, userCsrfToken = '') {
   // Thực hiện trong Service Worker nên bypass CORS (không bị lỗi 404 OPTIONS preflight)
   if (userCsrfToken) {
     try {
-      const url = new URL('https://api.x.com/graphql/Vf8sA4N3s0aEqA_aKusEhw/TweetResultByRestId');
+      const url = new URL('https://x.com/i/api/graphql/Vf8sA4N3s0aEqA_aKusEhw/TweetResultByRestId');
       url.searchParams.set('variables', JSON.stringify({
         tweetId,
         withCommunity: false,

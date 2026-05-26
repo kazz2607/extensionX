@@ -64,6 +64,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (!item) return;
 
         if (item.type === 'video_placeholder') {
+          // Kiểm tra xem interceptor đã bắt được video URL của tweet này chưa
+          const store = mediaStore.get(username);
+          let alreadyHasVideo = false;
+          if (store) {
+            for (const media of store.values()) {
+              if (media.tweetId === item.tweetId && (media.type === 'video' || media.type === 'hls' || media.type === 'gif')) {
+                alreadyHasVideo = true;
+                break;
+              }
+            }
+          }
+          if (alreadyHasVideo) return; // Đã có video gốc, không cần gọi API
+
           console.log(`[SW] video_placeholder: tweetId=${item.tweetId}, nguồn=${item.source}`);
           try {
             const videoItem = await fetchVideoForTweet(item.tweetId, self.userCsrfToken);
