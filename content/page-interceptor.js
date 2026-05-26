@@ -227,4 +227,22 @@
     startObserving();
   }
 
+  // ─── 5. Hook JSON.parse ──────────────────────────────────────────────────────
+  const _originalParse = JSON.parse;
+  JSON.parse = function(text, reviver) {
+    const result = _originalParse(text, reviver);
+    try {
+      if (typeof text === 'string' && text.includes('extended_entities') && text.includes('video_info')) {
+        const mediaItems = [];
+        extractMediaFromResponse(result, mediaItems);
+        if (mediaItems.length > 0) {
+          window.dispatchEvent(new CustomEvent('X_MEDIA_FOUND', {
+            detail: { mediaItems, sourceUrl: 'json-interceptor' }
+          }));
+        }
+      }
+    } catch (_) {}
+    return result;
+  };
+
 })();

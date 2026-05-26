@@ -21,9 +21,7 @@ function injectScript(path, onLoad) {
   (document.head || document.documentElement).prepend(script);
 }
 
-// Inject page-interceptor NGAY LẬP TỨC (trước DOM load để hook fetch/XHR sớm nhất)
-// Chạy trong page context → bắt URL video khi X.com phát video
-injectScript('content/page-interceptor.js');
+// Bỏ inject page-interceptor.js ở đây vì đã dùng manifest.json world: MAIN
 
 // Inject DOM scanner và FAB sau khi DOM sẵn sàng
 if (document.readyState === 'loading') {

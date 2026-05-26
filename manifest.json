@@ -24,6 +24,12 @@
   "content_scripts": [
     {
       "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "js": ["content/page-interceptor.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*"],
       "js": ["content/content.js"],
       "run_at": "document_start"
     }
