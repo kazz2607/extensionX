@@ -2,6 +2,15 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [3.2.0] - 2026-05-26
+### Sửa lỗi & Tối ưu (Fixed & Improved)
+- **Bypass CORS cho video NSFW:** Đưa luồng truy vấn API nội bộ về Service Worker, kết hợp sử dụng User Cookie (`ct0`) để gọi trực tiếp endpoint `x.com/i/api`. Khắc phục hoàn toàn lỗi HTTP 404/403 khi lấy video NSFW (18+).
+- **MAIN World Interceptor:** Cấu hình `page-interceptor.js` chạy trong không gian `MAIN` thông qua `manifest.json` ở mốc `document_start`. Đảm bảo đánh chặn GraphQL API hoàn hảo trước khi bị inline script của Twitter chặn đứng.
+- **Hook JSON.parse & XHR:** Bắt trực tiếp dữ liệu React `__INITIAL_STATE__` từ `JSON.parse` và luồng phân trang cũ từ `XMLHttpRequest`. Đảm bảo quét sạch 100% video URL trên màn hình ngay khi cuộn chuột.
+- **Tránh gọi API thừa (Duplicate Check):** Cải tiến `dom-scanner` và Service Worker để bỏ qua các thẻ video nếu URL gốc của chúng đã được Interceptor thu thập thành công. Giảm tải request báo lỗi 404 vô ích.
+
+---
+
 ## [3.1.0] - 2026-05-26
 ### Sửa lỗi (Fixed)
 - **CORS & Syndication API:** Khắc phục triệt để lỗi không lấy được video URL do chính sách CORS của Twitter Syndication API bằng cách áp dụng `declarativeNetRequest` (Ghi đè `Access-Control-Allow-Origin` sang `*`). 

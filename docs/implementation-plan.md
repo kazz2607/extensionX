@@ -11,13 +11,13 @@
 extensionX/
 ├── manifest.json                  # Chrome Extension Manifest V3
 ├── background/
-│   └── service-worker.js          # Service Worker (background logic)
+│   ├── service-worker.js          # Service Worker (background logic)
+│   └── tweet-api.js               # Logic lấy video fallback & User Session API bypass CORS
 ├── content/
 │   ├── content.js                 # Content script chạy trên x.com
-│   └── page-interceptor.js        # Inject vào page context để hook fetch/XHR
-├── offscreen/
-│   ├── offscreen.html             # Offscreen document (fetch video Blob)
-│   └── offscreen.js               # Logic fetch HLS và MP4 (tránh CORS)
+│   ├── dom-scanner.js             # Quét fallback giao diện để tìm thumbnail
+│   ├── fab.js                     # Nút chức năng nổi (Floating Action Button)
+│   └── page-interceptor.js        # Inject qua MAIN world ở document_start
 ├── popup/
 │   ├── popup.html                 # Giao diện popup
 │   ├── popup.js                   # Logic popup
@@ -26,7 +26,7 @@ extensionX/
 │   ├── options.html               # Trang cài đặt
 │   └── options.js                 # Logic cài đặt
 ├── lib/
-│   ├── hls-fetcher.js             # JSZip library (tạo file ZIP)
+│   ├── hls-fetcher.js             # Logic nối phân mảnh m3u8
 │   └── utils.js                   # Các hàm tiện ích dùng chung
 ├── icons/
 │   ├── icon16.png
@@ -44,14 +44,12 @@ extensionX/
 User mở Profile Page (x.com/username/media)
         │
         ▼
-[content.js] Nhận diện trang Profile Media
-        │
-        ├── Inject page-interceptor.js vào page context
+[manifest.json] Inject page-interceptor.js (MAIN world) & content.js
         │
         ▼
-[page-interceptor.js] Hook window.fetch
+[page-interceptor.js] Hook window.fetch, XMLHttpRequest, và JSON.parse
         │
-        ├── Bắt response từ GraphQL endpoint: UserMedia
+        ├── Bắt các response JSON từ GraphQL API và React __INITIAL_STATE__
         ├── Parse JSON → extract media URLs (ảnh/video/GIF)
         └── dispatchEvent('X_MEDIA_FOUND', { urls, username })
         │
