@@ -344,7 +344,28 @@ function listenToMessages() {
         if (payload.username !== currentUsername) break;
         els.progressFill.style.width = `${payload.percent}%`;
         els.progressLbl.textContent = `${payload.current} / ${payload.total}`;
-        setStatus('downloading', `Đang tải... ${payload.percent}% — ${payload.currentFile || ''}`);
+        
+        if (payload.done) {
+          if (payload.failed > 0) {
+            const errDetails = (payload.errors || []).join(' | ');
+            setStatus('error', `Hoàn tất ${payload.success}/${payload.total} (Lỗi: ${errDetails})`);
+          } else {
+            setStatus('success', `✓ Hoàn tất ${payload.success}/${payload.total} files`);
+          }
+        } else {
+          setStatus('downloading', `Đang tải: ${payload.currentFile || ''} (${payload.success}/${payload.total})`);
+        }
+        break;
+
+      case 'MP4_PROGRESS':
+        // Chỉ cập nhật text trạng thái để biết không bị treo
+        setStatus('downloading', `Đang tải xuống máy: ${(payload.bytesReceived / 1024 / 1024).toFixed(1)} MB...`);
+        break;
+
+      case 'MP4_FETCH_PROGRESS':
+        const loadedMB = (payload.loaded / 1024 / 1024).toFixed(1);
+        const totalMB = payload.total > 0 ? (payload.total / 1024 / 1024).toFixed(1) : '?';
+        setStatus('downloading', `Đang kéo MP4: ${loadedMB} / ${totalMB} MB...`);
         break;
 
       case 'HLS_PROGRESS':

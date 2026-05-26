@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Offscreen Document</title>
+  <meta charset="utf-8">
+  <title>Offscreen HLS Downloader</title>
 </head>
 <body>
-<!-- JSZip được load từ file local trong extension -->
-<script src="../lib/jszip.min.js"></script>
-<script src="offscreen.js"></script>
+  <!-- Dùng để xử lý HLS -> MP4 Blob và tải xuống qua chrome.downloads -->
+  <script src="../lib/hls-fetcher.js" type="module"></script>
+  <script src="offscreen.js" type="module"></script>
 </body>
 </html>

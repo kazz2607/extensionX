@@ -8,11 +8,14 @@
  *   - Track progress qua chrome.downloads.onChanged
  */
 
+import { fetchVideoForTweet } from './tweet-api.js';
+
 // ─── State ────────────────────────────────────────────────────────────────────
 const mediaStore = new Map();   // Map<username, Map<url, MediaItem>>
 const tabState   = new Map();   // Map<tabId, CollectState>
 const statsStore = new Map();   // Map<username, {image,video,gif,hls}>
 
+let offscreenCreating = null;
 let downloadInProgress = false;
 
 // ─── Download Tracker ─────────────────────────────────────────────────────────
@@ -32,6 +35,15 @@ chrome.downloads.onChanged.addListener((delta) => {
       tracked.reject(new Error(delta.error?.current || 'Download interrupted'));
       activeDownloads.delete(delta.id);
     }
+  } else if (delta.bytesReceived) {
+    // Report byte progress to popup
+    chrome.runtime.sendMessage({
+      type: 'MP4_PROGRESS',
+      payload: { 
+        id: delta.id, 
+        bytesReceived: delta.bytesReceived.current 
+      }
+    }).catch(() => {});
   }
 });
 
@@ -44,10 +56,42 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'MEDIA_FOUND': {
       const { username, mediaItems } = payload;
       if (!username || !mediaItems?.length) return false;
-      applyOptionsFilter(username, mediaItems).then(filtered => {
-        if (!filtered.length) return;
-        addMediaItems(username, filtered);
-        updateFAB(sender.tab?.id, username);
+      const tabId = sender.tab?.id;
+
+      console.log(`[SW] MEDIA_FOUND: ${mediaItems.length} items từ ${payload.sourceUrl || '?'} cho @${username}`);
+
+      mediaItems.forEach(async (item) => {
+        if (!item) return;
+
+        if (item.type === 'video_placeholder') {
+          console.log(`[SW] video_placeholder: tweetId=${item.tweetId}, nguồn=${item.source}`);
+          try {
+            const videoItem = await fetchVideoForTweet(item.tweetId);
+            if (videoItem) {
+              videoItem.url = videoItem.url.replace(/name=\w+/, 'name=orig');
+              videoItem.username = username;
+              console.log(`[SW] ✓ Video URL lấy được: ${videoItem.url.slice(0, 80)}...`);
+              const added = addMediaItems(username, [videoItem]);
+              if (added > 0) updateFAB(tabId, username);
+            } else {
+              console.warn(`[SW] ✗ Không lấy được video URL cho tweet ${item.tweetId}`);
+            }
+          } catch (err) {
+            console.warn('[SW] fetchVideoForTweet lỗi:', item.tweetId, err.message);
+          }
+        } else {
+          // Xử lý ảnh hoặc video URL trực tiếp (từ page-interceptor)
+          item.username = username;
+          if (item.type === 'hls' || item.type === 'video' || item.type === 'gif') {
+            console.log(`[SW] ${item.type.toUpperCase()} URL: ${(item.url || '').slice(0, 80)}...`);
+          }
+          applyOptionsFilter(username, [item]).then(filtered => {
+            if (filtered.length > 0) {
+              const added = addMediaItems(username, filtered);
+              if (added > 0) updateFAB(tabId, username);
+            }
+          });
+        }
       });
       return false;
     }
@@ -102,7 +146,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     case 'START_DOWNLOAD': {
-      startDownload(payload.username, payload.options || {});
+      const { username, options } = payload;
+      if (downloadInProgress) {
+        sendResponse({ error: 'Download in progress' });
+        return false;
+      }
+      startDownload(username, options).then(() => {
+        // startDownload handles its own broadcasting, we just acknowledge receipt
+      });
       sendResponse({ ok: true });
       return true;
     }
@@ -283,12 +334,15 @@ function stopCollecting(username) {
 }
 
 // ─── Download — từng file, không ZIP ─────────────────────────────────────────
+let activeErrors = []; // Mảng chứa chi tiết lỗi
+
 async function startDownload(username, options = {}) {
   if (downloadInProgress) return;
 
   const store = mediaStore.get(username);
   if (!store?.size) return;
   downloadInProgress = true;
+  activeErrors = [];
 
   // Đọc options
   let opts = {};
@@ -320,12 +374,125 @@ async function startDownload(username, options = {}) {
 
   // ─── Download queue ──────────────────────────────────────────────────────
   async function downloadOne(item, options) {
-    const filename = buildDownloadPath(saveFolder, username, item, options.flatUsername);
+    let filename = '';
     try {
-      await downloadFile(item.url, filename);
-      success++;
+      filename = buildDownloadPath(saveFolder, username, item, options.flatUsername);
+      
+      // Đảm bảo HLS lưu dưới dạng .ts thay vì .m3u8 hay .mp4 để đúng chuẩn MIME type
+      if (item.type === 'hls' || filename.endsWith('.m3u8')) {
+        filename = filename.replace('.m3u8', '.ts').replace('.mp4', '.ts');
+      }
+
+      if (item.type === 'hls' || item.url.includes('.m3u8') || filename.endsWith('.ts')) {
+        await ensureOffscreen();
+        const res = await new Promise((resolve, reject) => {
+          chrome.runtime.sendMessage({
+            target: 'offscreen',
+            type: 'DOWNLOAD_HLS',
+            url: item.url,
+            username: username,
+            filename: filename
+          }, (res) => {
+            if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+            if (!res) return reject(new Error('No response from offscreen'));
+            if (res.error) return reject(new Error(res.error));
+            resolve(res);
+          });
+        });
+        
+        const { objectUrl } = res;
+
+        try {
+          await new Promise((resolve, reject) => {
+            chrome.downloads.download({
+              url: objectUrl,
+              filename: filename,
+              conflictAction: 'uniquify',
+              saveAs: false
+            }, (downloadId) => {
+              if (chrome.runtime.lastError) {
+                return reject(new Error(chrome.runtime.lastError.message));
+              }
+              activeDownloads.set(downloadId, { resolve, reject });
+              
+              // Fix race condition
+              chrome.downloads.search({ id: downloadId }, (results) => {
+                if (results && results.length > 0) {
+                  const state = results[0].state;
+                  if (state === 'complete') {
+                    activeDownloads.delete(downloadId);
+                    resolve(downloadId);
+                  } else if (state === 'interrupted') {
+                    activeDownloads.delete(downloadId);
+                    reject(new Error(results[0].error || 'Download interrupted'));
+                  }
+                }
+              });
+            });
+          });
+          success++;
+        } finally {
+          chrome.runtime.sendMessage({ target: 'offscreen', type: 'REVOKE_URL', url: objectUrl }).catch(()=>{});
+        }
+      } else if (item.type === 'video' || item.type === 'gif') {
+        // Khôi phục DOWNLOAD_MP4 vì tải trực tiếp bằng chrome.downloads vẫn bị một số server Twitter chặn
+        await ensureOffscreen();
+        const res = await new Promise((resolve, reject) => {
+          chrome.runtime.sendMessage({
+            target: 'offscreen',
+            type: 'DOWNLOAD_MP4',
+            url: item.url,
+            username: username,
+            filename: filename
+          }, (res) => {
+            if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+            if (!res) return reject(new Error('No response from offscreen'));
+            if (res.error) return reject(new Error(res.error));
+            resolve(res);
+          });
+        });
+        
+        const { objectUrl } = res;
+
+        try {
+          await new Promise((resolve, reject) => {
+            chrome.downloads.download({
+              url: objectUrl,
+              filename: filename,
+              conflictAction: 'uniquify',
+              saveAs: false
+            }, (downloadId) => {
+              if (chrome.runtime.lastError) {
+                return reject(new Error(chrome.runtime.lastError.message));
+              }
+              activeDownloads.set(downloadId, { resolve, reject });
+              
+              chrome.downloads.search({ id: downloadId }, (results) => {
+                if (results && results.length > 0) {
+                  const state = results[0].state;
+                  if (state === 'complete') {
+                    activeDownloads.delete(downloadId);
+                    resolve(downloadId);
+                  } else if (state === 'interrupted') {
+                    activeDownloads.delete(downloadId);
+                    reject(new Error(results[0].error || 'Download interrupted'));
+                  }
+                }
+              });
+            });
+          });
+          success++;
+        } finally {
+          chrome.runtime.sendMessage({ target: 'offscreen', type: 'REVOKE_URL', url: objectUrl }).catch(()=>{});
+        }
+      } else {
+        // Chỉ ảnh (images) mới tải trực tiếp
+        await downloadFile(item.url, filename);
+        success++;
+      }
     } catch (err) {
       failed++;
+      activeErrors.push(err.message);
       console.warn('[SW] Download failed:', item.url, err.message);
     }
     broadcastToPopup('DOWNLOAD_PROGRESS', {
@@ -334,22 +501,61 @@ async function startDownload(username, options = {}) {
       total,
       success,
       failed,
+      errors: activeErrors,
+      done: success + failed === total,
       percent: Math.round(((success + failed) / total) * 100),
       currentFile: filename.split('/').pop(),
     });
   }
 
-  // Chạy CONCURRENCY items song song
-  for (let i = 0; i < items.length; i += CONCURRENCY) {
-    const batch = items.slice(i, i + CONCURRENCY);
-    await Promise.all(batch.map(item => downloadOne(item, opts)));
-    if (i + CONCURRENCY < items.length) {
-      await sleep(200);
+  // Khởi tạo Offscreen nếu chưa có
+  let creatingOffscreen = null;
+  async function ensureOffscreen() {
+    if (creatingOffscreen) {
+      await creatingOffscreen;
+      return;
     }
+    
+    // Fallback an toàn cho bản Chrome cũ không có getContexts
+    if (!chrome.runtime.getContexts) {
+      const hasOffscreen = await chrome.offscreen.hasDocument();
+      if (hasOffscreen) return;
+    } else {
+      const existingContexts = await chrome.runtime.getContexts({
+        contextTypes: ['OFFSCREEN_DOCUMENT'],
+      });
+      if (existingContexts.length > 0) return;
+    }
+
+    creatingOffscreen = chrome.offscreen.createDocument({
+      url: 'offscreen/offscreen.html',
+      reasons: ['BLOBS'],
+      justification: 'Convert HLS stream to Blob for downloading',
+    }).catch(err => {
+      if (!err.message.includes('single offscreen document')) {
+        console.warn('Offscreen creation error:', err);
+      }
+    });
+    
+    await creatingOffscreen;
+    creatingOffscreen = null;
   }
 
-  downloadInProgress = false;
-  broadcastToPopup('DOWNLOAD_DONE', { username, success, failed, total });
+  try {
+    // Chạy CONCURRENCY items song song
+    for (let i = 0; i < items.length; i += CONCURRENCY) {
+      const batch = items.slice(i, i + CONCURRENCY);
+      await Promise.all(batch.map(item => downloadOne(item, opts)));
+      if (i + CONCURRENCY < items.length) {
+        await sleep(200);
+      }
+    }
+  } catch (err) {
+    console.error('[SW] Critical download error:', err);
+  } finally {
+    downloadInProgress = false;
+    broadcastToPopup('DOWNLOAD_DONE', { username, success, failed, total });
+  }
 }
 
 // ─── chrome.downloads.download() wrapper ─────────────────────────────────────
@@ -369,13 +575,21 @@ function downloadFile(url, filename) {
         // Theo dõi completion qua onChanged
         activeDownloads.set(downloadId, { resolve, reject });
 
-        // Timeout 60s per file
-        setTimeout(() => {
-          if (activeDownloads.has(downloadId)) {
-            activeDownloads.delete(downloadId);
-            reject(new Error('Download timeout'));
+        // Fix race condition: check ngay lập tức lỡ như tải xong/lỗi trước khi kịp addListener
+        chrome.downloads.search({ id: downloadId }, (results) => {
+          if (results && results.length > 0) {
+            const state = results[0].state;
+            if (state === 'complete') {
+              activeDownloads.delete(downloadId);
+              resolve(downloadId);
+            } else if (state === 'interrupted') {
+              activeDownloads.delete(downloadId);
+              reject(new Error(results[0].error || 'Download interrupted'));
+            }
           }
-        }, 60000);
+        });
+
+        // Loại bỏ timeout 60s
       }
     );
   });

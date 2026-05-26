@@ -16,8 +16,8 @@ extensionX/
 │   ├── content.js                 # Content script chạy trên x.com
 │   └── page-interceptor.js        # Inject vào page context để hook fetch/XHR
 ├── offscreen/
-│   ├── offscreen.html             # Offscreen document (ZIP, Blob, download)
-│   └── offscreen.js               # Logic tạo ZIP và trigger download
+│   ├── offscreen.html             # Offscreen document (fetch video Blob)
+│   └── offscreen.js               # Logic fetch HLS và MP4 (tránh CORS)
 ├── popup/
 │   ├── popup.html                 # Giao diện popup
 │   ├── popup.js                   # Logic popup
@@ -26,7 +26,7 @@ extensionX/
 │   ├── options.html               # Trang cài đặt
 │   └── options.js                 # Logic cài đặt
 ├── lib/
-│   ├── jszip.min.js               # JSZip library (tạo file ZIP)
+│   ├── hls-fetcher.js             # JSZip library (tạo file ZIP)
 │   └── utils.js                   # Các hàm tiện ích dùng chung
 ├── icons/
 │   ├── icon16.png
@@ -68,13 +68,17 @@ User mở Profile Page (x.com/username/media)
         └── Khi đủ / user click Download → gửi sang offscreen
         │
         ▼
-[offscreen.js] Fetch từng file media về dưới dạng Blob
+[offscreen.js] Fetch HLS / MP4 file media về dưới dạng Blob
         │
-        ├── Dùng JSZip đóng gói theo cấu trúc folder:
+        ├── Trả objectURL về cho service-worker
+        │
+        ▼
+[service-worker.js] Gọi chrome.downloads.download() để tải file
+        │
+        ├── Đặt tên và phân thư mục:
         │     username/
         │       ├── images/   (jpg, png, webp, gif)
-        │       └── videos/   (mp4)
-        └── Trigger chrome.downloads.download() → lưu file ZIP
+        │       └── videos/   (mp4, ts)
 ```
 
 ---
@@ -87,8 +91,8 @@ User mở Profile Page (x.com/username/media)
 {
   "manifest_version": 3,
   "name": "X Media Downloader",
-  "version": "1.0.0",
-  "description": "Tải toàn bộ media từ profile X.com, tự động phân loại theo username",
+  "version": "3.1.0",
+  "description": "Tải toàn bộ media từ profile X.com, tự động lưu vào folder username",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -113,15 +117,16 @@ User mở Profile Page (x.com/username/media)
     "downloads",
     "storage",
     "scripting",
+    "declarativeNetRequest",
     "offscreen",
     "tabs",
     "activeTab"
   ],
-  "host_permissions": [
     "https://*.x.com/*",
     "https://*.twitter.com/*",
     "https://pbs.twimg.com/*",
-    "https://video.twimg.com/*"
+    "https://video.twimg.com/*",
+    "https://cdn.syndication.twimg.com/*"
   ],
   "web_accessible_resources": [
     {
@@ -592,4 +597,4 @@ Cài đặt cho phép người dùng tuỳ chỉnh:
 
 ---
 
-*Tài liệu tạo ngày: 2026-05-26 | Phiên bản: 1.0*
+*Tài liệu cập nhật ngày: 2026-05-26 | Phiên bản: 3.1.0*

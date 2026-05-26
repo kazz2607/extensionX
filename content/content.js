@@ -1,10 +1,10 @@
 /**
- * content.js — Content Script (Phase 2)
+ * content.js — Content Script
  * Chạy trong isolated world (extension context) trên x.com
  * Nhiệm vụ:
- *   1. Inject page-interceptor.js vào page context (GraphQL hook)
- *   2. Inject dom-scanner.js (DOM fallback)
- *   3. Inject fab.js (Floating Action Button)
+ *   1. Inject page-interceptor.js vào page context — bắt URL video qua hook fetch/XHR (Layer 1)
+ *   2. Inject dom-scanner.js — DOM fallback quét ảnh/video_placeholder (Layer 2)
+ *   3. Inject fab.js — Floating Action Button
  *   4. Relay media events từ page → service worker
  *   5. Thực hiện auto-scroll theo lệnh từ service worker
  *   6. Cầu nối FAB ↔ service worker
@@ -21,10 +21,11 @@ function injectScript(path, onLoad) {
   (document.head || document.documentElement).prepend(script);
 }
 
-// Inject interceptor (GraphQL hook) — cần chạy ở document_start
+// Inject page-interceptor NGAY LẬP TỨC (trước DOM load để hook fetch/XHR sớm nhất)
+// Chạy trong page context → bắt URL video khi X.com phát video
 injectScript('content/page-interceptor.js');
 
-// Inject DOM scanner fallback sau khi DOM load
+// Inject DOM scanner và FAB sau khi DOM sẵn sàng
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     injectScript('content/dom-scanner.js');
@@ -161,10 +162,15 @@ const navObserver = new MutationObserver(() => {
     lastUrl = location.href;
     const username = getUsernameFromURL();
     if (username) {
-      chrome.runtime.sendMessage({
-        type: 'PAGE_LOADED',
-        payload: { username, url: location.href, isMediaPage: isMediaPage() }
-      }).catch(() => {});
+      try {
+        chrome.runtime.sendMessage({
+          type: 'PAGE_LOADED',
+          payload: { username, url: location.href, isMediaPage: isMediaPage() }
+        }).catch(() => {});
+      } catch (err) {
+        // Extension context invalidated - User needs to refresh the page
+        console.warn('Extension reloaded. Please refresh this page (F5) to continue.');
+      }
     }
   }
 });

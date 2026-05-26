@@ -2,6 +2,15 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [3.1.0] - 2026-05-26
+### Sửa lỗi (Fixed)
+- **CORS & Syndication API:** Khắc phục triệt để lỗi không lấy được video URL do chính sách CORS của Twitter Syndication API bằng cách áp dụng `declarativeNetRequest` (Ghi đè `Access-Control-Allow-Origin` sang `*`). 
+- **DOM Scanner Video:** Cải thiện khả năng phát hiện video thumbnail (ảnh đại diện cho video) trong tab Media của Twitter, giúp lấy được video ngay cả khi Twitter không render thẻ `<video>`.
+- **Offscreen Download API Error:** Sửa lỗi `Cannot read properties of undefined (reading 'download')`. Dịch chuyển tác vụ gọi `chrome.downloads` từ Offscreen Document (nơi không có quyền truy cập API) sang Service Worker để tải video MP4/HLS thành công.
+- Loại bỏ các HTTP Header `Origin` và `Referer` bị cấm trong Fetch API khi dùng extension.
+
+---
+
 ## [3.0.0] - 2026-05-26
 ### Thay đổi (Changed)
 - **Kiến trúc Tải Xuống mới (Direct Download):** Loại bỏ hoàn toàn quá trình tạo file ZIP khổng lồ ngốn RAM. Chuyển sang tải trực tiếp từng file thông qua API `chrome.downloads`.
