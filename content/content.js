@@ -135,6 +135,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       detail: message.payload
     }));
     return false;
+  }
+  
   // Lắng nghe yêu cầu lấy video bằng session của user (x-csrf-token)
   if (message.type === 'FETCH_VIDEO_USER_SESSION') {
     const tweetId = message.payload?.tweetId;
