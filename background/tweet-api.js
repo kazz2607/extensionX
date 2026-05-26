@@ -206,7 +206,90 @@ async function fetchVideoViaGuestAPI(tweetId) {
 }
 
 // ─── Main Export: Thử từng layer theo thứ tự ─────────────────────────────────
-export async function fetchVideoForTweet(tweetId) {
+export async function fetchVideoForTweet(tweetId, userCsrfToken = '') {
+  // Layer 0: User Session API (nếu có ct0)
+  // Thực hiện trong Service Worker nên bypass CORS (không bị lỗi 404 OPTIONS preflight)
+  if (userCsrfToken) {
+    try {
+      const url = new URL('https://api.x.com/graphql/Vf8sA4N3s0aEqA_aKusEhw/TweetResultByRestId');
+      url.searchParams.set('variables', JSON.stringify({
+        tweetId,
+        withCommunity: false,
+        includePromotedContent: false,
+        withVoice: false,
+      }));
+      url.searchParams.set('features', JSON.stringify({
+        creator_subscriptions_tweet_preview_api_enabled: true,
+        tweetypie_unmention_optimization_enabled: true,
+        responsive_web_edit_tweet_api_enabled: true,
+        graphql_is_translatable_rweb_tweet_is_translatable_enabled: true,
+        view_counts_everywhere_api_enabled: true,
+        longform_notetweets_consumption_enabled: true,
+        responsive_web_twitter_article_tweet_consumption_enabled: true,
+        tweet_awards_web_tipping_enabled: false,
+        freedom_of_speech_not_reach_fetch_enabled: true,
+        standardized_nudges_misinfo: true,
+        tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled: true,
+        longform_notetweets_rich_text_read_enabled: true,
+        longform_notetweets_inline_media_enabled: true,
+        responsive_web_graphql_exclude_directive_enabled: true,
+        verified_phone_label_enabled: false,
+        responsive_web_graphql_skip_user_profile_image_extensions_enabled: false,
+        responsive_web_graphql_timeline_navigation_enabled: true,
+        responsive_web_enhance_cards_enabled: false,
+      }));
+
+      const res = await fetch(url.toString(), {
+        credentials: 'include', // Kích hoạt gửi HttpOnly Cookie (auth_token)
+        headers: {
+          'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
+          'x-csrf-token': userCsrfToken,
+          'x-twitter-active-user': 'yes',
+          'x-twitter-auth-type': 'OAuth2Session',
+          'x-twitter-client-language': 'en'
+        }
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        const tweetResult = data?.data?.tweetResult?.result;
+        const legacy = tweetResult?.legacy || tweetResult?.tweet?.legacy;
+        const mediaList = legacy?.extended_entities?.media || [];
+        
+        for (const media of mediaList) {
+          if (media.type === 'video' || media.type === 'animated_gif') {
+            const variants = media.video_info?.variants || [];
+            let bestMp4 = variants
+              .filter(v => v.content_type === 'video/mp4')
+              .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
+
+            let isHls = false;
+            if (!bestMp4) {
+              bestMp4 = variants.find(v => v.content_type === 'application/x-mpegURL');
+              if (bestMp4) isHls = true;
+            }
+
+            if (bestMp4) {
+              console.log(`[tweet-api] ✓ User Session API thành công cho tweet ${tweetId}`);
+              return {
+                type: isHls ? 'hls' : (media.type === 'animated_gif' ? 'gif' : 'video'),
+                url: bestMp4.url,
+                mediaKey: media.media_key || media.id_str || tweetId,
+                tweetId,
+                ext: isHls ? 'm3u8' : 'mp4',
+                bitrate: bestMp4.bitrate || 0,
+              };
+            }
+          }
+        }
+      } else {
+        console.warn(`[tweet-api] ⚠ User Session API fail (HTTP ${res.status})`);
+      }
+    } catch (e) {
+      console.warn(`[tweet-api] ⚠ User Session API lỗi: ${e.message}`);
+    }
+  }
+
   // Layer 1: Syndication API (ổn định, không cần auth)
   try {
     const result = await fetchVideoViaSyndication(tweetId);

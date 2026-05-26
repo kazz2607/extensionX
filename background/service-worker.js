@@ -66,33 +66,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (item.type === 'video_placeholder') {
           console.log(`[SW] video_placeholder: tweetId=${item.tweetId}, nguồn=${item.source}`);
           try {
-            let videoItem = null;
-            
-            // 1. Thử lấy qua User Session (Content Script) để hỗ trợ video NSFW (18+)
-            if (tabId) {
-              try {
-                const res = await chrome.tabs.sendMessage(tabId, {
-                  type: 'FETCH_VIDEO_USER_SESSION',
-                  payload: { tweetId: item.tweetId }
-                });
-                if (res && res.success && res.data) {
-                  videoItem = res.data;
-                  console.log(`[SW] ✓ Video URL (User Session) lấy được: ${videoItem.url.slice(0, 80)}...`);
-                } else if (res && res.error) {
-                  console.warn(`[SW] ⚠ User Session API fail: ${res.error}`);
-                }
-              } catch (e) {
-                console.warn(`[SW] ⚠ Gửi yêu cầu User Session thất bại: ${e.message}`);
-              }
-            }
-
-            // 2. Fallback sang Syndication / Guest API nếu User Session thất bại
-            if (!videoItem) {
-              videoItem = await fetchVideoForTweet(item.tweetId);
-              if (videoItem) {
-                console.log(`[SW] ✓ Video URL (Guest/Syndication API) lấy được: ${videoItem.url.slice(0, 80)}...`);
-              }
-            }
+            const videoItem = await fetchVideoForTweet(item.tweetId, self.userCsrfToken);
 
             if (videoItem) {
               videoItem.url = videoItem.url.replace(/name=\w+/, 'name=orig');
@@ -123,10 +97,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     case 'PAGE_LOADED': {
-      const { username, url, isMediaPage } = payload;
+      const { username, url, isMediaPage, ct0 } = payload;
       const tabId = sender.tab?.id;
       if (tabId && username) {
-        tabState.set(tabId, { username, url, isMediaPage, isCollecting: false, scrollCount: 0, reachedEnd: false });
+        tabState.set(tabId, { username, url, isMediaPage, isCollecting: false, scrollCount: 0, reachedEnd: false, ct0 });
+        if (ct0) {
+          // Lưu ct0 global cho background API
+          self.userCsrfToken = ct0;
+        }
       }
       checkAutoScroll(tabId, username, isMediaPage);
       return false;
