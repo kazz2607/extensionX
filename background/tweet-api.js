@@ -15,18 +15,12 @@ let cachedGuestToken = null;
 let guestTokenTime = 0;
 
 // ─── Syndication Token Formula ────────────────────────────────────────────────
-// Token = (floor(tweetId / 1e15) * π) → base36 string
-// Dùng BigInt để tránh mất precision với tweet ID lớn (> Number.MAX_SAFE_INTEGER)
+// Token = (Number(tweetId) / 1e15 * Math.PI).toString(36).replace(/(0+|\.)/g, '')
+// LƯU Ý QUAN TRỌNG: KHÔNG dùng BigInt. 
+// JavaScript Number(tweetId) sẽ bị mất precision cho các ID dài 19 số, 
+// nhưng Twitter thiết kế token generator dựa trên CHÍNH lỗi mất precision đó!
 function getSyndicationToken(tweetId) {
-  try {
-    const idBig = BigInt(tweetId);
-    const divisor = 1000000000000000n; // 1e15
-    const quotient = Number(idBig / divisor);
-    return (quotient * Math.PI).toString(36).replace(/(0+|\.)/g, '');
-  } catch (_) {
-    // Fallback nếu BigInt không hỗ trợ (Chrome cũ)
-    return (Math.floor(Number(tweetId) / 1e15) * Math.PI).toString(36).replace(/(0+|\.)/g, '');
-  }
+  return (Number(tweetId) / 1e15 * Math.PI).toString(36).replace(/(0+|\.)/g, '');
 }
 
 // ─── Layer 1: Syndication API ─────────────────────────────────────────────────

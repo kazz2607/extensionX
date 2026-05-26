@@ -99,16 +99,82 @@
 
   // ─── 1. Hook window.fetch ────────────────────────────────────────────────────
   const _originalFetch = window.fetch;
-  window.fetch = function (resource, init) {
+  window.fetch = async function (resource, init) {
+    let url = '';
     try {
-      let url = '';
       if (typeof resource === 'string') url = resource;
       else if (resource instanceof URL) url = resource.href;
       else if (resource instanceof Request) url = resource.url;
       notifyVideoUrl(url);
     } catch (_) {}
-    return _originalFetch.apply(this, arguments);
+    
+    const response = await _originalFetch.apply(this, arguments);
+    
+    // Intercept GraphQL JSON responses để lấy video URL (hỗ trợ NSFW bằng user cookie)
+    try {
+      if (url.includes('/graphql/') && (url.includes('UserMedia') || url.includes('UserTweets') || url.includes('TweetDetail'))) {
+        const clone = response.clone();
+        clone.json().then(data => {
+          const mediaItems = [];
+          extractMediaFromResponse(data, mediaItems);
+          if (mediaItems.length > 0) {
+            window.dispatchEvent(new CustomEvent('X_MEDIA_FOUND', {
+              detail: { mediaItems, sourceUrl: 'graphql-interceptor' }
+            }));
+          }
+        }).catch(()=>{});
+      }
+    } catch (_) {}
+    
+    return response;
   };
+
+  // ─── Helper: Parse JSON GraphQL tìm video ─────────────────────────────────────
+  function extractMediaFromResponse(obj, results, depth = 0) {
+    if (depth > 15 || !obj || typeof obj !== 'object') return;
+
+    if (obj.extended_entities && Array.isArray(obj.extended_entities.media)) {
+      obj.extended_entities.media.forEach(media => {
+        const type = media.type;
+        const tweetId = media.source_status_id_str || media.id_str || '';
+        if (type === 'video' || type === 'animated_gif') {
+          const variants = media.video_info?.variants || [];
+          let bestMp4 = variants
+            .filter(v => v.content_type === 'video/mp4')
+            .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
+
+          let isHls = false;
+          if (!bestMp4) {
+            bestMp4 = variants.find(v => v.content_type === 'application/x-mpegURL');
+            if (bestMp4) isHls = true;
+          }
+
+          if (bestMp4) {
+            results.push({
+              type: isHls ? 'hls' : (type === 'animated_gif' ? 'gif' : 'video'),
+              url: bestMp4.url,
+              tweetId,
+              mediaKey: media.media_key || media.id_str || tweetId,
+              ext: isHls ? 'm3u8' : 'mp4'
+            });
+          }
+        } else if (type === 'photo') {
+           let photoUrl = media.media_url_https || media.media_url;
+           if (photoUrl) {
+             photoUrl = photoUrl.replace(/name=\w+/, 'name=orig');
+             results.push({ type: 'image', url: photoUrl, tweetId, ext: 'jpg' });
+           }
+        }
+      });
+    }
+
+    // Đệ quy
+    for (const key of Object.keys(obj)) {
+      if (obj[key] !== null && typeof obj[key] === 'object') {
+        extractMediaFromResponse(obj[key], results, depth + 1);
+      }
+    }
+  }
 
   // ─── 2. Hook XMLHttpRequest ──────────────────────────────────────────────────
   const _originalXhrOpen = XMLHttpRequest.prototype.open;

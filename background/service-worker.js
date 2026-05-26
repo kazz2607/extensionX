@@ -66,11 +66,37 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (item.type === 'video_placeholder') {
           console.log(`[SW] video_placeholder: tweetId=${item.tweetId}, nguồn=${item.source}`);
           try {
-            const videoItem = await fetchVideoForTweet(item.tweetId);
+            let videoItem = null;
+            
+            // 1. Thử lấy qua User Session (Content Script) để hỗ trợ video NSFW (18+)
+            if (tabId) {
+              try {
+                const res = await chrome.tabs.sendMessage(tabId, {
+                  type: 'FETCH_VIDEO_USER_SESSION',
+                  payload: { tweetId: item.tweetId }
+                });
+                if (res && res.success && res.data) {
+                  videoItem = res.data;
+                  console.log(`[SW] ✓ Video URL (User Session) lấy được: ${videoItem.url.slice(0, 80)}...`);
+                } else if (res && res.error) {
+                  console.warn(`[SW] ⚠ User Session API fail: ${res.error}`);
+                }
+              } catch (e) {
+                console.warn(`[SW] ⚠ Gửi yêu cầu User Session thất bại: ${e.message}`);
+              }
+            }
+
+            // 2. Fallback sang Syndication / Guest API nếu User Session thất bại
+            if (!videoItem) {
+              videoItem = await fetchVideoForTweet(item.tweetId);
+              if (videoItem) {
+                console.log(`[SW] ✓ Video URL (Guest/Syndication API) lấy được: ${videoItem.url.slice(0, 80)}...`);
+              }
+            }
+
             if (videoItem) {
               videoItem.url = videoItem.url.replace(/name=\w+/, 'name=orig');
               videoItem.username = username;
-              console.log(`[SW] ✓ Video URL lấy được: ${videoItem.url.slice(0, 80)}...`);
               const added = addMediaItems(username, [videoItem]);
               if (added > 0) updateFAB(tabId, username);
             } else {
