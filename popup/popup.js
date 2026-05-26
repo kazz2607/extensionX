@@ -1,0 +1,460 @@
+/**
+ * popup.js — Logic Popup (Phase 3 — Direct Download)
+ */
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let currentUsername = null;
+let isCollecting = false;
+let isDownloading = false;
+let activeFilter = 'all';
+let stats = { image: 0, video: 0, gif: 0, hls: 0 };
+let downloadHistory = [];
+let lastScrollCount = 0;
+let lastScrollTime = Date.now();
+let currentSaveFolder = '';  // đọc từ options
+
+// ─── DOM ───────────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+const els = {
+  username:     $('profile-username'),
+  hint:         $('profile-hint'),
+  badge:        $('media-count-badge'),
+  avatar:       $('profile-avatar'),
+  profileCard:  $('profile-card'),
+
+  tabAll:       $('tab-all'),
+  tabImages:    $('tab-images'),
+  tabVideos:    $('tab-videos'),
+  tabGifs:      $('tab-gifs'),
+  tabCountAll:  $('tab-count-all'),
+  tabCountImgs: $('tab-count-images'),
+  tabCountVids: $('tab-count-videos'),
+  tabCountGifs: $('tab-count-gifs'),
+
+  statusDot:    $('status-dot'),
+  statusText:   $('status-text'),
+  statusSpeed:  $('status-speed'),
+  progressWrap: $('progress-wrap'),
+  progressFill: $('progress-fill'),
+  progressLbl:  $('progress-label'),
+  scrollSec:    $('section-scroll'),
+  scrollCount:  $('scroll-count'),
+  scrollNew:    $('scroll-new'),
+  scrollEta:    $('scroll-eta'),
+
+  btnCollect:   $('btn-collect'),
+  btnCollectTxt:$('btn-collect-text'),
+  btnDownload:  $('btn-download'),
+  btnDownloadTxt:$('btn-download-text'),
+  btnCsv:       $('btn-csv'),
+  btnClear:     $('btn-clear'),
+  btnSettings:  $('btn-settings'),
+  historyList:  $('history-list'),
+  btnHistClear: $('btn-history-clear'),
+  toast:        $('toast'),
+};
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadHistory();
+  await detectCurrentTab();
+  setupListeners();
+  listenToMessages();
+});
+
+// ─── Detect active tab ────────────────────────────────────────────────────────
+async function detectCurrentTab() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.url) return;
+
+  const url = tab.url;
+  if (!url.includes('x.com') && !url.includes('twitter.com')) {
+    setStatus('idle', 'Mở X.com để bắt đầu');
+    return;
+  }
+
+  chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_INFO' }, (res) => {
+    if (chrome.runtime.lastError || !res?.username) return;
+    setCurrentUser(res.username);
+  });
+}
+
+async function setCurrentUser(username) {
+  currentUsername = username;
+
+  els.username.textContent = `@${username}`;
+  els.hint.textContent = 'Profile đang được xem';
+  els.profileCard.classList.add('active');
+  els.avatar.textContent = username.slice(0, 2).toUpperCase();
+
+  // Hiển thị folder path
+  await updateFolderDisplay(username);
+
+  // Lấy count & stats
+  const [countRes, statsRes] = await Promise.all([
+    sendBG('GET_MEDIA_COUNT', { username }),
+    sendBG('GET_STATS', { username }),
+  ]);
+
+  if (statsRes?.stats) {
+    stats = statsRes.stats;
+    updateStatTabs();
+  }
+
+  updateMediaCount(countRes?.count || 0);
+  setStatus('ready', `Sẵn sàng — @${username}`);
+  updateButtons();
+}
+
+// ─── Stats & Tabs ─────────────────────────────────────────────────────────────
+function updateStatTabs() {
+  const total = (stats.image || 0) + (stats.video || 0) + (stats.gif || 0) + (stats.hls || 0);
+  const videoTotal = (stats.video || 0) + (stats.hls || 0);
+
+  els.tabCountAll.textContent  = total;
+  els.tabCountImgs.textContent = stats.image || 0;
+  els.tabCountVids.textContent = videoTotal;
+  els.tabCountGifs.textContent = stats.gif || 0;
+}
+
+function updateMediaCount(count) {
+  els.badge.textContent = count > 9999 ? '9999+' : String(count);
+  els.badge.classList.add('pulse');
+  setTimeout(() => els.badge.classList.remove('pulse'), 600);
+  updateButtons();
+}
+
+function getFilteredCount() {
+  if (activeFilter === 'all')    return (stats.image || 0) + (stats.video || 0) + (stats.gif || 0) + (stats.hls || 0);
+  if (activeFilter === 'images') return stats.image || 0;
+  if (activeFilter === 'videos') return (stats.video || 0) + (stats.hls || 0);
+  if (activeFilter === 'gifs')   return stats.gif || 0;
+  return 0;
+}
+
+// ─── Tabs ─────────────────────────────────────────────────────────────────────
+function setupTabs() {
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      activeFilter = tab.dataset.filter;
+      updateButtons();
+
+      // Update download button label
+      const labels = {
+        all: 'Download',
+        images: 'Tải Ảnh',
+        videos: 'Tải Video',
+        gifs: 'Tải GIF',
+      };
+      const cnt = getFilteredCount();
+      els.btnDownloadTxt.textContent = cnt > 0
+        ? `${labels[activeFilter]} (${cnt})`
+        : labels[activeFilter];
+    });
+  });
+}
+
+// ─── Buttons ──────────────────────────────────────────────────────────────────
+function updateButtons() {
+  const hasUser = !!currentUsername;
+  const totalCount = parseInt(els.badge.textContent) || 0;
+  const filteredCount = getFilteredCount();
+
+  els.btnCollect.disabled   = !hasUser || isDownloading;
+  els.btnDownload.disabled  = !hasUser || filteredCount === 0 || isDownloading;
+  els.btnCsv.disabled       = !hasUser || totalCount === 0;
+  els.btnClear.disabled     = !hasUser || totalCount === 0;
+
+  if (isCollecting) {
+    els.btnCollect.classList.add('collecting');
+    els.btnCollectTxt.textContent = 'Dừng Thu Thập';
+  } else {
+    els.btnCollect.classList.remove('collecting');
+    els.btnCollectTxt.textContent = 'Bắt đầu Thu Thập';
+  }
+}
+
+// ─── Scroll Speed ─────────────────────────────────────────────────────────────
+function updateScrollSpeed(newCount) {
+  const now = Date.now();
+  const elapsed = (now - lastScrollTime) / 1000;
+  const delta = newCount - lastScrollCount;
+
+  if (elapsed > 0 && delta > 0) {
+    const rate = (delta / elapsed * 60).toFixed(0); // media/min
+    els.statusSpeed.textContent = `${rate}/min`;
+  }
+
+  lastScrollCount = newCount;
+  lastScrollTime = now;
+}
+
+// ─── Event Listeners ──────────────────────────────────────────────────────────
+function setupListeners() {
+  setupTabs();
+
+  // Collect toggle
+  els.btnCollect.addEventListener('click', async () => {
+    if (!currentUsername) return;
+
+    if (isCollecting) {
+      isCollecting = false;
+      await sendBG('STOP_COLLECTING', { username: currentUsername });
+      setStatus('ready', `Đã dừng — @${currentUsername}`);
+      els.statusSpeed.textContent = '';
+    } else {
+      isCollecting = true;
+      lastScrollCount = parseInt(els.badge.textContent) || 0;
+      lastScrollTime = Date.now();
+      await sendBG('START_COLLECTING', { username: currentUsername });
+      setStatus('collecting', 'Đang thu thập media...');
+      els.scrollSec.style.display = 'block';
+    }
+    updateButtons();
+  });
+
+  // Download
+  els.btnDownload.addEventListener('click', async () => {
+    if (!currentUsername || isDownloading) return;
+    const filteredCount = getFilteredCount();
+    if (filteredCount === 0) { showToast('Không có media để tải', 'error'); return; }
+
+    isDownloading = true;
+    updateButtons();
+    setStatus('downloading', 'Chuẩn bị download...');
+    showProgress(true);
+
+    await sendBG('START_DOWNLOAD', {
+      username: currentUsername,
+      options: { filterType: activeFilter }
+    });
+  });
+
+  // CSV Export
+  els.btnCsv.addEventListener('click', async () => {
+    if (!currentUsername) return;
+    const res = await sendBG('EXPORT_CSV', {
+      username: currentUsername,
+      filterType: activeFilter,
+    });
+
+    if (!res?.csv) { showToast('Không có dữ liệu để xuất', 'error'); return; }
+
+    // Download trực tiếp qua data URL (không cần offscreen)
+    const dataUrl = 'data:text/csv;charset=utf-8,' + encodeURIComponent(res.csv);
+    const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    chrome.downloads.download({
+      url: dataUrl,
+      filename: `${currentUsername}_media_${dateStr}.csv`,
+      saveAs: false,
+    });
+    showToast(`Đã xuất ${res.csv.split('\n').length - 1} URLs ra CSV`, 'success');
+  });
+
+  // Clear
+  els.btnClear.addEventListener('click', async () => {
+    if (!currentUsername) return;
+    if (!confirm(`Xóa toàn bộ media đã thu thập của @${currentUsername}?`)) return;
+
+    await sendBG('CLEAR_MEDIA', { username: currentUsername });
+    stats = { image: 0, video: 0, gif: 0, hls: 0 };
+    updateStatTabs();
+    updateMediaCount(0);
+    setStatus('ready', 'Đã xóa');
+    showToast('Đã xóa danh sách media', 'info');
+  });
+
+  // Settings
+  els.btnSettings.addEventListener('click', () => chrome.runtime.openOptionsPage());
+
+  // History clear
+  els.btnHistClear.addEventListener('click', async () => {
+    downloadHistory = [];
+    await chrome.storage.local.remove('download_history');
+    renderHistory();
+    showToast('Đã xóa lịch sử', 'info');
+  });
+}
+
+// ─── Message Listener ─────────────────────────────────────────────────────────
+function listenToMessages() {
+  chrome.runtime.onMessage.addListener((msg) => {
+    const { type, payload } = msg;
+
+    switch (type) {
+      case 'MEDIA_COUNT_UPDATE':
+        if (payload.username !== currentUsername) break;
+        if (payload.stats) { stats = payload.stats; updateStatTabs(); }
+        updateMediaCount(payload.count);
+        break;
+
+      case 'SCROLL_PROGRESS':
+        if (payload.username !== currentUsername) break;
+        els.scrollCount.textContent = payload.scrollCount;
+
+        // Tính media mới trong lần scroll này
+        const prevBadge = parseInt(els.badge.textContent) || 0;
+        const newMedia = (payload.mediaCount || 0) - prevBadge;
+        els.scrollNew.textContent = newMedia >= 0 ? `+${newMedia}` : newMedia;
+        if (payload.stats) { stats = payload.stats; updateStatTabs(); }
+        updateMediaCount(payload.mediaCount);
+        updateScrollSpeed(payload.mediaCount);
+        break;
+
+      case 'COLLECT_STARTED':
+        if (payload.username === currentUsername) {
+          isCollecting = true;
+          updateButtons();
+        }
+        break;
+
+      case 'COLLECT_DONE':
+        if (payload.username !== currentUsername) break;
+        isCollecting = false;
+        els.scrollSec.style.display = 'none';
+        els.statusSpeed.textContent = '';
+        const reasonMsg = payload.reachedEnd
+          ? `✓ Hoàn tất! ${payload.mediaCount} media`
+          : payload.reason === 'max_scrolls'
+            ? `Đạt giới hạn scroll — ${payload.mediaCount} media`
+            : `Đã dừng — ${payload.mediaCount} media`;
+        setStatus('done', reasonMsg);
+        showToast(reasonMsg, 'success');
+        updateButtons();
+        break;
+
+      case 'COLLECT_STOPPED':
+        isCollecting = false;
+        els.scrollSec.style.display = 'none';
+        els.statusSpeed.textContent = '';
+        updateButtons();
+        break;
+
+      case 'DOWNLOAD_STARTED':
+        if (payload.username === currentUsername) {
+          const label = activeFilter !== 'all' ? ` (${activeFilter})` : '';
+          setStatus('downloading', `Đang tải ${payload.total} files${label}...`);
+        }
+        break;
+
+      case 'DOWNLOAD_PROGRESS':
+        if (payload.username !== currentUsername) break;
+        els.progressFill.style.width = `${payload.percent}%`;
+        els.progressLbl.textContent = `${payload.current} / ${payload.total}`;
+        setStatus('downloading', `Đang tải... ${payload.percent}% — ${payload.currentFile || ''}`);
+        break;
+
+      case 'HLS_PROGRESS':
+        if (payload.username === currentUsername) {
+          setStatus('downloading', `HLS: ${payload.fetched}/${payload.total} segments`);
+        }
+        break;
+
+      case 'DOWNLOAD_DONE': {
+        isDownloading = false;
+        showProgress(false);
+        const { success, failed, total } = payload;
+        const doneMsg = `✓ Hoàn tất ${success}/${total} files${failed > 0 ? ` (${failed} lỗi)` : ''}`;
+        setStatus('done', doneMsg);
+        showToast(doneMsg, success > 0 ? 'success' : 'error');
+        updateButtons();
+        addToHistory({
+          username: currentUsername,
+          count: success || 0,
+          filter: activeFilter,
+          date: new Date().toISOString(),
+        });
+        break;
+      }
+    }
+  });
+}
+
+// ─── Status ───────────────────────────────────────────────────────────────────
+function setStatus(state, text) {
+  els.statusText.textContent = text;
+  els.statusDot.className = 'status-dot ' + (state || '');
+}
+
+function showProgress(show) {
+  els.progressWrap.style.display = show ? 'flex' : 'none';
+  if (!show) { els.progressFill.style.width = '0%'; els.progressLbl.textContent = '0 / 0'; }
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, type = '') {
+  clearTimeout(toastTimer);
+  els.toast.textContent = msg;
+  els.toast.className = 'toast show ' + type;
+  toastTimer = setTimeout(() => { els.toast.className = 'toast'; }, 3000);
+}
+
+// ─── History ──────────────────────────────────────────────────────────────────
+async function loadHistory() {
+  const stored = await chrome.storage.local.get('download_history').catch(() => ({}));
+  downloadHistory = stored.download_history || [];
+  renderHistory();
+}
+
+function addToHistory(entry) {
+  downloadHistory.unshift(entry);
+  if (downloadHistory.length > 20) downloadHistory = downloadHistory.slice(0, 20);
+  chrome.storage.local.set({ download_history: downloadHistory });
+  renderHistory();
+}
+
+function renderHistory() {
+  if (!downloadHistory.length) {
+    els.historyList.innerHTML = '<li class="history-empty">Chưa có lịch sử tải</li>';
+    return;
+  }
+
+  const filterIcons = { all: '📦', images: '🖼️', videos: '🎬', gifs: '🎞️' };
+
+  els.historyList.innerHTML = downloadHistory.map(item => {
+    const d = new Date(item.date);
+    const ds = `${d.getDate()}/${d.getMonth()+1} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const icon = filterIcons[item.filter || 'all'] || '📦';
+    return `<li class="history-item" data-username="${item.username}">
+      <span class="history-item-icon">${icon}</span>
+      <span class="history-item-name">@${item.username}</span>
+      <span class="history-item-count">${item.count}</span>
+      <span class="history-item-date">${ds}</span>
+    </li>`;
+  }).join('');
+
+  els.historyList.querySelectorAll('.history-item').forEach(el => {
+    el.addEventListener('click', () => setCurrentUser(el.dataset.username));
+  });
+}
+
+// ─── Folder Display ───────────────────────────────────────────────────────────
+async function updateFolderDisplay(username) {
+  try {
+    const stored = await chrome.storage.sync.get('options');
+    const folder = stored.options?.saveFolder || '';
+    currentSaveFolder = folder;
+
+    const folderPathEl = document.getElementById('folder-path-text');
+    if (folderPathEl) {
+      const parts = folder
+        ? `Downloads/${folder}/${username}/`
+        : `Downloads/${username}/`;
+      folderPathEl.textContent = parts;
+    }
+  } catch (_) {}
+}
+
+// ─── Helper ───────────────────────────────────────────────────────────────────
+function sendBG(type, payload) {
+  return new Promise(resolve => {
+    chrome.runtime.sendMessage({ type, payload }, res => {
+      if (chrome.runtime.lastError) resolve(null);
+      else resolve(res);
+    });
+  });
+}

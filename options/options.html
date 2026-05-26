@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cài đặt — X Media Downloader</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --bg-card: #1a1a1a;
+      --bg-hover: #222;
+      --border: #2a2a2a;
+      --border-focus: #1D9BF0;
+      --accent: #1D9BF0;
+      --text: #f0f0f0;
+      --text-sec: #888;
+      --text-muted: #555;
+      --green: #00ba7c;
+      --red: #f4212e;
+      --orange: #ff7a00;
+      --radius: 12px;
+      --font: 'Inter', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      max-width: 620px;
+      margin: 0 auto;
+      padding: 40px 24px 60px;
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Header */
+    .page-header {
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 36px;
+    }
+
+    .page-logo {
+      width: 46px; height: 46px;
+      background: linear-gradient(135deg, #1D9BF0, #a855f7);
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-size: 22px;
+      box-shadow: 0 4px 16px rgba(29,155,240,0.4);
+    }
+
+    h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+    h1 span { color: var(--text-sec); font-weight: 400; font-size: 14px; display: block; margin-top: 2px; }
+
+    /* Sections */
+    .section { margin-bottom: 28px; }
+
+    .section-title {
+      font-size: 11px; font-weight: 600;
+      color: var(--text-muted); text-transform: uppercase;
+      letter-spacing: 1px; margin-bottom: 10px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .option-row {
+      display: flex; align-items: center;
+      justify-content: space-between; gap: 16px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+    .option-row:last-child { border-bottom: none; }
+    .option-row:hover { background: var(--bg-hover); }
+
+    .option-label { flex: 1; min-width: 0; }
+    .option-label strong { display: block; font-size: 13px; font-weight: 500; }
+    .option-label span { display: block; font-size: 11px; color: var(--text-sec); margin-top: 3px; line-height: 1.5; }
+
+    /* ── Folder Input ── */
+    .folder-input-wrap {
+      display: flex; align-items: center; gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .folder-prefix {
+      font-size: 11px; color: var(--text-muted);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-right: none;
+      padding: 7px 10px;
+      border-radius: 8px 0 0 8px;
+      white-space: nowrap;
+      max-width: 100px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    input[type="text"] {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 12px;
+      padding: 7px 10px;
+      border-radius: 0 8px 8px 0;
+      width: 160px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus { border-color: var(--accent); }
+    input[type="text"]::placeholder { color: var(--text-muted); }
+
+    .folder-preview {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 6px;
+      padding: 6px 10px;
+      background: rgba(29,155,240,0.06);
+      border-radius: 6px;
+      border: 1px solid rgba(29,155,240,0.12);
+      font-family: monospace;
+      letter-spacing: 0;
+    }
+
+    .folder-preview span { color: var(--accent); }
+
+    /* ── Toggle ── */
+    .toggle { position: relative; width: 42px; height: 24px; flex-shrink: 0; }
+    .toggle input { display: none; }
+    .toggle-track { width:100%; height:100%; background:var(--border); border-radius:12px; cursor:pointer; transition:background 0.2s; }
+    .toggle input:checked + .toggle-track { background: var(--accent); }
+    .toggle-thumb { position:absolute; top:3px; left:3px; width:18px; height:18px; background:white; border-radius:50%; transition:transform 0.2s; pointer-events:none; box-shadow:0 1px 4px rgba(0,0,0,0.3); }
+    .toggle input:checked ~ .toggle-thumb { transform: translateX(18px); }
+
+    /* ── Select ── */
+    select {
+      background: var(--bg); border: 1px solid var(--border);
+      color: var(--text); font-family: var(--font); font-size: 12px;
+      padding: 7px 10px; border-radius: 8px; cursor: pointer; outline: none;
+      transition: border-color 0.2s;
+    }
+    select:focus { border-color: var(--accent); }
+
+    /* ── Range ── */
+    .range-wrap { display: flex; align-items: center; gap: 10px; }
+    .range-value { font-size: 12px; color: var(--accent); font-weight: 600; min-width: 32px; text-align: right; }
+    input[type="range"] {
+      appearance: none; width: 120px; height: 4px;
+      background: var(--border); border-radius: 2px; cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none; width: 16px; height: 16px; background: var(--accent);
+      border-radius: 50%; cursor: pointer; box-shadow: 0 0 0 3px rgba(29,155,240,0.25);
+    }
+
+    /* ── Number ── */
+    input[type="number"] {
+      background: var(--bg); border: 1px solid var(--border);
+      color: var(--text); font-family: var(--font); font-size: 12px;
+      padding: 7px 10px; border-radius: 8px; width: 80px; outline: none;
+    }
+    input[type="number"]:focus { border-color: var(--accent); }
+
+    /* ── Checkbox group ── */
+    .checkbox-group { display: flex; gap: 12px; flex-shrink: 0; }
+    .checkbox-item { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+    .checkbox-item input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    .checkbox-item span { font-size: 12px; color: var(--text-sec); }
+
+    /* ── Info box ── */
+    .info-box {
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 12px 14px;
+      background: rgba(29,155,240,0.07);
+      border: 1px solid rgba(29,155,240,0.18);
+      border-radius: 10px;
+      margin-top: 10px;
+    }
+    .info-box-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+    .info-box p { font-size: 12px; color: var(--text-sec); line-height: 1.6; }
+    .info-box code { background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 4px; font-size: 11px; color: var(--accent); }
+
+    /* ── Save row ── */
+    .save-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 32px; padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    .btn-save {
+      padding: 12px 32px;
+      background: linear-gradient(135deg, var(--accent), #1565c0);
+      color: white; border: none; border-radius: 10px;
+      font-family: var(--font); font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+      box-shadow: 0 4px 16px rgba(29,155,240,0.3);
+    }
+    .btn-save:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(29,155,240,0.45); }
+
+    .save-status { font-size: 12px; color: var(--green); opacity: 0; transition: opacity 0.3s; }
+    .save-status.show { opacity: 1; }
+
+    /* ── Version ── */
+    .version-tag {
+      font-size: 11px; color: var(--text-muted);
+      text-align: center; margin-top: 40px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page-header">
+    <div class="page-logo">⬇</div>
+    <h1>X Media Downloader <span>Cài đặt Extension v3.0.0</span></h1>
+  </div>
+
+  <!-- ── Thư Mục Lưu ── -->
+  <div class="section">
+    <p class="section-title">📁 Thư Mục Lưu File</p>
+    <div class="card">
+      <div class="option-row" style="flex-direction: column; align-items: flex-start; gap: 10px;">
+        <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+          <div class="option-label">
+            <strong>Thư mục cơ sở</strong>
+            <span>Thư mục con bên trong <strong>Downloads</strong> để lưu media. Để trống để lưu thẳng vào Downloads.</span>
+          </div>
+          <div class="folder-input-wrap">
+            <span class="folder-prefix" id="downloads-label">Downloads/</span>
+            <input type="text" id="opt-save-folder" placeholder="X_Media" maxlength="60" />
+          </div>
+        </div>
+        <div class="folder-preview" id="folder-preview">
+          📂 <span>Downloads</span> / <span id="preview-username">[username]</span> / images / photo.jpg
+        </div>
+      </div>
+
+      <div class="option-row">
+        <div class="option-label">
+          <strong>Lưu chung vào 1 thư mục theo Username</strong>
+          <span>Bỏ qua các thư mục con (images, videos, gifs), gộp tất cả media vào chung folder tên người dùng.</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="opt-flat-username" />
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+    </div>
+
+    <div class="info-box" style="margin-top:10px;">
+      <div class="info-box-icon">💡</div>
+      <p>
+        Mỗi profile sẽ được lưu vào folder riêng theo tên username.<br>
+        Ví dụ nếu nhập <code>X_Media</code>:<br>
+        <code>Downloads/X_Media/NASA/images/photo.jpg</code><br>
+        <code>Downloads/X_Media/NASA/videos/clip.mp4</code><br>
+        <code>Downloads/X_Media/NASA/gifs/anim.mp4</code>
+      </p>
+    </div>
+  </div>
+
+  <!-- ── Loại Media ── -->
+  <div class="section">
+    <p class="section-title">🎬 Loại Media</p>
+    <div class="card">
+      <div class="option-row">
+        <div class="option-label">
+          <strong>Loại media cần tải</strong>
+          <span>Chọn loại file muốn thu thập và tải về</span>
+        </div>
+        <div class="checkbox-group">
+          <label class="checkbox-item">
+            <input type="checkbox" id="opt-images" checked />
+            <span>🖼 Ảnh</span>
+          </label>
+          <label class="checkbox-item">
+            <input type="checkbox" id="opt-videos" checked />
+            <span>🎬 Video</span>
+          </label>
+          <label class="checkbox-item">
+            <input type="checkbox" id="opt-gifs" checked />
+            <span>GIF</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="option-row">
+        <div class="option-label">
+          <strong>Chất lượng ảnh</strong>
+          <span>Kích thước ảnh khi tải về</span>
+        </div>
+        <select id="opt-img-quality">
+          <option value="orig">Gốc (Cao nhất)</option>
+          <option value="large">Large (1200px)</option>
+          <option value="medium">Medium (600px)</option>
+          <option value="small">Small (300px)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Auto Scroll ── -->
+  <div class="section">
+    <p class="section-title">🔄 Auto Scroll</p>
+    <div class="card">
+      <div class="option-row">
+        <div class="option-label">
+          <strong>Tự động scroll khi mở trang /media</strong>
+          <span>Bắt đầu thu thập ngay khi vào trang media của profile</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="opt-auto-scroll" />
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+
+      <div class="option-row">
+        <div class="option-label">
+          <strong>Tốc độ scroll</strong>
+          <span>Thời gian chờ giữa mỗi lần scroll xuống</span>
+        </div>
+        <div class="range-wrap">
+          <input type="range" id="opt-scroll-delay" min="1" max="6" step="0.5" value="2" />
+          <span class="range-value" id="scroll-delay-val">2s</span>
+        </div>
+      </div>
+
+      <div class="option-row">
+        <div class="option-label">
+          <strong>Số lần scroll tối đa</strong>
+          <span>0 = không giới hạn (toàn bộ profile)</span>
+        </div>
+        <input type="number" id="opt-max-scrolls" value="200" min="0" max="2000" />
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Download ── -->
+  <div class="section">
+    <p class="section-title">⬇ Download</p>
+    <div class="card">
+      <div class="option-row">
+        <div class="option-label">
+          <strong>Số file tải đồng thời</strong>
+          <span>Tải nhiều file cùng lúc để nhanh hơn (khuyên dùng: 3)</span>
+        </div>
+        <div class="range-wrap">
+          <input type="range" id="opt-concurrency" min="1" max="5" step="1" value="3" />
+          <span class="range-value" id="concurrency-val">3</span>
+        </div>
+      </div>
+
+      <div class="option-row">
+        <div class="option-label">
+          <strong>Số media tối đa mỗi profile</strong>
+          <span>Giới hạn số lượng cần thu thập. 0 = không giới hạn</span>
+        </div>
+        <input type="number" id="opt-max-media" value="0" min="0" max="50000" />
+      </div>
+
+      <div class="option-row">
+        <div class="option-label">
+          <strong>Hỏi vị trí lưu mỗi file</strong>
+          <span>Bật để Chrome hỏi nơi lưu từng file (không khuyên dùng)</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="opt-save-as" />
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Bảo Mật ── -->
+  <div class="section">
+    <p class="section-title">🔒 Bảo Mật</p>
+    <div class="card">
+      <div class="option-row">
+        <div class="option-label">
+          <strong>Chỉ xử lý cục bộ</strong>
+          <span>Không gửi bất kỳ dữ liệu nào ra server ngoài</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="opt-local-only" checked disabled />
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div class="save-row">
+    <button class="btn-save" id="btn-save">💾 Lưu cài đặt</button>
+    <span class="save-status" id="save-status">✓ Đã lưu thành công</span>
+  </div>
+
+  <p class="version-tag">X Media Downloader v3.0.0 — Direct Download Mode</p>
+
+  <script src="options.js"></script>
+</body>
+</html>

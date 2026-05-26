@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>X Media Downloader</title>
+  <meta name="description" content="Tải media từ X.com theo profile" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <div class="logo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.253 5.622L18.244 2.25z" fill="currentColor"/>
+          </svg>
+        </div>
+        <div class="header-text">
+          <h1 class="app-name">Media Downloader</h1>
+          <span class="app-version">v3.0.0</span>
+        </div>
+      </div>
+      <button class="btn-icon" id="btn-settings" title="Cài đặt">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+        </svg>
+      </button>
+    </header>
+
+    <!-- Profile Info -->
+    <section class="profile-section">
+      <div class="profile-card" id="profile-card">
+        <div class="profile-avatar" id="profile-avatar">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </div>
+        <div class="profile-info">
+          <p class="profile-username" id="profile-username">Chưa chọn profile</p>
+          <p class="profile-hint" id="profile-hint">Mở profile trên X.com để bắt đầu</p>
+        </div>
+        <div class="profile-badge" id="media-count-badge">0</div>
+      </div>
+    </section>
+
+    <!-- Filter Tabs -->
+    <section class="tabs-section">
+      <div class="tabs" id="filter-tabs">
+        <button class="tab active" data-filter="all" id="tab-all">
+          Tất cả
+          <span class="tab-count" id="tab-count-all">0</span>
+        </button>
+        <button class="tab" data-filter="images" id="tab-images">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          Ảnh
+          <span class="tab-count" id="tab-count-images">0</span>
+        </button>
+        <button class="tab" data-filter="videos" id="tab-videos">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+          Video
+          <span class="tab-count" id="tab-count-videos">0</span>
+        </button>
+        <button class="tab" data-filter="gifs" id="tab-gifs">
+          GIF
+          <span class="tab-count" id="tab-count-gifs">0</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Status / Progress -->
+    <section class="status-section">
+      <div class="status-bar">
+        <div class="status-dot" id="status-dot"></div>
+        <span class="status-text" id="status-text">Sẵn sàng</span>
+        <span class="status-speed" id="status-speed"></span>
+      </div>
+      <div class="progress-wrap" id="progress-wrap" style="display:none">
+        <div class="progress-track">
+          <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+        </div>
+        <span class="progress-label" id="progress-label">0 / 0</span>
+      </div>
+    </section>
+
+    <!-- Scroll Progress -->
+    <section class="scroll-section" id="section-scroll" style="display:none">
+      <div class="scroll-stats">
+        <div class="scroll-stat">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="7 13 12 8 17 13"/><polyline points="7 19 12 14 17 19"/>
+          </svg>
+          Scroll: <strong id="scroll-count">0</strong>
+        </div>
+        <div class="scroll-stat">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+          </svg>
+          Mới: <strong id="scroll-new">+0</strong>
+        </div>
+        <div class="scroll-eta" id="scroll-eta"></div>
+      </div>
+    </section>
+
+    <!-- Folder Info -->
+    <section class="folder-section" id="section-folder">
+      <div class="folder-info" id="folder-info">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+        </svg>
+        <span id="folder-path-text">Downloads/[username]/</span>
+      </div>
+    </section>
+
+    <!-- Action Buttons -->
+    <section class="actions-section">
+      <button class="btn btn--collect" id="btn-collect">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <span id="btn-collect-text">Bắt đầu Thu Thập</span>
+      </button>
+
+      <div class="btn-row">
+        <button class="btn btn--download" id="btn-download" disabled>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <span id="btn-download-text">Download</span>
+        </button>
+
+        <button class="btn btn--csv" id="btn-csv" disabled title="Xuất danh sách URL ra CSV">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          CSV
+        </button>
+
+        <button class="btn btn--clear" id="btn-clear" disabled>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+          </svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- History -->
+    <section class="history-section">
+      <div class="history-header">
+        <span class="history-title">Lịch sử</span>
+        <button class="btn-text" id="btn-history-clear">Xóa</button>
+      </div>
+      <ul class="history-list" id="history-list">
+        <li class="history-empty">Chưa có lịch sử tải</li>
+      </ul>
+    </section>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

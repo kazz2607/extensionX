@@ -1,0 +1,57 @@
+{
+  "manifest_version": 3,
+  "name": "X Media Downloader",
+  "version": "3.0.0",
+  "description": "Tải toàn bộ ảnh & video từ profile X.com, tự động lưu vào folder username",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "X Media Downloader"
+  },
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "js": ["content/content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "permissions": [
+    "downloads",
+    "storage",
+    "scripting",
+    "tabs",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://*.x.com/*",
+    "https://*.twitter.com/*",
+    "https://pbs.twimg.com/*",
+    "https://video.twimg.com/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "content/page-interceptor.js",
+        "content/dom-scanner.js",
+        "content/fab.js",
+        "lib/utils.js",
+        "lib/hls-fetcher.js"
+      ],
+      "matches": ["https://x.com/*", "https://twitter.com/*"]
+    }
+  ],
+  "options_page": "options/options.html"
+}
