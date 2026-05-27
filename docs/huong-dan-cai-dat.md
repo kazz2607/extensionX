@@ -25,7 +25,8 @@
 extensionX/
 ├── manifest.json
 ├── background/
-│   └── service-worker.js
+│   ├── service-worker.js
+│   └── tweet-api.js
 ├── content/
 │   ├── content.js
 │   ├── page-interceptor.js
@@ -42,8 +43,8 @@ extensionX/
 │   ├── options.html
 │   └── options.js
 ├── lib/
-│   ├── jszip.min.js
 │   ├── hls-fetcher.js
+│   ├── i18n.js
 │   └── utils.js
 └── icons/
     ├── icon16.png
@@ -94,7 +95,7 @@ Sau khi load, extension sẽ xuất hiện trong danh sách:
 
 ```
 ┌──────────────────────────────────────────┐
-│  ⬇ X Media Downloader          v3.4.1   │
+│  ⬇ X Media Downloader          v3.5.0   │
 │  Tải toàn bộ ảnh & video từ X.com...    │
 │                                          │
 │  [Details]  [Remove]           ● Enabled │
@@ -126,7 +127,7 @@ Click icon **⬇** trên toolbar Chrome. Popup sẽ hiển thị:
 
 ```
 ┌─────────────────────────────────────┐
-│ ⬇ X Media Downloader      v3.4.1  ⭤☉⚡│
+│ ⬇ X Media Downloader      v3.5.0  ⭤☉⚡│
 ├─────────────────────────────────────┤
 │ 👤 @NASA                        [47]│
 │    Profile đang được xem            │
@@ -252,7 +253,7 @@ Khi có phiên bản mới:
 **Giải pháp:**
 1. Thu thập lại (media URL mới sẽ được tạo từ session hiện tại)
 2. Đảm bảo bạn đang **đăng nhập X.com**
-3. Kiểm tra file `failed.txt` bên trong ZIP để xem danh sách lỗi
+3. Kiểm tra trong console của Service Worker để xem chi tiết lỗi
 
 ---
 
@@ -284,11 +285,11 @@ Khi có phiên bản mới:
 
 | Quyền | Lý do cần |
 |---|---|
-| `downloads` | Lưu file ZIP/CSV vào máy |
+| `downloads` | Tải file về máy qua `chrome.downloads` |
 | `storage` | Lưu cài đặt và lịch sử |
 | `tabs` | Đọc URL tab hiện tại để biết username |
 | `scripting` | Inject scripts vào trang X.com |
-| `offscreen` | Tạo ZIP file trong background |
+| `offscreen` | Ghép HLS segments thành video |
 | `host_permissions: x.com/*` | Chạy trên trang X.com |
 | `host_permissions: pbs.twimg.com/*` | Tải ảnh từ server Twitter |
 | `host_permissions: video.twimg.com/*` | Tải video từ server Twitter |
@@ -355,4 +356,4 @@ Nếu gặp vấn đề, hãy kiểm tra:
 
 ---
 
-*Phiên bản: 3.4.1 | Cập nhật: 2026-05-27*
+*Phiên bản: 3.5.0 | Cập nhật: 2026-05-27*

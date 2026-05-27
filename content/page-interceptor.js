@@ -131,7 +131,7 @@
 
   // ─── Helper: Parse JSON GraphQL tìm video ─────────────────────────────────────
   function extractMediaFromResponse(obj, results, depth = 0) {
-    if (depth > 15 || !obj || typeof obj !== 'object') return;
+    if (depth > 35 || !obj || typeof obj !== 'object') return;
 
     if (obj.extended_entities && Array.isArray(obj.extended_entities.media)) {
       obj.extended_entities.media.forEach(media => {
@@ -257,7 +257,7 @@
   JSON.parse = function(text, reviver) {
     const result = _originalParse(text, reviver);
     try {
-      if (typeof text === 'string' && text.includes('extended_entities') && text.includes('video_info')) {
+      if (typeof text === 'string' && text.includes('extended_entities')) {
         const mediaItems = [];
         extractMediaFromResponse(result, mediaItems);
         if (mediaItems.length > 0) {

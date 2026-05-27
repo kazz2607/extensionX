@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_appName__",
-  "version": "3.4.2",
+  "version": "3.5.0",
   "description": "__MSG_appDesc__",
   "default_locale": "en",
   "icons": {
@@ -23,12 +23,6 @@
     "type": "module"
   },
   "content_scripts": [
-    {
-      "matches": ["https://x.com/*", "https://twitter.com/*"],
-      "js": ["content/page-interceptor.js"],
-      "run_at": "document_start",
-      "world": "MAIN"
-    },
     {
       "matches": ["https://x.com/*", "https://twitter.com/*"],
       "js": ["content/content.js"],

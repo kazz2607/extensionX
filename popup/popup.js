@@ -111,10 +111,11 @@ async function setCurrentUser(username) {
   // Hiển thị folder path
   await updateFolderDisplay(username);
 
-  // Lấy count & stats
-  const [countRes, statsRes] = await Promise.all([
+  // Lấy count & stats & tab state
+  const [countRes, statsRes, stateRes] = await Promise.all([
     sendBG('GET_MEDIA_COUNT', { username }),
     sendBG('GET_STATS', { username }),
+    sendBG('GET_TAB_STATE', { username }),
   ]);
 
   if (statsRes?.stats) {
@@ -123,8 +124,20 @@ async function setCurrentUser(username) {
   }
 
   updateMediaCount(countRes?.count || 0);
-  const readyTxt = window.i18n ? window.i18n.t('status_ready') : 'Sẵn sàng';
-  setStatus('ready', `${readyTxt} — @${username}`);
+  
+  if (stateRes?.isCollecting) {
+    isCollecting = true;
+    els.scrollSec.style.display = 'block';
+    els.scrollCount.textContent = stateRes.scrollCount || 0;
+    const collectingTxt = window.i18n ? window.i18n.t('status_collecting') : 'Đang thu thập media...';
+    setStatus('collecting', collectingTxt);
+  } else {
+    isCollecting = false;
+    els.scrollSec.style.display = 'none';
+    const readyTxt = window.i18n ? window.i18n.t('status_ready') : 'Sẵn sàng';
+    setStatus('ready', `${readyTxt} — @${username}`);
+  }
+  
   updateButtons();
 }
 
@@ -390,11 +403,12 @@ function listenToMessages() {
         setStatus('downloading', `Đang tải xuống máy: ${(payload.bytesReceived / 1024 / 1024).toFixed(1)} MB...`);
         break;
 
-      case 'MP4_FETCH_PROGRESS':
-        const loadedMB = (payload.loaded / 1024 / 1024).toFixed(1);
+      case 'MP4_FETCH_PROGRESS': {
+        const loadedMB = ((payload.bytesReceived || 0) / 1024 / 1024).toFixed(1);
         const totalMB = payload.total > 0 ? (payload.total / 1024 / 1024).toFixed(1) : '?';
         setStatus('downloading', `Đang kéo MP4: ${loadedMB} / ${totalMB} MB...`);
         break;
+      }
 
       case 'HLS_PROGRESS':
         if (payload.username === currentUsername) {

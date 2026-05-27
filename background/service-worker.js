@@ -15,7 +15,7 @@ const mediaStore = new Map();   // Map<username, Map<url, MediaItem>>
 const tabState   = new Map();   // Map<tabId, CollectState>
 const statsStore = new Map();   // Map<username, {image,video,gif,hls}>
 
-let offscreenCreating = null;
+let globalCreatingOffscreen = null;
 let downloadInProgress = false;
 
 // ─── Download Tracker ─────────────────────────────────────────────────────────
@@ -131,7 +131,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           self.userCsrfToken = ct0;
         }
 
-        if (!isCollecting && existingState.isCollecting) {
+        if (isCollecting) {
+          chrome.tabs.sendMessage(tabId, { type: 'COLLECT_STARTED_LOCAL' }).catch(() => {});
+        } else if (!isCollecting && existingState.isCollecting) {
           stopCollecting(existingState.username || username);
         }
       }
@@ -155,6 +157,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         usernames.push({ username, count: store.size, stats: statsStore.get(username) });
       });
       sendResponse({ usernames });
+      return true;
+    }
+
+    case 'GET_TAB_STATE': {
+      let isCollecting = false;
+      let scrollCount = 0;
+      tabState.forEach((state, tid) => {
+        if (state.username === payload.username && state.isCollecting) {
+          isCollecting = true;
+          scrollCount = state.scrollCount;
+        }
+      });
+      sendResponse({ isCollecting, scrollCount });
       return true;
     }
 
@@ -227,6 +242,7 @@ function addMediaItems(username, items) {
       username, count: store.size, newCount, stats: { ...stats },
     });
   }
+  return newCount;
 }
 
 // ─── Apply Options Filter ─────────────────────────────────────────────────────
@@ -436,106 +452,67 @@ async function startDownload(username, options = {}) {
 
       if (item.type === 'hls' || item.url.includes('.m3u8') || filename.endsWith('.ts')) {
         await ensureOffscreen();
-        const res = await new Promise((resolve, reject) => {
-          chrome.runtime.sendMessage({
-            target: 'offscreen',
-            type: 'DOWNLOAD_HLS',
-            url: item.url,
-            username: username,
-            filename: filename
-          }, (res) => {
-            if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
-            if (!res) return reject(new Error('No response from offscreen'));
-            if (res.error) return reject(new Error(res.error));
-            resolve(res);
-          });
-        });
-        
-        const { objectUrl } = res;
 
-        try {
-          await new Promise((resolve, reject) => {
-            chrome.downloads.download({
-              url: objectUrl,
-              filename: filename,
-              conflictAction: 'uniquify',
-              saveAs: false
-            }, (downloadId) => {
-              if (chrome.runtime.lastError) {
-                return reject(new Error(chrome.runtime.lastError.message));
-              }
-              activeDownloads.set(downloadId, { resolve, reject });
-              
-              // Fix race condition
-              chrome.downloads.search({ id: downloadId }, (results) => {
-                if (results && results.length > 0) {
-                  const state = results[0].state;
-                  if (state === 'complete') {
-                    activeDownloads.delete(downloadId);
-                    resolve(downloadId);
-                  } else if (state === 'interrupted') {
-                    activeDownloads.delete(downloadId);
-                    reject(new Error(results[0].error || 'Download interrupted'));
-                  }
+        // Timeout 5 phút cho HLS (cần tải nhiều TS segments)
+        const HLS_TIMEOUT = 5 * 60 * 1000;
+        const res = await Promise.race([
+          new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage({
+              target: 'offscreen',
+              type: 'DOWNLOAD_HLS',
+              url: item.url,
+              username: username,
+              filename: filename
+            }, (res) => {
+              if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+              if (!res) return reject(new Error('No response from offscreen'));
+              if (res.error) return reject(new Error(res.error));
+              resolve(res);
+            });
+          }),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('HLS download timeout (5 min)')), HLS_TIMEOUT)
+          )
+        ]);
+
+        const { dataUrl } = res;
+
+        await new Promise((resolve, reject) => {
+          chrome.downloads.download({
+            url: dataUrl,
+            filename: filename,
+            conflictAction: 'uniquify',
+            saveAs: false
+          }, (downloadId) => {
+            if (chrome.runtime.lastError) {
+              return reject(new Error(chrome.runtime.lastError.message));
+            }
+            activeDownloads.set(downloadId, { resolve, reject });
+
+            // Fix race condition: download may already be done
+            chrome.downloads.search({ id: downloadId }, (results) => {
+              if (results && results.length > 0) {
+                const state = results[0].state;
+                if (state === 'complete') {
+                  activeDownloads.delete(downloadId);
+                  resolve(downloadId);
+                } else if (state === 'interrupted') {
+                  activeDownloads.delete(downloadId);
+                  reject(new Error(results[0].error || 'Download interrupted'));
                 }
-              });
+              }
             });
           });
-          success++;
-        } finally {
-          chrome.runtime.sendMessage({ target: 'offscreen', type: 'REVOKE_URL', url: objectUrl }).catch(()=>{});
-        }
+        });
+        success++;
+
       } else if (item.type === 'video' || item.type === 'gif') {
-        // Khôi phục DOWNLOAD_MP4 vì tải trực tiếp bằng chrome.downloads vẫn bị một số server Twitter chặn
-        await ensureOffscreen();
-        const res = await new Promise((resolve, reject) => {
-          chrome.runtime.sendMessage({
-            target: 'offscreen',
-            type: 'DOWNLOAD_MP4',
-            url: item.url,
-            username: username,
-            filename: filename
-          }, (res) => {
-            if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
-            if (!res) return reject(new Error('No response from offscreen'));
-            if (res.error) return reject(new Error(res.error));
-            resolve(res);
-          });
-        });
-        
-        const { objectUrl } = res;
+        // Tải MP4/GIF trực tiếp từ service worker — KHÔNG qua offscreen
+        // chrome.downloads bypass CORS và dùng session cookies sẵn có
+        // Offscreen chỉ cần cho HLS (ghép nhiều TS segments)
+        await downloadFile(item.url, filename);
+        success++;
 
-        try {
-          await new Promise((resolve, reject) => {
-            chrome.downloads.download({
-              url: objectUrl,
-              filename: filename,
-              conflictAction: 'uniquify',
-              saveAs: false
-            }, (downloadId) => {
-              if (chrome.runtime.lastError) {
-                return reject(new Error(chrome.runtime.lastError.message));
-              }
-              activeDownloads.set(downloadId, { resolve, reject });
-              
-              chrome.downloads.search({ id: downloadId }, (results) => {
-                if (results && results.length > 0) {
-                  const state = results[0].state;
-                  if (state === 'complete') {
-                    activeDownloads.delete(downloadId);
-                    resolve(downloadId);
-                  } else if (state === 'interrupted') {
-                    activeDownloads.delete(downloadId);
-                    reject(new Error(results[0].error || 'Download interrupted'));
-                  }
-                }
-              });
-            });
-          });
-          success++;
-        } finally {
-          chrome.runtime.sendMessage({ target: 'offscreen', type: 'REVOKE_URL', url: objectUrl }).catch(()=>{});
-        }
       } else {
         // Chỉ ảnh (images) mới tải trực tiếp
         await downloadFile(item.url, filename);
@@ -559,11 +536,10 @@ async function startDownload(username, options = {}) {
     });
   }
 
-  // Khởi tạo Offscreen nếu chưa có
-  let creatingOffscreen = null;
+  // Khởi tạo Offscreen nếu chưa có (dùng biến global)
   async function ensureOffscreen() {
-    if (creatingOffscreen) {
-      await creatingOffscreen;
+    if (globalCreatingOffscreen) {
+      await globalCreatingOffscreen;
       return;
     }
     
@@ -578,7 +554,7 @@ async function startDownload(username, options = {}) {
       if (existingContexts.length > 0) return;
     }
 
-    creatingOffscreen = chrome.offscreen.createDocument({
+    globalCreatingOffscreen = chrome.offscreen.createDocument({
       url: 'offscreen/offscreen.html',
       reasons: ['BLOBS'],
       justification: 'Convert HLS stream to Blob for downloading',
@@ -588,8 +564,8 @@ async function startDownload(username, options = {}) {
       }
     });
     
-    await creatingOffscreen;
-    creatingOffscreen = null;
+    await globalCreatingOffscreen;
+    globalCreatingOffscreen = null;
   }
 
   try {

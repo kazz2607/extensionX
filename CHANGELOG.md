@@ -2,6 +2,25 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [3.5.0] - 2026-05-27
+### Sửa lỗi nghiêm trọng (Critical Fixes)
+- **[macOS] Không get được media/image:** Sửa lỗi `page-interceptor.js` không chạy được trong MAIN world trên một số môi trường macOS do `world: "MAIN"` không được áp dụng. Chuyển sang cơ chế inject script thủ công từ `content.js` — đảm bảo interceptor luôn chạy đúng context trên mọi hệ điều hành.
+- **[macOS] Lỗi tải video — "Cannot read properties of undefined (reading 'download')":** `chrome.downloads` không có trong Offscreen Document. Sửa bằng cách chuyển toàn bộ `chrome.downloads.download()` về Service Worker; Offscreen Document chỉ trả dữ liệu dưới dạng base64 data URL.
+- **Chỉ tải được 1–2 video đầu, phần còn lại fail — "The message port closed before a response was received":** Lỗi xảy ra do file MP4 lớn (50–200 MB) được encode sang base64 (+33%) trước khi gửi qua Chrome message API, vượt giới hạn 64 MB và gây timeout. Sửa bằng cách **bỏ Offscreen hoàn toàn cho video/GIF MP4** — tải thẳng qua `chrome.downloads.download(url)` từ Service Worker. Offscreen chỉ giữ lại cho HLS (ghép TS segments).
+- **Bỏ sót media trên profile nhiều video:** Tăng giới hạn độ sâu đệ quy JSON từ 15 → 35 để parse video từ Retweet/quoted tweet (thường nằm rất sâu trong cấu trúc GraphQL). Bỏ điều kiện `video_info` trong hook `JSON.parse` để bắt cả ảnh-only tweet.
+- **Bỏ sót media đợt tải đầu tiên:** Bỏ cờ `isCollecting` gate trong content.js — extension giờ lắng nghe media passively ngay khi vào trang, không cần bấm "Bắt đầu" trước. Đợt tải ban đầu ~20 tweet không còn bị bỏ qua.
+- **`addMediaItems()` không trả về giá trị:** Hàm thiếu `return newCount` khiến `updateFAB()` không bao giờ được gọi sau khi thêm media mới.
+- **Progress bar MP4 không cập nhật:** `popup.js` đọc sai field `payload.loaded` thay vì `payload.bytesReceived` từ `MP4_FETCH_PROGRESS`.
+
+### Tối ưu hóa (Improvements)
+- **Inject `page-interceptor.js` sớm hơn:** Inject ngay lập tức ở `document_start` (không qua `DOMContentLoaded`) để bắt được `JSON.parse` và `fetch` từ milisecond đầu tiên trang tải.
+- **Xóa khai báo trùng lặp `page-interceptor.js`:** Bỏ entry trong `manifest.json` content_scripts, để `content.js` quản lý toàn bộ — tránh chạy script 2 lần.
+- **Timeout 5 phút cho HLS:** Thêm `Promise.race` với timeout 5 phút cho quá trình tải HLS qua Offscreen — tránh treo vô hạn cho video dài.
+- **Xóa script tag thừa trong `offscreen.html`:** `hls-fetcher.js` đã được `offscreen.js` import trực tiếp, không cần load thêm qua `<script>` tag.
+- **Sync trạng thái collecting sau reload trang:** Service worker gửi lại `COLLECT_STARTED_LOCAL` cho content.js khi `PAGE_LOADED` nếu đang trong phiên thu thập — tránh mất media khi F5.
+
+---
+
 ## [3.4.2] - 2026-05-27
 ### Sửa lỗi (Fixed)
 - **Auto Scroll:** Sửa lỗi nghiêm trọng khiến tiện ích tiếp tục cuộn trang vô hạn ngay cả khi người dùng chuyển sang trang khác (như trang chủ hoặc một bài đăng cụ thể). Cải thiện logic để dừng thu thập ngay lập tức khi phát hiện không còn ở trang Media.

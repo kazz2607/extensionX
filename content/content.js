@@ -21,7 +21,8 @@ function injectScript(path, onLoad) {
   (document.head || document.documentElement).prepend(script);
 }
 
-// Bỏ inject page-interceptor.js ở đây vì đã dùng manifest.json world: MAIN
+// Inject page-interceptor NGAY LẬP TỨC để bắt JSON.parse và fetch từ sớm
+injectScript('content/page-interceptor.js');
 
 // Inject i18n, DOM scanner và FAB
 async function injectAll() {
@@ -71,9 +72,6 @@ let isCollecting = false;
 window.addEventListener('X_MEDIA_FOUND', (event) => {
   const { mediaItems, sourceUrl } = event.detail;
   if (!mediaItems?.length) return;
-
-  // Chỉ relay nếu đang trong phiên thu thập do người dùng khởi động
-  if (!isCollecting) return;
 
   const username = getUsernameFromURL();
   // Bỏ qua nếu không xác định được username (trang Home, Explore...)
