@@ -326,7 +326,11 @@ async function scrollLoop(tabId, username) {
 
     updateFAB(tabId, username, state.scrollCount);
 
-    if (scrollResult?.reachedEnd) {
+    if (scrollResult?.isHidden) {
+      // Tab đang bị ẩn/minimized, X.com ngừng tải.
+      // Reset lỗi và đợi lâu hơn một chút
+      noNewCount = 0;
+    } else if (scrollResult?.reachedEnd) {
       noNewCount++;
       if (noNewCount >= 3) {
         state.reachedEnd = true;

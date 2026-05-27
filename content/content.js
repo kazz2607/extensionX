@@ -124,12 +124,18 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       // Lấy scrollY để check xem có thực sự đang ở đáy không
       const isAtBottom = (window.scrollY + window.innerHeight) >= (newHeight - 200);
 
+      // Nếu document đang bị ẩn (thu nhỏ trình duyệt hoặc sang tab khác)
+      // X.com sẽ ngừng render thêm phần tử mới. 
+      // Ta cần báo cho service worker biết để TẠM DỪNG đếm lỗi thay vì kết thúc sớm.
+      const isHidden = document.hidden;
+
       // Trigger DOM scan thủ công sau mỗi scroll
       window.__scanDOM__?.();
       sendResponse({
         done: true,
-        reachedEnd: isAtBottom && (newHeight <= prevHeight + 50),
+        reachedEnd: !isHidden && isAtBottom && (newHeight <= prevHeight + 50),
         scrollHeight: newHeight,
+        isHidden: isHidden
       });
     }, message.waitMs || 2000);
 
