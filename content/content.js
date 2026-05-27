@@ -110,16 +110,25 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   // Scroll xuống cuối trang
   if (message.type === 'SCROLL_DOWN') {
-    const prevHeight = document.body.scrollHeight;
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    const prevHeight = document.documentElement.scrollHeight;
+    
+    // Bỏ behavior: 'smooth' để cuộn tức thì, giúp X.com có nhiều thời gian fetch data hơn
+    window.scrollTo(0, document.documentElement.scrollHeight);
+    
+    // Một số trick nhỏ để trigger virtual list của X.com
+    setTimeout(() => window.scrollBy(0, -100), 100);
+    setTimeout(() => window.scrollTo(0, document.documentElement.scrollHeight), 300);
 
     setTimeout(() => {
-      const newHeight = document.body.scrollHeight;
+      const newHeight = document.documentElement.scrollHeight;
+      // Lấy scrollY để check xem có thực sự đang ở đáy không
+      const isAtBottom = (window.scrollY + window.innerHeight) >= (newHeight - 200);
+
       // Trigger DOM scan thủ công sau mỗi scroll
       window.__scanDOM__?.();
       sendResponse({
         done: true,
-        reachedEnd: newHeight === prevHeight,
+        reachedEnd: isAtBottom && (newHeight <= prevHeight + 50),
         scrollHeight: newHeight,
       });
     }, message.waitMs || 2000);
