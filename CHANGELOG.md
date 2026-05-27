@@ -2,6 +2,12 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [3.4.2] - 2026-05-27
+### Sửa lỗi (Fixed)
+- **Auto Scroll:** Sửa lỗi nghiêm trọng khiến tiện ích tiếp tục cuộn trang vô hạn ngay cả khi người dùng chuyển sang trang khác (như trang chủ hoặc một bài đăng cụ thể). Cải thiện logic để dừng thu thập ngay lập tức khi phát hiện không còn ở trang Media.
+
+---
+
 ## [3.4.1] - 2026-05-27
 ### Sửa lỗi (Fixed)
 - **Auto Scroll:** Cải thiện độ ổn định của tính năng tự động cuộn trang. Xóa bỏ cuộn mượt (smooth) để tận dụng tối đa thời gian chờ mạng, kết hợp thủ thuật (scroll trick) để buộc X.com tải thêm ảnh.

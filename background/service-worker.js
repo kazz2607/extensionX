@@ -113,10 +113,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const { username, url, isMediaPage, ct0 } = payload;
       const tabId = sender.tab?.id;
       if (tabId && username) {
-        tabState.set(tabId, { username, url, isMediaPage, isCollecting: false, scrollCount: 0, reachedEnd: false, ct0 });
+        const existingState = tabState.get(tabId) || {};
+        const isCollecting = existingState.isCollecting && isMediaPage;
+        
+        tabState.set(tabId, { 
+          username, 
+          url, 
+          isMediaPage, 
+          isCollecting, 
+          scrollCount: isCollecting ? existingState.scrollCount : 0, 
+          reachedEnd: false, 
+          ct0: ct0 || existingState.ct0
+        });
+        
         if (ct0) {
           // Lưu ct0 global cho background API
           self.userCsrfToken = ct0;
+        }
+
+        if (!isCollecting && existingState.isCollecting) {
+          stopCollecting(existingState.username || username);
         }
       }
       checkAutoScroll(tabId, username, isMediaPage);
@@ -313,6 +329,10 @@ async function scrollLoop(tabId, username) {
       scrollResult = await chrome.tabs.sendMessage(tabId, {
         type: 'SCROLL_DOWN', waitMs: Math.max(DELAY_MS, 2000),
       });
+      if (scrollResult?.error === 'not_media_page') {
+        stopCollecting(username);
+        break;
+      }
     } catch (_) { break; }
 
     state.scrollCount++;

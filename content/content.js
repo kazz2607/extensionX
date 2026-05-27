@@ -110,6 +110,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   // Scroll xuống cuối trang
   if (message.type === 'SCROLL_DOWN') {
+    if (!isMediaPage()) {
+      sendResponse({ error: 'not_media_page' });
+      return false;
+    }
     const prevHeight = document.documentElement.scrollHeight;
     
     // Bỏ behavior: 'smooth' để cuộn tức thì, giúp X.com có nhiều thời gian fetch data hơn
