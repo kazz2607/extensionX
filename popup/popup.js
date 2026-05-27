@@ -309,14 +309,30 @@ function setupListeners() {
   // Settings
   els.btnSettings.addEventListener('click', () => chrome.runtime.openOptionsPage());
 
-  // Reload Tab
+  // Reload Counters
   if (els.btnReload) {
     els.btnReload.addEventListener('click', async () => {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tab?.id) {
-        chrome.tabs.reload(tab.id);
-        window.close(); // Close popup after reload
+      if (!currentUsername) return;
+      
+      const icon = els.btnReload.querySelector('svg');
+      if (icon) icon.classList.add('spin');
+      
+      const [countRes, statsRes] = await Promise.all([
+        sendBG('GET_MEDIA_COUNT', { username: currentUsername }),
+        sendBG('GET_STATS', { username: currentUsername })
+      ]);
+      
+      if (statsRes?.stats) {
+        stats = statsRes.stats;
+        updateStatTabs();
       }
+      if (countRes) {
+        updateMediaCount(countRes.count || 0);
+      }
+      
+      setTimeout(() => {
+        if (icon) icon.classList.remove('spin');
+      }, 500);
     });
   }
 
