@@ -34,7 +34,7 @@ Trước khi đóng gói, bạn cần loại bỏ các thư mục và tập tin 
 1. Mở thư mục gốc của dự án (`extensionX`).
 2. Chọn tất cả các file/thư mục thuộc danh sách "CẦN giữ lại" ở trên.
 3. Click chuột phải, chọn **Compress to ZIP file** (trên Windows 11) hoặc **Send to > Compressed (zipped) folder** (Windows 10).
-4. Đặt tên file ZIP rõ ràng, ví dụ: `x-media-downloader-v3.4.0.zip`.
+4. Đặt tên file ZIP rõ ràng, ví dụ: `x-media-downloader-v3.4.1.zip`.
 
 > [!WARNING]
 > Đảm bảo file `manifest.json` nằm ở **thư mục gốc** bên trong file ZIP. Nếu giải nén file ZIP ra mà thấy một thư mục cha bọc ngoài (ví dụ `extensionX/manifest.json`), Google sẽ báo lỗi không hợp lệ.
@@ -54,7 +54,7 @@ Nếu bạn chưa có tài khoản Chrome Web Store Developer:
 ## 4. Tải Tiện Ích Lên (Upload)
 
 1. Tại Dashboard, nhấn nút **+ New Item** (Thêm mục mới).
-2. Kéo thả file `x-media-downloader-v3.4.0.zip` của bạn vào ô tải lên.
+2. Kéo thả file `x-media-downloader-v3.4.1.zip` của bạn vào ô tải lên.
 3. Chờ Google quét virus sơ bộ. Nếu hợp lệ, bạn sẽ được chuyển sang trang điền thông tin chi tiết (Store Listing).
 
 ---

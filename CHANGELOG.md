@@ -2,6 +2,13 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [3.4.1] - 2026-05-27
+### Sửa lỗi (Fixed)
+- **Auto Scroll:** Cải thiện độ ổn định của tính năng tự động cuộn trang. Xóa bỏ cuộn mượt (smooth) để tận dụng tối đa thời gian chờ mạng, kết hợp thủ thuật (scroll trick) để buộc X.com tải thêm ảnh.
+- **Auto Scroll:** Tạm dừng thông minh (pause) khi người dùng thu nhỏ trình duyệt hoặc chuyển tab, tránh tình trạng báo lỗi sai do X.com ngừng render.
+
+---
+
 ## [3.4.0] - 2026-05-27
 ### Thêm mới (Added)
 - **Đa ngôn ngữ (i18n):** Hỗ trợ Tiếng Anh (Mặc định) và Tiếng Việt. Bạn có thể thay đổi ngôn ngữ ngay trong trang Cài đặt (Options).
