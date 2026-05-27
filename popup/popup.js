@@ -50,6 +50,7 @@ const els = {
   btnCsv:       $('btn-csv'),
   btnClear:     $('btn-clear'),
   btnSettings:  $('btn-settings'),
+  btnReload:    $('btn-reload'),
   btnTheme:     $('btn-theme'),
   historyList:  $('history-list'),
   btnHistClear: $('btn-history-clear'),
@@ -307,6 +308,17 @@ function setupListeners() {
 
   // Settings
   els.btnSettings.addEventListener('click', () => chrome.runtime.openOptionsPage());
+
+  // Reload Tab
+  if (els.btnReload) {
+    els.btnReload.addEventListener('click', async () => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab?.id) {
+        chrome.tabs.reload(tab.id);
+        window.close(); // Close popup after reload
+      }
+    });
+  }
 
   // Theme toggle
   els.btnTheme.addEventListener('click', toggleTheme);
