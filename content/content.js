@@ -23,15 +23,25 @@ function injectScript(path, onLoad) {
 
 // Bỏ inject page-interceptor.js ở đây vì đã dùng manifest.json world: MAIN
 
-// Inject DOM scanner và FAB sau khi DOM sẵn sàng
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    injectScript('content/dom-scanner.js');
-    injectScript('content/fab.js');
-  });
-} else {
+// Inject i18n, DOM scanner và FAB
+async function injectAll() {
+  injectScript('lib/i18n.js');
   injectScript('content/dom-scanner.js');
   injectScript('content/fab.js');
+  
+  // Đọc lang và gửi cho page (để i18n.js trong page update)
+  const stored = await chrome.storage.local.get('lang').catch(() => ({}));
+  const lang = stored.lang || 'en';
+  // Chờ một chút để các script được inject và parse
+  setTimeout(() => {
+    window.dispatchEvent(new CustomEvent('XMD_LANG_UPDATE', { detail: { lang } }));
+  }, 300);
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', injectAll);
+} else {
+  injectAll();
 }
 
 // ─── 2. Lấy username từ URL ───────────────────────────────────────────────────
@@ -55,11 +65,19 @@ function isMediaPage(url = location.href) {
 }
 
 // ─── 3. Lắng nghe media từ page-interceptor & dom-scanner ────────────────────
+// Chỉ relay khi đang thực sự thu thập (tránh đếm media trên Home / Explore)
+let isCollecting = false;
+
 window.addEventListener('X_MEDIA_FOUND', (event) => {
   const { mediaItems, sourceUrl } = event.detail;
   if (!mediaItems?.length) return;
 
+  // Chỉ relay nếu đang trong phiên thu thập do người dùng khởi động
+  if (!isCollecting) return;
+
   const username = getUsernameFromURL();
+  // Bỏ qua nếu không xác định được username (trang Home, Explore...)
+  if (!username) return;
 
   chrome.runtime.sendMessage({
     type: 'MEDIA_FOUND',
@@ -135,7 +153,26 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return false;
   }
 
+  // Theo dõi trạng thái collecting → kiểm soát relay media
+  if (message.type === 'COLLECT_STARTED_LOCAL') {
+    isCollecting = true;
+    return false;
+  }
+  if (message.type === 'COLLECT_STOPPED_LOCAL') {
+    isCollecting = false;
+    return false;
+  }
+
   return false;
+});
+
+// Lắng nghe storage thay đổi (lang)
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.lang) {
+    window.dispatchEvent(new CustomEvent('XMD_LANG_UPDATE', { 
+      detail: { lang: changes.lang.newValue } 
+    }));
+  }
 });
 
 // ─── 6. Thông báo khi trang load xong ────────────────────────────────────────

@@ -2,6 +2,30 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [3.4.0] - 2026-05-27
+### Thêm mới (Added)
+- **Đa ngôn ngữ (i18n):** Hỗ trợ Tiếng Anh (Mặc định) và Tiếng Việt. Bạn có thể thay đổi ngôn ngữ ngay trong trang Cài đặt (Options).
+- **Giao diện Options mới:** Bổ sung phần Cài đặt Giao diện (Appearance) chứa tùy chọn đổi Ngôn ngữ và Chủ đề (Theme) gọn gàng hơn.
+
+---
+
+## [3.3.0] - 2026-05-27
+### Thêm mới (Added)
+- **Light / Dark Mode Toggle:** Thêm nút chuyển đổi giao diện (biểu tượng ☀️/🌙) ngay trên thanh Header của cả Popup và trang Cài đặt. Trạng thái được lưu vào `chrome.storage.local` và đồng bộ tự động giữa hai trang.
+- **Định dạng tên file Username_TweetID_Serial:** Thêm tùy chọn mới trong phần Download của trang Cài đặt. Khi bật, file sẽ được đặt tên theo định dạng `username_TweetID_randomSerial.ext` (ví dụ: `NASA_1234567890_ab3f2.jpg`), thay vì chỉ dùng TweetID như trước. Giúp dễ nhận biết nguồn gốc file khi lưu vào cùng một thư mục.
+
+---
+
+## [3.3.0] - 2026-05-27
+### Thêm mới (Added)
+- **Bật/Tắt Light Mode & Dark Mode:** Thêm nút chuyển đổi giao diện (☀️/🌙) trực tiếp trên header của Popup và trang Cài đặt. Trạng thái được lưu vào `chrome.storage.local` và đồng bộ tự động giữa Popup và Options khi mở lại.
+- **Đặt tên file theo Username_TweetID_Serial:** Bổ sung tuỳ chọn trong trang Cài đặt → Download, cho phép lưu tên file theo định dạng `username_TweetID_random.ext` (ví dụ: `NASA_1234567890_ab3f2.jpg`) thay vì chỉ `TweetID_random.ext` như trước.
+
+### Sửa lỗi (Fixed)
+- **Counter đếm media trên trang Home / Explore:** `content.js` relay toàn bộ `X_MEDIA_FOUND` bất kể người dùng đang ở trang nào. Sửa bằng cách thêm flag `isCollecting` — chỉ đếm và gửi media lên Service Worker khi đang trong phiên thu thập do người dùng chủ động kích hoạt. Badge số lượng trên icon extension giờ chỉ tăng khi đang thu thập trên trang profile/media.
+
+---
+
 ## [3.2.0] - 2026-05-26
 ### Sửa lỗi & Tối ưu (Fixed & Improved)
 - **Bypass CORS cho video NSFW:** Đưa luồng truy vấn API nội bộ về Service Worker, kết hợp sử dụng User Cookie (`ct0`) để gọi trực tiếp endpoint `x.com/i/api`. Khắc phục hoàn toàn lỗi HTTP 404/403 khi lấy video NSFW (18+).

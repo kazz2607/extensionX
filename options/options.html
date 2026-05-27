@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cài đặt — X Media Downloader</title>
+  <title>Settings — X Media Downloader</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <style>
@@ -22,6 +22,21 @@
       --orange: #ff7a00;
       --radius: 12px;
       --font: 'Inter', sans-serif;
+    }
+
+    [data-theme="light"] {
+      --bg: #f5f7fa;
+      --bg-card: #ffffff;
+      --bg-hover: #edf0f5;
+      --border: #dde2ea;
+      --border-focus: #1D9BF0;
+      --accent: #1D9BF0;
+      --text: #0f1923;
+      --text-sec: #536471;
+      --text-muted: #aab8c2;
+      --green: #00a86b;
+      --red: #e0283a;
+      --orange: #e86c00;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -221,21 +236,21 @@
 
   <div class="page-header">
     <div class="page-logo">⬇</div>
-    <h1>X Media Downloader <span>Cài đặt Extension v3.0.0</span></h1>
+    <h1>X Media Downloader <span data-i18n="settings_title">Extension Settings</span></h1>
   </div>
 
-  <!-- ── Thư Mục Lưu ── -->
+  <!-- ── Folder ── -->
   <div class="section">
-    <p class="section-title">📁 Thư Mục Lưu File</p>
+    <p class="section-title" data-i18n="section_folder">📁 Save Folder</p>
     <div class="card">
       <div class="option-row" style="flex-direction: column; align-items: flex-start; gap: 10px;">
         <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
           <div class="option-label">
-            <strong>Thư mục cơ sở</strong>
-            <span>Thư mục con bên trong <strong>Downloads</strong> để lưu media. Để trống để lưu thẳng vào Downloads.</span>
+            <strong data-i18n="opt_base_folder">Base folder</strong>
+            <span data-i18n="opt_base_folder_desc">Subfolder inside Downloads to save media. Leave empty to save directly to Downloads.</span>
           </div>
           <div class="folder-input-wrap">
-            <span class="folder-prefix" id="downloads-label">Downloads/</span>
+            <span class="folder-prefix" id="downloads-label" data-i18n="folder_prefix">Downloads/</span>
             <input type="text" id="opt-save-folder" placeholder="X_Media" maxlength="60" />
           </div>
         </div>
@@ -246,8 +261,8 @@
 
       <div class="option-row">
         <div class="option-label">
-          <strong>Lưu chung vào 1 thư mục theo Username</strong>
-          <span>Bỏ qua các thư mục con (images, videos, gifs), gộp tất cả media vào chung folder tên người dùng.</span>
+          <strong data-i18n="opt_flat_username">Merge into username folder</strong>
+          <span data-i18n="opt_flat_username_desc">Save all media directly inside the username folder without separating into images/videos/gifs subfolders.</span>
         </div>
         <label class="toggle">
           <input type="checkbox" id="opt-flat-username" />
@@ -256,51 +271,40 @@
         </label>
       </div>
     </div>
-
-    <div class="info-box" style="margin-top:10px;">
-      <div class="info-box-icon">💡</div>
-      <p>
-        Mỗi profile sẽ được lưu vào folder riêng theo tên username.<br>
-        Ví dụ nếu nhập <code>X_Media</code>:<br>
-        <code>Downloads/X_Media/NASA/images/photo.jpg</code><br>
-        <code>Downloads/X_Media/NASA/videos/clip.mp4</code><br>
-        <code>Downloads/X_Media/NASA/gifs/anim.mp4</code>
-      </p>
-    </div>
   </div>
 
-  <!-- ── Loại Media ── -->
+  <!-- ── Media Type ── -->
   <div class="section">
-    <p class="section-title">🎬 Loại Media</p>
+    <p class="section-title" data-i18n="section_media">🎬 Media Type</p>
     <div class="card">
       <div class="option-row">
         <div class="option-label">
-          <strong>Loại media cần tải</strong>
-          <span>Chọn loại file muốn thu thập và tải về</span>
+          <strong data-i18n="opt_media_types">Media types to download</strong>
+          <span></span>
         </div>
         <div class="checkbox-group">
           <label class="checkbox-item">
             <input type="checkbox" id="opt-images" checked />
-            <span>🖼 Ảnh</span>
+            <span data-i18n="opt_media_images">🖼 Images</span>
           </label>
           <label class="checkbox-item">
             <input type="checkbox" id="opt-videos" checked />
-            <span>🎬 Video</span>
+            <span data-i18n="opt_media_videos">🎬 Videos</span>
           </label>
           <label class="checkbox-item">
             <input type="checkbox" id="opt-gifs" checked />
-            <span>GIF</span>
+            <span data-i18n="opt_media_gifs">GIFs</span>
           </label>
         </div>
       </div>
 
       <div class="option-row">
         <div class="option-label">
-          <strong>Chất lượng ảnh</strong>
-          <span>Kích thước ảnh khi tải về</span>
+          <strong data-i18n="opt_img_quality">Image quality</strong>
+          <span></span>
         </div>
         <select id="opt-img-quality">
-          <option value="orig">Gốc (Cao nhất)</option>
+          <option value="orig" data-i18n="opt_img_orig">Original (Best)</option>
           <option value="large">Large (1200px)</option>
           <option value="medium">Medium (600px)</option>
           <option value="small">Small (300px)</option>
@@ -311,12 +315,12 @@
 
   <!-- ── Auto Scroll ── -->
   <div class="section">
-    <p class="section-title">🔄 Auto Scroll</p>
+    <p class="section-title" data-i18n="section_scroll">🔄 Auto Scroll</p>
     <div class="card">
       <div class="option-row">
         <div class="option-label">
-          <strong>Tự động scroll khi mở trang /media</strong>
-          <span>Bắt đầu thu thập ngay khi vào trang media của profile</span>
+          <strong data-i18n="opt_auto_scroll">Auto scroll on /media page</strong>
+          <span data-i18n="opt_auto_scroll_desc">Automatically start scrolling when visiting a user's /media tab.</span>
         </div>
         <label class="toggle">
           <input type="checkbox" id="opt-auto-scroll" />
@@ -327,8 +331,8 @@
 
       <div class="option-row">
         <div class="option-label">
-          <strong>Tốc độ scroll</strong>
-          <span>Thời gian chờ giữa mỗi lần scroll xuống</span>
+          <strong data-i18n="opt_scroll_delay">Scroll delay (seconds)</strong>
+          <span data-i18n="opt_scroll_delay_desc">Time to wait between scrolls. Increase if internet is slow.</span>
         </div>
         <div class="range-wrap">
           <input type="range" id="opt-scroll-delay" min="1" max="6" step="0.5" value="2" />
@@ -338,8 +342,8 @@
 
       <div class="option-row">
         <div class="option-label">
-          <strong>Số lần scroll tối đa</strong>
-          <span>0 = không giới hạn (toàn bộ profile)</span>
+          <strong data-i18n="opt_max_scrolls">Max scrolls</strong>
+          <span data-i18n="opt_max_scrolls_desc">Maximum number of scrolls per profile. 0 = unlimited.</span>
         </div>
         <input type="number" id="opt-max-scrolls" value="200" min="0" max="2000" />
       </div>
@@ -348,12 +352,12 @@
 
   <!-- ── Download ── -->
   <div class="section">
-    <p class="section-title">⬇ Download</p>
+    <p class="section-title" data-i18n="section_download">⬇ Download</p>
     <div class="card">
       <div class="option-row">
         <div class="option-label">
-          <strong>Số file tải đồng thời</strong>
-          <span>Tải nhiều file cùng lúc để nhanh hơn (khuyên dùng: 3)</span>
+          <strong data-i18n="opt_concurrency">Concurrent downloads</strong>
+          <span data-i18n="opt_concurrency_desc">Download multiple files at once for faster speed (recommended: 3)</span>
         </div>
         <div class="range-wrap">
           <input type="range" id="opt-concurrency" min="1" max="5" step="1" value="3" />
@@ -363,16 +367,16 @@
 
       <div class="option-row">
         <div class="option-label">
-          <strong>Số media tối đa mỗi profile</strong>
-          <span>Giới hạn số lượng cần thu thập. 0 = không giới hạn</span>
+          <strong data-i18n="opt_max_media">Max media per profile</strong>
+          <span data-i18n="opt_max_media_desc">Limit the number of media to collect. 0 = unlimited.</span>
         </div>
         <input type="number" id="opt-max-media" value="0" min="0" max="50000" />
       </div>
 
       <div class="option-row">
         <div class="option-label">
-          <strong>Hỏi vị trí lưu mỗi file</strong>
-          <span>Bật để Chrome hỏi nơi lưu từng file (không khuyên dùng)</span>
+          <strong data-i18n="opt_save_as">Ask where to save each file</strong>
+          <span data-i18n="opt_save_as_desc">Enable to let Chrome ask where to save every single file (not recommended)</span>
         </div>
         <label class="toggle">
           <input type="checkbox" id="opt-save-as" />
@@ -380,17 +384,58 @@
           <div class="toggle-thumb"></div>
         </label>
       </div>
+
+      <div class="option-row">
+        <div class="option-label">
+          <strong data-i18n="opt_filename_username">📝 Filename: Username_TweetID_Serial</strong>
+          <span data-i18n="opt_filename_username_desc">Save filename with format:</span>
+          <span><code style="background:rgba(29,155,240,0.1);color:var(--accent);padding:1px 6px;border-radius:4px;font-size:10px;">NASA_1234567890_ab3f2.jpg</code></span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="opt-filename-username" />
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
     </div>
   </div>
 
-  <!-- ── Bảo Mật ── -->
+  <!-- ── Appearance ── -->
   <div class="section">
-    <p class="section-title">🔒 Bảo Mật</p>
+    <p class="section-title" data-i18n="section_appearance">🎨 Appearance</p>
     <div class="card">
       <div class="option-row">
         <div class="option-label">
-          <strong>Chỉ xử lý cục bộ</strong>
-          <span>Không gửi bất kỳ dữ liệu nào ra server ngoài</span>
+          <strong data-i18n="opt_language">Language</strong>
+          <span data-i18n="opt_language_desc">Display language for the extension UI</span>
+        </div>
+        <select id="opt-language">
+          <option value="en">English</option>
+          <option value="vi">Tiếng Việt</option>
+        </select>
+      </div>
+      
+      <div class="option-row">
+        <div class="option-label">
+          <strong data-i18n="opt_theme">Theme</strong>
+          <span data-i18n="opt_theme_desc">Toggle dark / light mode</span>
+        </div>
+        <select id="opt-theme-select">
+          <option value="dark">Dark Mode 🌙</option>
+          <option value="light">Light Mode ☀️</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Security ── -->
+  <div class="section">
+    <p class="section-title" data-i18n="section_security">🔒 Security</p>
+    <div class="card">
+      <div class="option-row">
+        <div class="option-label">
+          <strong data-i18n="opt_local_only">Local processing only</strong>
+          <span data-i18n="opt_local_only_desc">Does not send any data to external servers</span>
         </div>
         <label class="toggle">
           <input type="checkbox" id="opt-local-only" checked disabled />
@@ -402,12 +447,13 @@
   </div>
 
   <div class="save-row">
-    <button class="btn-save" id="btn-save">💾 Lưu cài đặt</button>
-    <span class="save-status" id="save-status">✓ Đã lưu thành công</span>
+    <button class="btn-save" id="btn-save" data-i18n="btn_save">💾 Save Settings</button>
+    <span class="save-status" id="save-status" data-i18n="save_success">✓ Saved successfully</span>
   </div>
 
-  <p class="version-tag">X Media Downloader v3.0.0 — Direct Download Mode</p>
+  <p class="version-tag">X Media Downloader v3.4.0</p>
 
+  <script src="../lib/i18n.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

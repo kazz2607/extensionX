@@ -50,6 +50,7 @@ const els = {
   btnCsv:       $('btn-csv'),
   btnClear:     $('btn-clear'),
   btnSettings:  $('btn-settings'),
+  btnTheme:     $('btn-theme'),
   historyList:  $('history-list'),
   btnHistClear: $('btn-history-clear'),
   toast:        $('toast'),
@@ -57,11 +58,30 @@ const els = {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+  if (window.i18n) {
+    await window.i18n.load();
+    window.i18n.applyToDOM();
+  }
+  await applyTheme();
   await loadHistory();
   await detectCurrentTab();
   setupListeners();
   listenToMessages();
 });
+
+// ─── Theme ─────────────────────────────────────────────────────────────────
+async function applyTheme() {
+  const stored = await chrome.storage.local.get('theme').catch(() => ({}));
+  const theme = stored.theme || 'dark';
+  document.documentElement.setAttribute('data-theme', theme);
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  chrome.storage.local.set({ theme: next });
+}
 
 // ─── Detect active tab ────────────────────────────────────────────────────────
 async function detectCurrentTab() {
@@ -70,7 +90,7 @@ async function detectCurrentTab() {
 
   const url = tab.url;
   if (!url.includes('x.com') && !url.includes('twitter.com')) {
-    setStatus('idle', 'Mở X.com để bắt đầu');
+    setStatus('idle', window.i18n ? window.i18n.t('profile_hint_default') : 'Mở X.com để bắt đầu');
     return;
   }
 
@@ -84,7 +104,7 @@ async function setCurrentUser(username) {
   currentUsername = username;
 
   els.username.textContent = `@${username}`;
-  els.hint.textContent = 'Profile đang được xem';
+  els.hint.textContent = window.i18n ? window.i18n.t('profile_hint_active') : 'Profile đang được xem';
   els.profileCard.classList.add('active');
   els.avatar.textContent = username.slice(0, 2).toUpperCase();
 
@@ -103,7 +123,8 @@ async function setCurrentUser(username) {
   }
 
   updateMediaCount(countRes?.count || 0);
-  setStatus('ready', `Sẵn sàng — @${username}`);
+  const readyTxt = window.i18n ? window.i18n.t('status_ready') : 'Sẵn sàng';
+  setStatus('ready', `${readyTxt} — @${username}`);
   updateButtons();
 }
 
@@ -143,11 +164,12 @@ function setupTabs() {
       updateButtons();
 
       // Update download button label
+      const dlTxt = window.i18n ? window.i18n.t('btn_download') : 'Download';
       const labels = {
-        all: 'Download',
-        images: 'Tải Ảnh',
-        videos: 'Tải Video',
-        gifs: 'Tải GIF',
+        all: dlTxt,
+        images: window.i18n ? window.i18n.t('tab_images') : 'Ảnh',
+        videos: window.i18n ? window.i18n.t('tab_videos') : 'Video',
+        gifs: window.i18n ? window.i18n.t('tab_gifs') : 'GIF',
       };
       const cnt = getFilteredCount();
       els.btnDownloadTxt.textContent = cnt > 0
@@ -170,10 +192,10 @@ function updateButtons() {
 
   if (isCollecting) {
     els.btnCollect.classList.add('collecting');
-    els.btnCollectTxt.textContent = 'Dừng Thu Thập';
+    els.btnCollectTxt.textContent = window.i18n ? window.i18n.t('btn_collect_stop') : 'Dừng Thu Thập';
   } else {
     els.btnCollect.classList.remove('collecting');
-    els.btnCollectTxt.textContent = 'Bắt đầu Thu Thập';
+    els.btnCollectTxt.textContent = window.i18n ? window.i18n.t('btn_collect_start') : 'Bắt đầu Thu Thập';
   }
 }
 
@@ -203,14 +225,16 @@ function setupListeners() {
     if (isCollecting) {
       isCollecting = false;
       await sendBG('STOP_COLLECTING', { username: currentUsername });
-      setStatus('ready', `Đã dừng — @${currentUsername}`);
+      const stoppedTxt = window.i18n ? window.i18n.t('status_stopped') : 'Đã dừng';
+      setStatus('ready', `${stoppedTxt} — @${currentUsername}`);
       els.statusSpeed.textContent = '';
     } else {
       isCollecting = true;
       lastScrollCount = parseInt(els.badge.textContent) || 0;
       lastScrollTime = Date.now();
       await sendBG('START_COLLECTING', { username: currentUsername });
-      setStatus('collecting', 'Đang thu thập media...');
+      const collectingTxt = window.i18n ? window.i18n.t('status_collecting') : 'Đang thu thập media...';
+      setStatus('collecting', collectingTxt);
       els.scrollSec.style.display = 'block';
     }
     updateButtons();
@@ -224,7 +248,8 @@ function setupListeners() {
 
     isDownloading = true;
     updateButtons();
-    setStatus('downloading', 'Chuẩn bị download...');
+    const preparingTxt = window.i18n ? window.i18n.t('status_downloading') : 'Chuẩn bị download...';
+    setStatus('downloading', preparingTxt);
     showProgress(true);
 
     await sendBG('START_DOWNLOAD', {
@@ -269,6 +294,9 @@ function setupListeners() {
 
   // Settings
   els.btnSettings.addEventListener('click', () => chrome.runtime.openOptionsPage());
+
+  // Theme toggle
+  els.btnTheme.addEventListener('click', toggleTheme);
 
   // History clear
   els.btnHistClear.addEventListener('click', async () => {
@@ -378,7 +406,8 @@ function listenToMessages() {
         isDownloading = false;
         showProgress(false);
         const { success, failed, total } = payload;
-        const doneMsg = `✓ Hoàn tất ${success}/${total} files${failed > 0 ? ` (${failed} lỗi)` : ''}`;
+        const doneTxt = window.i18n ? window.i18n.t('status_done') : 'Done';
+        const doneMsg = `✓ ${doneTxt} ${success}/${total} files${failed > 0 ? ` (${failed} error)` : ''}`;
         setStatus('done', doneMsg);
         showToast(doneMsg, success > 0 ? 'success' : 'error');
         updateButtons();
@@ -430,7 +459,8 @@ function addToHistory(entry) {
 
 function renderHistory() {
   if (!downloadHistory.length) {
-    els.historyList.innerHTML = '<li class="history-empty">Chưa có lịch sử tải</li>';
+    const emptyTxt = window.i18n ? window.i18n.t('history_empty') : 'No download history';
+    els.historyList.innerHTML = `<li class="history-empty">${emptyTxt}</li>`;
     return;
   }
 
@@ -462,10 +492,11 @@ async function updateFolderDisplay(username) {
 
     const folderPathEl = document.getElementById('folder-path-text');
     if (folderPathEl) {
+      const prefix = window.i18n ? window.i18n.t('folder_prefix') : 'Downloads/';
       const parts = folder
-        ? `Downloads/${folder}/${username}/`
-        : `Downloads/${username}/`;
-      folderPathEl.textContent = parts;
+        ? `${prefix}${folder}/${username}/`
+        : `${prefix}${username}/`;
+      folderPathEl.innerHTML = `<span data-i18n="folder_prefix">${prefix}</span>${parts.substring(prefix.length)}`;
     }
   } catch (_) {}
 }

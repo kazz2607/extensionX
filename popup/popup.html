@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>X Media Downloader</title>
-  <meta name="description" content="Tải media từ X.com theo profile" />
+  <meta name="description" content="Download media from X.com" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -23,9 +23,21 @@
         </div>
         <div class="header-text">
           <h1 class="app-name">Media Downloader</h1>
-          <span class="app-version">v3.0.0</span>
+          <span class="app-version">v3.4.0</span>
         </div>
       </div>
+      <button class="btn-icon btn-theme" id="btn-theme" title="Đổi giao diện">
+        <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
       <button class="btn-icon" id="btn-settings" title="Cài đặt">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="3"/>
@@ -44,8 +56,8 @@
           </svg>
         </div>
         <div class="profile-info">
-          <p class="profile-username" id="profile-username">Chưa chọn profile</p>
-          <p class="profile-hint" id="profile-hint">Mở profile trên X.com để bắt đầu</p>
+          <p class="profile-username" id="profile-username" data-i18n="profile_no_selection">Not selected</p>
+          <p class="profile-hint" id="profile-hint" data-i18n="profile_hint_default">Open a profile on X.com to start</p>
         </div>
         <div class="profile-badge" id="media-count-badge">0</div>
       </div>
@@ -55,21 +67,21 @@
     <section class="tabs-section">
       <div class="tabs" id="filter-tabs">
         <button class="tab active" data-filter="all" id="tab-all">
-          Tất cả
+          <span data-i18n="tab_all">All</span>
           <span class="tab-count" id="tab-count-all">0</span>
         </button>
         <button class="tab" data-filter="images" id="tab-images">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-          Ảnh
+          <span data-i18n="tab_images">Images</span>
           <span class="tab-count" id="tab-count-images">0</span>
         </button>
         <button class="tab" data-filter="videos" id="tab-videos">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-          Video
+          <span data-i18n="tab_videos">Videos</span>
           <span class="tab-count" id="tab-count-videos">0</span>
         </button>
         <button class="tab" data-filter="gifs" id="tab-gifs">
-          GIF
+          <span data-i18n="tab_gifs">GIFs</span>
           <span class="tab-count" id="tab-count-gifs">0</span>
         </button>
       </div>
@@ -79,7 +91,7 @@
     <section class="status-section">
       <div class="status-bar">
         <div class="status-dot" id="status-dot"></div>
-        <span class="status-text" id="status-text">Sẵn sàng</span>
+        <span class="status-text" id="status-text" data-i18n="status_ready">Ready</span>
         <span class="status-speed" id="status-speed"></span>
       </div>
       <div class="progress-wrap" id="progress-wrap" style="display:none">
@@ -97,13 +109,13 @@
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="7 13 12 8 17 13"/><polyline points="7 19 12 14 17 19"/>
           </svg>
-          Scroll: <strong id="scroll-count">0</strong>
+          <span data-i18n="scroll_stats">Scroll:</span> <strong id="scroll-count">0</strong>
         </div>
         <div class="scroll-stat">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="18" height="18" rx="2"/>
           </svg>
-          Mới: <strong id="scroll-new">+0</strong>
+          <span data-i18n="scroll_new">New:</span> <strong id="scroll-new">+0</strong>
         </div>
         <div class="scroll-eta" id="scroll-eta"></div>
       </div>
@@ -115,7 +127,7 @@
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
         </svg>
-        <span id="folder-path-text">Downloads/[username]/</span>
+        <span id="folder-path-text"><span data-i18n="folder_prefix">Downloads/</span>[username]/</span>
       </div>
     </section>
 
@@ -125,7 +137,7 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
-        <span id="btn-collect-text">Bắt đầu Thu Thập</span>
+        <span id="btn-collect-text" data-i18n="btn_collect_start">Start Collecting</span>
       </button>
 
       <div class="btn-row">
@@ -134,17 +146,17 @@
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
           </svg>
-          <span id="btn-download-text">Download</span>
+          <span id="btn-download-text" data-i18n="btn_download">Download</span>
         </button>
 
-        <button class="btn btn--csv" id="btn-csv" disabled title="Xuất danh sách URL ra CSV">
+        <button class="btn btn--csv" id="btn-csv" disabled>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14 2 14 8 20 8"/>
             <line x1="16" y1="13" x2="8" y2="13"/>
             <line x1="16" y1="17" x2="8" y2="17"/>
           </svg>
-          CSV
+          <span data-i18n="btn_csv">CSV</span>
         </button>
 
         <button class="btn btn--clear" id="btn-clear" disabled>
@@ -159,11 +171,11 @@
     <!-- History -->
     <section class="history-section">
       <div class="history-header">
-        <span class="history-title">Lịch sử</span>
-        <button class="btn-text" id="btn-history-clear">Xóa</button>
+        <span class="history-title" data-i18n="history_title">History</span>
+        <button class="btn-text" id="btn-history-clear" data-i18n="history_clear">Clear</button>
       </div>
       <ul class="history-list" id="history-list">
-        <li class="history-empty">Chưa có lịch sử tải</li>
+        <li class="history-empty" data-i18n="history_empty">No download history</li>
       </ul>
     </section>
 
@@ -171,6 +183,7 @@
     <div class="toast" id="toast"></div>
 
   </div>
+  <script src="../lib/i18n.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

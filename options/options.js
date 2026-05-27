@@ -13,6 +13,7 @@ const DEFAULT_OPTIONS = {
   saveAs: false,
   maxMedia: 0,
   flatUsername: false,
+  filenameUsername: false,                     // Tên file theo username_TweetID_Serial
 };
 
 // ─── Load ─────────────────────────────────────────────────────────────────────
@@ -32,6 +33,7 @@ async function loadOptions() {
   document.getElementById('opt-save-as').checked     = opts.saveAs || false;
   document.getElementById('opt-max-media').value     = opts.maxMedia || 0;
   document.getElementById('opt-flat-username').checked = opts.flatUsername || false;
+  document.getElementById('opt-filename-username').checked = opts.filenameUsername || false;
 
   updateScrollLabel(opts.scrollDelay || 2);
   updateConcurrencyLabel(opts.concurrency || 3);
@@ -55,6 +57,7 @@ async function saveOptions() {
     saveAs:      document.getElementById('opt-save-as').checked,
     maxMedia:    parseInt(document.getElementById('opt-max-media').value) || 0,
     flatUsername: document.getElementById('opt-flat-username').checked,
+    filenameUsername: document.getElementById('opt-filename-username').checked,
   };
 
   await chrome.storage.sync.set({ options: opts });
@@ -102,8 +105,16 @@ function updateFolderPreview() {
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  loadOptions();
+document.addEventListener('DOMContentLoaded', async () => {
+  if (window.i18n) {
+    await window.i18n.load();
+    window.i18n.applyToDOM();
+    const langSelect = document.getElementById('opt-language');
+    if (langSelect) langSelect.value = window.i18n.lang;
+  }
+  
+  await applyTheme();
+  await loadOptions();
 
   document.getElementById('btn-save').addEventListener('click', saveOptions);
 
@@ -119,6 +130,40 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('opt-save-folder').addEventListener('input', updateFolderPreview);
   document.getElementById('opt-flat-username').addEventListener('change', updateFolderPreview);
   
+  // Appearance
+  const langSelect = document.getElementById('opt-language');
+  if (langSelect) {
+    langSelect.addEventListener('change', async (e) => {
+      const newLang = e.target.value;
+      if (window.i18n) {
+        window.i18n.lang = newLang;
+        window.i18n.applyToDOM();
+      }
+      await chrome.storage.local.set({ lang: newLang });
+    });
+  }
+
+  const themeSelect = document.getElementById('opt-theme-select');
+  if (themeSelect) {
+    themeSelect.addEventListener('change', (e) => {
+      setTheme(e.target.value);
+    });
+  }
+  
   // Call once to init with current state
   setTimeout(updateFolderPreview, 100);
 });
+
+// ─── Theme ─────────────────────────────────────────────────────────────────
+async function applyTheme() {
+  const stored = await chrome.storage.local.get('theme').catch(() => ({}));
+  const theme = stored.theme || 'dark';
+  document.documentElement.setAttribute('data-theme', theme);
+  const themeSelect = document.getElementById('opt-theme-select');
+  if (themeSelect) themeSelect.value = theme;
+}
+
+function setTheme(next) {
+  document.documentElement.setAttribute('data-theme', next);
+  chrome.storage.local.set({ theme: next });
+}

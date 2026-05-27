@@ -268,11 +268,16 @@ async function startCollecting(username, tabId) {
 
   broadcastToPopup('COLLECT_STARTED', { username });
 
+  // Bật flag isCollecting trong content.js của tab này
+  chrome.tabs.sendMessage(tabId, { type: 'COLLECT_STARTED_LOCAL' }).catch(() => {});
+
   const tab = await chrome.tabs.get(tabId).catch(() => null);
   if (tab && !tab.url?.includes('/media')) {
     await chrome.tabs.update(tabId, { url: `https://x.com/${username}/media` });
     await waitForTabLoad(tabId);
     await sleep(3000);
+    // Sau navigate, gửi lại vì content script mới reload
+    chrome.tabs.sendMessage(tabId, { type: 'COLLECT_STARTED_LOCAL' }).catch(() => {});
   }
 
   scrollLoop(tabId, username);
@@ -295,6 +300,7 @@ async function scrollLoop(tabId, username) {
     if (state.scrollCount >= MAX_SCROLLS) {
       state.isCollecting = false;
       tabState.set(tabId, state);
+      chrome.tabs.sendMessage(tabId, { type: 'COLLECT_STOPPED_LOCAL' }).catch(() => {});
       broadcastToPopup('COLLECT_DONE', {
         username, mediaCount: mediaStore.get(username)?.size || 0,
         reachedEnd: false, reason: 'max_scrolls',
@@ -326,6 +332,7 @@ async function scrollLoop(tabId, username) {
         state.reachedEnd = true;
         state.isCollecting = false;
         tabState.set(tabId, state);
+        chrome.tabs.sendMessage(tabId, { type: 'COLLECT_STOPPED_LOCAL' }).catch(() => {});
         broadcastToPopup('COLLECT_DONE', {
           username, mediaCount: currentCount, reachedEnd: true, reason: 'end_of_page',
         });
@@ -345,6 +352,8 @@ function stopCollecting(username) {
     if (state.username === username) {
       state.isCollecting = false;
       tabState.set(tabId, state);
+      // Tắt flag isCollecting trong content.js của tab
+      chrome.tabs.sendMessage(tabId, { type: 'COLLECT_STOPPED_LOCAL' }).catch(() => {});
     }
   });
   broadcastToPopup('COLLECT_STOPPED', { username });
@@ -382,6 +391,7 @@ async function startDownload(username, options = {}) {
   // saveFolder từ options (mặc định rỗng = thẳng vào Downloads)
   const saveFolder = sanitizeFolder(opts.saveFolder || '');
   const CONCURRENCY = Math.min(Math.max(opts.concurrency || 3, 1), 5);
+  const filenameUsername = opts.filenameUsername || false;
 
   const total = items.length;
   let success = 0;
@@ -393,7 +403,7 @@ async function startDownload(username, options = {}) {
   async function downloadOne(item, options) {
     let filename = '';
     try {
-      filename = buildDownloadPath(saveFolder, username, item, options.flatUsername);
+      filename = buildDownloadPath(saveFolder, username, item, opts.flatUsername, filenameUsername);
       
       // Đảm bảo HLS lưu dưới dạng .ts thay vì .m3u8 hay .mp4 để đúng chuẩn MIME type
       if (item.type === 'hls' || filename.endsWith('.m3u8')) {
@@ -612,13 +622,13 @@ function downloadFile(url, filename) {
   });
 }
 
-// ─── Build Download Path ──────────────────────────────────────────────────────
-function buildDownloadPath(saveFolder, username, item, flatUsername = false) {
+// ─── Build Download Path ─────────────────────────────────────────────────────────
+function buildDownloadPath(saveFolder, username, item, flatUsername = false, filenameUsername = false) {
   const subfolder = item.type === 'image' ? 'images'
     : item.type === 'gif' ? 'gifs'
     : 'videos';
 
-  const filename = buildFilename(item);
+  const filename = buildFilename(item, username, filenameUsername);
 
   // Cấu trúc: {saveFolder?}/{username}/{subfolder?}/{filename}
   const parts = [saveFolder, username];
@@ -630,9 +640,12 @@ function buildDownloadPath(saveFolder, username, item, flatUsername = false) {
   return parts.filter(Boolean).join('/');
 }
 
-function buildFilename(item) {
+function buildFilename(item, username = '', filenameUsername = false) {
   const base = item.tweetId || item.mediaKey || `media_${Date.now()}`;
   const rand = Math.random().toString(36).slice(2, 7);
+  if (filenameUsername && username) {
+    return `${username}_${base}_${rand}.${item.ext || 'jpg'}`;
+  }
   return `${base}_${rand}.${item.ext || 'jpg'}`;
 }
 

@@ -206,11 +206,11 @@
   fab.innerHTML = `
     <div id="__xmd_panel__">
       <div class="__xmd_panel_row__">
-        <span class="__xmd_label__">Media thu thập</span>
+        <span class="__xmd_label__" id="__xmd_lbl_media__">Media thu thập</span>
         <span class="__xmd_count__" id="__xmd_count__">0</span>
       </div>
       <div class="__xmd_panel_row__">
-        <span class="__xmd_label__">Scroll</span>
+        <span class="__xmd_label__" id="__xmd_lbl_scroll__">Scroll</span>
         <span class="__xmd_count__" id="__xmd_scrolls__" style="font-size:13px;color:#888">0</span>
       </div>
       <div class="__xmd_divider__"></div>
@@ -250,6 +250,29 @@
   const collectBtn = document.getElementById('__xmd_collect_btn__');
   const downloadBtn = document.getElementById('__xmd_download_btn__');
   const scrollInfo = document.getElementById('__xmd_scroll_info__');
+  const lblMedia = document.getElementById('__xmd_lbl_media__');
+  const lblScroll = document.getElementById('__xmd_lbl_scroll__');
+
+  // Hàm update text i18n
+  function updateFabI18n() {
+    if (!window.i18n) return;
+    lblMedia.textContent = window.i18n.t('fab_media_collected');
+    lblScroll.textContent = window.i18n.t('fab_scroll');
+    collectBtn.textContent = isCollecting ? window.i18n.t('fab_collect_stop') : window.i18n.t('fab_collect_start');
+    if (!downloadBtn.disabled && downloadBtn.textContent.includes('...')) {
+      downloadBtn.textContent = window.i18n.t('fab_downloading');
+    } else {
+      downloadBtn.textContent = window.i18n.t('fab_download');
+    }
+    scrollInfo.textContent = window.i18n.t('fab_scrolling');
+  }
+
+  window.addEventListener('XMD_LANG_UPDATE', (e) => {
+    if (window.i18n && e.detail?.lang) {
+      window.i18n.lang = e.detail.lang;
+      updateFabI18n();
+    }
+  });
 
   // ─── Toggle Panel ────────────────────────────────────────────────────────────
   mainBtn.addEventListener('click', () => {
@@ -271,7 +294,7 @@
     isCollecting = !isCollecting;
 
     if (isCollecting) {
-      collectBtn.textContent = '⏹ Dừng';
+      collectBtn.textContent = window.i18n ? window.i18n.t('fab_collect_stop') : '⏹ Dừng';
       collectBtn.classList.add('active');
       mainBtn.classList.add('collecting');
       scrollInfo.classList.add('visible');
@@ -280,7 +303,7 @@
         detail: { action: 'START_COLLECTING' }
       }));
     } else {
-      collectBtn.textContent = '▶ Thu Thập';
+      collectBtn.textContent = window.i18n ? window.i18n.t('fab_collect_start') : '▶ Thu Thập';
       collectBtn.classList.remove('active');
       mainBtn.classList.remove('collecting');
       scrollInfo.classList.remove('visible');
@@ -297,7 +320,7 @@
     window.dispatchEvent(new CustomEvent('XMD_FAB_ACTION', {
       detail: { action: 'START_DOWNLOAD' }
     }));
-    downloadBtn.textContent = '⏳ Đang tải...';
+    downloadBtn.textContent = window.i18n ? window.i18n.t('fab_downloading') : '⏳ Đang tải...';
     downloadBtn.disabled = true;
   });
 
@@ -319,14 +342,14 @@
 
     if (state === 'COLLECT_DONE') {
       isCollecting = false;
-      collectBtn.textContent = '▶ Thu Thập';
+      collectBtn.textContent = window.i18n ? window.i18n.t('fab_collect_start') : '▶ Thu Thập';
       collectBtn.classList.remove('active');
       mainBtn.classList.remove('collecting');
       scrollInfo.classList.remove('visible');
     }
 
     if (state === 'DOWNLOAD_DONE') {
-      downloadBtn.textContent = '↓ Download';
+      downloadBtn.textContent = window.i18n ? window.i18n.t('fab_download') : '↓ Download';
       downloadBtn.disabled = mediaCount === 0;
     }
   });

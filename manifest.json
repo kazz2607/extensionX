@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "X Media Downloader",
-  "version": "3.2.0",
-  "description": "Tải toàn bộ ảnh & video từ profile X.com, tự động lưu vào folder username",
+  "name": "__MSG_appName__",
+  "version": "3.4.0",
+  "description": "__MSG_appDesc__",
+  "default_locale": "en",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -58,7 +59,8 @@
         "content/dom-scanner.js",
         "content/fab.js",
         "lib/utils.js",
-        "lib/hls-fetcher.js"
+        "lib/hls-fetcher.js",
+        "lib/i18n.js"
       ],
       "matches": ["https://x.com/*", "https://twitter.com/*"]
     }

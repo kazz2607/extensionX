@@ -94,7 +94,7 @@ Sau khi load, extension sẽ xuất hiện trong danh sách:
 
 ```
 ┌──────────────────────────────────────────┐
-│  ⬇ X Media Downloader          v3.1.0   │
+│  ⬇ X Media Downloader          v3.4.0   │
 │  Tải toàn bộ ảnh & video từ X.com...    │
 │                                          │
 │  [Details]  [Remove]           ● Enabled │
@@ -126,7 +126,7 @@ Click icon **⬇** trên toolbar Chrome. Popup sẽ hiển thị:
 
 ```
 ┌─────────────────────────────────────┐
-│ ⬇ X Media Downloader      v3.1.0  ⚙│
+│ ⬇ X Media Downloader      v3.4.0  ⭤☉⚡│
 ├─────────────────────────────────────┤
 │ 👤 @NASA                        [47]│
 │    Profile đang được xem            │
@@ -207,6 +207,8 @@ Click biểu tượng **⚙** trên popup để mở trang cài đặt:
 | Số file tải đồng thời | 3 | Tăng để tải nhanh hơn (1–5) |
 | Hỏi vị trí lưu | Tắt | Chrome hỏi nơi lưu từng file |
 | Số media tối đa | 0 (không giới hạn) | Giới hạn số media mỗi profile |
+| **🌙 Dark / ☀️ Light Mode** | Dark | Chuyển giao diện tối/sáng (nút ☀️/🌙 trên header) |
+| **📝 Tên file Username_TweetID** | Tắt | Lưu tên file theo `username_tweetId_serial.ext` |
 
 ---
 
@@ -308,6 +310,18 @@ Downloads/
         └── 1234567892_ghi56.mp4        ← GIF lưu dạng MP4
 ```
 
+Nếu bật tuỳ chọn **Tên file theo Username_TweetID_Serial**, file sẽ được đặt tên kèm username:
+```
+Downloads/
+└── NASA/
+    ├── images/
+    │   └── NASA_1234567890_abc12.jpg    ← {username}_{tweetId}_{random}.jpg
+    ├── videos/
+    │   └── NASA_1234567891_def34.mp4
+    └── gifs/
+        └── NASA_1234567892_ghi56.mp4
+```
+
 Nếu bật tuỳ chọn **Lưu chung vào 1 thư mục theo Username** trong Settings, các file sẽ không bị chia vào thư mục con:
 ```
 Downloads/
@@ -341,4 +355,4 @@ Nếu gặp vấn đề, hãy kiểm tra:
 
 ---
 
-*Phiên bản: 3.1.0 | Cập nhật: 2026-05-26*
+*Phiên bản: 3.4.0 | Cập nhật: 2026-05-27*

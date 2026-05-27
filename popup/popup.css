@@ -37,6 +37,37 @@
   --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
+/* ─── Light Mode ─────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg: #f5f7fa;
+  --bg-card: #ffffff;
+  --bg-hover: #edf0f5;
+  --border: #dde2ea;
+  --border-focus: #1D9BF0;
+
+  --text-primary: #0f1923;
+  --text-secondary: #536471;
+  --text-muted: #aab8c2;
+
+  --accent: #1D9BF0;
+  --accent-hover: #1a8cd8;
+  --accent-glow: rgba(29, 155, 240, 0.18);
+
+  --green: #00a86b;
+  --green-bg: rgba(0, 168, 107, 0.10);
+  --red: #e0283a;
+  --red-bg: rgba(224, 40, 58, 0.10);
+  --orange: #e86c00;
+  --orange-bg: rgba(232, 108, 0, 0.10);
+  --purple: #6645e8;
+  --purple-bg: rgba(102, 69, 232, 0.10);
+  --teal: #00a8bf;
+  --teal-bg: rgba(0, 168, 191, 0.10);
+
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.10);
+  --shadow-glow: 0 0 20px rgba(29, 155, 240, 0.12);
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
@@ -89,6 +120,18 @@ body {
   transition: all var(--transition);
 }
 .btn-icon:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-focus); }
+
+/* Theme toggle icon animation */
+.btn-theme { position: relative; overflow: hidden; }
+.btn-theme .icon-sun,
+.btn-theme .icon-moon {
+  position: absolute;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+}
+.btn-theme .icon-sun  { transform: translateY(0)  rotate(0deg);   opacity: 1; }
+.btn-theme .icon-moon { transform: translateY(20px) rotate(30deg); opacity: 0; }
+[data-theme="light"] .btn-theme .icon-sun  { transform: translateY(-20px) rotate(-30deg); opacity: 0; }
+[data-theme="light"] .btn-theme .icon-moon { transform: translateY(0)     rotate(0deg);   opacity: 1; }
 
 /* ─── Profile ─────────────────────────────────────────────────────────────── */
 .profile-section { padding: 10px 14px; background: var(--bg); }
