@@ -276,6 +276,19 @@
 
   // ─── Toggle Panel ────────────────────────────────────────────────────────────
   mainBtn.addEventListener('click', () => {
+    // Nếu có media: bấm main btn = download luôn (không cần mở panel)
+    if (mediaCount > 0 && !downloadBtn.disabled) {
+      window.dispatchEvent(new CustomEvent('XMD_FAB_ACTION', {
+        detail: { action: 'START_DOWNLOAD' }
+      }));
+      downloadBtn.textContent = window.i18n ? window.i18n.t('fab_downloading') : '⏳ Đang tải...';
+      downloadBtn.disabled = true;
+      // Đóng panel nếu đang mở
+      panelOpen = false;
+      panel.classList.remove('visible');
+      return;
+    }
+    // Nếu chưa có media: toggle panel để dùng nút Thu Thập
     panelOpen = !panelOpen;
     panel.classList.toggle('visible', panelOpen);
   });
