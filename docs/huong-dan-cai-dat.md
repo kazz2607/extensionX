@@ -95,7 +95,7 @@ Sau khi load, extension sẽ xuất hiện trong danh sách:
 
 ```
 ┌──────────────────────────────────────────┐
-│  ⬇ X Media Downloader          v3.5.0   │
+│  ⬇ X Media Downloader          v3.5.1   │
 │  Tải toàn bộ ảnh & video từ X.com...    │
 │                                          │
 │  [Details]  [Remove]           ● Enabled │
@@ -127,7 +127,7 @@ Click icon **⬇** trên toolbar Chrome. Popup sẽ hiển thị:
 
 ```
 ┌─────────────────────────────────────┐
-│ ⬇ X Media Downloader      v3.5.0  ⭤☉⚡│
+│ ⬇ X Media Downloader      v3.5.1  ⭤☉⚡│
 ├─────────────────────────────────────┤
 │ 👤 @NASA                        [47]│
 │    Profile đang được xem            │
@@ -243,6 +243,15 @@ Khi có phiên bản mới:
 **Giải pháp:**
 1. Click vào popup để "wake up" service worker
 2. Thử click **Dừng → Bắt đầu** lại
+3. Từ v3.5.1: Extension đã có keep-alive tự động — lỗi này ít xảy ra hơn trước
+
+### Download dừng giữa chừng
+
+**Nguyên nhân (trước v3.5.1):** Service Worker bị Chrome terminate sau ~5 phút tải.
+
+**Giải pháp:** Cập nhật lên v3.5.1 — đã có keep-alive tự động. Nếu vẫn gặp:
+1. Đảm bảo Chrome đang ở foreground (không minimize)
+2. Kiểm tra kết nối mạng ổn định
 
 ---
 
@@ -290,6 +299,7 @@ Khi có phiên bản mới:
 | `tabs` | Đọc URL tab hiện tại để biết username |
 | `scripting` | Inject scripts vào trang X.com |
 | `offscreen` | Ghép HLS segments thành video |
+| `alarms` | Keep-alive Service Worker khi đang tải nhiều file |
 | `host_permissions: x.com/*` | Chạy trên trang X.com |
 | `host_permissions: pbs.twimg.com/*` | Tải ảnh từ server Twitter |
 | `host_permissions: video.twimg.com/*` | Tải video từ server Twitter |
@@ -356,4 +366,4 @@ Nếu gặp vấn đề, hãy kiểm tra:
 
 ---
 
-*Phiên bản: 3.5.0 | Cập nhật: 2026-05-27*
+*Phiên bản: 3.5.1 | Cập nhật: 2026-05-29*

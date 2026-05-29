@@ -112,11 +112,12 @@ async function setCurrentUser(username) {
   // Hiển thị folder path
   await updateFolderDisplay(username);
 
-  // Lấy count & stats & tab state
-  const [countRes, statsRes, stateRes] = await Promise.all([
+  // Lấy count & stats & tab state & download state
+  const [countRes, statsRes, stateRes, dlStateRes] = await Promise.all([
     sendBG('GET_MEDIA_COUNT', { username }),
     sendBG('GET_STATS', { username }),
     sendBG('GET_TAB_STATE', { username }),
+    sendBG('GET_DOWNLOAD_STATE', {}), // BUG-8 FIX: Restore trạng thái download
   ]);
 
   if (statsRes?.stats) {
@@ -125,6 +126,14 @@ async function setCurrentUser(username) {
   }
 
   updateMediaCount(countRes?.count || 0);
+
+  // BUG-8 FIX: Restore download state nếu SW đang tải
+  if (dlStateRes?.isDownloading) {
+    isDownloading = true;
+    showProgress(true);
+    const downloadingTxt = window.i18n ? window.i18n.t('status_downloading') : 'Đang tải...';
+    setStatus('downloading', downloadingTxt);
+  }
   
   if (stateRes?.isCollecting) {
     isCollecting = true;
@@ -132,7 +141,7 @@ async function setCurrentUser(username) {
     els.scrollCount.textContent = stateRes.scrollCount || 0;
     const collectingTxt = window.i18n ? window.i18n.t('status_collecting') : 'Đang thu thập media...';
     setStatus('collecting', collectingTxt);
-  } else {
+  } else if (!dlStateRes?.isDownloading) {
     isCollecting = false;
     els.scrollSec.style.display = 'none';
     const readyTxt = window.i18n ? window.i18n.t('status_ready') : 'Sẵn sàng';

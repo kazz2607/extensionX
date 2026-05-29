@@ -10,6 +10,21 @@
  *   6. Cầu nối FAB ↔ service worker
  */
 
+// ─── BUG-3 FIX: Guard kiểm tra extension context còn hợp lệ không ────────────
+function isExtensionValid() {
+  try {
+    return !!chrome.runtime?.id;
+  } catch (_) {
+    return false;
+  }
+}
+
+// Cleanup khi extension context bị invalidate (SW reload/update)
+function handleContextInvalidated() {
+  try { navObserver?.disconnect(); } catch (_) {}
+  console.warn('[XMD] Extension context invalidated — content script disconnected.');
+}
+
 // ─── 1. Inject scripts vào page context ──────────────────────────────────────
 function injectScript(path, onLoad) {
   const script = document.createElement('script');
@@ -73,6 +88,12 @@ window.addEventListener('X_MEDIA_FOUND', (event) => {
   const { mediaItems, sourceUrl } = event.detail;
   if (!mediaItems?.length) return;
 
+  // BUG-3 FIX: Kiểm tra context trước khi sendMessage
+  if (!isExtensionValid()) {
+    handleContextInvalidated();
+    return;
+  }
+
   const username = getUsernameFromURL();
   // Bỏ qua nếu không xác định được username (trang Home, Explore...)
   if (!username) return;
@@ -85,7 +106,12 @@ window.addEventListener('X_MEDIA_FOUND', (event) => {
       sourceUrl,
       pageUrl: location.href,
     }
-  }).catch(() => {});
+  }).catch((err) => {
+    // Nếu context bị invalidate → cleanup
+    if (err?.message?.includes('Extension context invalidated')) {
+      handleContextInvalidated();
+    }
+  });
 });
 
 // ─── 4. Lắng nghe FAB actions → relay sang service worker ────────────────────
@@ -93,6 +119,7 @@ window.addEventListener('XMD_FAB_ACTION', (event) => {
   const { action } = event.detail || {};
   const username = getUsernameFromURL();
   if (!username) return;
+  if (!isExtensionValid()) { handleContextInvalidated(); return; } // BUG-3 FIX
 
   if (action === 'START_COLLECTING') {
     chrome.runtime.sendMessage({ type: 'START_COLLECTING', payload: { username } }).catch(() => {});
@@ -215,6 +242,11 @@ let lastUrl = location.href;
 const navObserver = new MutationObserver(() => {
   if (location.href !== lastUrl) {
     lastUrl = location.href;
+    // BUG-3 FIX: Kiểm tra context trước khi sendMessage
+    if (!isExtensionValid()) {
+      handleContextInvalidated();
+      return;
+    }
     const username = getUsernameFromURL();
     if (username) {
       try {
@@ -223,9 +255,15 @@ const navObserver = new MutationObserver(() => {
         chrome.runtime.sendMessage({
           type: 'PAGE_LOADED',
           payload: { username, url: location.href, isMediaPage: isMediaPage(), ct0 }
-        }).catch(() => {});
+        }).catch((err) => {
+          if (err?.message?.includes('Extension context invalidated')) {
+            handleContextInvalidated();
+          }
+        });
       } catch (err) {
-        // Extension context invalidated
+        if (err?.message?.includes('Extension context invalidated')) {
+          handleContextInvalidated();
+        }
       }
     }
   }

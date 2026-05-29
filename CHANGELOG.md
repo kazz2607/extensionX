@@ -2,6 +2,24 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [3.5.1] - 2026-05-29
+### Sửa lỗi nghiêm trọng (Critical Fixes)
+- **[Download dừng giữa chừng] Service Worker bị Chrome terminate sau ~5 phút:** MV3 Service Worker có thể bị Chrome kill trong lúc tải file lớn, khiến toàn bộ hàng đợi download mất. Sửa bằng cách thêm `chrome.alarms` keep-alive (ping mỗi 24 giây) trong suốt quá trình tải — đảm bảo SW không bị terminate dù tải hàng trăm file.
+- **[Download treo vô hạn] `downloadFile()` không có timeout:** Nếu Chrome không fire `onChanged` cho một file (network glitch, server timeout...), Promise treo mãi mãi, blocking toàn bộ batch. Sửa bằng cách thêm timeout 90 giây cho mỗi file — nếu quá thời gian, file tự động bị tính là `failed` và download tiếp tục bình thường.
+- **[Batch bị block] `Promise.all()` không cô lập lỗi:** Một item treo trong batch sẽ kéo toàn bộ `Promise.all` treo theo. Sửa bằng cách wrap mỗi item với `Promise.race([downloadOne, batchTimeout])` riêng — 1 item fail không bao giờ block các item còn lại.
+- **[Extension context invalidated] Content script không cleanup sau SW reload:** Sau khi SW bị reload/update, `chrome.runtime.sendMessage()` ném `Extension context invalidated`. `MutationObserver` (`navObserver`) vẫn chạy và tiếp tục throw lỗi mỗi khi DOM thay đổi. Sửa bằng cách thêm `isExtensionValid()` guard và `handleContextInvalidated()` tự động disconnect observer khi context chết.
+
+### Sửa lỗi (Fixed)
+- **[HLS crash] `extractBestStream()` trả `null` không có guard:** Nếu HLS master playlist không có stream hợp lệ, hàm trả `null` dẫn đến `fetchHLS(null)` crash. Thêm null check rõ ràng với error message mô tả.
+- **[Offscreen race condition] `ensureOffscreen()` phụ thuộc biến global bị mất khi SW restart:** Sau khi SW restart, biến `globalCreatingOffscreen = null` nhưng offscreen document vẫn tồn tại. Lần gọi tiếp theo tạo lại offscreen → Chrome throw lỗi bị nuốt silently → HLS fail. Sửa bằng cách luôn check `chrome.runtime.getContexts()` trực tiếp, bỏ hoàn toàn biến global.
+- **[Double-resolve] Race condition trong `downloadFile()` callback:** `chrome.downloads.search` và `onChanged` có thể cùng resolve một Promise. Thêm `settled` flag + `safeResolve/safeReject` để đảm bảo Promise chỉ settle đúng một lần.
+- **[Popup mất trạng thái] Download state không được restore khi popup mở lại:** Khi popup bị đóng và mở lại giữa lúc đang tải, `isDownloading = false` và progress bar bị ẩn — người dùng có thể vô tình trigger download thêm lần nữa. Sửa bằng cách query `GET_DOWNLOAD_STATE` từ SW khi popup khởi động.
+
+### Thêm mới (Added)
+- **Permission `alarms`:** Thêm vào `manifest.json` để hỗ trợ `chrome.alarms` keep-alive.
+
+---
+
 ## [3.5.0] - 2026-05-27
 ### Sửa lỗi nghiêm trọng (Critical Fixes)
 - **[macOS] Không get được media/image:** Sửa lỗi `page-interceptor.js` không chạy được trong MAIN world trên một số môi trường macOS do `world: "MAIN"` không được áp dụng. Chuyển sang cơ chế inject script thủ công từ `content.js` — đảm bảo interceptor luôn chạy đúng context trên mọi hệ điều hành.

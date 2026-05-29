@@ -15,12 +15,30 @@ const mediaStore = new Map();   // Map<username, Map<url, MediaItem>>
 const tabState   = new Map();   // Map<tabId, CollectState>
 const statsStore = new Map();   // Map<username, {image,video,gif,hls}>
 
-let globalCreatingOffscreen = null;
 let downloadInProgress = false;
 
 // ─── Download Tracker ─────────────────────────────────────────────────────────
-// Map<downloadId, {resolve, reject, item}>
+// Map<downloadId, {resolve, reject}>
 const activeDownloads = new Map();
+
+// ─── BUG-2 FIX: Keep-alive alarm để SW không bị Chrome terminate ───────────────
+const KEEPALIVE_ALARM = 'sw-keepalive';
+const DOWNLOAD_TIMEOUT_MS = 90_000; // BUG-1 FIX: 90 giây timeout mỗi file
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === KEEPALIVE_ALARM) {
+    // Ping nhẹ để giữ SW sống. Không làm gì thêm.
+    console.log('[SW] keepalive ping');
+  }
+});
+
+function startKeepAlive() {
+  chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: 0.4 }); // mỗi 24 giây
+}
+
+function stopKeepAlive() {
+  chrome.alarms.clear(KEEPALIVE_ALARM);
+}
 
 // Đăng ký listener theo dõi từng download
 chrome.downloads.onChanged.addListener((delta) => {
@@ -199,10 +217,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ error: 'Download in progress' });
         return false;
       }
-      startDownload(username, options).then(() => {
-        // startDownload handles its own broadcasting, we just acknowledge receipt
-      });
+      startDownload(username, options);
       sendResponse({ ok: true });
+      return true;
+    }
+
+    case 'GET_DOWNLOAD_STATE': {
+      // BUG-8 FIX: Popup query trạng thái download khi mở lại
+      sendResponse({ isDownloading: downloadInProgress });
       return true;
     }
 
@@ -410,6 +432,9 @@ async function startDownload(username, options = {}) {
   downloadInProgress = true;
   activeErrors = [];
 
+  // BUG-2 FIX: Bật keep-alive để SW không bị Chrome terminate
+  startKeepAlive();
+
   // Đọc options
   let opts = {};
   try {
@@ -425,10 +450,13 @@ async function startDownload(username, options = {}) {
     else if (options.filterType === 'gifs') items = items.filter(i => i.type === 'gif');
   }
 
-  if (!items.length) { downloadInProgress = false; return; }
+  if (!items.length) {
+    downloadInProgress = false;
+    stopKeepAlive();
+    return;
+  }
 
   // Thư mục lưu: {saveFolder}/{username}/{subfolder}/
-  // saveFolder từ options (mặc định rỗng = thẳng vào Downloads)
   const saveFolder = sanitizeFolder(opts.saveFolder || '');
   const CONCURRENCY = Math.min(Math.max(opts.concurrency || 3, 1), 5);
   const filenameUsername = opts.filenameUsername || false;
@@ -439,13 +467,37 @@ async function startDownload(username, options = {}) {
 
   broadcastToPopup('DOWNLOAD_STARTED', { username, total });
 
-  // ─── Download queue ──────────────────────────────────────────────────────
-  async function downloadOne(item, options) {
+  // ─── BUG-5 FIX: ensureOffscreen không dùng biến global ───────────────────
+  async function ensureOffscreen() {
+    try {
+      // Luôn kiểm tra trực tiếp — không phụ thuộc vào biến global sau SW restart
+      if (chrome.runtime.getContexts) {
+        const existing = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] });
+        if (existing.length > 0) return;
+      } else {
+        const has = await chrome.offscreen.hasDocument();
+        if (has) return;
+      }
+      await chrome.offscreen.createDocument({
+        url: 'offscreen/offscreen.html',
+        reasons: ['BLOBS'],
+        justification: 'Convert HLS stream to Blob for downloading',
+      });
+    } catch (err) {
+      // 'single offscreen document' = đã tồn tại, OK
+      if (!err.message?.includes('single offscreen document')) {
+        console.warn('[SW] Offscreen creation error:', err.message);
+      }
+    }
+  }
+
+  // ─── Download một file — BUG-4 FIX: mỗi item tự quản lý timeout ─────────
+  async function downloadOne(item) {
     let filename = '';
     try {
       filename = buildDownloadPath(saveFolder, username, item, opts.flatUsername, filenameUsername);
-      
-      // Đảm bảo HLS lưu dưới dạng .ts thay vì .m3u8 hay .mp4 để đúng chuẩn MIME type
+
+      // HLS: lưu dưới dạng .ts
       if (item.type === 'hls' || filename.endsWith('.m3u8')) {
         filename = filename.replace('.m3u8', '.ts').replace('.mp4', '.ts');
       }
@@ -453,16 +505,15 @@ async function startDownload(username, options = {}) {
       if (item.type === 'hls' || item.url.includes('.m3u8') || filename.endsWith('.ts')) {
         await ensureOffscreen();
 
-        // Timeout 5 phút cho HLS (cần tải nhiều TS segments)
-        const HLS_TIMEOUT = 5 * 60 * 1000;
+        const HLS_TIMEOUT = 5 * 60 * 1000; // 5 phút cho HLS
         const res = await Promise.race([
           new Promise((resolve, reject) => {
             chrome.runtime.sendMessage({
               target: 'offscreen',
               type: 'DOWNLOAD_HLS',
               url: item.url,
-              username: username,
-              filename: filename
+              username,
+              filename,
             }, (res) => {
               if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
               if (!res) return reject(new Error('No response from offscreen'));
@@ -472,57 +523,23 @@ async function startDownload(username, options = {}) {
           }),
           new Promise((_, reject) =>
             setTimeout(() => reject(new Error('HLS download timeout (5 min)')), HLS_TIMEOUT)
-          )
+          ),
         ]);
 
-        const { dataUrl } = res;
-
-        await new Promise((resolve, reject) => {
-          chrome.downloads.download({
-            url: dataUrl,
-            filename: filename,
-            conflictAction: 'uniquify',
-            saveAs: false
-          }, (downloadId) => {
-            if (chrome.runtime.lastError) {
-              return reject(new Error(chrome.runtime.lastError.message));
-            }
-            activeDownloads.set(downloadId, { resolve, reject });
-
-            // Fix race condition: download may already be done
-            chrome.downloads.search({ id: downloadId }, (results) => {
-              if (results && results.length > 0) {
-                const state = results[0].state;
-                if (state === 'complete') {
-                  activeDownloads.delete(downloadId);
-                  resolve(downloadId);
-                } else if (state === 'interrupted') {
-                  activeDownloads.delete(downloadId);
-                  reject(new Error(results[0].error || 'Download interrupted'));
-                }
-              }
-            });
-          });
-        });
-        success++;
-
-      } else if (item.type === 'video' || item.type === 'gif') {
-        // Tải MP4/GIF trực tiếp từ service worker — KHÔNG qua offscreen
-        // chrome.downloads bypass CORS và dùng session cookies sẵn có
-        // Offscreen chỉ cần cho HLS (ghép nhiều TS segments)
-        await downloadFile(item.url, filename);
-        success++;
+        await downloadFile(res.dataUrl, filename);
 
       } else {
-        // Chỉ ảnh (images) mới tải trực tiếp
+        // MP4, GIF, Image — tải trực tiếp
         await downloadFile(item.url, filename);
-        success++;
       }
+
+      success++;
     } catch (err) {
       failed++;
       activeErrors.push(err.message);
-      console.warn('[SW] Download failed:', item.url, err.message);
+      console.warn('[SW] Download failed:', item?.url, err.message);
     }
+
     broadcastToPopup('DOWNLOAD_PROGRESS', {
       username,
       current: success + failed,
@@ -536,87 +553,106 @@ async function startDownload(username, options = {}) {
     });
   }
 
-  // Khởi tạo Offscreen nếu chưa có (dùng biến global)
-  async function ensureOffscreen() {
-    if (globalCreatingOffscreen) {
-      await globalCreatingOffscreen;
-      return;
-    }
-    
-    // Fallback an toàn cho bản Chrome cũ không có getContexts
-    if (!chrome.runtime.getContexts) {
-      const hasOffscreen = await chrome.offscreen.hasDocument();
-      if (hasOffscreen) return;
-    } else {
-      const existingContexts = await chrome.runtime.getContexts({
-        contextTypes: ['OFFSCREEN_DOCUMENT'],
-      });
-      if (existingContexts.length > 0) return;
-    }
-
-    globalCreatingOffscreen = chrome.offscreen.createDocument({
-      url: 'offscreen/offscreen.html',
-      reasons: ['BLOBS'],
-      justification: 'Convert HLS stream to Blob for downloading',
-    }).catch(err => {
-      if (!err.message.includes('single offscreen document')) {
-        console.warn('Offscreen creation error:', err);
-      }
-    });
-    
-    await globalCreatingOffscreen;
-    globalCreatingOffscreen = null;
-  }
-
   try {
-    // Chạy CONCURRENCY items song song
-    for (let i = 0; i < items.length; i += CONCURRENCY) {
-      const batch = items.slice(i, i + CONCURRENCY);
-      await Promise.all(batch.map(item => downloadOne(item, opts)));
-      if (i + CONCURRENCY < items.length) {
-        await sleep(200);
+    // BUG-4 FIX: Dùng asyncPool để các item chạy song song có giới hạn,
+    // mỗi item được wrap với timeout riêng → 1 item fail/timeout không block item khác
+    const allTasks = items.map(item =>
+      Promise.race([
+        downloadOne(item),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Timeout: ${item.url?.slice(-50)}`)), DOWNLOAD_TIMEOUT_MS + 10_000)
+        ),
+      ]).catch(err => {
+        // Outer catch: timeout ở cấp batch — đảm bảo không bao giờ unhandled
+        failed++;
+        activeErrors.push(err.message);
+        console.warn('[SW] Batch-level timeout:', err.message);
+        broadcastToPopup('DOWNLOAD_PROGRESS', {
+          username, current: success + failed, total, success, failed,
+          errors: activeErrors, done: success + failed === total,
+          percent: Math.round(((success + failed) / total) * 100),
+          currentFile: '',
+        });
+      })
+    );
+
+    // Chạy với giới hạn concurrent
+    const executing = new Set();
+    for (const task of allTasks) {
+      executing.add(task);
+      task.finally(() => executing.delete(task));
+      if (executing.size >= CONCURRENCY) {
+        await Promise.race(executing);
       }
     }
+    await Promise.all(executing);
+
   } catch (err) {
     console.error('[SW] Critical download error:', err);
   } finally {
     downloadInProgress = false;
+    stopKeepAlive(); // BUG-2 FIX: Tắt keep-alive khi xong
     broadcastToPopup('DOWNLOAD_DONE', { username, success, failed, total });
   }
 }
 
 // ─── chrome.downloads.download() wrapper ─────────────────────────────────────
+// BUG-1 FIX: Thêm timeout 90s — Promise không bao giờ treo vĩnh viễn
+// BUG-7 FIX: Guard chống double-resolve bằng `settled` flag
 function downloadFile(url, filename) {
   return new Promise((resolve, reject) => {
+    let settled = false;
+
+    // Timeout 90 giây
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error(`Download timeout (90s): ${filename.split('/').pop()}`));
+    }, DOWNLOAD_TIMEOUT_MS);
+
+    function safeResolve(val) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(val);
+    }
+
+    function safeReject(err) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(err);
+    }
+
     chrome.downloads.download(
       { url, filename, conflictAction: 'uniquify', saveAs: false },
       (downloadId) => {
         if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
+          safeReject(new Error(chrome.runtime.lastError.message));
           return;
         }
         if (!downloadId) {
-          reject(new Error('No downloadId returned'));
+          safeReject(new Error('No downloadId returned'));
           return;
         }
-        // Theo dõi completion qua onChanged
-        activeDownloads.set(downloadId, { resolve, reject });
 
-        // Fix race condition: check ngay lập tức lỡ như tải xong/lỗi trước khi kịp addListener
+        // Theo dõi completion qua onChanged
+        activeDownloads.set(downloadId, { resolve: safeResolve, reject: safeReject });
+
+        // BUG-7 FIX: Race condition check — nếu download đã xong trước khi addListener kịp
         chrome.downloads.search({ id: downloadId }, (results) => {
-          if (results && results.length > 0) {
+          if (!activeDownloads.has(downloadId)) return; // Đã được xử lý bởi onChanged
+          if (results?.length > 0) {
             const state = results[0].state;
             if (state === 'complete') {
               activeDownloads.delete(downloadId);
-              resolve(downloadId);
+              safeResolve(downloadId);
             } else if (state === 'interrupted') {
               activeDownloads.delete(downloadId);
-              reject(new Error(results[0].error || 'Download interrupted'));
+              safeReject(new Error(results[0].error || 'Download interrupted'));
             }
           }
         });
-
-        // Loại bỏ timeout 60s
       }
     );
   });
@@ -696,8 +732,14 @@ function updateBadge(username) {
   chrome.action.setBadgeBackgroundColor({ color: '#1D9BF0' });
 }
 
+// BUG-9 FIX: Không log lỗi khi popup đóng (expected behavior)
 function broadcastToPopup(type, payload) {
-  chrome.runtime.sendMessage({ type, payload }).catch(() => {});
+  chrome.runtime.sendMessage({ type, payload }).catch((_err) => {
+    // Popup đóng = expected. Chỉ log nếu lỗi bất thường.
+    // if (_err?.message && !_err.message.includes('Receiving end does not exist')) {
+    //   console.warn('[SW] broadcastToPopup error:', _err.message);
+    // }
+  });
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }

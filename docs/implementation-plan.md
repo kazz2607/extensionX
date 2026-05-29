@@ -118,7 +118,8 @@ User mở Profile Page (x.com/username/media)
     "declarativeNetRequest",
     "offscreen",
     "tabs",
-    "activeTab"
+    "activeTab",
+    "alarms"
   ],
     "https://*.x.com/*",
     "https://*.twitter.com/*",
@@ -595,4 +596,4 @@ Cài đặt cho phép người dùng tuỳ chỉnh:
 
 ---
 
-*Tài liệu cập nhật ngày: 2026-05-26 | Phiên bản: 3.1.0*
+*Tài liệu cập nhật ngày: 2026-05-29 | Phiên bản: 3.5.1*
