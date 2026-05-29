@@ -2,6 +2,12 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [3.5.2] - 2026-05-29
+### Sửa lỗi (Fixed)
+- **[Concurrency bị bỏ qua] Tải tất cả file cùng lúc, không giới hạn theo setting:** Code cũ dùng `items.map()` gọi `chrome.downloads.download()` cho **toàn bộ** item ngay lập tức trước khi vòng lặp concurrency kịp chạy — cài đặt "Số file tải đồng thời" trong Options hoàn toàn bị bỏ qua. Sửa bằng **worker pool lazy**: đúng CONCURRENCY worker chạy cùng lúc, mỗi worker tự lấy item tiếp theo từ queue khi rảnh — đảm bảo đúng số download thực sự song song.
+
+---
+
 ## [3.5.1] - 2026-05-29
 ### Sửa lỗi nghiêm trọng (Critical Fixes)
 - **[Download dừng giữa chừng] Service Worker bị Chrome terminate sau ~5 phút:** MV3 Service Worker có thể bị Chrome kill trong lúc tải file lớn, khiến toàn bộ hàng đợi download mất. Sửa bằng cách thêm `chrome.alarms` keep-alive (ping mỗi 24 giây) trong suốt quá trình tải — đảm bảo SW không bị terminate dù tải hàng trăm file.

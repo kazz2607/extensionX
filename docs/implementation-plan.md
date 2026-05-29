@@ -596,4 +596,4 @@ Cài đặt cho phép người dùng tuỳ chỉnh:
 
 ---
 
-*Tài liệu cập nhật ngày: 2026-05-29 | Phiên bản: 3.5.1*
+*Tài liệu cập nhật ngày: 2026-05-29 | Phiên bản: 3.5.2*
