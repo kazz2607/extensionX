@@ -554,38 +554,45 @@ async function startDownload(username, options = {}) {
   }
 
   try {
-    // BUG-4 FIX: Dùng asyncPool để các item chạy song song có giới hạn,
-    // mỗi item được wrap với timeout riêng → 1 item fail/timeout không block item khác
-    const allTasks = items.map(item =>
-      Promise.race([
-        downloadOne(item),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error(`Timeout: ${item.url?.slice(-50)}`)), DOWNLOAD_TIMEOUT_MS + 10_000)
-        ),
-      ]).catch(err => {
-        // Outer catch: timeout ở cấp batch — đảm bảo không bao giờ unhandled
-        failed++;
-        activeErrors.push(err.message);
-        console.warn('[SW] Batch-level timeout:', err.message);
-        broadcastToPopup('DOWNLOAD_PROGRESS', {
-          username, current: success + failed, total, success, failed,
-          errors: activeErrors, done: success + failed === total,
-          percent: Math.round(((success + failed) / total) * 100),
-          currentFile: '',
-        });
-      })
-    );
+    // BUG-4 FIX (corrected): Worker pool lazy — chỉ CONCURRENCY download chạy cùng lúc.
+    // items.map() eager sẽ gọi chrome.downloads.download() cho TẤT CẢ item ngay lập tức
+    // → phải dùng worker queue để download thực sự bị giới hạn đúng số CONCURRENCY.
+    const queue = [...items]; // shallow copy để không mutate array gốc
 
-    // Chạy với giới hạn concurrent
-    const executing = new Set();
-    for (const task of allTasks) {
-      executing.add(task);
-      task.finally(() => executing.delete(task));
-      if (executing.size >= CONCURRENCY) {
-        await Promise.race(executing);
+    const runWorker = async () => {
+      while (queue.length > 0) {
+        const item = queue.shift();
+        if (!item) break;
+
+        // Mỗi item có timeout riêng ở cấp batch (ngoài timeout 90s của downloadOne)
+        await Promise.race([
+          downloadOne(item),
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error(`Batch timeout: ${item.url?.slice(-50)}`)),
+              DOWNLOAD_TIMEOUT_MS + 15_000  // 90s + 15s buffer
+            )
+          ),
+        ]).catch(err => {
+          // Chỉ xử lý ở đây nếu downloadOne() không tự catch được (batch-level timeout)
+          if (err.message?.startsWith('Batch timeout')) {
+            failed++;
+            activeErrors.push(err.message);
+            console.warn('[SW] Batch-level timeout:', err.message);
+            broadcastToPopup('DOWNLOAD_PROGRESS', {
+              username, current: success + failed, total, success, failed,
+              errors: activeErrors, done: success + failed === total,
+              percent: Math.round(((success + failed) / total) * 100),
+              currentFile: '',
+            });
+          }
+          // Các lỗi khác đã được downloadOne() tự xử lý rồi → bỏ qua
+        });
       }
-    }
-    await Promise.all(executing);
+    };
+
+    // Khởi động đúng CONCURRENCY worker — mỗi worker xử lý tuần tự từ queue
+    await Promise.all(Array.from({ length: CONCURRENCY }, () => runWorker()));
 
   } catch (err) {
     console.error('[SW] Critical download error:', err);
