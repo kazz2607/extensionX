@@ -437,6 +437,12 @@ function listenToMessages() {
         }
         break;
 
+      case 'IDM_DETECTED':
+        // IDM Integration Module detected — files won't be in username folder
+        showToast('⚠️ IDM đang chiếm quyền download! File sẽ không vào thư mục username. Hãy tắt IDM Integration Module.', 'warning');
+        setStatus('error', '⚠️ IDM detected — file không vào đúng thư mục');
+        break;
+
       case 'DOWNLOAD_DONE': {
         isDownloading = false;
         showProgress(false);
@@ -475,7 +481,9 @@ function showToast(msg, type = '') {
   clearTimeout(toastTimer);
   els.toast.textContent = msg;
   els.toast.className = 'toast show ' + type;
-  toastTimer = setTimeout(() => { els.toast.className = 'toast'; }, 3000);
+  // Warning toasts stay longer so users can read them
+  const duration = type === 'warning' ? 7000 : 3000;
+  toastTimer = setTimeout(() => { els.toast.className = 'toast'; }, duration);
 }
 
 // ─── History ──────────────────────────────────────────────────────────────────

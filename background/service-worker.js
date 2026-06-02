@@ -50,7 +50,14 @@ chrome.downloads.onChanged.addListener((delta) => {
       tracked.resolve(delta.id);
       activeDownloads.delete(delta.id);
     } else if (delta.state.current === 'interrupted') {
-      tracked.reject(new Error(delta.error?.current || 'Download interrupted'));
+      const err = delta.error?.current || '';
+      // IDM FIX: Kiểm tra xem IDM có hijack download này không
+      if (isIdmHijack(delta.id, tracked.startTime || Date.now(), err)) {
+        maybeWarnIdm();
+        tracked.resolve(delta.id);
+      } else {
+        tracked.reject(new Error(err || 'Download interrupted'));
+      }
       activeDownloads.delete(delta.id);
     }
   } else if (delta.bytesReceived) {
@@ -603,12 +610,34 @@ async function startDownload(username, options = {}) {
   }
 }
 
+// ─── IDM Conflict Detection ───────────────────────────────────────────────────
+// IDM Integration Module hijacks chrome.downloads bằng cách cancel download ngay lập tức
+// rồi tự tải file theo cách riêng — bỏ qua hoàn toàn `filename` param của chúng ta.
+// Ta detect IDM hijack khi: interrupted trong vòng 2s + error là USER_CANCELED hoặc rỗng.
+let _idmDetected = false;
+
+function isIdmHijack(downloadId, startTime, error) {
+  const elapsed = Date.now() - startTime;
+  const isQuickCancel = elapsed < 2000;
+  const isUserCancel  = !error || error === 'USER_CANCELED';
+  return isQuickCancel && isUserCancel;
+}
+
+function maybeWarnIdm() {
+  if (_idmDetected) return;
+  _idmDetected = true;
+  console.warn('[SW] ⚠️ IDM Integration Module detected! Files will be saved by IDM, not in the username folder.');
+  broadcastToPopup('IDM_DETECTED', {});
+}
+
 // ─── chrome.downloads.download() wrapper ─────────────────────────────────────
 // BUG-1 FIX: Thêm timeout 90s — Promise không bao giờ treo vĩnh viễn
 // BUG-7 FIX: Guard chống double-resolve bằng `settled` flag
+// IDM FIX: Detect IDM hijack → resolve thay vì reject để không báo lỗi sai
 function downloadFile(url, filename) {
   return new Promise((resolve, reject) => {
     let settled = false;
+    const startTime = Date.now();
 
     // Timeout 90 giây
     const timer = setTimeout(() => {
@@ -644,7 +673,11 @@ function downloadFile(url, filename) {
         }
 
         // Theo dõi completion qua onChanged
-        activeDownloads.set(downloadId, { resolve: safeResolve, reject: safeReject });
+        activeDownloads.set(downloadId, {
+          resolve: safeResolve,
+          reject: safeReject,
+          startTime,
+        });
 
         // BUG-7 FIX: Race condition check — nếu download đã xong trước khi addListener kịp
         chrome.downloads.search({ id: downloadId }, (results) => {
@@ -656,7 +689,14 @@ function downloadFile(url, filename) {
               safeResolve(downloadId);
             } else if (state === 'interrupted') {
               activeDownloads.delete(downloadId);
-              safeReject(new Error(results[0].error || 'Download interrupted'));
+              const err = results[0].error || '';
+              // IDM FIX: IDM hijack → coi như thành công
+              if (isIdmHijack(downloadId, startTime, err)) {
+                maybeWarnIdm();
+                safeResolve(downloadId);
+              } else {
+                safeReject(new Error(err || 'Download interrupted'));
+              }
             }
           }
         });

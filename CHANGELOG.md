@@ -2,6 +2,12 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [3.5.3] - 2026-06-02
+### Sửa lỗi (Fixed)
+- **[Xung đột IDM] File download không vào đúng thư mục username khi bật IDM Integration Module:** IDM Integration Module (của Internet Download Manager) hook vào Chrome Downloads API và cancel download của Chrome ngay lập tức (~100–500ms), rồi tự tải file theo cách riêng — bỏ qua hoàn toàn tham số `filename` mà extension truyền vào qua `chrome.downloads.download()`. Hậu quả: file không được lưu vào `{saveFolder}/{username}/images|videos|gifs/`, progress counter báo "X failed" dù IDM đã tải thành công. Sửa bằng cách thêm hàm `isIdmHijack()` phát hiện IDM qua dấu hiệu đặc trưng (download bị interrupted trong vòng 2 giây + error là `USER_CANCELED` hoặc rỗng), sau đó coi đó là thành công thay vì lỗi — tránh counter sai và popup báo lỗi. Extension cũng broadcast `IDM_DETECTED` để popup hiển thị cảnh báo màu cam, nhắc người dùng tắt IDM Integration Module nếu muốn file vào đúng thư mục.
+
+---
+
 ## [3.5.2] - 2026-05-29
 ### Sửa lỗi (Fixed)
 - **[Concurrency bị bỏ qua] Tải tất cả file cùng lúc, không giới hạn theo setting:** Code cũ dùng `items.map()` gọi `chrome.downloads.download()` cho **toàn bộ** item ngay lập tức trước khi vòng lặp concurrency kịp chạy — cài đặt "Số file tải đồng thời" trong Options hoàn toàn bị bỏ qua. Sửa bằng **worker pool lazy**: đúng CONCURRENCY worker chạy cùng lúc, mỗi worker tự lấy item tiếp theo từ queue khi rảnh — đảm bảo đúng số download thực sự song song.

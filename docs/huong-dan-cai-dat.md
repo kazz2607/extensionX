@@ -95,7 +95,7 @@ Sau khi load, extension sẽ xuất hiện trong danh sách:
 
 ```
 ┌──────────────────────────────────────────┐
-│  ⬇ X Media Downloader          v3.5.2   │
+│  ⬇ X Media Downloader          v3.5.3   │
 │  Tải toàn bộ ảnh & video từ X.com...    │
 │                                          │
 │  [Details]  [Remove]           ● Enabled │
@@ -127,7 +127,7 @@ Click icon **⬇** trên toolbar Chrome. Popup sẽ hiển thị:
 
 ```
 ┌─────────────────────────────────────┐
-│ ⬇ X Media Downloader      v3.5.2  ⭤☉⚡│
+│ ⬇ X Media Downloader      v3.5.3  ⭤☉⚡│
 ├─────────────────────────────────────┤
 │ 👤 @NASA                        [47]│
 │    Profile đang được xem            │
@@ -275,6 +275,18 @@ Khi có phiên bản mới:
 
 ---
 
+### File tải về không vào đúng thư mục username (IDM conflict)
+
+**Nguyên nhân:** **IDM Integration Module** (của Internet Download Manager) đang bật. IDM hook vào Chrome Downloads API và tự quản lý việc lưu file, bỏ qua hoàn toàn thư mục `{username}/` mà extension chỉ định.
+
+**Giải pháp:**
+1. Mở IDM → menu **Downloads → Options → File Types**
+2. Tắt tuỳ chọn bắt file từ domain `pbs.twimg.com` và `video.twimg.com`
+3. Hoặc vào `chrome://extensions` → tắt **IDM Integration Module** khi dùng X Media Downloader
+4. Từ v3.5.3: Extension sẽ hiện cảnh báo màu cam 🟠 trong popup khi phát hiện IDM đang can thiệp
+
+---
+
 ### Profile private không tải được
 
 **Nguyên nhân:** Cần quyền xem profile
@@ -366,4 +378,4 @@ Nếu gặp vấn đề, hãy kiểm tra:
 
 ---
 
-*Phiên bản: 3.5.2 | Cập nhật: 2026-05-29*
+*Phiên bản: 3.5.3 | Cập nhật: 2026-06-02*
