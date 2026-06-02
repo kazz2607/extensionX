@@ -2,6 +2,12 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [3.5.4] - 2026-06-02
+### Sửa lỗi (Fixed)
+- **[Spam lỗi trên trang chrome://extensions] "Extension context invalidated — content script disconnected" xuất hiện hàng loạt:** Mỗi lần `X_MEDIA_FOUND` fire (rất thường xuyên khi scroll) hoặc `MutationObserver` detect DOM thay đổi sau khi SW reload, `handleContextInvalidated()` bị gọi lặp đi lặp lại — mỗi lần gọi đều `console.warn()` và Chrome log toàn bộ vào trang errors tạo ra hàng trăm dòng lỗi. Sửa bằng hai cách: (1) Thêm flag `_contextDead` đảm bảo hàm cleanup chỉ chạy **đúng 1 lần duy nhất** — tất cả các lần gọi tiếp theo đều early-return ngay lập tức. (2) Đổi `console.warn` → `console.debug` — Chrome chỉ đẩy `warn`/`error` vào trang extensions errors, `debug` chỉ hiện trong DevTools console.
+
+---
+
 ## [3.5.3] - 2026-06-02
 ### Sửa lỗi (Fixed)
 - **[Xung đột IDM] File download không vào đúng thư mục username khi bật IDM Integration Module:** IDM Integration Module (của Internet Download Manager) hook vào Chrome Downloads API và cancel download của Chrome ngay lập tức (~100–500ms), rồi tự tải file theo cách riêng — bỏ qua hoàn toàn tham số `filename` mà extension truyền vào qua `chrome.downloads.download()`. Hậu quả: file không được lưu vào `{saveFolder}/{username}/images|videos|gifs/`, progress counter báo "X failed" dù IDM đã tải thành công. Sửa bằng cách thêm hàm `isIdmHijack()` phát hiện IDM qua dấu hiệu đặc trưng (download bị interrupted trong vòng 2 giây + error là `USER_CANCELED` hoặc rỗng), sau đó coi đó là thành công thay vì lỗi — tránh counter sai và popup báo lỗi. Extension cũng broadcast `IDM_DETECTED` để popup hiển thị cảnh báo màu cam, nhắc người dùng tắt IDM Integration Module nếu muốn file vào đúng thư mục.

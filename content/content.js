@@ -20,9 +20,14 @@ function isExtensionValid() {
 }
 
 // Cleanup khi extension context bị invalidate (SW reload/update)
+// Flag đảm bảo chỉ cleanup 1 lần — tránh spam log mỗi khi DOM thay đổi
+let _contextDead = false;
 function handleContextInvalidated() {
+  if (_contextDead) return;
+  _contextDead = true;
   try { navObserver?.disconnect(); } catch (_) {}
-  console.warn('[XMD] Extension context invalidated — content script disconnected.');
+  // Dùng console.debug thay vì warn — Chrome không log debug vào trang errors
+  console.debug('[XMD] Extension context invalidated — content script disconnected.');
 }
 
 // ─── 1. Inject scripts vào page context ──────────────────────────────────────
@@ -89,7 +94,7 @@ window.addEventListener('X_MEDIA_FOUND', (event) => {
   if (!mediaItems?.length) return;
 
   // BUG-3 FIX: Kiểm tra context trước khi sendMessage
-  if (!isExtensionValid()) {
+  if (_contextDead || !isExtensionValid()) {
     handleContextInvalidated();
     return;
   }
@@ -119,7 +124,7 @@ window.addEventListener('XMD_FAB_ACTION', (event) => {
   const { action } = event.detail || {};
   const username = getUsernameFromURL();
   if (!username) return;
-  if (!isExtensionValid()) { handleContextInvalidated(); return; } // BUG-3 FIX
+  if (_contextDead || !isExtensionValid()) { handleContextInvalidated(); return; } // BUG-3 FIX
 
   if (action === 'START_COLLECTING') {
     chrome.runtime.sendMessage({ type: 'START_COLLECTING', payload: { username } }).catch(() => {});
@@ -243,7 +248,7 @@ const navObserver = new MutationObserver(() => {
   if (location.href !== lastUrl) {
     lastUrl = location.href;
     // BUG-3 FIX: Kiểm tra context trước khi sendMessage
-    if (!isExtensionValid()) {
+    if (_contextDead || !isExtensionValid()) {
       handleContextInvalidated();
       return;
     }
