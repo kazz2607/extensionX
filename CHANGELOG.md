@@ -2,6 +2,13 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [3.5.5] - 2026-06-02
+### Sửa lỗi (Fixed)
+- **[FAB] Bấm nút `__xmd_main_btn__` không trigger download:** Logic cũ check `!downloadBtn.disabled` để quyết định có download hay không — nhưng `downloadBtn` bị disable ngay sau lần download đầu tiên và không bao giờ được enable lại (vì FAB không nhận được tín hiệu download xong). Sửa bằng cách thêm flag `isDownloading` riêng biệt trong `fab.js`, độc lập với trạng thái `disabled` của button. Main btn giờ check `isDownloading` thay vì `downloadBtn.disabled`.
+- **[FAB] `isDownloading` không reset sau khi download xong:** Service Worker chỉ broadcast `DOWNLOAD_DONE` lên popup qua `broadcastToPopup()`, không gửi tín hiệu gì về tab chứa FAB. FAB không biết download đã xong → `isDownloading = true` mãi mãi → bấm lần 2, 3... không có tác dụng. Sửa bằng cách thêm `FAB_UPDATE { state: 'DOWNLOAD_DONE' }` gửi về tab qua `chrome.tabs.sendMessage()` trong `finally` block của `startDownload()`.
+
+---
+
 ## [3.5.4] - 2026-06-02
 ### Sửa lỗi (Fixed)
 - **[Spam lỗi trên trang chrome://extensions] "Extension context invalidated — content script disconnected" xuất hiện hàng loạt:** Mỗi lần `X_MEDIA_FOUND` fire (rất thường xuyên khi scroll) hoặc `MutationObserver` detect DOM thay đổi sau khi SW reload, `handleContextInvalidated()` bị gọi lặp đi lặp lại — mỗi lần gọi đều `console.warn()` và Chrome log toàn bộ vào trang errors tạo ra hàng trăm dòng lỗi. Sửa bằng hai cách: (1) Thêm flag `_contextDead` đảm bảo hàm cleanup chỉ chạy **đúng 1 lần duy nhất** — tất cả các lần gọi tiếp theo đều early-return ngay lập tức. (2) Đổi `console.warn` → `console.debug` — Chrome chỉ đẩy `warn`/`error` vào trang extensions errors, `debug` chỉ hiện trong DevTools console.

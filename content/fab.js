@@ -240,6 +240,7 @@
   // ─── State ───────────────────────────────────────────────────────────────────
   let panelOpen = false;
   let isCollecting = false;
+  let isDownloading = false;  // FIX: flag riêng cho download, độc lập với downloadBtn.disabled
   let mediaCount = 0;
 
   const panel = document.getElementById('__xmd_panel__');
@@ -276,8 +277,15 @@
 
   // ─── Toggle Panel ────────────────────────────────────────────────────────────
   mainBtn.addEventListener('click', () => {
-    // Nếu có media: bấm main btn = download luôn (không cần mở panel)
-    if (mediaCount > 0 && !downloadBtn.disabled) {
+    // Nếu đang download: bấm vào main btn = toggle panel (xem tiến độ)
+    if (isDownloading) {
+      panelOpen = !panelOpen;
+      panel.classList.toggle('visible', panelOpen);
+      return;
+    }
+    // Nếu có media và chưa đang download: bấm main btn = download luôn
+    if (mediaCount > 0) {
+      isDownloading = true;
       window.dispatchEvent(new CustomEvent('XMD_FAB_ACTION', {
         detail: { action: 'START_DOWNLOAD' }
       }));
@@ -288,7 +296,7 @@
       panel.classList.remove('visible');
       return;
     }
-    // Nếu chưa có media: toggle panel để dùng nút Thu Thập
+    // Chưa có media: toggle panel để dùng nút Thu Thập
     panelOpen = !panelOpen;
     panel.classList.toggle('visible', panelOpen);
   });
@@ -329,7 +337,8 @@
   // ─── Download Button ─────────────────────────────────────────────────────────
   downloadBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    if (downloadBtn.disabled) return;
+    if (downloadBtn.disabled || isDownloading) return;
+    isDownloading = true;
     window.dispatchEvent(new CustomEvent('XMD_FAB_ACTION', {
       detail: { action: 'START_DOWNLOAD' }
     }));
@@ -362,6 +371,7 @@
     }
 
     if (state === 'DOWNLOAD_DONE') {
+      isDownloading = false;  // FIX: reset flag để cho phép download lần tiếp
       downloadBtn.textContent = window.i18n ? window.i18n.t('fab_download') : '↓ Download';
       downloadBtn.disabled = mediaCount === 0;
     }

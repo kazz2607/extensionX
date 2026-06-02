@@ -607,6 +607,16 @@ async function startDownload(username, options = {}) {
     downloadInProgress = false;
     stopKeepAlive(); // BUG-2 FIX: Tắt keep-alive khi xong
     broadcastToPopup('DOWNLOAD_DONE', { username, success, failed, total });
+
+    // FAB FIX: Thông báo FAB trong tab để reset isDownloading flag
+    tabState.forEach((state, tabId) => {
+      if (state.username === username) {
+        chrome.tabs.sendMessage(tabId, {
+          type: 'FAB_UPDATE',
+          payload: { state: 'DOWNLOAD_DONE' }
+        }).catch(() => {});
+      }
+    });
   }
 }
 
