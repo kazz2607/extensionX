@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_appName__",
-  "version": "3.5.5",
+  "version": "3.6.0",
   "description": "__MSG_appDesc__",
   "default_locale": "en",
   "icons": {
@@ -53,6 +53,7 @@
         "content/page-interceptor.js",
         "content/dom-scanner.js",
         "content/fab.js",
+        "content/tweet-btn.js",
         "lib/utils.js",
         "lib/hls-fetcher.js",
         "lib/i18n.js"

@@ -2,6 +2,19 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [3.6.0] - 2026-06-03
+### Thêm mới (Added)
+- **[Download Mini Button] Nút tải nhỏ trực tiếp trên từng tweet:** Tự động chèn icon ↓ vào thanh action bar (cạnh các nút Reply/Retweet/Like/Share) của mỗi tweet có ảnh hoặc video. Click → tải ngay media của tweet đó mà không cần mở popup hay FAB.
+  - Phát hiện media thông minh: ảnh `pbs.twimg.com` (loại trừ avatar/banner), `<video>` element, và video thumbnail (chưa phát).
+  - Luồng download: ưu tiên cache trong `mediaStore` → fallback gọi API (`fetchVideoForTweet`) → nếu tweet là video chưa xem, API sẽ lấy URL thực.
+  - Trạng thái nút: idle (icon ↓) → loading (spinner) → done (✓ xanh lá, reset 3s) / error (✗ đỏ, reset 3s).
+  - Hỗ trợ gallery tweet (nhiều ảnh): download tất cả media cùng lúc.
+  - Tự cập nhật khi scroll và điều hướng SPA (không cần reload trang).
+  - Theo dõi đúng username từ URL để lưu file vào đúng thư mục.
+- **[Refactor] `downloadSingleItem()` module-level:** Tách hàm download một item ra scope module trong `service-worker.js` — tái dụng cho cả `startDownload()` (batch) lẫn `DOWNLOAD_TWEET` (single), tránh duplicate code.
+
+---
+
 ## [3.5.5] - 2026-06-02
 ### Sửa lỗi (Fixed)
 - **[FAB] Bấm nút `__xmd_main_btn__` không trigger download:** Logic cũ check `!downloadBtn.disabled` để quyết định có download hay không — nhưng `downloadBtn` bị disable ngay sau lần download đầu tiên và không bao giờ được enable lại (vì FAB không nhận được tín hiệu download xong). Sửa bằng cách thêm flag `isDownloading` riêng biệt trong `fab.js`, độc lập với trạng thái `disabled` của button. Main btn giờ check `isDownloading` thay vì `downloadBtn.disabled`.

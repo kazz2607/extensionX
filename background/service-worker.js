@@ -241,6 +241,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
 
+    // ─── Mini Button: Download single tweet ──────────────────────────────────
+    case 'DOWNLOAD_TWEET': {
+      const { tweetId, username } = payload;
+      const tabId = sender.tab?.id;
+      if (!tweetId) { sendResponse({ error: 'No tweetId' }); return false; }
+
+      // Thông báo loading ngay
+      if (tabId) {
+        chrome.tabs.sendMessage(tabId, {
+          type: 'TWEET_DOWNLOAD_RESULT',
+          payload: { tweetId, state: 'loading' }
+        }).catch(() => {});
+      }
+
+      // Xử lý async không giữ message channel
+      handleDownloadTweet(tweetId, username, tabId);
+      sendResponse({ ok: true });
+      return false;
+    }
+
     default:
       return false;
   }
@@ -431,6 +451,149 @@ function stopCollecting(username) {
 // ─── Download — từng file, không ZIP ─────────────────────────────────────────
 let activeErrors = []; // Mảng chứa chi tiết lỗi
 
+// ─── Ensure Offscreen Document tồn tại ───────────────────────────────────────
+async function ensureOffscreen() {
+  try {
+    if (chrome.runtime.getContexts) {
+      const existing = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] });
+      if (existing.length > 0) return;
+    } else {
+      const has = await chrome.offscreen.hasDocument();
+      if (has) return;
+    }
+    await chrome.offscreen.createDocument({
+      url: 'offscreen/offscreen.html',
+      reasons: ['BLOBS'],
+      justification: 'Convert HLS stream to Blob for downloading',
+    });
+  } catch (err) {
+    if (!err.message?.includes('single offscreen document')) {
+      console.warn('[SW] Offscreen creation error:', err.message);
+    }
+  }
+}
+
+// ─── Download một item (module-level, tái dụng được) ─────────────────────────
+async function downloadSingleItem(item, username, saveFolder, opts = {}) {
+  const { flatUsername = false, filenameUsername = false } = opts;
+  let filename = buildDownloadPath(saveFolder, username, item, flatUsername, filenameUsername);
+
+  if (item.type === 'hls' || filename.endsWith('.m3u8')) {
+    filename = filename.replace('.m3u8', '.ts').replace('.mp4', '.ts');
+  }
+
+  if (item.type === 'hls' || item.url?.includes('.m3u8') || filename.endsWith('.ts')) {
+    await ensureOffscreen();
+    const HLS_TIMEOUT = 5 * 60 * 1000;
+    const res = await Promise.race([
+      new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+          target: 'offscreen',
+          type: 'DOWNLOAD_HLS',
+          url: item.url,
+          username,
+          filename,
+        }, (res) => {
+          if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+          if (!res) return reject(new Error('No response from offscreen'));
+          if (res.error) return reject(new Error(res.error));
+          resolve(res);
+        });
+      }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('HLS download timeout (5 min)')), HLS_TIMEOUT)
+      ),
+    ]);
+    await downloadFile(res.dataUrl, filename);
+  } else {
+    await downloadFile(item.url, filename);
+  }
+
+  return filename;
+}
+
+// ─── Tìm tất cả media của một tweet trong mediaStore ─────────────────────────
+function findTweetMediaInStore(tweetId, username) {
+  const results = [];
+  const checkStore = (store) => {
+    for (const item of store.values()) {
+      if (item.tweetId === tweetId) results.push(item);
+    }
+  };
+
+  if (username && mediaStore.has(username)) {
+    checkStore(mediaStore.get(username));
+  } else {
+    // Tìm trong tất cả stores nếu không biết username
+    mediaStore.forEach(checkStore);
+  }
+  return results;
+}
+
+// ─── Handler: Download single tweet từ Mini Button ───────────────────────────
+async function handleDownloadTweet(tweetId, username, tabId) {
+  const sendResult = (state, extra = {}) => {
+    if (!tabId) return;
+    chrome.tabs.sendMessage(tabId, {
+      type: 'TWEET_DOWNLOAD_RESULT',
+      payload: { tweetId, state, ...extra }
+    }).catch(() => {});
+  };
+
+  try {
+    let opts = {};
+    try {
+      const stored = await chrome.storage.sync.get('options');
+      opts = stored.options || {};
+    } catch (_) {}
+
+    const saveFolder = sanitizeFolder(opts.saveFolder || '');
+
+    // 1. Tìm trong mediaStore trước (nhanh, không cần API)
+    let mediaItems = findTweetMediaInStore(tweetId, username);
+
+    // 2. Không có trong store → thử API (video/GIF)
+    if (!mediaItems.length) {
+      try {
+        const videoItem = await fetchVideoForTweet(tweetId, self.userCsrfToken);
+        if (videoItem) {
+          videoItem.username = username;
+          mediaItems = [videoItem];
+        }
+      } catch (_) {}
+    }
+
+    // 3. Vẫn không có → thông báo lỗi
+    if (!mediaItems.length) {
+      sendResult('error', { message: 'No media found for this tweet' });
+      return;
+    }
+
+    // 4. Download tất cả items của tweet (gallery có thể nhiều ảnh)
+    let success = 0;
+    let failed = 0;
+    for (const item of mediaItems) {
+      try {
+        await downloadSingleItem(item, username || item.username || 'unknown', saveFolder, opts);
+        success++;
+      } catch (err) {
+        console.warn('[SW] DOWNLOAD_TWEET item failed:', err.message);
+        failed++;
+      }
+    }
+
+    if (success > 0) {
+      sendResult('done', { success, failed, total: mediaItems.length });
+    } else {
+      sendResult('error', { message: 'All downloads failed' });
+    }
+
+  } catch (err) {
+    console.error('[SW] handleDownloadTweet error:', err);
+    sendResult('error', { message: err.message });
+  }
+}
+
 async function startDownload(username, options = {}) {
   if (downloadInProgress) return;
 
@@ -474,71 +637,15 @@ async function startDownload(username, options = {}) {
 
   broadcastToPopup('DOWNLOAD_STARTED', { username, total });
 
-  // ─── BUG-5 FIX: ensureOffscreen không dùng biến global ───────────────────
-  async function ensureOffscreen() {
-    try {
-      // Luôn kiểm tra trực tiếp — không phụ thuộc vào biến global sau SW restart
-      if (chrome.runtime.getContexts) {
-        const existing = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] });
-        if (existing.length > 0) return;
-      } else {
-        const has = await chrome.offscreen.hasDocument();
-        if (has) return;
-      }
-      await chrome.offscreen.createDocument({
-        url: 'offscreen/offscreen.html',
-        reasons: ['BLOBS'],
-        justification: 'Convert HLS stream to Blob for downloading',
-      });
-    } catch (err) {
-      // 'single offscreen document' = đã tồn tại, OK
-      if (!err.message?.includes('single offscreen document')) {
-        console.warn('[SW] Offscreen creation error:', err.message);
-      }
-    }
-  }
-
   // ─── Download một file — BUG-4 FIX: mỗi item tự quản lý timeout ─────────
+  // Dùng module-level downloadSingleItem() — tránh code trùng lặp với DOWNLOAD_TWEET
   async function downloadOne(item) {
     let filename = '';
     try {
-      filename = buildDownloadPath(saveFolder, username, item, opts.flatUsername, filenameUsername);
-
-      // HLS: lưu dưới dạng .ts
-      if (item.type === 'hls' || filename.endsWith('.m3u8')) {
-        filename = filename.replace('.m3u8', '.ts').replace('.mp4', '.ts');
-      }
-
-      if (item.type === 'hls' || item.url.includes('.m3u8') || filename.endsWith('.ts')) {
-        await ensureOffscreen();
-
-        const HLS_TIMEOUT = 5 * 60 * 1000; // 5 phút cho HLS
-        const res = await Promise.race([
-          new Promise((resolve, reject) => {
-            chrome.runtime.sendMessage({
-              target: 'offscreen',
-              type: 'DOWNLOAD_HLS',
-              url: item.url,
-              username,
-              filename,
-            }, (res) => {
-              if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
-              if (!res) return reject(new Error('No response from offscreen'));
-              if (res.error) return reject(new Error(res.error));
-              resolve(res);
-            });
-          }),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('HLS download timeout (5 min)')), HLS_TIMEOUT)
-          ),
-        ]);
-
-        await downloadFile(res.dataUrl, filename);
-
-      } else {
-        // MP4, GIF, Image — tải trực tiếp
-        await downloadFile(item.url, filename);
-      }
+      filename = await downloadSingleItem(item, username, saveFolder, {
+        flatUsername: opts.flatUsername,
+        filenameUsername,
+      });
 
       success++;
     } catch (err) {
