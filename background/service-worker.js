@@ -802,6 +802,9 @@ async function startDownload(username, options = {}) {
   let failed = 0;
 
   broadcastToPopup('DOWNLOAD_STARTED', { username, total });
+  // Snackbar: thông báo bắt đầu
+  const snackEnabled = opts.showSnackbar !== false;
+  if (snackEnabled) broadcastToTab(username, 'SNACKBAR_UPDATE', { type: 'DOWNLOAD_STARTED', username, total });
 
   // ─── Download một file — BUG-4 FIX: mỗi item tự quản lý timeout ─────────
   // Dùng module-level downloadSingleItem() — tránh code trùng lặp với DOWNLOAD_TWEET
@@ -830,6 +833,17 @@ async function startDownload(username, options = {}) {
       done: success + failed === total,
       percent: Math.round(((success + failed) / total) * 100),
       currentFile: filename.split('/').pop(),
+    });
+    // Snackbar: cập nhật progress realtime
+    if (snackEnabled) broadcastToTab(username, 'SNACKBAR_UPDATE', {
+      type: 'DOWNLOAD_PROGRESS',
+      current: success + failed,
+      total,
+      success,
+      failed,
+      percent: Math.round(((success + failed) / total) * 100),
+      currentFile: filename.split('/').pop(),
+      done: success + failed === total,
     });
   }
 
@@ -880,6 +894,8 @@ async function startDownload(username, options = {}) {
     downloadInProgress = false;
     stopKeepAlive(); // BUG-2 FIX: Tắt keep-alive khi xong
     broadcastToPopup('DOWNLOAD_DONE', { username, success, failed, total });
+    // Snackbar: thông báo hoàn thành
+    if (snackEnabled) broadcastToTab(username, 'SNACKBAR_UPDATE', { type: 'DOWNLOAD_DONE', username, success, failed, total });
 
     // FAB FIX: Thông báo FAB trong tab để reset isDownloading flag
     tabState.forEach((state, tabId) => {
@@ -1069,6 +1085,15 @@ function broadcastToPopup(type, payload) {
     // if (_err?.message && !_err.message.includes('Receiving end does not exist')) {
     //   console.warn('[SW] broadcastToPopup error:', _err.message);
     // }
+  });
+}
+
+// Gửi message về tab đang active của username (dùng cho Snackbar)
+function broadcastToTab(username, type, payload) {
+  tabState.forEach((state, tabId) => {
+    if (state.username === username) {
+      chrome.tabs.sendMessage(tabId, { type, payload }).catch(() => {});
+    }
   });
 }
 

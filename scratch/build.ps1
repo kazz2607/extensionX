@@ -1,4 +1,4 @@
-$version = "3.9.0"
+$version = "4.0.0"
 $zipName = "x-media-downloader-v$version.zip"
 $include = @("_locales","background","content","icons","lib","offscreen","options","popup","manifest.json","rules.json")
 if (Test-Path $zipName) { Remove-Item $zipName }

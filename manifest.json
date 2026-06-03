@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_appName__",
-  "version": "3.9.0",
+  "version": "4.0.0",
   "description": "__MSG_appDesc__",
   "default_locale": "en",
   "icons": {
@@ -54,6 +54,7 @@
         "content/dom-scanner.js",
         "content/fab.js",
         "content/tweet-btn.js",
+        "content/snackbar.js",
         "lib/utils.js",
         "lib/hls-fetcher.js",
         "lib/i18n.js"

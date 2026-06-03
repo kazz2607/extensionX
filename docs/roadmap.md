@@ -1,11 +1,11 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-06-03 | Phiên bản hiện tại: **3.9.0**
+> Cập nhật: 2026-06-03 | Phiên bản hiện tại: **4.0.0**
 
 ---
 
-## 1. Kiến Trúc Hiện Tại (v3.9.x)
+## 1. Kiến Trúc Hiện Tại (v4.x)
 
 ```
 extensionX/
@@ -95,21 +95,15 @@ File được lưu vào:
 - Export CSV
 
 ### ✅ Phase 3 — Hoàn Thiện (v3.0.0 → v3.9.0)
-- **v3.0** Direct download (bỏ ZIP), thư mục theo username, Options mới
-- **v3.1** Bypass CORS syndication API, MAIN world injection chuẩn
-- **v3.2** Hook JSON.parse + XHR, duplicate check, NSFW bypass
-- **v3.3** Light/Dark mode, đặt tên file username_TweetID_Serial
-- **v3.4** i18n (vi/en), auto-scroll ổn định, dừng đúng lúc
-- **v3.5.0** Sửa macOS (direct MP4 download, inject sớm hơn), tăng depth JSON → 35
-- **v3.5.1** SW keep-alive (chrome.alarms), timeout 90s/file, popup restore state
-- **v3.5.2** Worker pool concurrency đúng (lazy pool thay vì map())
-- **v3.5.3** IDM conflict detection (isIdmHijack), cảnh báo cam
-- **v3.5.4** Context invalidation: flag `_contextDead`, đổi warn→debug
-- **v3.5.5** FAB isDownloading flag + FAB_UPDATE từ SW sau download xong
-- **v3.6.0** Download Mini Button trên từng tweet, refactor `downloadSingleItem()` module-level
-- **v3.7.0** Session Restore — `persistSession()` / `clearSession()`, restore banner trong popup
-- **v3.8.0** Smart Filters — lọc avatar/banner/card-preview theo URL pattern + kích thước tối thiểu, metadata width/height từ GraphQL
-- **v3.9.0** FAB Draggable — drag handle trục Y, viewport clamp, persist `localStorage`, mouse+touch, drag-vs-click threshold
+- **v3.0–3.4** Direct download, bypass CORS, Hook JSON.parse+XHR, i18n, Dark/Light mode
+- **v3.5.x** macOS fix, SW keep-alive, worker pool, IDM detect, context invalidation
+- **v3.6.0** Download Mini Button trên từng tweet
+- **v3.7.0** Session Restore — `persistSession()` / `clearSession()`, restore banner
+- **v3.8.0** Smart Filters — lọc avatar/banner/card-preview + kích thước tối thiểu
+- **v3.9.0** FAB Draggable — drag handle trục Y, viewport clamp, persist `localStorage`
+
+### ✅ Phase 4 — UX Nâng Cao (v4.0.0)
+- **v4.0.0** Progress Snackbar — snackbar glassmorphism trên trang, realtime, auto-dismiss, toggle trong Options
 
 ---
 
@@ -123,12 +117,11 @@ File được lưu vào:
 | v3.7.0 | **Session Restore** — Tự lưu phiên thu thập, khôi phục sau khi browser tắt/crash |
 | v3.8.0 | **Smart Filters** — Tự động lọc avatar, banner, card preview, và ảnh nhỏ <150px khỏi danh sách media |
 | v3.9.0 | **FAB Draggable** — Kéo thả FAB lên/xuống trên cạnh phải, vị trí được nhớ qua localStorage |
+| v4.0.0 | **Progress Snackbar** — Snackbar glassmorphism trên trang X.com, realtime progress, auto-dismiss, toggle trong Options |
 
 ### 🔲 Đang Kế Hoạch
 
-#### Progress Snackbar trên trang X.com
-- **Mô tả:** Hiển thị tiến trình download dưới dạng snackbar mini trên trang (không cần mở popup).
-- **Ưu tiên:** Trung bình — cải thiện UX khi download nhiều file
+*Không có — tất cả roadmap đã hoàn thành!* 🎉
 
 ---
 
@@ -147,6 +140,7 @@ File được lưu vào:
 | Dữ liệu mất khi SW/browser restart | `persistSession()` debounce 2s → `chrome.storage.local`, restore banner trong popup |
 | Ảnh rác (avatar, card, icon) lọt vào danh sách | Smart Filters: lọc URL pattern `/profile_images/`, `/profile_banners/`, `/card_img/` + ngưỡng kích thước tối thiểu |
 | FAB che nút của X.com | FAB Draggable: kéo handle trục Y, clamp viewport, persist `localStorage` |
+| User không biết tiến độ khi popup đóng | Progress Snackbar: `broadcastToTab()` → content.js relay → snackbar.js |
 
 ---
 

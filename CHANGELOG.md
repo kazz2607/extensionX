@@ -2,6 +2,20 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [4.0.0] - 2026-06-03
+### Thêm mới (Added)
+- **[Progress Snackbar] Hiển thị tiến trình download ngay trên trang X.com:** Snackbar mini xuất hiện ở giữa dưới màn hình khi bắt đầu download — không cần mở popup để theo dõi tiến độ.
+  - **Glassmorphism UI:** `backdrop-filter: blur(20px)`, border mj, bo góc 16px — xẻ phóng, hiện đại.
+  - **Shimmer progress bar:** Gradient `#1D9BF0 → #a855f7`, animation shimmer khi đang tải.
+  - **Realtime:** Cập nhật `percent`, `current/total`, tên file đang tải sau mỗi file hoàn thành.
+  - **Auto-dismiss:** Tự đóng sau 3.5 giây khi tải xong; hiển thị tóm tắt (số thành công, số lỗi nếu có).
+  - **Manual close:** Nút `✕` để đóng tức thì.
+  - **Slide-up/down animation:** `cubic-bezier(0.34, 1.56, 0.64, 1)` — bounce nhẹ khi hiện.
+  - **Bật/tắt trong Options** (mặc định bật): Options → section Download → toggle "🔔 Hiển thị tiến trình trên trang".
+- **[Architecture] `broadcastToTab()` helper trong service-worker.js:** Gửi message về tab của username đang active thông qua `chrome.tabs.sendMessage`, tương tự pattern `FAB_UPDATE` đã dùng trước đó.
+
+---
+
 ## [3.9.0] - 2026-06-03
 ### Thêm mới (Added)
 - **[FAB Draggable] Kéo thả FAB lên/xuống trên cạnh phải màn hình:** Thêm drag handle (3 vạch ngang) phía trên main button. User có thể kéo FAB đến vị trí thoải mái, tránh che các nút của X.com.

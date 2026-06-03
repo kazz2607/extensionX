@@ -50,6 +50,7 @@ async function injectAll() {
   injectScript('content/dom-scanner.js');
   injectScript('content/fab.js');
   injectScript('content/tweet-btn.js');
+  injectScript('content/snackbar.js');
   
   // Đọc lang và gửi cho page (để i18n.js trong page update)
   const stored = await chrome.storage.local.get('lang').catch(() => ({}));
@@ -226,6 +227,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   // Kết quả download tweet từ mini button — relay về tweet-btn.js
   if (message.type === 'TWEET_DOWNLOAD_RESULT') {
     window.dispatchEvent(new CustomEvent('XMD_TWEET_BTN_UPDATE', {
+      detail: message.payload
+    }));
+    return false;
+  }
+
+  // Progress Snackbar — relay SNACKBAR_UPDATE về snackbar.js trên trang
+  if (message.type === 'SNACKBAR_UPDATE') {
+    window.dispatchEvent(new CustomEvent('XMD_SNACKBAR_UPDATE', {
       detail: message.payload
     }));
     return false;

@@ -20,6 +20,7 @@ const DEFAULT_OPTIONS = {
     minImageWidth:    150,
     minImageHeight:   150,
   },
+  showSnackbar: true,                          // Progress Snackbar trên trang X.com (v4.0.0)
 };
 
 // ─── Load ─────────────────────────────────────────────────────────────────────
@@ -47,6 +48,7 @@ async function loadOptions() {
   document.getElementById('opt-filter-card-images').checked = sf.filterCardImages ?? true;
   document.getElementById('opt-min-img-width').value       = sf.minImageWidth    ?? 150;
   document.getElementById('opt-min-img-height').value      = sf.minImageHeight   ?? 150;
+  document.getElementById('opt-show-snackbar').checked     = opts.showSnackbar   ?? true;
 
   updateScrollLabel(opts.scrollDelay || 2);
   updateConcurrencyLabel(opts.concurrency || 3);
@@ -77,6 +79,7 @@ async function saveOptions() {
       minImageWidth:    parseInt(document.getElementById('opt-min-img-width').value)  || 0,
       minImageHeight:   parseInt(document.getElementById('opt-min-img-height').value) || 0,
     },
+    showSnackbar: document.getElementById('opt-show-snackbar').checked,
   };
 
   await chrome.storage.sync.set({ options: opts });
