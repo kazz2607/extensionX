@@ -471,12 +471,10 @@ function listenToMessages() {
         setStatus('downloading', `Đang tải xuống máy: ${(payload.bytesReceived / 1024 / 1024).toFixed(1)} MB...`);
         break;
 
-      case 'MP4_FETCH_PROGRESS': {
-        const loadedMB = ((payload.bytesReceived || 0) / 1024 / 1024).toFixed(1);
-        const totalMB = payload.total > 0 ? (payload.total / 1024 / 1024).toFixed(1) : '?';
-        setStatus('downloading', `Đang kéo MP4: ${loadedMB} / ${totalMB} MB...`);
-        break;
-      }
+
+      // MP4_FETCH_PROGRESS: Dead code từ thời offscreen (SW không gửi type này nữa — dùng MP4_PROGRESS)
+      // case 'MP4_FETCH_PROGRESS': break;
+
 
       case 'HLS_PROGRESS':
         if (payload.username === currentUsername) {

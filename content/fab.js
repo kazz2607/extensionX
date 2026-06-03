@@ -307,11 +307,11 @@
     lblMedia.textContent = window.i18n.t('fab_media_collected');
     lblScroll.textContent = window.i18n.t('fab_scroll');
     collectBtn.textContent = isCollecting ? window.i18n.t('fab_collect_stop') : window.i18n.t('fab_collect_start');
-    if (!downloadBtn.disabled && downloadBtn.textContent.includes('...')) {
-      downloadBtn.textContent = window.i18n.t('fab_downloading');
-    } else {
-      downloadBtn.textContent = window.i18n.t('fab_download');
-    }
+    // BUG-F FIX: Dùng isDownloading flag thay vì check text content (ngược logic cũ)
+    // text.includes('...') không tin cậy — nếu đang download thì không overwrite bằng text idle
+    downloadBtn.textContent = isDownloading
+      ? window.i18n.t('fab_downloading')
+      : window.i18n.t('fab_download');
     scrollInfo.textContent = window.i18n.t('fab_scrolling');
   }
 

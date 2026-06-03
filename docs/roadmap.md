@@ -1,7 +1,7 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-06-03 | Phiên bản hiện tại: **4.0.0**
+> Cập nhật: 2026-06-03 | Phiên bản hiện tại: **4.0.1**
 
 ---
 
@@ -102,8 +102,16 @@ File được lưu vào:
 - **v3.8.0** Smart Filters — lọc avatar/banner/card-preview + kích thước tối thiểu
 - **v3.9.0** FAB Draggable — drag handle trục Y, viewport clamp, persist `localStorage`
 
-### ✅ Phase 4 — UX Nâng Cao (v4.0.0)
+### ✅ Phase 4 — UX Nâng Cao (v4.0.x)
 - **v4.0.0** Progress Snackbar — snackbar glassmorphism trên trang, realtime, auto-dismiss, toggle trong Options
+- **v4.0.1** Bug Fixes — 7 lỗi sửa trong phiên này:
+  - Guard `tweetId` rỗng trước khi gọi API (chặn cascade 404)
+  - Bỏ `format=jpg` ép buộc — giữ format gốc PNG/WebP
+  - `keepalive ping` chuyển từ `log` → `debug`
+  - `async forEach` → `Promise.all(map)` trong MEDIA_FOUND
+  - `broadcastToTab` chỉ gửi 1 tab (không spam tất cả tab)
+  - FAB `updateFabI18n()` dùng `isDownloading` flag đúng cách
+  - DOM scanner validate `tweetId` ≥10 digits
 
 ---
 
@@ -118,6 +126,7 @@ File được lưu vào:
 | v3.8.0 | **Smart Filters** — Tự động lọc avatar, banner, card preview, và ảnh nhỏ <150px khỏi danh sách media |
 | v3.9.0 | **FAB Draggable** — Kéo thả FAB lên/xuống trên cạnh phải, vị trí được nhớ qua localStorage |
 | v4.0.0 | **Progress Snackbar** — Snackbar glassmorphism trên trang X.com, realtime progress, auto-dismiss, toggle trong Options |
+| v4.0.1 | **Bug Fixes** — Guard tweetId rỗng, bỏ format=jpg, debug log, async fix, broadcastToTab 1 tab, FAB i18n fix |
 
 ### 🔲 Đang Kế Hoạch
 
@@ -141,6 +150,10 @@ File được lưu vào:
 | Ảnh rác (avatar, card, icon) lọt vào danh sách | Smart Filters: lọc URL pattern `/profile_images/`, `/profile_banners/`, `/card_img/` + ngưỡng kích thước tối thiểu |
 | FAB che nút của X.com | FAB Draggable: kéo handle trục Y, clamp viewport, persist `localStorage` |
 | User không biết tiến độ khi popup đóng | Progress Snackbar: `broadcastToTab()` → content.js relay → snackbar.js |
+| **video_placeholder** tweetId rỗng gây cascade 404 | Guard `!/^\d{10,}$/.test(tweetId)` ở cả SW lẫn dom-scanner (v4.0.1) |
+| DOM scanner ép `format=jpg` làm mất chất lượng PNG/WebP | Bỏ `searchParams.set('format','jpg')` — chỉ giữ `name=orig` (v4.0.1) |
+| Snackbar hiện trên nhiều tab cùng lúc | `broadcastToTab()` chỉ gửi tab đang collecting hoặc tab gần nhất (v4.0.1) |
+| FAB text bị reset khi đổi ngôn ngữ lúc đang tải | `updateFabI18n()` dùng `isDownloading` flag thay vì check text (v4.0.1) |
 
 ---
 

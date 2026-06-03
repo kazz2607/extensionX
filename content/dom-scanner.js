@@ -41,12 +41,12 @@
       const src = img.src || img.getAttribute('src') || '';
       if (!src || !isImageUrl(src)) return;
 
-      // Nâng chất lượng lên orig
+      // Nâng chất lượng lên orig (BUG-B FIX: không ép format=jpg — giữ nguyên format gốc PNG/WebP)
       let url = src;
       try {
         const u = new URL(src);
         u.searchParams.set('name', 'orig');
-        u.searchParams.set('format', 'jpg');
+        // Không set format — để server trả format tối ưu theo đuôi file gốc
         url = u.toString();
       } catch (_) {}
 
@@ -96,7 +96,8 @@
       }
 
       // Ưu tiên 2: Chỉ có tweetId → cần API để lấy URL video
-      if (!tweetId || discovered.has(`video_${tweetId}`)) return;
+      // BUG-G FIX: Chỉ chấp nhận tweetId hợp lệ (≥10 chữ số) — tránh gọi API với ID rỗng
+      if (!tweetId || !/^\d{10,}$/.test(tweetId) || discovered.has(`video_${tweetId}`)) return;
       discovered.add(`video_${tweetId}`);
 
       found.push({

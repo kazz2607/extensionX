@@ -28,7 +28,7 @@ const DOWNLOAD_TIMEOUT_MS = 90_000; // BUG-1 FIX: 90 giây timeout mỗi file
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === KEEPALIVE_ALARM) {
     // Ping nhẹ để giữ SW sống. Không làm gì thêm.
-    console.log('[SW] keepalive ping');
+    console.debug('[SW] keepalive ping');
   }
 });
 
@@ -85,10 +85,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       console.log(`[SW] MEDIA_FOUND: ${mediaItems.length} items từ ${payload.sourceUrl || '?'} cho @${username}`);
 
-      mediaItems.forEach(async (item) => {
+      // BUG-D FIX: Dùng Promise.all thay vì forEach async để quản lý đúng
+      Promise.all(mediaItems.map(async (item) => {
         if (!item) return;
 
         if (item.type === 'video_placeholder') {
+          // BUG-A FIX: Guard tweetId rỗng — tránh gọi API với ID không hợp lệ → cascade 404
+          if (!item.tweetId || !/^\d{10,}$/.test(item.tweetId)) {
+            console.debug(`[SW] video_placeholder bỏ qua: tweetId không hợp lệ ('${item.tweetId}')`);
+            return;
+          }
+
           // Kiểm tra xem interceptor đã bắt được video URL của tweet này chưa
           const store = mediaStore.get(username);
           let alreadyHasVideo = false;
@@ -123,14 +130,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           if (item.type === 'hls' || item.type === 'video' || item.type === 'gif') {
             console.log(`[SW] ${item.type.toUpperCase()} URL: ${(item.url || '').slice(0, 80)}...`);
           }
-          applyOptionsFilter(username, [item]).then(filtered => {
-            if (filtered.length > 0) {
-              const added = addMediaItems(username, filtered);
-              if (added > 0) updateFAB(tabId, username);
-            }
-          });
+          const filtered = await applyOptionsFilter(username, [item]);
+          if (filtered.length > 0) {
+            const added = addMediaItems(username, filtered);
+            if (added > 0) updateFAB(tabId, username);
+          }
         }
-      });
+      })).catch(err => console.debug('[SW] MEDIA_FOUND handler error:', err.message));
       return false;
     }
 
@@ -1089,12 +1095,27 @@ function broadcastToPopup(type, payload) {
 }
 
 // Gửi message về tab đang active của username (dùng cho Snackbar)
+// BUG-E FIX: Ưu tiên tab đang collecting; nếu không có thì gửi tab cuối cùng
+// Tránh gửi đến TẤT CẢ tab cùng username khi mở nhiều tab → nhiều snackbar
 function broadcastToTab(username, type, payload) {
+  let targetTabId = null;
+  // Ưu tiên tab đang actively collecting
   tabState.forEach((state, tabId) => {
-    if (state.username === username) {
-      chrome.tabs.sendMessage(tabId, { type, payload }).catch(() => {});
+    if (state.username === username && state.isCollecting) {
+      targetTabId = tabId;
     }
   });
+  // Fallback: tab cuối cùng khớp username
+  if (!targetTabId) {
+    tabState.forEach((state, tabId) => {
+      if (state.username === username) {
+        targetTabId = tabId;
+      }
+    });
+  }
+  if (targetTabId) {
+    chrome.tabs.sendMessage(targetTabId, { type, payload }).catch(() => {});
+  }
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -1113,5 +1134,5 @@ function waitForTabLoad(tabId) {
 }
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('[X Media Downloader] v3 — Direct download mode');
+  console.log('[X Media Downloader] v4.0.0 — Direct download mode');
 });

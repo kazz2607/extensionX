@@ -2,7 +2,25 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [4.0.1] - 2026-06-03
+### Sửa lỗi (Fixed)
+- **[BUG-A] `video_placeholder` với `tweetId` rỗng gây cascade API 404:** DOM scanner đôi khi tạo ra `video_placeholder` item mà không có `tweetId` hợp lệ (ví dụ: video thumbnail không có `article` bao quanh trên trang Media Grid). Service Worker nhận item này → gọi `fetchVideoForTweet('')` → API trả 404 hàng loạt, spam console. Fix bằng cách thêm guard `!item.tweetId || !/^\d{10,}$/.test(item.tweetId)` trước khi xử lý — bỏ qua ngay lập tức nếu tweetId không hợp lệ.
+- **[BUG-B] DOM scanner ép `format=jpg` làm mất chất lượng ảnh PNG/WebP:** `dom-scanner.js` gắn `format=jpg` vào URL của mọi ảnh khi nâng lên `name=orig`. Điều này ép X.com convert ảnh PNG trong suốt/WebP sang JPEG, gây mất dữ liệu (transparency, chất lượng nén). Fix bằng cách bỏ dòng `searchParams.set('format', 'jpg')` — chỉ giữ `name=orig` để server tự trả format tốt nhất.
+- **[BUG-C] `keepalive ping` log spam console mỗi 24 giây:** `console.log('[SW] keepalive ping')` gọi mỗi 24 giây gây console bị clog. Đổi thành `console.debug` để ẩn khỏi console thường, chỉ hiện trong DevTools khi bật verbose mode.
+- **[BUG-D] `async forEach` trong MEDIA_FOUND không được await đúng cách:** `mediaItems.forEach(async item => ...)` không quản lý async đúng — các promise chạy song song không kiểm soát được, `applyOptionsFilter` trong nhánh `else` không được await. Fix bằng cách dùng `Promise.all(mediaItems.map(async item => ...))` với `await applyOptionsFilter()`.
+- **[BUG-E] `broadcastToTab` gửi Snackbar đến TẤT CẢ tab cùng username:** Nếu user mở nhiều tab cùng profile, SNACKBAR_UPDATE sẽ hiển thị trên tất cả tab cùng lúc. Fix bằng cách ưu tiên gửi đến tab đang `isCollecting = true`; fallback là tab cuối cùng khớp username.
+- **[BUG-F] FAB `updateFabI18n()` overwrite text download khi đổi ngôn ngữ lúc đang tải:** Logic cũ check `!downloadBtn.disabled && text.includes('...')` bị ngược — khi `isDownloading = true`, button bị disable → `!disabled = false` → luôn set text idle, làm mất chữ "Đang tải...". Fix bằng cách dùng `isDownloading` flag trực tiếp.
+- **[BUG-G] `dom-scanner` không validate `tweetId` trước khi tạo `video_placeholder`:** Video từ DOM scanner có thể có `tweetId = ''` do không tìm được link status trên trang. Fix bằng cách thêm regex check `/^\d{10,}$/` — chỉ chấp nhận ID có ít nhất 10 chữ số số.
+
+### Cải tiến (Improvements)
+- **[CHANGELOG] Xóa entry `[3.3.0]` trùng lặp:** Hai entry `[3.3.0]` trong CHANGELOG đã được hợp nhất thành một.
+- **[Log] Cập nhật onInstalled log từ `v3` → `v4.0.0`** để phản ánh đúng version hiện tại.
+- **[Cleanup] Xóa dead code `MP4_FETCH_PROGRESS` handler trong popup.js:** Handler này không bao giờ được kích hoạt vì Service Worker chỉ gửi `MP4_PROGRESS`. Đây là tàn dư từ thời dùng Offscreen để fetch video.
+
+---
+
 ## [4.0.0] - 2026-06-03
+
 ### Thêm mới (Added)
 - **[Progress Snackbar] Hiển thị tiến trình download ngay trên trang X.com:** Snackbar mini xuất hiện ở giữa dưới màn hình khi bắt đầu download — không cần mở popup để theo dõi tiến độ.
   - **Glassmorphism UI:** `backdrop-filter: blur(20px)`, border mj, bo góc 16px — xẻ phóng, hiện đại.
@@ -152,13 +170,6 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 ### Thêm mới (Added)
 - **Light / Dark Mode Toggle:** Thêm nút chuyển đổi giao diện (biểu tượng ☀️/🌙) ngay trên thanh Header của cả Popup và trang Cài đặt. Trạng thái được lưu vào `chrome.storage.local` và đồng bộ tự động giữa hai trang.
 - **Định dạng tên file Username_TweetID_Serial:** Thêm tùy chọn mới trong phần Download của trang Cài đặt. Khi bật, file sẽ được đặt tên theo định dạng `username_TweetID_randomSerial.ext` (ví dụ: `NASA_1234567890_ab3f2.jpg`), thay vì chỉ dùng TweetID như trước. Giúp dễ nhận biết nguồn gốc file khi lưu vào cùng một thư mục.
-
----
-
-## [3.3.0] - 2026-05-27
-### Thêm mới (Added)
-- **Bật/Tắt Light Mode & Dark Mode:** Thêm nút chuyển đổi giao diện (☀️/🌙) trực tiếp trên header của Popup và trang Cài đặt. Trạng thái được lưu vào `chrome.storage.local` và đồng bộ tự động giữa Popup và Options khi mở lại.
-- **Đặt tên file theo Username_TweetID_Serial:** Bổ sung tuỳ chọn trong trang Cài đặt → Download, cho phép lưu tên file theo định dạng `username_TweetID_random.ext` (ví dụ: `NASA_1234567890_ab3f2.jpg`) thay vì chỉ `TweetID_random.ext` như trước.
 
 ### Sửa lỗi (Fixed)
 - **Counter đếm media trên trang Home / Explore:** `content.js` relay toàn bộ `X_MEDIA_FOUND` bất kể người dùng đang ở trang nào. Sửa bằng cách thêm flag `isCollecting` — chỉ đếm và gửi media lên Service Worker khi đang trong phiên thu thập do người dùng chủ động kích hoạt. Badge số lượng trên icon extension giờ chỉ tăng khi đang thu thập trên trang profile/media.

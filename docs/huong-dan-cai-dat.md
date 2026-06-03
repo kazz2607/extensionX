@@ -96,7 +96,7 @@ Sau khi load, extension sẽ xuất hiện trong danh sách:
 
 ```
 ┌──────────────────────────────────────────┐
-│  ⬇ X Media Downloader          v4.0.0   │
+│  ⬇ X Media Downloader          v4.0.1   │
 │  Tải toàn bộ ảnh & video từ X.com...    │
 │                                          │
 │  [Details]  [Remove]           ● Enabled │
@@ -128,7 +128,7 @@ Click icon **⬇** trên toolbar Chrome. Popup sẽ hiển thị:
 
 ```
 ┌─────────────────────────────────────┐
-│ ⬇ X Media Downloader      v4.0.0  ⚙☆⚡│
+│ ⬇ X Media Downloader      v4.0.1  ⚙☆⚡│
 ├─────────────────────────────────────┤
 │ 👤 @NASA                        [47]│
 │    Profile đang được xem            │
@@ -383,4 +383,4 @@ Nếu gặp vấn đề, hãy kiểm tra:
 
 ---
 
-*Phiên bản: 4.0.0 | Cập nhật: 2026-06-03*
+*Phiên bản: 4.0.1 | Cập nhật: 2026-06-03*
