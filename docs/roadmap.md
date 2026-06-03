@@ -1,11 +1,11 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-06-03 | Phiên bản hiện tại: **3.7.0**
+> Cập nhật: 2026-06-03 | Phiên bản hiện tại: **3.9.0**
 
 ---
 
-## 1. Kiến Trúc Hiện Tại (v3.7.x)
+## 1. Kiến Trúc Hiện Tại (v3.9.x)
 
 ```
 extensionX/
@@ -94,7 +94,7 @@ File được lưu vào:
 - Progress bar realtime
 - Export CSV
 
-### ✅ Phase 3 — Hoàn Thiện (v3.0.0 → v3.7.0)
+### ✅ Phase 3 — Hoàn Thiện (v3.0.0 → v3.9.0)
 - **v3.0** Direct download (bỏ ZIP), thư mục theo username, Options mới
 - **v3.1** Bypass CORS syndication API, MAIN world injection chuẩn
 - **v3.2** Hook JSON.parse + XHR, duplicate check, NSFW bypass
@@ -108,6 +108,8 @@ File được lưu vào:
 - **v3.5.5** FAB isDownloading flag + FAB_UPDATE từ SW sau download xong
 - **v3.6.0** Download Mini Button trên từng tweet, refactor `downloadSingleItem()` module-level
 - **v3.7.0** Session Restore — `persistSession()` / `clearSession()`, restore banner trong popup
+- **v3.8.0** Smart Filters — lọc avatar/banner/card-preview theo URL pattern + kích thước tối thiểu, metadata width/height từ GraphQL
+- **v3.9.0** FAB Draggable — drag handle trục Y, viewport clamp, persist `localStorage`, mouse+touch, drag-vs-click threshold
 
 ---
 
@@ -119,16 +121,10 @@ File được lưu vào:
 |---|---|
 | v3.6.0 | **Download Mini Button** — Nút ↓ xuất hiện trên từng tweet có media, click → tải ngay |
 | v3.7.0 | **Session Restore** — Tự lưu phiên thu thập, khôi phục sau khi browser tắt/crash |
+| v3.8.0 | **Smart Filters** — Tự động lọc avatar, banner, card preview, và ảnh nhỏ <150px khỏi danh sách media |
+| v3.9.0 | **FAB Draggable** — Kéo thả FAB lên/xuống trên cạnh phải, vị trí được nhớ qua localStorage |
 
 ### 🔲 Đang Kế Hoạch
-
-#### FAB Draggable
-- **Mô tả:** FAB đôi khi che các nút của X.com. Thêm kéo thả để user di chuyển FAB lên/xuống mép màn hình.
-- **Ưu tiên:** Thấp — UX cải thiện
-
-#### Smart Filters
-- **Mô tả:** Lọc ảnh rác (avatar nhỏ <150px, icon). Chỉ tải media chất lượng cao thực sự.
-- **Ưu tiên:** Thấp
 
 #### Progress Snackbar trên trang X.com
 - **Mô tả:** Hiển thị tiến trình download dưới dạng snackbar mini trên trang (không cần mở popup).
@@ -149,6 +145,8 @@ File được lưu vào:
 | macOS MP4 message limit | Bỏ Offscreen cho MP4, tải thẳng qua `chrome.downloads.download(url)` |
 | JSON depth quá nông | Tăng depth đệ quy từ 15 → 35 |
 | Dữ liệu mất khi SW/browser restart | `persistSession()` debounce 2s → `chrome.storage.local`, restore banner trong popup |
+| Ảnh rác (avatar, card, icon) lọt vào danh sách | Smart Filters: lọc URL pattern `/profile_images/`, `/profile_banners/`, `/card_img/` + ngưỡng kích thước tối thiểu |
+| FAB che nút của X.com | FAB Draggable: kéo handle trục Y, clamp viewport, persist `localStorage` |
 
 ---
 

@@ -129,6 +129,12 @@
     return response;
   };
 
+  // ─── Helper: Lấy extension ảnh từ URL ──────────────────────────────────────
+  function getImageExt(url) {
+    const m = url.match(/\.(jpg|jpeg|png|webp|gif)(?:[?#]|$)/i);
+    return m ? m[1].toLowerCase() : 'jpg';
+  }
+
   // ─── Helper: Parse JSON GraphQL tìm video ─────────────────────────────────────
   function extractMediaFromResponse(obj, results, depth = 0) {
     if (depth > 35 || !obj || typeof obj !== 'object') return;
@@ -161,8 +167,23 @@
         } else if (type === 'photo') {
            let photoUrl = media.media_url_https || media.media_url;
            if (photoUrl) {
+             // Pre-filter: bỏ qua avatar, banner, card preview ngay tại nguồn
+             if (
+               photoUrl.includes('/profile_images/') ||
+               photoUrl.includes('/profile_banners/') ||
+               photoUrl.includes('/card_img/')
+             ) return;
+
              photoUrl = photoUrl.replace(/name=\w+/, 'name=orig');
-             results.push({ type: 'image', url: photoUrl, tweetId, ext: 'jpg' });
+             results.push({
+               type: 'image',
+               url: photoUrl,
+               tweetId,
+               ext: getImageExt(photoUrl),
+               width:    media.original_info?.width  || 0,
+               height:   media.original_info?.height || 0,
+               mediaKey: media.media_key || media.id_str || tweetId,
+             });
            }
         }
       });

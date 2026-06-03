@@ -31,7 +31,8 @@ extensionX/
 │   ├── content.js
 │   ├── page-interceptor.js
 │   ├── dom-scanner.js
-│   └── fab.js
+│   ├── fab.js
+│   └── tweet-btn.js
 ├── offscreen/
 │   ├── offscreen.html
 │   └── offscreen.js
@@ -95,7 +96,7 @@ Sau khi load, extension sẽ xuất hiện trong danh sách:
 
 ```
 ┌──────────────────────────────────────────┐
-│  ⬇ X Media Downloader          v3.5.3   │
+│  ⬇ X Media Downloader          v3.9.0   │
 │  Tải toàn bộ ảnh & video từ X.com...    │
 │                                          │
 │  [Details]  [Remove]           ● Enabled │
@@ -189,6 +190,7 @@ Khi vào trang X.com, một **nút tròn màu xanh** xuất hiện ở góc dư�
 - **Click vào nút** để mở/đóng panel
 - **"▶ Thu Thập"** → bắt đầu auto-scroll
 - **"↓ Download"** → download ngay khi thu thập xong
+- **Kéo handle (≡)** ở trên nút → di chuyển FAB lên/xuống để tránh che nút X.com (v3.9.0)
 
 ---
 
@@ -210,6 +212,8 @@ Click biểu tượng **⚙** trên popup để mở trang cài đặt:
 | Số media tối đa | 0 (không giới hạn) | Giới hạn số media mỗi profile |
 | **🌙 Dark / ☀️ Light Mode** | Dark | Chuyển giao diện tối/sáng (nút ☀️/🌙 trên header) |
 | **📝 Tên file Username_TweetID** | Tắt | Lưu tên file theo `username_tweetId_serial.ext` |
+| **🔍 Smart Filters** | Bật | Tự động lọc avatar, banner, card preview; ảnh nhỏ hơn 150×150px bị bỏ qua |
+| **Min ảnh W × H** | 150 × 150 px | Ngưỡng kích thước tối thiểu (đặt 0 để tắt) |
 
 ---
 
@@ -378,4 +382,4 @@ Nếu gặp vấn đề, hãy kiểm tra:
 
 ---
 
-*Phiên bản: 3.5.3 | Cập nhật: 2026-06-02*
+*Phiên bản: 3.9.0 | Cập nhật: 2026-06-03*

@@ -14,6 +14,12 @@ const DEFAULT_OPTIONS = {
   maxMedia: 0,
   flatUsername: false,
   filenameUsername: false,                     // Tên file theo username_TweetID_Serial
+  smartFilters: {                              // Smart Filters (v3.8.0)
+    filterAvatars:    true,
+    filterCardImages: true,
+    minImageWidth:    150,
+    minImageHeight:   150,
+  },
 };
 
 // ─── Load ─────────────────────────────────────────────────────────────────────
@@ -34,6 +40,13 @@ async function loadOptions() {
   document.getElementById('opt-max-media').value     = opts.maxMedia || 0;
   document.getElementById('opt-flat-username').checked = opts.flatUsername || false;
   document.getElementById('opt-filename-username').checked = opts.filenameUsername || false;
+
+  // Smart Filters
+  const sf = opts.smartFilters || DEFAULT_OPTIONS.smartFilters;
+  document.getElementById('opt-filter-avatars').checked    = sf.filterAvatars    ?? true;
+  document.getElementById('opt-filter-card-images').checked = sf.filterCardImages ?? true;
+  document.getElementById('opt-min-img-width').value       = sf.minImageWidth    ?? 150;
+  document.getElementById('opt-min-img-height').value      = sf.minImageHeight   ?? 150;
 
   updateScrollLabel(opts.scrollDelay || 2);
   updateConcurrencyLabel(opts.concurrency || 3);
@@ -58,6 +71,12 @@ async function saveOptions() {
     maxMedia:    parseInt(document.getElementById('opt-max-media').value) || 0,
     flatUsername: document.getElementById('opt-flat-username').checked,
     filenameUsername: document.getElementById('opt-filename-username').checked,
+    smartFilters: {
+      filterAvatars:    document.getElementById('opt-filter-avatars').checked,
+      filterCardImages: document.getElementById('opt-filter-card-images').checked,
+      minImageWidth:    parseInt(document.getElementById('opt-min-img-width').value)  || 0,
+      minImageHeight:   parseInt(document.getElementById('opt-min-img-height').value) || 0,
+    },
   };
 
   await chrome.storage.sync.set({ options: opts });

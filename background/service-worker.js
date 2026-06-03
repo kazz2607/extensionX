@@ -383,6 +383,34 @@ async function applyOptionsFilter(username, items) {
     return true;
   });
 
+  // ─── Smart Filters ────────────────────────────────────────────────────────────
+  const sf = opts.smartFilters || {};
+  const filterAvatars    = sf.filterAvatars    !== false; // default ON
+  const filterCardImages = sf.filterCardImages !== false; // default ON
+  const minImageWidth    = sf.minImageWidth  > 0 ? sf.minImageWidth  : 0;
+  const minImageHeight   = sf.minImageHeight > 0 ? sf.minImageHeight : 0;
+
+  filtered = filtered.filter(item => {
+    if (item.type !== 'image') return true; // Video/GIF không lọc
+
+    const url = item.url || '';
+
+    // 1. Lọc avatar & banner theo URL pattern
+    if (filterAvatars && (
+      url.includes('/profile_images/') ||
+      url.includes('/profile_banners/')
+    )) return false;
+
+    // 2. Lọc card preview image theo URL pattern
+    if (filterCardImages && url.includes('/card_img/')) return false;
+
+    // 3. Lọc theo kích thước tối thiểu (chỉ khi có metadata)
+    if (minImageWidth  > 0 && item.width  > 0 && item.width  < minImageWidth)  return false;
+    if (minImageHeight > 0 && item.height > 0 && item.height < minImageHeight) return false;
+
+    return true;
+  });
+
   if (maxMedia > 0) {
     const currentCount = mediaStore.get(username)?.size || 0;
     const remaining = maxMedia - currentCount;
@@ -392,6 +420,7 @@ async function applyOptionsFilter(username, items) {
 
   return filtered;
 }
+
 
 // ─── Auto-Scroll ──────────────────────────────────────────────────────────────
 async function checkAutoScroll(tabId, username, isMediaPage) {

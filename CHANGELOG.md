@@ -2,7 +2,31 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [3.9.0] - 2026-06-03
+### Thêm mới (Added)
+- **[FAB Draggable] Kéo thả FAB lên/xuống trên cạnh phải màn hình:** Thêm drag handle (3 vạch ngang) phía trên main button. User có thể kéo FAB đến vị trí thoải mái, tránh che các nút của X.com.
+  - **Mouse & Touch**: Hỗ trợ cả chuột (mousedown/mousemove/mouseup) và cảm ứng (touchstart/touchmove/touchend) — hoạt động trên tablet.
+  - **Chỉ kéo theo trục Y**: FAB giữ cố định `right: 20px`, chỉ di chuyển lên/xuống — phù hợp layout panel mở về bên trái.
+  - **Viewport clamp**: FAB không bao giờ vượt ra ngoài viewport (giữ cách mép 8px trên/dưới), tự điều chỉnh khi resize window.
+  - **Lưu vị trí**: Vị trí được lưu vào `localStorage` (key `__xmd_fab_top_pct__`) và khôi phục mỗi khi load trang — FAB luôn xuất hiện đúng chỗ user muốn.
+  - **Drag vs Click**: Ngưỡng 5px — di chuyển < 5px được coi là click (không kích hoạt drag), đảm bảo click thường không bị nhầm thành kéo.
+  - **Panel tự đóng khi kéo**: Panel info đóng lại ngay khi bắt đầu kéo — tránh panel nhảy lung tung.
+
+---
+
+## [3.8.0] - 2026-06-03
+### Thêm mới (Added)
+- **[Smart Filters] Lọc ảnh rác tự động khi thu thập:** Extension tự động loại bỏ ảnh không phải nội dung tweet trước khi lưu vào danh sách media. Không cần cấu hình — bật mặc định, hoạt động realtime khi scroll.
+  - **Lọc avatar & banner**: Bỏ qua URL `/profile_images/` và `/profile_banners/` — những ảnh đại diện xuất hiện trong GraphQL response nhưng không phải media tweet.
+  - **Lọc card preview**: Bỏ qua URL `/card_img/` — thumbnail nhỏ gắn kèm tweet có chứa link bài viết ngoài.
+  - **Lọc theo kích thước**: Bỏ ảnh có `width` hoặc `height` nhỏ hơn ngưỡng tối thiểu (mặc định 150×150 px). Chỉ áp dụng khi GraphQL trả về metadata `original_info` — không lọc nhầm ảnh khi thiếu metadata.
+  - **Cài đặt trong Options → 🔍 Smart Filters**: 2 toggle (avatar/card) + 2 number input (min W × H). Có thể tắt từng filter độc lập.
+- **[Refactor] Metadata ảnh phong phú hơn từ page-interceptor.js:** Bổ sung `width`, `height`, `ext` (jpg/png/webp), `mediaKey` vào mỗi image item từ GraphQL — cơ sở cho Smart Filters và các feature tương lai. Filter URL rác (avatar/banner/card) cũng được áp dụng sớm ngay tại interceptor để tránh dispatch event không cần thiết.
+
+---
+
 ## [3.7.0] - 2026-06-03
+
 ### Thêm mới (Added)
 - **[Session Restore] Khôi phục phiên thu thập sau khi tắt browser:** Extension tự động lưu tiến trình thu thập vào `chrome.storage.local` sau mỗi 2 giây (debounce) và mỗi 5 lần scroll. Khi mở popup lại sau khi browser tắt/crash, một **banner thông báo** xuất hiện cho phép người dùng:
   - **"Tiếp tục"**: Nạp lại toàn bộ media đã thu thập vào bộ nhớ, sẵn sàng download ngay hoặc tiếp tục scroll thu thập thêm.

@@ -4,6 +4,7 @@
  *   - Badge số lượng media đã thu thập
  *   - Nút Quick Collect / Stop
  *   - Nút Quick Download
+ *   - [v3.9.0] Draggable theo trục Y, lưu vị trí qua localStorage
  *
  * Chạy trong EXTENSION ISOLATED WORLD (content script)
  */
@@ -20,7 +21,7 @@
   style.textContent = `
     #__xmd_fab__ {
       position: fixed;
-      bottom: 20%;
+      top: 60%;
       right: 20px;
       z-index: 2147483647;
       display: flex;
@@ -29,9 +30,44 @@
       gap: 8px;
       font-family: -apple-system, 'Inter', BlinkMacSystemFont, sans-serif;
       pointer-events: none;
+      /* Smooth transition chỉ khi không đang kéo */
+      transition: top 0s;
+    }
+
+    #__xmd_fab__.dragging {
+      transition: none !important;
     }
 
     #__xmd_fab__ * { box-sizing: border-box; }
+
+    /* ── Drag Handle ── */
+    #__xmd_drag_handle__ {
+      width: 36px;
+      height: 16px;
+      background: rgba(255,255,255,0.10);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      cursor: grab;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: all;
+      transition: background 0.15s, border-color 0.15s;
+      align-self: center;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    #__xmd_drag_handle__:hover {
+      background: rgba(29,155,240,0.22);
+      border-color: rgba(29,155,240,0.35);
+    }
+
+    #__xmd_drag_handle__.grabbing {
+      cursor: grabbing;
+      background: rgba(29,155,240,0.3);
+      border-color: rgba(29,155,240,0.5);
+    }
 
     /* Info panel */
     #__xmd_panel__ {
@@ -156,6 +192,9 @@
     #__xmd_main_btn__:hover { transform: scale(1.1); }
     #__xmd_main_btn__:active { transform: scale(0.95); }
 
+    /* Ẩn hover effect khi đang kéo */
+    #__xmd_fab__.dragging #__xmd_main_btn__:hover { transform: none; }
+
     /* Badge */
     #__xmd_badge__ {
       position: absolute;
@@ -226,6 +265,13 @@
         ⟳ Đang scroll tự động...
       </div>
     </div>
+    <div id="__xmd_drag_handle__" title="Kéo để di chuyển">
+      <svg width="16" height="8" viewBox="0 0 16 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="0.5" width="12" height="1.5" rx="0.75" fill="rgba(255,255,255,0.5)"/>
+        <rect x="2" y="3.25" width="12" height="1.5" rx="0.75" fill="rgba(255,255,255,0.5)"/>
+        <rect x="2" y="6" width="12" height="1.5" rx="0.75" fill="rgba(255,255,255,0.5)"/>
+      </svg>
+    </div>
     <button id="__xmd_main_btn__" title="X Media Downloader">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -243,16 +289,17 @@
   let isDownloading = false;  // FIX: flag riêng cho download, độc lập với downloadBtn.disabled
   let mediaCount = 0;
 
-  const panel = document.getElementById('__xmd_panel__');
-  const mainBtn = document.getElementById('__xmd_main_btn__');
-  const badge = document.getElementById('__xmd_badge__');
-  const countEl = document.getElementById('__xmd_count__');
-  const scrollsEl = document.getElementById('__xmd_scrolls__');
+  const panel      = document.getElementById('__xmd_panel__');
+  const mainBtn    = document.getElementById('__xmd_main_btn__');
+  const badge      = document.getElementById('__xmd_badge__');
+  const countEl    = document.getElementById('__xmd_count__');
+  const scrollsEl  = document.getElementById('__xmd_scrolls__');
   const collectBtn = document.getElementById('__xmd_collect_btn__');
-  const downloadBtn = document.getElementById('__xmd_download_btn__');
+  const downloadBtn= document.getElementById('__xmd_download_btn__');
   const scrollInfo = document.getElementById('__xmd_scroll_info__');
-  const lblMedia = document.getElementById('__xmd_lbl_media__');
-  const lblScroll = document.getElementById('__xmd_lbl_scroll__');
+  const lblMedia   = document.getElementById('__xmd_lbl_media__');
+  const lblScroll  = document.getElementById('__xmd_lbl_scroll__');
+  const dragHandle = document.getElementById('__xmd_drag_handle__');
 
   // Hàm update text i18n
   function updateFabI18n() {
@@ -376,5 +423,162 @@
       downloadBtn.disabled = mediaCount === 0;
     }
   });
+
+  // ─── FAB Draggable (v3.9.0) ──────────────────────────────────────────────────
+  const FAB_POS_KEY = '__xmd_fab_top_pct__';
+  const DRAG_THRESHOLD = 5; // px — nhỏ hơn ngưỡng này = click, không phải drag
+
+  // Khôi phục vị trí đã lưu
+  function restoreFabPosition() {
+    try {
+      const saved = localStorage.getItem(FAB_POS_KEY);
+      if (saved !== null) {
+        const pct = parseFloat(saved);
+        if (!isNaN(pct)) {
+          // Clamp an toàn: không vượt ra ngoài viewport
+          const safePct = Math.min(Math.max(pct, 3), 82);
+          fab.style.top = safePct + '%';
+          fab.style.bottom = 'auto';
+        }
+      }
+    } catch (_) {}
+  }
+
+  // Lưu vị trí hiện tại (tính theo % của viewport height)
+  function saveFabPosition() {
+    try {
+      const rect = fab.getBoundingClientRect();
+      const pct = (rect.top / window.innerHeight) * 100;
+      localStorage.setItem(FAB_POS_KEY, pct.toFixed(2));
+    } catch (_) {}
+  }
+
+  // Clamp top trong viewport (tính theo px)
+  function clampTop(topPx) {
+    const fabHeight = fab.offsetHeight || 100;
+    const minTop = 8;
+    const maxTop = window.innerHeight - fabHeight - 8;
+    return Math.min(Math.max(topPx, minTop), maxTop);
+  }
+
+  // Áp dụng vị trí top bằng px
+  function applyTop(topPx) {
+    fab.style.top = topPx + 'px';
+    fab.style.bottom = 'auto';
+  }
+
+  // ── Mouse drag ──
+  let isDragging = false;
+  let hasMoved = false;
+  let dragStartClientY = 0;
+  let dragStartTopPx = 0;
+
+  dragHandle.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return; // chỉ chuột trái
+    isDragging = true;
+    hasMoved = false;
+    dragStartClientY = e.clientY;
+    dragStartTopPx = fab.getBoundingClientRect().top;
+
+    fab.classList.add('dragging');
+    dragHandle.classList.add('grabbing');
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const delta = e.clientY - dragStartClientY;
+
+    if (!hasMoved && Math.abs(delta) >= DRAG_THRESHOLD) {
+      hasMoved = true;
+      // Đóng panel ngay khi bắt đầu kéo
+      panelOpen = false;
+      panel.classList.remove('visible');
+    }
+
+    if (hasMoved) {
+      applyTop(clampTop(dragStartTopPx + delta));
+    }
+  });
+
+  document.addEventListener('mouseup', (e) => {
+    if (!isDragging) return;
+    isDragging = false;
+    fab.classList.remove('dragging');
+    dragHandle.classList.remove('grabbing');
+    document.body.style.userSelect = '';
+
+    if (hasMoved) {
+      saveFabPosition();
+    }
+    hasMoved = false;
+  });
+
+  // ── Touch drag ──
+  let touchId = null;
+  let touchStartClientY = 0;
+  let touchStartTopPx = 0;
+  let touchHasMoved = false;
+
+  dragHandle.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    touchId = touch.identifier;
+    touchHasMoved = false;
+    touchStartClientY = touch.clientY;
+    touchStartTopPx = fab.getBoundingClientRect().top;
+
+    fab.classList.add('dragging');
+    dragHandle.classList.add('grabbing');
+    e.preventDefault(); // ngăn scroll trang
+    e.stopPropagation();
+  }, { passive: false });
+
+  document.addEventListener('touchmove', (e) => {
+    if (touchId === null) return;
+    const touch = Array.from(e.changedTouches).find(t => t.identifier === touchId);
+    if (!touch) return;
+
+    const delta = touch.clientY - touchStartClientY;
+
+    if (!touchHasMoved && Math.abs(delta) >= DRAG_THRESHOLD) {
+      touchHasMoved = true;
+      panelOpen = false;
+      panel.classList.remove('visible');
+    }
+
+    if (touchHasMoved) {
+      applyTop(clampTop(touchStartTopPx + delta));
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchend', (e) => {
+    const touch = Array.from(e.changedTouches).find(t => t.identifier === touchId);
+    if (!touch) return;
+    touchId = null;
+    fab.classList.remove('dragging');
+    dragHandle.classList.remove('grabbing');
+
+    if (touchHasMoved) {
+      saveFabPosition();
+    }
+    touchHasMoved = false;
+  });
+
+  // ── Re-clamp khi resize window ──
+  window.addEventListener('resize', () => {
+    const rect = fab.getBoundingClientRect();
+    const clamped = clampTop(rect.top);
+    if (Math.abs(clamped - rect.top) > 1) {
+      applyTop(clamped);
+      saveFabPosition();
+    }
+  });
+
+  // Khôi phục vị trí ngay khi khởi tạo
+  restoreFabPosition();
 
 })();

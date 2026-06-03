@@ -1,24 +1,7 @@
-$src     = 'D:\Xampp\htdocs\extensionX'
-$out     = 'D:\Xampp\htdocs\extensionX\x-media-downloader-v3.5.5.zip'
-$include = @('_locales','background','content','icons','lib','offscreen','options','popup','manifest.json','rules.json')
-
-if (Test-Path $out) { Remove-Item $out -Force }
-
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-$zip = [System.IO.Compression.ZipFile]::Open($out, 'Create')
-
-foreach ($item in $include) {
-    $fullPath = Join-Path $src $item
-    if (Test-Path $fullPath -PathType Leaf) {
-        [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $fullPath, $item) | Out-Null
-    } elseif (Test-Path $fullPath -PathType Container) {
-        Get-ChildItem -Path $fullPath -Recurse -File | ForEach-Object {
-            $relative = $_.FullName.Substring($src.Length + 1).Replace('\', '/')
-            [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $_.FullName, $relative) | Out-Null
-        }
-    }
-}
-
-$zip.Dispose()
-$size = (Get-Item $out).Length
-Write-Host ('Built: {0} ({1:N0} bytes)' -f $out, $size)
+$version = "3.9.0"
+$zipName = "x-media-downloader-v$version.zip"
+$include = @("_locales","background","content","icons","lib","offscreen","options","popup","manifest.json","rules.json")
+if (Test-Path $zipName) { Remove-Item $zipName }
+Compress-Archive -Path $include -DestinationPath $zipName -CompressionLevel Optimal
+$sizeKB = [math]::Round((Get-Item $zipName).Length / 1KB, 1)
+Write-Host "Built: $zipName ($sizeKB KB)"

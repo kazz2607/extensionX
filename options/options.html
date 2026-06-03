@@ -313,7 +313,63 @@
     </div>
   </div>
 
+  <!-- ── Smart Filters ── -->
+  <div class="section">
+    <p class="section-title">🔍 Smart Filters</p>
+    <div class="card">
+
+      <div class="option-row">
+        <div class="option-label">
+          <strong>Lọc avatar &amp; banner</strong>
+          <span>Bỏ qua ảnh đại diện (<code>/profile_images/</code>) và banner (<code>/profile_banners/</code>) — những ảnh này không phải nội dung tweet.</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="opt-filter-avatars" checked />
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+
+      <div class="option-row">
+        <div class="option-label">
+          <strong>Lọc ảnh preview link (Card)</strong>
+          <span>Bỏ qua thumbnail của link preview (<code>/card_img/</code>) — ảnh nhỏ đính kèm bài viết có chứa URL.</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="opt-filter-card-images" checked />
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+
+      <div class="option-row">
+        <div class="option-label">
+          <strong>Kích thước ảnh tối thiểu (px)</strong>
+          <span>Lọc bỏ ảnh có chiều rộng hoặc chiều cao nhỏ hơn giá trị này. Chỉ áp dụng khi X.com trả về metadata kích thước. Đặt 0 để tắt.</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <span style="font-size:10px;color:var(--text-muted);">W</span>
+            <input type="number" id="opt-min-img-width" value="150" min="0" max="9999" style="width:70px;" />
+          </div>
+          <span style="color:var(--text-muted);font-size:14px;">×</span>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <span style="font-size:10px;color:var(--text-muted);">H</span>
+            <input type="number" id="opt-min-img-height" value="150" min="0" max="9999" style="width:70px;" />
+          </div>
+        </div>
+      </div>
+
+      <div class="info-box" style="margin:10px 14px 14px;">
+        <span class="info-box-icon">💡</span>
+        <p>Smart Filters hoạt động <strong>realtime khi thu thập</strong> — ảnh rác bị loại trước khi vào danh sách, không ảnh hưởng hiệu năng download. Tắt tất cả filter để thu thập mọi thứ kể cả avatar.</p>
+      </div>
+
+    </div>
+  </div>
+
   <!-- ── Auto Scroll ── -->
+
   <div class="section">
     <p class="section-title" data-i18n="section_scroll">🔄 Auto Scroll</p>
     <div class="card">
@@ -451,7 +507,7 @@
     <span class="save-status" id="save-status" data-i18n="save_success">✓ Saved successfully</span>
   </div>
 
-  <p class="version-tag">X Media Downloader v3.4.1</p>
+  <p class="version-tag">X Media Downloader v3.8.0</p>
 
   <script src="../lib/i18n.js"></script>
   <script src="options.js"></script>
