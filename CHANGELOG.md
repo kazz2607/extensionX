@@ -2,6 +2,19 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [3.7.0] - 2026-06-03
+### Thêm mới (Added)
+- **[Session Restore] Khôi phục phiên thu thập sau khi tắt browser:** Extension tự động lưu tiến trình thu thập vào `chrome.storage.local` sau mỗi 2 giây (debounce) và mỗi 5 lần scroll. Khi mở popup lại sau khi browser tắt/crash, một **banner thông báo** xuất hiện cho phép người dùng:
+  - **"Tiếp tục"**: Nạp lại toàn bộ media đã thu thập vào bộ nhớ, sẵn sàng download ngay hoặc tiếp tục scroll thu thập thêm.
+  - **"×"**: Hủy phiên cũ và xóa dữ liệu đã lưu.
+  - Banner hiển thị: username, số lượng media, số lần scroll, và thời gian kể từ lần lưu cuối.
+  - Dữ liệu được lưu dưới key `session_<username>` trong `chrome.storage.local` (10MB limit — đủ cho hàng nghìn items).
+  - Debounce 2 giây để tránh ghi storage quá nhiều khi media flood.
+  - Tự xóa session sau khi restore thành công hoặc bị hủy thủ công.
+- **[Refactor] `persistSession()` / `clearSession()` module-level trong service-worker.js:** Quản lý vòng đời session rõ ràng, được gọi tại `addMediaItems()`, `stopCollecting()`, `scrollLoop()` (mỗi 5 scroll), và `CLEAR_MEDIA`.
+
+---
+
 ## [3.6.0] - 2026-06-03
 ### Thêm mới (Added)
 - **[Download Mini Button] Nút tải nhỏ trực tiếp trên từng tweet:** Tự động chèn icon ↓ vào thanh action bar (cạnh các nút Reply/Retweet/Like/Share) của mỗi tweet có ảnh hoặc video. Click → tải ngay media của tweet đó mà không cần mở popup hay FAB.

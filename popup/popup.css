@@ -397,3 +397,114 @@ body {
 .toast.info    { border-color: var(--accent); color: var(--accent); }
 .toast.warning { border-color: var(--orange); color: var(--orange); }
 
+/* ─── Session Restore Banner ──────────────────────────────────────────────── */
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.restore-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 12px 2px;
+  padding: 10px 12px;
+  background: rgba(29, 155, 240, 0.07);
+  border: 1px solid rgba(29, 155, 240, 0.22);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  animation: slideDown 0.25s ease;
+}
+
+[data-theme="light"] .restore-banner {
+  background: rgba(29, 155, 240, 0.05);
+}
+
+.restore-info {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+  min-width: 0;
+}
+
+.restore-icon {
+  color: var(--accent);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.restore-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.restore-text strong {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.restore-text span {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.restore-actions {
+  display: flex;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.btn-restore-ok {
+  padding: 5px 12px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+.btn-restore-ok:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.btn-restore-cancel {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-restore-cancel:hover {
+  background: var(--red-bg);
+  color: var(--red);
+  border-color: var(--red);
+}
+
+

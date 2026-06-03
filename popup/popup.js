@@ -65,6 +65,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   await applyTheme();
   await loadHistory();
+  await checkSavedSession();   // Session Restore: kiểm tra trước khi load profile
   await detectCurrentTab();
   setupListeners();
   listenToMessages();
@@ -82,6 +83,52 @@ function toggleTheme() {
   const next = current === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', next);
   chrome.storage.local.set({ theme: next });
+}
+
+// ─── Session Restore ──────────────────────────────────────────────────────────
+async function checkSavedSession() {
+  try {
+    const res = await sendBG('GET_SAVED_SESSION', {});
+    const session = res?.session;
+    if (!session?.username || !session?.mediaCount) return;
+
+    // Tính thời gian kể từ lần lưu cuối
+    const minutesAgo = Math.round((Date.now() - (session.savedAt || 0)) / 60000);
+    const timeStr = minutesAgo < 1   ? 'vừa xong'
+                  : minutesAgo < 60  ? `${minutesAgo} phút trước`
+                  : `${Math.round(minutesAgo / 60)} giờ trước`;
+
+    showRestoreBanner(session.username, session.mediaCount, session.scrollCount || 0, timeStr);
+  } catch (_) {}
+}
+
+function showRestoreBanner(username, count, scrolls, timeStr) {
+  const banner = document.getElementById('restore-banner');
+  if (!banner) return;
+
+  document.getElementById('restore-username').textContent = `@${username}`;
+  document.getElementById('restore-detail').textContent =
+    `${count} media · ${scrolls} scrolls · ${timeStr}`;
+
+  banner.style.display = 'flex';
+
+  document.getElementById('btn-restore').onclick = async () => {
+    banner.style.display = 'none';
+    const res = await sendBG('RESTORE_SESSION', { username });
+    if (res?.ok) {
+      showToast(`✓ Đã khôi phục ${res.count} media của @${username}`, 'success');
+      // setCurrentUser sẽ được gọi bởi SESSION_RESTORED broadcast từ SW
+      await setCurrentUser(username);
+    } else {
+      showToast('Ảnh/video cũ không tìm thấy', 'error');
+    }
+  };
+
+  document.getElementById('btn-restore-cancel').onclick = async () => {
+    banner.style.display = 'none';
+    await sendBG('RESTORE_SESSION_CANCEL', { username });
+    showToast('Đã hủy phiên cũ', 'info');
+  };
 }
 
 // ─── Detect active tab ────────────────────────────────────────────────────────
@@ -460,6 +507,14 @@ function listenToMessages() {
         });
         break;
       }
+
+      case 'SESSION_RESTORED':
+        // Khôi phục thành công — cập nhật stats và badge
+        if (payload.username === currentUsername) {
+          if (payload.stats) { stats = payload.stats; updateStatTabs(); }
+          updateMediaCount(payload.count);
+        }
+        break;
     }
   });
 }

@@ -23,7 +23,7 @@
         </div>
         <div class="header-text">
           <h1 class="app-name">Media Downloader</h1>
-          <span class="app-version">v3.5.2</span>
+          <span class="app-version">v3.7.0</span>
         </div>
       </div>
       <button class="btn-icon btn-theme" id="btn-theme" title="Đổi giao diện">
@@ -51,6 +51,26 @@
         </svg>
       </button>
     </header>
+
+    <!-- Session Restore Banner -->
+    <section class="restore-banner" id="restore-banner" style="display:none" role="alert" aria-live="polite">
+      <div class="restore-info">
+        <div class="restore-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="1 4 1 10 7 10"/>
+            <path d="M3.51 15a9 9 0 1 0 .49-4.36"/>
+          </svg>
+        </div>
+        <div class="restore-text">
+          <strong id="restore-username">@username</strong>
+          <span id="restore-detail">0 media · 0 scrolls</span>
+        </div>
+      </div>
+      <div class="restore-actions">
+        <button class="btn-restore-ok" id="btn-restore" title="Khôi phục phiên cũ">Tiếp tục</button>
+        <button class="btn-restore-cancel" id="btn-restore-cancel" title="Hủy phiên cũ">×</button>
+      </div>
+    </section>
 
     <!-- Profile Info -->
     <section class="profile-section">

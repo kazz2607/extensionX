@@ -1,11 +1,11 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-06-03 | Phiên bản hiện tại: **3.6.0**
+> Cập nhật: 2026-06-03 | Phiên bản hiện tại: **3.7.0**
 
 ---
 
-## 1. Kiến Trúc Hiện Tại (v3.6.x)
+## 1. Kiến Trúc Hiện Tại (v3.7.x)
 
 ```
 extensionX/
@@ -107,6 +107,7 @@ File được lưu vào:
 - **v3.5.4** Context invalidation: flag `_contextDead`, đổi warn→debug
 - **v3.5.5** FAB isDownloading flag + FAB_UPDATE từ SW sau download xong
 - **v3.6.0** Download Mini Button trên từng tweet, refactor downloadSingleItem module-level
+- **v3.7.0** Session Restore — lưu/khôi phục phiên thu thập qua chrome.storage.local
 
 ---
 
@@ -121,9 +122,9 @@ File được lưu vào:
 - **Mô tả:** Tự chèn nút tải nhỏ (icon ↓) cạnh action bar của từng bài tweet. Click → tải ngay ảnh/video của tweet đó.
 - **Trạng thái:** ✅ Đã hoàn thành trong v3.6.0
 
-### 🔲 Session Restore
+### ✅ Session Restore (v3.7.0)
 - **Mô tả:** Lưu profile đang thu thập dở vào storage. Khi browser tắt bất ngờ, mở lại có thể tiếp tục.
-- **Ưu tiên:** Trung bình
+- **Trạng thái:** ✅ Đã hoàn thành trong v3.7.0
 
 ### 🔲 Smart Filters
 - **Mô tả:** Lọc ảnh rác (avatar nhỏ <150px, icon). Chỉ tải media chất lượng cao thực sự.

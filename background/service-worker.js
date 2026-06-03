@@ -203,6 +203,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       statsStore.delete(payload.username);
       chrome.action.setBadgeText({ text: '' });
       broadcastToPopup('MEDIA_CLEARED', { username: payload.username });
+      // Session Restore: xóa session đã lưu khi user xóa thủ công
+      clearSession(payload.username);
       return false;
     }
 
@@ -261,6 +263,75 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return false;
     }
 
+    // ─── Session Restore ────────────────────────────────────────────────
+    case 'GET_SAVED_SESSION': {
+      (async () => {
+        try {
+          const stored = await chrome.storage.local.get('active_session_username');
+          const username = stored.active_session_username;
+          if (!username) { sendResponse({ session: null }); return; }
+
+          const key = `session_${username}`;
+          const data = await chrome.storage.local.get(key);
+          sendResponse({ session: data[key] || null });
+        } catch (_) {
+          sendResponse({ session: null });
+        }
+      })();
+      return true; // async
+    }
+
+    case 'RESTORE_SESSION': {
+      const { username } = payload;
+      (async () => {
+        try {
+          const key = `session_${username}`;
+          const data = await chrome.storage.local.get(key);
+          const session = data[key];
+
+          if (!session?.mediaItems?.length) {
+            sendResponse({ error: 'No session data' });
+            return;
+          }
+
+          // Nạp lại vào memory stores
+          if (!mediaStore.has(username)) mediaStore.set(username, new Map());
+          if (!statsStore.has(username)) statsStore.set(username, { image: 0, video: 0, gif: 0, hls: 0 });
+
+          const store = mediaStore.get(username);
+          session.mediaItems.forEach(item => {
+            if (item?.url && !store.has(item.url)) store.set(item.url, item);
+          });
+
+          if (session.stats) statsStore.set(username, session.stats);
+
+          updateBadge(username);
+          broadcastToPopup('SESSION_RESTORED', {
+            username,
+            count: store.size,
+            scrollCount: session.scrollCount || 0,
+            stats: session.stats || {},
+          });
+
+          // Xóa session sau khi đã restore thành công
+          await clearSession(username);
+
+          sendResponse({ ok: true, count: store.size });
+        } catch (err) {
+          console.error('[SW] RESTORE_SESSION error:', err);
+          sendResponse({ error: err.message });
+        }
+      })();
+      return true; // async
+    }
+
+    case 'RESTORE_SESSION_CANCEL': {
+      const { username } = payload;
+      clearSession(username);
+      sendResponse({ ok: true });
+      return false;
+    }
+
     default:
       return false;
   }
@@ -290,6 +361,8 @@ function addMediaItems(username, items) {
     broadcastToPopup('MEDIA_COUNT_UPDATE', {
       username, count: store.size, newCount, stats: { ...stats },
     });
+    // Session Restore: lưu session mỗi khi có media mới (debounce 2s)
+    persistSession(username);
   }
   return newCount;
 }
@@ -411,6 +484,9 @@ async function scrollLoop(tabId, username) {
 
     updateFAB(tabId, username, state.scrollCount);
 
+    // Session Restore: lưu session mỗi 5 scroll
+    if (state.scrollCount % 5 === 0) persistSession(username);
+
     if (scrollResult?.isHidden) {
       // Tab đang bị ẩn/minimized, X.com ngừng tải.
       // Reset lỗi và đợi lâu hơn một chút
@@ -446,7 +522,68 @@ function stopCollecting(username) {
     }
   });
   broadcastToPopup('COLLECT_STOPPED', { username });
+  // Session Restore: lưu clean session khi dừng chủ động
+  persistSession(username);
 }
+
+// ─── Session Restore — Persist & Clear ───────────────────────────────────────
+// Debounce timer để tránh ghi storage quá nhiều lần khi media flood vào liên tục
+let _persistDebounceMap = new Map(); // Map<username, timerId>
+
+async function persistSession(username) {
+  // Hủy timer cũ (nếu có) để debounce
+  const existing = _persistDebounceMap.get(username);
+  if (existing) clearTimeout(existing);
+
+  const timer = setTimeout(async () => {
+    _persistDebounceMap.delete(username);
+
+    try {
+      const store = mediaStore.get(username);
+      if (!store?.size) return; // Không có gì để lưu
+
+      // Lấy scrollCount từ tabState
+      let scrollCount = 0;
+      tabState.forEach(state => {
+        if (state.username === username && state.scrollCount > scrollCount) {
+          scrollCount = state.scrollCount;
+        }
+      });
+
+      const sessionData = {
+        username,
+        profileUrl: `https://x.com/${username}/media`,
+        mediaCount: store.size,
+        scrollCount,
+        savedAt: Date.now(),
+        mediaItems: Array.from(store.values()),
+        stats: statsStore.get(username) || {},
+      };
+
+      const key = `session_${username}`;
+      await chrome.storage.local.set({
+        [key]: sessionData,
+        active_session_username: username,
+      });
+      console.debug(`[SW] Session saved: @${username} — ${store.size} items, scroll=${scrollCount}`);
+    } catch (err) {
+      console.warn('[SW] persistSession error:', err.message);
+    }
+  }, 2000); // Debounce 2 giây
+
+  _persistDebounceMap.set(username, timer);
+}
+
+async function clearSession(username) {
+  try {
+    _persistDebounceMap.get(username) && clearTimeout(_persistDebounceMap.get(username));
+    _persistDebounceMap.delete(username);
+    await chrome.storage.local.remove([`session_${username}`, 'active_session_username']);
+    console.debug(`[SW] Session cleared: @${username}`);
+  } catch (_) {}
+}
+
+
 
 // ─── Download — từng file, không ZIP ─────────────────────────────────────────
 let activeErrors = []; // Mảng chứa chi tiết lỗi
