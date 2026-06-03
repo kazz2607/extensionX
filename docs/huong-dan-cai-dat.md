@@ -96,7 +96,7 @@ Sau khi load, extension sẽ xuất hiện trong danh sách:
 
 ```
 ┌──────────────────────────────────────────┐
-│  ⬇ X Media Downloader          v3.9.0   │
+│  ⬇ X Media Downloader          v4.0.0   │
 │  Tải toàn bộ ảnh & video từ X.com...    │
 │                                          │
 │  [Details]  [Remove]           ● Enabled │
@@ -128,12 +128,12 @@ Click icon **⬇** trên toolbar Chrome. Popup sẽ hiển thị:
 
 ```
 ┌─────────────────────────────────────┐
-│ ⬇ X Media Downloader      v3.5.3  ⭤☉⚡│
+│ ⬇ X Media Downloader      v4.0.0  ⚙☆⚡│
 ├─────────────────────────────────────┤
 │ 👤 @NASA                        [47]│
 │    Profile đang được xem            │
 ├─────────────────────────────────────┤
-│ [ Tất cả 47 ][ 🖼 Ảnh 30 ][ 🎬 Video 12 ][ GIF 5 ] │
+│ [ Tất cả 47 ][ 🖼 Ảnh 30 ][ 🎥 Video 12 ][ GIF 5 ] │
 ├─────────────────────────────────────┤
 │ ● Sẵn sàng — @NASA                  │
 ├─────────────────────────────────────┤
@@ -214,6 +214,7 @@ Click biểu tượng **⚙** trên popup để mở trang cài đặt:
 | **📝 Tên file Username_TweetID** | Tắt | Lưu tên file theo `username_tweetId_serial.ext` |
 | **🔍 Smart Filters** | Bật | Tự động lọc avatar, banner, card preview; ảnh nhỏ hơn 150×150px bị bỏ qua |
 | **Min ảnh W × H** | 150 × 150 px | Ngưỡng kích thước tối thiểu (đặt 0 để tắt) |
+| **🔔 Snackbar tiến trình** | Bật | Hiển thị progress bar mini trên trang X.com khi đang tải (v4.0.0) |
 
 ---
 
@@ -382,4 +383,4 @@ Nếu gặp vấn đề, hãy kiểm tra:
 
 ---
 
-*Phiên bản: 3.9.0 | Cập nhật: 2026-06-03*
+*Phiên bản: 4.0.0 | Cập nhật: 2026-06-03*
