@@ -1,7 +1,7 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-06-03 | Phiên bản hiện tại: **4.0.1**
+> Cập nhật: 2026-06-03 | Phiên bản hiện tại: **4.1.0**
 
 ---
 
@@ -105,14 +105,8 @@ File được lưu vào:
 
 ### ✅ Phase 4 — UX Nâng Cao (v4.0.x)
 - **v4.0.0** Progress Snackbar — snackbar glassmorphism trên trang, realtime, auto-dismiss, toggle trong Options
-- **v4.0.1** Bug Fixes — 7 lỗi sửa trong phiên này:
-  - Guard `tweetId` rỗng trước khi gọi API (chặn cascade 404)
-  - Bỏ `format=jpg` ép buộc — giữ format gốc PNG/WebP
-  - `keepalive ping` chuyển từ `log` → `debug`
-  - `async forEach` → `Promise.all(map)` trong MEDIA_FOUND
-  - `broadcastToTab` chỉ gửi 1 tab (không spam tất cả tab)
-  - FAB `updateFabI18n()` dùng `isDownloading` flag đúng cách
-  - DOM scanner validate `tweetId` ≥10 digits
+- **v4.0.1** Bug Fixes — 7 lỗi sửa trong phiên này
+- **v4.1.0** Duplicate Detection — lọc và bỏ qua các file đã tải, Security S2, Sanitize S4, Notifications U3, System Theme U6
 
 ---
 
@@ -128,6 +122,7 @@ File được lưu vào:
 | v3.9.0 | **FAB Draggable** — Kéo thả FAB lên/xuống trên cạnh phải, vị trí được nhớ qua localStorage |
 | v4.0.0 | **Progress Snackbar** — Snackbar glassmorphism trên trang X.com, realtime progress, auto-dismiss, toggle trong Options |
 | v4.0.1 | **Bug Fixes** — Guard tweetId rỗng, bỏ format=jpg, debug log, async fix, broadcastToTab 1 tab, FAB i18n fix |
+| v4.1.0 | **Duplicate Detection** — Nhớ danh sách đã tải, bỏ qua file trùng + S2/S4 Security, Notification, System Theme |
 
 ---
 
@@ -139,19 +134,6 @@ File được lưu vào:
 ---
 
 ### 🔴 4.1. Tính Năng Mới (Features)
-
-#### v4.1.0 — Duplicate Detection & Skip
-**Vấn đề:** Hiện tại, nếu user chạy thu thập 2 lần trên cùng 1 profile, extension sẽ tải lại toàn bộ file đã có trên máy — gây lãng phí băng thông và tạo file trùng.
-
-**Đề xuất:**
-- Lưu danh sách `downloadedUrls` vào `chrome.storage.local` theo key `downloaded_{username}`
-- Trước mỗi download, check hash URL — bỏ qua nếu đã có
-- Thêm nút **"Chỉ tải mới"** trong popup (skip already downloaded)
-- Hiển thị badge "X files skipped" trong DOWNLOAD_DONE
-
-**Files cần sửa:** `service-worker.js`, `popup.js`, `popup.html`
-
----
 
 #### v4.2.0 — Date Range Filter (Lọc theo ngày)
 **Vấn đề:** Không có cách lọc media theo khoảng thời gian. Nếu user chỉ muốn ảnh từ tháng 3/2025 đến 5/2025, họ phải tải toàn bộ rồi xóa thủ công.
@@ -404,11 +386,6 @@ File được lưu vào:
 
 | Tính năng | Độ khó | Impact | Ưu tiên |
 |---|---|---|---|
-| **v4.1.0** Duplicate Detection & Skip | ⭐⭐ | 🔥🔥🔥 | 🔴 Cao |
-| **S2** CSP Input Validation | ⭐ | 🔥🔥🔥 | 🔴 Cao |
-| **S4** Sanitize Filename | ⭐ | 🔥🔥 | 🔴 Cao |
-| **U3** Chrome Notification khi xong | ⭐ | 🔥🔥🔥 | 🔴 Cao |
-| **U6** Dark Mode System (auto) | ⭐ | 🔥🔥 | 🔴 Cao |
 | **v4.2.0** Date Range Filter | ⭐⭐⭐ | 🔥🔥🔥 | 🟡 Trung bình |
 | **P4** Incremental persist (delta write) | ⭐⭐ | 🔥🔥 | 🟡 Trung bình |
 | **U2** Visual Progress per File | ⭐⭐ | 🔥🔥 | 🟡 Trung bình |

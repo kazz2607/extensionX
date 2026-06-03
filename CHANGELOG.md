@@ -2,6 +2,16 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [4.1.0] - 2026-06-03
+### Thêm mới (Added)
+- **[Duplicate Detection] Tự động bỏ qua file đã tải:** Hệ thống tự động ghi nhớ các URL đã tải thành công theo từng username (lưu vào `chrome.storage.local`). Ở các lần tải sau, extension sẽ tự động so sánh và bỏ qua những file đã có, giúp tiết kiệm băng thông, thời gian và dung lượng đĩa cứng. Có thể bật/tắt tính năng này bằng checkbox "Skip downloaded" ở Popup.
+- **[Security] Kiểm tra tính hợp lệ dữ liệu (S2):** Bổ sung validation chặt chẽ trong content script để loại bỏ mọi payload độc hại gửi từ context của trang web.
+- **[Sanitize] Tự động làm sạch tên file (S4):** Bổ sung hàm lọc bỏ các ký tự không hợp lệ với hệ thống file khỏi chuỗi trước khi lưu, bảo vệ thư mục Downloads.
+- **[Notifications] Thông báo hệ thống (U3):** Tự động hiển thị Chrome Notification sau khi hoàn tất tải. Có thể bật/tắt trong Options.
+- **[Giao diện] Tự động đổi màu theo hệ thống (U6):** Thêm tuỳ chọn System trong phần Theme của trang Settings, tự động chuyển đổi sáng/tối theo HĐH.
+
+---
+
 ## [4.0.1] - 2026-06-03
 ### Sửa lỗi (Fixed)
 - **[BUG-A] `video_placeholder` với `tweetId` rỗng gây cascade API 404:** DOM scanner đôi khi tạo ra `video_placeholder` item mà không có `tweetId` hợp lệ (ví dụ: video thumbnail không có `article` bao quanh trên trang Media Grid). Service Worker nhận item này → gọi `fetchVideoForTweet('')` → API trả 404 hàng loạt, spam console. Fix bằng cách thêm guard `!item.tweetId || !/^\d{10,}$/.test(item.tweetId)` trước khi xử lý — bỏ qua ngay lập tức nếu tweetId không hợp lệ.

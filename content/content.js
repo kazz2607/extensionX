@@ -87,9 +87,23 @@ function isMediaPage(url = location.href) {
   return url.includes('/media') || url.includes('/photos') || url.includes('/videos');
 }
 
-// ─── 3. Lắng nghe media từ page-interceptor & dom-scanner ────────────────────
-// Chỉ relay khi đang thực sự thu thập (tránh đếm media trên Home / Explore)
-let isCollecting = false;
+// ─── S2: Validate media item từ CustomEvent (bảo vệ khỏi XSS injection) ─────
+const VALID_ITEM_TYPES = ['image', 'video', 'gif', 'hls', 'video_placeholder'];
+const VALID_HOSTS      = ['pbs.twimg.com', 'video.twimg.com'];
+const VALID_EXTS       = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'ts', 'm3u8', 'mov'];
+
+function validateMediaItem(item) {
+  if (!item || typeof item !== 'object') return false;
+  if (!VALID_ITEM_TYPES.includes(item.type)) return false;
+  if (item.type === 'video_placeholder') {
+    return /^\d{10,20}$/.test(item.tweetId || '');
+  }
+  const url = item.url || '';
+  if (!VALID_HOSTS.some(h => url.startsWith(`https://${h}/`))) return false;
+  if (item.tweetId && !/^\d{10,20}$/.test(item.tweetId)) return false;
+  if (item.ext && !VALID_EXTS.includes(item.ext.toLowerCase())) return false;
+  return true;
+}
 
 window.addEventListener('X_MEDIA_FOUND', (event) => {
   const { mediaItems, sourceUrl } = event.detail;
@@ -105,11 +119,15 @@ window.addEventListener('X_MEDIA_FOUND', (event) => {
   // Bỏ qua nếu không xác định được username (trang Home, Explore...)
   if (!username) return;
 
+  // S2: Lọc items không hợp lệ trước khi gửi lên SW — chặn injection từ page context
+  const validItems = mediaItems.filter(validateMediaItem);
+  if (!validItems.length) return;
+
   chrome.runtime.sendMessage({
     type: 'MEDIA_FOUND',
     payload: {
       username: username || 'unknown',
-      mediaItems,
+      mediaItems: validItems,
       sourceUrl,
       pageUrl: location.href,
     }
@@ -120,6 +138,7 @@ window.addEventListener('X_MEDIA_FOUND', (event) => {
     }
   });
 });
+
 
 // ─── 4. Lắng nghe FAB actions → relay sang service worker ────────────────────
 window.addEventListener('XMD_FAB_ACTION', (event) => {

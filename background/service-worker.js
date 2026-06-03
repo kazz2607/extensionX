@@ -15,6 +15,9 @@ const mediaStore = new Map();   // Map<username, Map<url, MediaItem>>
 const tabState   = new Map();   // Map<tabId, CollectState>
 const statsStore = new Map();   // Map<username, {image,video,gif,hls}>
 
+// v4.1.0 Duplicate Detection: lưu Set<url> các file đã tải theo username
+const downloadedStore = new Map(); // Map<username, Set<url>>
+
 let downloadInProgress = false;
 
 // ─── Download Tracker ─────────────────────────────────────────────────────────
@@ -241,6 +244,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // BUG-8 FIX: Popup query trạng thái download khi mở lại
       sendResponse({ isDownloading: downloadInProgress });
       return true;
+    }
+
+    // v4.1.0: Lấy danh sách đã tải của một username
+    case 'GET_DOWNLOADED_COUNT': {
+      const set = downloadedStore.get(payload.username);
+      sendResponse({ count: set?.size || 0 });
+      return true;
+    }
+
+    // v4.1.0: Xóa lịch sử đã tải của username
+    case 'CLEAR_DOWNLOADED': {
+      downloadedStore.delete(payload.username);
+      chrome.storage.local.remove(`downloaded_${payload.username}`).catch(() => {});
+      sendResponse({ ok: true });
+      return false;
     }
 
     case 'EXPORT_CSV': {
@@ -618,7 +636,95 @@ async function clearSession(username) {
   } catch (_) {}
 }
 
+// ─── v4.1.0: Duplicate Detection ────────────────────────────────────────────────
+// Normalize URL: xóa query params biến đổi như ?t= nhưng giữ name=orig
+function normalizeUrlForDedup(url) {
+  try {
+    const u = new URL(url);
+    // Chỉ giữ path + format + name params (nếu có)
+    const name   = u.searchParams.get('name')   || '';
+    const format = u.searchParams.get('format') || '';
+    const base = u.origin + u.pathname;
+    if (name || format) return `${base}?name=${name}&format=${format}`;
+    return base;
+  } catch {
+    return url.split('?')[0]; // fallback: chỉ lấy path
+  }
+}
 
+// Load downloaded URLs từ storage vào memory
+async function loadDownloadedUrls(username) {
+  if (downloadedStore.has(username)) return; // Đã load rồi
+  try {
+    const key = `downloaded_${username}`;
+    const data = await chrome.storage.local.get(key);
+    const arr = data[key] || [];
+    downloadedStore.set(username, new Set(arr));
+  } catch (_) {
+    downloadedStore.set(username, new Set());
+  }
+}
+
+// Kiểm tra một URL đã được tải chưa
+function isAlreadyDownloaded(username, url) {
+  const set = downloadedStore.get(username);
+  if (!set) return false;
+  return set.has(normalizeUrlForDedup(url));
+}
+
+// Đánh dấu URL đã tải xong + persist vào storage
+function markDownloaded(username, url) {
+  if (!downloadedStore.has(username)) downloadedStore.set(username, new Set());
+  const set = downloadedStore.get(username);
+  set.add(normalizeUrlForDedup(url));
+  // Persist debounce — ghi storage sau 3s, không ghi từng file một
+  scheduleDownloadedPersist(username);
+}
+
+const _downloadedPersistTimers = new Map();
+function scheduleDownloadedPersist(username) {
+  const existing = _downloadedPersistTimers.get(username);
+  if (existing) clearTimeout(existing);
+  const timer = setTimeout(async () => {
+    _downloadedPersistTimers.delete(username);
+    try {
+      const key = `downloaded_${username}`;
+      const arr = Array.from(downloadedStore.get(username) || []);
+      // Giới hạn 50,000 entry — giữ 40,000 cái mới nhất nếu vượt
+      const trimmed = arr.length > 50000 ? arr.slice(-40000) : arr;
+      await chrome.storage.local.set({ [key]: trimmed });
+    } catch (err) {
+      console.debug('[SW] markDownloaded persist error:', err.message);
+    }
+  }, 3000);
+  _downloadedPersistTimers.set(username, timer);
+}
+
+// ─── v4.1.0: Chrome System Notification ───────────────────────────────────────────
+async function showDownloadNotification(username, success, failed, total, skipped) {
+  try {
+    const stored = await chrome.storage.sync.get('options');
+    const opts = stored.options || {};
+    if (opts.showNotification === false) return; // opt-out
+
+    const emoji  = failed > 0 ? '⚠️' : '✅';
+    const detail = failed > 0
+      ? `${success} thành công, ${failed} lỗi`
+      : `${success} file đã tải xong`;
+    const skipNote = skipped > 0 ? ` (bỏ qua ${skipped} đã có)` : '';
+
+    chrome.notifications.create(`download_done_${Date.now()}`, {
+      type:    'basic',
+      iconUrl: chrome.runtime.getURL('icons/icon128.png'),
+      title:   `${emoji} X Media Downloader`,
+      message: `@${username}: ${detail}${skipNote}`,
+      contextMessage: `Tổng: ${total} files`,
+      priority: 1,
+    });
+  } catch (err) {
+    console.debug('[SW] showDownloadNotification error:', err.message);
+  }
+}
 
 // ─── Download — từng file, không ZIP ─────────────────────────────────────────
 let activeErrors = []; // Mảng chứa chi tiết lỗi
@@ -792,9 +898,25 @@ async function startDownload(username, options = {}) {
     else if (options.filterType === 'gifs') items = items.filter(i => i.type === 'gif');
   }
 
+  // v4.1.0: Duplicate Detection — load downloaded URLs rồi lọc ra
+  await loadDownloadedUrls(username);
+  const skipDuplicates = options.skipDuplicates !== false; // mặc định bật
+  let skipped = 0;
+  if (skipDuplicates) {
+    const before = items.length;
+    items = items.filter(item => !isAlreadyDownloaded(username, item.url));
+    skipped = before - items.length;
+    if (skipped > 0) console.log(`[SW] Duplicate skip: ${skipped} files đã tải trước — bỏ qua`);
+  }
+
   if (!items.length) {
     downloadInProgress = false;
     stopKeepAlive();
+    // Thông báo nếu tất cả đã được tải rồi
+    if (skipped > 0) {
+      broadcastToPopup('DOWNLOAD_DONE', { username, success: 0, failed: 0, total: 0, skipped });
+      showDownloadNotification(username, 0, 0, 0, skipped);
+    }
     return;
   }
 
@@ -810,7 +932,7 @@ async function startDownload(username, options = {}) {
   broadcastToPopup('DOWNLOAD_STARTED', { username, total });
   // Snackbar: thông báo bắt đầu
   const snackEnabled = opts.showSnackbar !== false;
-  if (snackEnabled) broadcastToTab(username, 'SNACKBAR_UPDATE', { type: 'DOWNLOAD_STARTED', username, total });
+  if (snackEnabled) broadcastToTab(username, 'SNACKBAR_UPDATE', { type: 'DOWNLOAD_STARTED', username, total, skipped });
 
   // ─── Download một file — BUG-4 FIX: mỗi item tự quản lý timeout ─────────
   // Dùng module-level downloadSingleItem() — tránh code trùng lặp với DOWNLOAD_TWEET
@@ -823,6 +945,8 @@ async function startDownload(username, options = {}) {
       });
 
       success++;
+      // v4.1.0: Đánh dấu đã tải xong
+      markDownloaded(username, item.url);
     } catch (err) {
       failed++;
       activeErrors.push(err.message);
@@ -899,9 +1023,11 @@ async function startDownload(username, options = {}) {
   } finally {
     downloadInProgress = false;
     stopKeepAlive(); // BUG-2 FIX: Tắt keep-alive khi xong
-    broadcastToPopup('DOWNLOAD_DONE', { username, success, failed, total });
+    broadcastToPopup('DOWNLOAD_DONE', { username, success, failed, total, skipped });
+    // v4.1.0: Hiện system notification
+    showDownloadNotification(username, success, failed, total, skipped);
     // Snackbar: thông báo hoàn thành
-    if (snackEnabled) broadcastToTab(username, 'SNACKBAR_UPDATE', { type: 'DOWNLOAD_DONE', username, success, failed, total });
+    if (snackEnabled) broadcastToTab(username, 'SNACKBAR_UPDATE', { type: 'DOWNLOAD_DONE', username, success, failed, total, skipped });
 
     // FAB FIX: Thông báo FAB trong tab để reset isDownloading flag
     tabState.forEach((state, tabId) => {
@@ -1028,13 +1154,25 @@ function buildDownloadPath(saveFolder, username, item, flatUsername = false, fil
   return parts.filter(Boolean).join('/');
 }
 
+// S4: Sanitize tên file — loại bỏ ký tự không hợp lệ trên Windows/macOS
+function sanitizeFilenameStr(name) {
+  if (!name) return 'file';
+  return name
+    .replace(/[\x00-\x1f\x7f]/g, '')      // control chars
+    .replace(/[<>:"/\\|?*]/g, '_')         // Windows invalid chars
+    .replace(/^[\s.]+|[\s.]+$/g, '')       // leading/trailing dots & spaces
+    .slice(0, 200)
+    || 'file';
+}
+
 function buildFilename(item, username = '', filenameUsername = false) {
   const base = item.tweetId || item.mediaKey || `media_${Date.now()}`;
   const rand = Math.random().toString(36).slice(2, 7);
-  if (filenameUsername && username) {
-    return `${username}_${base}_${rand}.${item.ext || 'jpg'}`;
-  }
-  return `${base}_${rand}.${item.ext || 'jpg'}`;
+  // S4: Sanitize tất cả các thành phần trước khi ghép
+  const safeName = sanitizeFilenameStr(filenameUsername && username
+    ? `${username}_${base}_${rand}`
+    : `${base}_${rand}`);
+  return `${safeName}.${item.ext || 'jpg'}`;
 }
 
 // Sanitize tên thư mục: chỉ giữ ký tự hợp lệ cho đường dẫn
@@ -1134,5 +1272,6 @@ function waitForTabLoad(tabId) {
 }
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('[X Media Downloader] v4.0.0 — Direct download mode');
+  console.log('[X Media Downloader] v4.1.0 — Duplicate Detection + Security + Notifications');
 });
+

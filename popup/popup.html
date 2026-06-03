@@ -23,7 +23,7 @@
         </div>
         <div class="header-text">
           <h1 class="app-name">Media Downloader</h1>
-          <span class="app-version">v4.0.1</span>
+          <span class="app-version">v4.1.0</span>
 
         </div>
       </div>
@@ -166,6 +166,14 @@
         </svg>
         <span id="btn-collect-text" data-i18n="btn_collect_start">Start Collecting</span>
       </button>
+
+      <div class="skip-duplicates-wrap" id="skip-duplicates-wrap" style="display:none; align-items:center; justify-content:space-between; margin-bottom:12px;">
+        <label for="opt-skip-duplicates" style="font-size:12px; color:var(--text-sec); display:flex; align-items:center; gap:6px; cursor:pointer;">
+          <input type="checkbox" id="opt-skip-duplicates" checked style="accent-color:var(--accent); cursor:pointer;">
+          <span data-i18n="opt_skip_duplicates">Skip downloaded</span>
+        </label>
+        <span id="downloaded-count-badge" style="font-size:11px; background:rgba(29,155,240,0.1); color:var(--accent); padding:2px 6px; border-radius:10px; display:none;">0 downloaded</span>
+      </div>
 
       <div class="btn-row">
         <button class="btn btn--download" id="btn-download" disabled>

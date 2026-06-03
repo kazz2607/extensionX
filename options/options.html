@@ -465,6 +465,18 @@
           <div class="toggle-thumb"></div>
         </label>
       </div>
+      
+      <div class="option-row">
+        <div class="option-label">
+          <strong>🔔 Hiển thị thông báo khi hoàn thành</strong>
+          <span>Hiện thông báo của trình duyệt (Chrome Notification) khi tải xong một tác vụ.</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="opt-show-notification" checked />
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
     </div>
   </div>
 
@@ -489,6 +501,7 @@
           <span data-i18n="opt_theme_desc">Toggle dark / light mode</span>
         </div>
         <select id="opt-theme-select">
+          <option value="system">System (Tự động) 🌓</option>
           <option value="dark">Dark Mode 🌙</option>
           <option value="light">Light Mode ☀️</option>
         </select>
@@ -519,7 +532,7 @@
     <span class="save-status" id="save-status" data-i18n="save_success">✓ Saved successfully</span>
   </div>
 
-  <p class="version-tag">X Media Downloader v4.0.0</p>
+  <p class="version-tag">X Media Downloader v4.1.0</p>
 
   <script src="../lib/i18n.js"></script>
   <script src="options.js"></script>

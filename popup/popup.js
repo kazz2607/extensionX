@@ -55,6 +55,11 @@ const els = {
   historyList:  $('history-list'),
   btnHistClear: $('btn-history-clear'),
   toast:        $('toast'),
+  
+  // v4.1.0 Duplicate Detection
+  skipWrap:     $('skip-duplicates-wrap'),
+  skipCheckbox: $('opt-skip-duplicates'),
+  downloadedBadge:$('downloaded-count-badge'),
 };
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
@@ -74,7 +79,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ─── Theme ─────────────────────────────────────────────────────────────────
 async function applyTheme() {
   const stored = await chrome.storage.local.get('theme').catch(() => ({}));
-  const theme = stored.theme || 'dark';
+  let theme = stored.theme || 'dark';
+  if (theme === 'system') {
+    theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
   document.documentElement.setAttribute('data-theme', theme);
 }
 
@@ -84,6 +92,14 @@ function toggleTheme() {
   document.documentElement.setAttribute('data-theme', next);
   chrome.storage.local.set({ theme: next });
 }
+
+// v4.1.0: System theme auto switch
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', async (e) => {
+  const stored = await chrome.storage.local.get('theme').catch(() => ({}));
+  if (stored.theme === 'system') {
+    document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+  }
+});
 
 // ─── Session Restore ──────────────────────────────────────────────────────────
 async function checkSavedSession() {
@@ -160,11 +176,12 @@ async function setCurrentUser(username) {
   await updateFolderDisplay(username);
 
   // Lấy count & stats & tab state & download state
-  const [countRes, statsRes, stateRes, dlStateRes] = await Promise.all([
+  const [countRes, statsRes, stateRes, dlStateRes, downloadedRes] = await Promise.all([
     sendBG('GET_MEDIA_COUNT', { username }),
     sendBG('GET_STATS', { username }),
     sendBG('GET_TAB_STATE', { username }),
     sendBG('GET_DOWNLOAD_STATE', {}), // BUG-8 FIX: Restore trạng thái download
+    sendBG('GET_DOWNLOADED_COUNT', { username }), // v4.1.0
   ]);
 
   if (statsRes?.stats) {
@@ -173,6 +190,16 @@ async function setCurrentUser(username) {
   }
 
   updateMediaCount(countRes?.count || 0);
+
+  // v4.1.0: Duplicate Detection UI
+  if (downloadedRes?.count > 0 && els.skipWrap) {
+    els.skipWrap.style.display = 'flex';
+    els.downloadedBadge.style.display = 'inline-block';
+    const doneTxt = window.i18n ? window.i18n.t('status_done') : 'downloaded';
+    els.downloadedBadge.textContent = `${downloadedRes.count} ${doneTxt}`;
+  } else if (els.skipWrap) {
+    els.skipWrap.style.display = 'none';
+  }
 
   // BUG-8 FIX: Restore download state nếu SW đang tải
   if (dlStateRes?.isDownloading) {
@@ -324,7 +351,10 @@ function setupListeners() {
 
     await sendBG('START_DOWNLOAD', {
       username: currentUsername,
-      options: { filterType: activeFilter }
+      options: { 
+        filterType: activeFilter,
+        skipDuplicates: els.skipCheckbox ? els.skipCheckbox.checked : true
+      }
     });
   });
 
@@ -491,9 +521,10 @@ function listenToMessages() {
       case 'DOWNLOAD_DONE': {
         isDownloading = false;
         showProgress(false);
-        const { success, failed, total } = payload;
+        const { success, failed, total, skipped } = payload;
         const doneTxt = window.i18n ? window.i18n.t('status_done') : 'Done';
-        const doneMsg = `✓ ${doneTxt} ${success}/${total} files${failed > 0 ? ` (${failed} error)` : ''}`;
+        const skipTxt = skipped > 0 ? ` (skipped ${skipped})` : '';
+        const doneMsg = `✓ ${doneTxt} ${success}/${total} files${failed > 0 ? ` (${failed} error)` : ''}${skipTxt}`;
         setStatus('done', doneMsg);
         showToast(doneMsg, success > 0 ? 'success' : 'error');
         updateButtons();
@@ -503,6 +534,18 @@ function listenToMessages() {
           filter: activeFilter,
           date: new Date().toISOString(),
         });
+
+        // Refresh downloaded count
+        if (currentUsername) {
+          sendBG('GET_DOWNLOADED_COUNT', { username: currentUsername }).then(res => {
+            if (res?.count > 0 && els.skipWrap) {
+              els.skipWrap.style.display = 'flex';
+              els.downloadedBadge.style.display = 'inline-block';
+              const dTxt = window.i18n ? window.i18n.t('status_done') : 'downloaded';
+              els.downloadedBadge.textContent = `${res.count} ${dTxt}`;
+            }
+          });
+        }
         break;
       }
 

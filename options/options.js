@@ -21,6 +21,7 @@ const DEFAULT_OPTIONS = {
     minImageHeight:   150,
   },
   showSnackbar: true,                          // Progress Snackbar trên trang X.com (v4.0.0)
+  showNotification: true,                      // System notification khi tải xong (v4.1.0)
 };
 
 // ─── Load ─────────────────────────────────────────────────────────────────────
@@ -49,6 +50,7 @@ async function loadOptions() {
   document.getElementById('opt-min-img-width').value       = sf.minImageWidth    ?? 150;
   document.getElementById('opt-min-img-height').value      = sf.minImageHeight   ?? 150;
   document.getElementById('opt-show-snackbar').checked     = opts.showSnackbar   ?? true;
+  document.getElementById('opt-show-notification').checked = opts.showNotification ?? true;
 
   updateScrollLabel(opts.scrollDelay || 2);
   updateConcurrencyLabel(opts.concurrency || 3);
@@ -80,6 +82,7 @@ async function saveOptions() {
       minImageHeight:   parseInt(document.getElementById('opt-min-img-height').value) || 0,
     },
     showSnackbar: document.getElementById('opt-show-snackbar').checked,
+    showNotification: document.getElementById('opt-show-notification').checked,
   };
 
   await chrome.storage.sync.set({ options: opts });
@@ -179,13 +182,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ─── Theme ─────────────────────────────────────────────────────────────────
 async function applyTheme() {
   const stored = await chrome.storage.local.get('theme').catch(() => ({}));
-  const theme = stored.theme || 'dark';
-  document.documentElement.setAttribute('data-theme', theme);
+  let theme = stored.theme || 'dark';
   const themeSelect = document.getElementById('opt-theme-select');
   if (themeSelect) themeSelect.value = theme;
+  
+  if (theme === 'system') {
+    theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  document.documentElement.setAttribute('data-theme', theme);
 }
 
 function setTheme(next) {
-  document.documentElement.setAttribute('data-theme', next);
   chrome.storage.local.set({ theme: next });
+  if (next === 'system') {
+    const active = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', active);
+  } else {
+    document.documentElement.setAttribute('data-theme', next);
+  }
 }
+
+// v4.1.0: System theme auto switch
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', async (e) => {
+  const stored = await chrome.storage.local.get('theme').catch(() => ({}));
+  if (stored.theme === 'system') {
+    document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+  }
+});

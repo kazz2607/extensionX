@@ -54,4 +54,4 @@ Click vào nút ⚙ (Cài đặt) trên popup của extension để tuỳ chỉn
 
 ---
 
-*Phát triển nội bộ — Phiên bản **4.0.1** | Cập nhật: 2026-06-03*
+*Phát triển nội bộ — Phiên bản **4.1.0** | Cập nhật: 2026-06-03*
