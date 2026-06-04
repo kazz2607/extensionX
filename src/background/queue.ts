@@ -1,9 +1,10 @@
-// @ts-nocheck
 import { mediaStore, downloadState } from './state.ts';
 import { startDownload } from './downloader.ts';
 import { broadcastToPopup } from './utils.ts';
-export let profileQueue = [];
-export function setProfileQueue(q) { profileQueue = q; }
+import { QueueItem } from '../types.ts';
+
+export let profileQueue: QueueItem[] = [];
+export function setProfileQueue(q: QueueItem[]) { profileQueue = q; }
 
 
 async function loadPersistedQueue() {
@@ -11,7 +12,7 @@ async function loadPersistedQueue() {
     const data = await chrome.storage.local.get('profile_queue');
     const saved = data.profile_queue || [];
     // Các item đang 'downloading' khi SW restart → đặt lại 'waiting'
-    profileQueue = saved.map(item =>
+    profileQueue = saved.map((item: QueueItem) =>
       item.status === 'downloading' ? { ...item, status: 'waiting' } : item
     );
   } catch (_) {
@@ -19,14 +20,14 @@ async function loadPersistedQueue() {
   }
 }
 
-let _queuePersistTimer = null;
+let _queuePersistTimer: ReturnType<typeof setTimeout> | null = null;
 function persistQueue() {
   if (_queuePersistTimer) clearTimeout(_queuePersistTimer);
   _queuePersistTimer = setTimeout(async () => {
     _queuePersistTimer = null;
     try {
       await chrome.storage.local.set({ profile_queue: profileQueue });
-    } catch (err) {
+    } catch (err: any) {
       console.debug('[SW] persistQueue error:', err.message);
     }
   }, 500);
@@ -37,7 +38,7 @@ function broadcastQueueUpdate() {
 }
 
 async function startNextInQueue() {
-  if (downloadInProgress) return; // Đang có download chạy — đợi
+  if (downloadState.inProgress) return; // Đang có download chạy — đợi
   const next = profileQueue.find(item => item.status === 'waiting');
   if (!next) return; // Hàng đợi rỗng
 

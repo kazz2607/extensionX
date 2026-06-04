@@ -1,4 +1,5 @@
 // @ts-nocheck
+
 import { mediaStore, statsStore, tabState, downloadedStore, downloadState, pendingHlsRequests, setCsrfToken } from './state.ts';
 import { addMediaItems, applyOptionsFilter, checkAutoScroll, startCollecting, stopCollecting, clearSession, fetchVideoForTweetWithRefresh } from './scraper.ts';
 import { startDownload, handleDownloadTweet, buildCSV } from './downloader.ts';

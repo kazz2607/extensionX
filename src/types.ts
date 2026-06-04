@@ -1,7 +1,7 @@
-// @ts-nocheck
 export interface MediaItem {
-  type: 'image' | 'video' | 'gif' | 'hls';
+  type: 'image' | 'video' | 'gif' | 'hls' | 'video_placeholder';
   url: string;
+  source?: string;
   tweetId?: string;
   ext?: string;
   width?: number;
@@ -31,8 +31,57 @@ export interface QueueItem {
   result?: any;
 }
 
+export interface CollectState {
+  username?: string;
+  url?: string;
+  isMediaPage?: boolean;
+  isCollecting?: boolean;
+  scrollCount: number;
+  reachedEnd?: boolean;
+  ct0?: string;
+}
+
+export interface DownloadState {
+  inProgress: boolean;
+}
+
+export interface PendingHlsRequest {
+  resolve: (val: any) => void;
+  reject: (err: any) => void;
+  timeoutId: ReturnType<typeof setTimeout>;
+}
+
+export interface ActiveDownload {
+  resolve: (id: number) => void;
+  reject: (err: Error) => void;
+  startTime: number;
+  filename: string;
+  bytesReceived: number;
+  totalBytes: number;
+}
+
 export interface Options {
-  [key: string]: any;
+  saveFolder?: string;
+  concurrency?: number;
+  filenameUsername?: boolean;
+  flatUsername?: boolean;
+  showSnackbar?: boolean;
+  showNotification?: boolean;
+  autoScroll?: boolean; isMediaPage?: boolean;
+  maxScrolls?: number;
+  scrollDelay?: number;
+  adaptiveScroll?: boolean;
+  maxMedia?: number; mediaTypes?: {
+    images?: boolean;
+    videos?: boolean;
+    gifs?: boolean;
+  };
+  smartFilters?: {
+    filterAvatars?: boolean;
+    filterCardImages?: boolean;
+    minImageWidth?: number;
+    minImageHeight?: number;
+  };
 }
 
 declare global {

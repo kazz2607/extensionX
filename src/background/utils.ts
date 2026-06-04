@@ -1,8 +1,7 @@
-// @ts-nocheck
 import { tabState, downloadState, mediaStore } from './state.ts';
 
 // ─── FAB Helpers ──────────────────────────────────────────────────────────────
-async function updateFAB(tabId, username, scrollCount) {
+async function updateFAB(tabId: number | undefined, username: string, scrollCount?: number) {
   if (!tabId) return;
   const count = mediaStore.get(username)?.size || 0;
   try {
@@ -10,21 +9,22 @@ async function updateFAB(tabId, username, scrollCount) {
   } catch (_) {}
 }
 
-async function broadcastFABState(tabId, state) {
+async function broadcastFABState(tabId: number | undefined, state: string) {
+  if (!tabId) return;
   try {
     await chrome.tabs.sendMessage(tabId, { type: 'FAB_UPDATE', payload: { state } });
   } catch (_) {}
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
-function updateBadge(username) {
+function updateBadge(username: string) {
   const total = mediaStore.get(username)?.size || 0;
   chrome.action.setBadgeText({ text: total > 9999 ? '9999+' : String(total) });
   chrome.action.setBadgeBackgroundColor({ color: '#1D9BF0' });
 }
 
 // BUG-9 FIX: Không log lỗi khi popup đóng (expected behavior)
-function broadcastToPopup(type, payload) {
+function broadcastToPopup(type: string, payload: any) {
   chrome.runtime.sendMessage({ type, payload }).catch((_err) => {
     // Popup đóng = expected. Chỉ log nếu lỗi bất thường.
     // if (_err?.message && !_err.message.includes('Receiving end does not exist')) {
@@ -36,8 +36,8 @@ function broadcastToPopup(type, payload) {
 // Gửi message về tab đang active của username (dùng cho Snackbar)
 // BUG-E FIX: Ưu tiên tab đang collecting; nếu không có thì gửi tab cuối cùng
 // Tránh gửi đến TẤT CẢ tab cùng username khi mở nhiều tab → nhiều snackbar
-function broadcastToTab(username, type, payload) {
-  let targetTabId = null;
+function broadcastToTab(username: string, type: string, payload: any) {
+  let targetTabId: number | null = null;
   // Ưu tiên tab đang actively collecting
   tabState.forEach((state, tabId) => {
     if (state.username === username && state.isCollecting) {
@@ -57,11 +57,11 @@ function broadcastToTab(username, type, payload) {
   }
 }
 
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
-function waitForTabLoad(tabId) {
+function waitForTabLoad(tabId: number): Promise<void> {
   return new Promise(resolve => {
-    function listener(id, info) {
+    function listener(id: number, info: chrome.tabs.TabChangeInfo) {
       if (id === tabId && info.status === 'complete') {
         chrome.tabs.onUpdated.removeListener(listener);
         resolve();
@@ -77,11 +77,11 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 
-function sanitizeFolder(folder) {
+function sanitizeFolder(folder: string) {
   return folder
     .replace(/[<>:"|?*\\]/g, '_') // ký tự không hợp lệ trên Windows
     .replace(/^\/+|\/+$/g, '')    // bỏ slash đầu/cuối
     .trim();
-} // sanitizeFolder
+} // sanitizeFolder
 
 export { broadcastToPopup, broadcastToTab, updateBadge, updateFAB, broadcastFABState, sanitizeFolder, sleep, waitForTabLoad };

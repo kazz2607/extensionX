@@ -1,29 +1,31 @@
 // @ts-nocheck
+
 import { mediaStore, dirtyMediaStore, statsStore, tabState, downloadState, downloadedStore, userCsrfToken, setCsrfToken } from './state.ts';
 import { fetchVideoForTweet } from './tweet-api.ts';
 import { updateBadge, broadcastToPopup, updateFAB, broadcastFABState, sleep, waitForTabLoad, sanitizeFolder } from './utils.ts';
 import { saveMediaItems, getMediaItems, clearMediaItems } from './indexeddb.ts';
+import { MediaItem, Options, CollectState } from '../types.ts';
 
 // ─── S1: CSRF Token Auto-Refresh helpers ────────────────────────────────────────────
-async function requestCsrfRefresh(tabId) {
+async function requestCsrfRefresh(tabId: number) {
   return new Promise(resolve => {
     const timeout = setTimeout(() => resolve(null), 3000);
     chrome.tabs.sendMessage(tabId, { type: 'REQUEST_CSRF_REFRESH' }, (res) => {
       clearTimeout(timeout);
-      resolve(res?.ct0 || null);
+      resolve((res as any)?.ct0 || null);
     });
   });
 }
 
-async function fetchVideoForTweetWithRefresh(tweetId, tabId) {
+async function fetchVideoForTweetWithRefresh(tweetId: string, tabId?: number) {
   try {
-    return await fetchVideoForTweet(tweetId, self.userCsrfToken);
-  } catch (err) {
-    if (err.message === 'CSRF_STALE' && tabId) {
+    return await fetchVideoForTweet(tweetId, (self as any).userCsrfToken);
+  } catch (err: any) {
+    if ((err as Error).message === 'CSRF_STALE' && tabId) {
       console.warn('[SW] S1: ct0 stale, đang refresh...');
       const newToken = await requestCsrfRefresh(tabId);
       if (newToken) {
-        self.userCsrfToken = newToken;
+        (self as any).userCsrfToken = newToken;
         console.log('[SW] S1: ct0 được refresh thành công, retry...');
         return await fetchVideoForTweet(tweetId, newToken);
       }
@@ -32,7 +34,7 @@ async function fetchVideoForTweetWithRefresh(tweetId, tabId) {
   }
 }
 // ─── v4.3.0: Snowflake ID → Timestamp ────────────────────────────────────────
-function tweetDateFromId(tweetId) {
+function tweetDateFromId(tweetId: string | number | undefined) {
   if (!tweetId || !/^\d{10,}$/.test(String(tweetId))) return null;
   try {
     const ms = Number(BigInt(String(tweetId)) >> 22n) + 1288834974657;
@@ -44,15 +46,15 @@ function tweetDateFromId(tweetId) {
 }
 
 // ─── Add Media Items ──────────────────────────────────────────────────────────
-function addMediaItems(username, items) {
+function addMediaItems(username: string, items: MediaItem[]) {
   if (!mediaStore.has(username)) mediaStore.set(username, new Map());
   if (!statsStore.has(username)) statsStore.set(username, { image: 0, video: 0, gif: 0, hls: 0 });
 
-  const store = mediaStore.get(username);
-  const stats = statsStore.get(username);
+  const store = mediaStore.get(username)!;
+  const stats = statsStore.get(username)!;
   let newCount = 0;
 
-  items.forEach(item => {
+  items.forEach((item: MediaItem) => {
     if (store.has(item.url)) return;
     // v4.3.0: Gắn tweetDate từ Snowflake ID
     const tweetDate = tweetDateFromId(item.tweetId);
@@ -61,7 +63,7 @@ function addMediaItems(username, items) {
     
     // v4.4.0: Thêm vào dirty store để persist delta
     if (!dirtyMediaStore.has(username)) dirtyMediaStore.set(username, new Map());
-    dirtyMediaStore.get(username).set(item.url, mediaItem);
+    dirtyMediaStore.get(username)!.set(item.url, mediaItem);
 
     newCount++;
     if (item.type === 'image') stats.image++;
@@ -82,15 +84,15 @@ function addMediaItems(username, items) {
 }
 
 // ─── Apply Options Filter ─────────────────────────────────────────────────────
-async function applyOptionsFilter(username, items) {
-  let opts = {};
+async function applyOptionsFilter(username: string, items: MediaItem[]) {
+  let opts: Options = {};
   try {
     const stored = await chrome.storage.sync.get('options');
     opts = stored.options || {};
   } catch (_) {}
 
   const { mediaTypes = {}, maxMedia = 0 } = opts;
-  let filtered = items.filter(item => {
+  let filtered = items.filter((item: MediaItem) => {
     if (item.type === 'image' && mediaTypes.images === false) return false;
     if (item.type === 'gif'   && mediaTypes.gifs   === false) return false;
     if ((item.type === 'video' || item.type === 'hls') && mediaTypes.videos === false) return false;
@@ -104,7 +106,7 @@ async function applyOptionsFilter(username, items) {
   const minImageWidth    = sf.minImageWidth  > 0 ? sf.minImageWidth  : 0;
   const minImageHeight   = sf.minImageHeight > 0 ? sf.minImageHeight : 0;
 
-  filtered = filtered.filter(item => {
+  filtered = filtered.filter((item: MediaItem) => {
     if (item.type !== 'image') return true; // Video/GIF không lọc
 
     const url = item.url || '';
@@ -192,7 +194,7 @@ async function startCollecting(username, tabId) {
 }
 
 async function scrollLoop(tabId, username) {
-  let opts = {};
+  let opts: Options = {};
   try {
     const stored = await chrome.storage.sync.get('options');
     opts = stored.options || {};
@@ -292,7 +294,7 @@ function stopCollecting(username) {
 // Debounce timer để tránh ghi storage quá nhiều lần khi media flood vào liên tục
 let _persistDebounceMap = new Map(); // Map<username, timerId>
 
-async function persistSession(username) {
+async function persistSession(username: string) {
   // Hủy timer cũ (nếu có) để debounce
   const existing = _persistDebounceMap.get(username);
   if (existing) clearTimeout(existing);
@@ -301,7 +303,7 @@ async function persistSession(username) {
     _persistDebounceMap.delete(username);
 
     try {
-      const store = mediaStore.get(username);
+      const store = mediaStore.get(username)!;
       if (!store?.size) return; // Không có gì để lưu
       
       const dirtyStore = dirtyMediaStore.get(username);
@@ -341,7 +343,7 @@ async function persistSession(username) {
         active_session_username: username,
       });
       console.debug(`[SW] Session saved: @${username} — ${store.size} items, scroll=${scrollCount}`);
-    } catch (err) {
+    } catch (err: any) {
       console.warn('[SW] persistSession error:', err.message);
     }
   }, 2000); // Debounce 2 giây
@@ -349,7 +351,7 @@ async function persistSession(username) {
   _persistDebounceMap.set(username, timer);
 }
 
-async function clearSession(username) {
+async function clearSession(username: string) {
   try {
     _persistDebounceMap.get(username) && clearTimeout(_persistDebounceMap.get(username));
     _persistDebounceMap.delete(username);
@@ -377,7 +379,7 @@ function normalizeUrlForDedup(url) {
 }
 
 // Load downloaded URLs từ storage vào memory
-async function loadDownloadedUrls(username) {
+async function loadDownloadedUrls(username: string) {
   if (downloadedStore.has(username)) return; // Đã load rồi
   try {
     const key = `downloaded_${username}`;
@@ -385,20 +387,20 @@ async function loadDownloadedUrls(username) {
     const arr = data[key] || [];
     downloadedStore.set(username, new Set(arr));
   } catch (_) {
-    downloadedStore.set(username, new Set());
+    downloadedStore.set(username, new Set<string>());
   }
 }
 
 // Kiểm tra một URL đã được tải chưa
-function isAlreadyDownloaded(username, url) {
+function isAlreadyDownloaded(username: string, url: string) {
   const set = downloadedStore.get(username);
   if (!set) return false;
   return set.has(normalizeUrlForDedup(url));
 }
 
 // Đánh dấu URL đã tải xong + persist vào storage
-function markDownloaded(username, url) {
-  if (!downloadedStore.has(username)) downloadedStore.set(username, new Set());
+function markDownloaded(username: string, url: string) {
+  if (!downloadedStore.has(username)) downloadedStore.set(username, new Set<string>());
   const set = downloadedStore.get(username);
   set.add(normalizeUrlForDedup(url));
   // Persist debounce — ghi storage sau 3s, không ghi từng file một
@@ -417,7 +419,7 @@ function scheduleDownloadedPersist(username) {
       // Giới hạn 50,000 entry — giữ 40,000 cái mới nhất nếu vượt
       const trimmed = arr.length > 50000 ? arr.slice(-40000) : arr;
       await chrome.storage.local.set({ [key]: trimmed });
-    } catch (err) {
+    } catch (err: any) {
       console.debug('[SW] markDownloaded persist error:', err.message);
     }
   }, 3000);
@@ -425,7 +427,7 @@ function scheduleDownloadedPersist(username) {
 }
 
 // ─── v4.1.0: Chrome System Notification ───────────────────────────────────────────
-async function showDownloadNotification(username, success, failed, total, skipped) {
+async function showDownloadNotification(username: string, success: number, failed: number, total: number, skipped: number) {
   try {
     const stored = await chrome.storage.sync.get('options');
     const opts = stored.options || {};
@@ -445,7 +447,7 @@ async function showDownloadNotification(username, success, failed, total, skippe
       contextMessage: `Tổng: ${total} files`,
       priority: 1,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.debug('[SW] showDownloadNotification error:', err.message);
   }
 }

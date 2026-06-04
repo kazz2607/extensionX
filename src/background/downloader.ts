@@ -1,4 +1,5 @@
 // @ts-nocheck
+
 import { mediaStore, downloadedStore, tabState, downloadState, pendingHlsRequests, activeDownloads } from './state.ts';
 import { broadcastToPopup, broadcastToTab, sanitizeFolder, broadcastFABState } from './utils.ts';
 import { showDownloadNotification, fetchVideoForTweetWithRefresh } from './scraper.ts';
