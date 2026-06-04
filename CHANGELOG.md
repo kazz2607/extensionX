@@ -2,6 +2,51 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [4.3.0] - 2026-06-04
+### Thêm mới (Added)
+- **[Date Range Filter] Lọc media theo khoảng thời gian trước khi tải:** User có thể giới hạn download chỉ các media được đăng trong khoảng ngày nhất định — không cần tải toàn bộ rồi xóa thủ công.
+  - **Snowflake ID → Timestamp:** `tweetDateFromId()` parse Twitter Snowflake ID bằng công thức `(BigInt(id) >> 22n) + 1288834974657` để lấy thời điểm đăng tweet chính xác. Gắn vào mỗi media item khi `addMediaItems()`.
+  - **Collapsible Date Picker trong Popup (Main tab):** Thanh "📅 Date Range" có thể bấm để mở/đóng panel, hiện sau khi collect được media.
+  - **4 Preset nhanh:** "7 days", "30 days", "3 months", "This year" — 1 click điền đầy cả From và To.
+  - **Preview Count Realtime:** Khi đặt filter, popup query SW (`GET_MEDIA_COUNT_FILTERED`) và hiện số item khớp ngay lập tức (debounce 300ms).
+  - **Badge "Active"** xuất hiện trên header Date Range khi filter đang bật — nhắc user không quên filter đang áp dụng.
+  - **Clear button:** Xóa nhanh filter bằng nút × bên cạnh header.
+  - **Áp dụng lúc download và CSV export:** SW filter theo date range trước khi đưa vào download queue.
+
+### Thay đổi kỹ thuật (Technical)
+- `tweetDateFromId(tweetId)`: Helper function dùng BigInt, có sanity check (2006 ≤ date ≤ now+1day).
+- `addMediaItems()`: Gắn `tweetDate` (timestamp ms) vào mỗi item khi lưu vào store.
+- `startDownload()`: Thêm filter bước date range sau filter type, trước duplicate detection.
+- Message handler `GET_MEDIA_COUNT_FILTERED`: Đếm items theo filterType + dateFrom + dateTo cho popup preview.
+- `popup.js`: State `dateFrom`, `dateTo`, `setupDateRange()`, `clearDateRange()`, `updateDateRangeUI()`, `updateDateRangeCount()`.
+
+---
+
+## [4.2.0] - 2026-06-04
+### Thêm mới (Added)
+- **[Multi-Profile Queue] Hàng đợi tải nhiều profile tuần tự:** User có thể thêm nhiều profile vào hàng đợi và extension tự động tải tuần tự (NASA → SpaceX → NatGeo...) mà không cần giám sát.
+  - Queue được lưu vào `chrome.storage.local` — không mất khi reload/restart.
+  - Sau khi xong profile này, SW tự động kích hoạt profile tiếp theo qua `startNextInQueue()`.
+  - 5 message handlers mới: `ADD_TO_QUEUE`, `REMOVE_FROM_QUEUE`, `GET_QUEUE`, `CLEAR_QUEUE`, `START_QUEUE`.
+  - Mỗi queue item có status: `waiting` | `downloading` | `done` | `error`.
+  - Khi SW restart, item `downloading` được reset về `waiting` để không mất tiến trình.
+- **[Popup v2] Tab Navigation 3 tabs — Main / Queue / Stats:**
+  - **Tab Main:** Toàn bộ UI cũ (profile card, filter tabs, status, collect/download buttons).
+  - **Tab Queue:** Danh sách hàng đợi với status badge màu sắc, nút xóa từng item, nút "Add Current" thêm profile hiện tại vào queue, nút Start/Clear.
+  - **Tab Stats:** Biểu đồ donut SVG breakdown theo loại media (Images/Videos/GIFs/HLS) + legend + history list.
+  - Bottom navigation bar với icon SVG, active indicator line, badge số đỏ trên Queue tab.
+  - Slide animation khi chuyển tab.
+- **[Nút "Add to Queue" trong action bar]:** Nút nhỏ bên cạnh Download — thêm profile hiện tại vào queue với 1 click.
+- **[Options Export Settings]:** Xuất toàn bộ cài đặt ra file JSON (`extensionx_settings_YYYYMMDD.json`) qua `chrome.downloads`.
+- **[Options Import Settings]:** Nạp file JSON cài đặt đã export — validate schema → merge với DEFAULT_OPTIONS → reload.
+- **[Options Reset to Default]:** Đặt lại toàn bộ cài đặt về mặc định với confirm dialog.
+
+### Cải tiến (Improvements)
+- **[Popup] History được chuyển vào Stats tab** — Main tab gọn hơn, Stats tab có thêm context visual.
+- **[Service Worker] Version log cập nhật** → `v4.2.0`.
+
+---
+
 ## [4.1.0] - 2026-06-03
 ### Thêm mới (Added)
 - **[Duplicate Detection] Tự động bỏ qua file đã tải:** Hệ thống tự động ghi nhớ các URL đã tải thành công theo từng username (lưu vào `chrome.storage.local`). Ở các lần tải sau, extension sẽ tự động so sánh và bỏ qua những file đã có, giúp tiết kiệm băng thông, thời gian và dung lượng đĩa cứng. Có thể bật/tắt tính năng này bằng checkbox "Skip downloaded" ở Popup.

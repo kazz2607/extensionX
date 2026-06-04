@@ -96,7 +96,7 @@ Sau khi load, extension sẽ xuất hiện trong danh sách:
 
 ```
 ┌──────────────────────────────────────────┐
-│  ⬇ X Media Downloader          v4.0.1   │
+│  ⬇ X Media Downloader          v4.3.0   │
 │  Tải toàn bộ ảnh & video từ X.com...    │
 │                                          │
 │  [Details]  [Remove]           ● Enabled │
@@ -127,19 +127,23 @@ Ví dụ: `https://x.com/NASA/media`
 Click icon **⬇** trên toolbar Chrome. Popup sẽ hiển thị:
 
 ```
-┌─────────────────────────────────────┐
-│ ⬇ X Media Downloader      v4.0.1  ⚙☆⚡│
-├─────────────────────────────────────┤
-│ 👤 @NASA                        [47]│
-│    Profile đang được xem            │
-├─────────────────────────────────────┤
-│ [ Tất cả 47 ][ 🖼 Ảnh 30 ][ 🎥 Video 12 ][ GIF 5 ] │
-├─────────────────────────────────────┤
-│ ● Sẵn sàng — @NASA                  │
-├─────────────────────────────────────┤
-│ [ 🔍 Bắt đầu Thu Thập              ]│
-│ [ ↓ Download (47) ] [ CSV ] [ 🗑 ]  │
-└─────────────────────────────────────┘
+┌───────────────────────────────────────────┐
+│ ⬇ X Media Downloader        v4.3.0 ⚙☀🔄 │
+├───────────────────────────────────────────┤
+│ 👤 @NASA                             [47]│
+│    Profile đang được xem                 │
+├───────────────────────────────────────────┤
+│ [ Tất cả 47 ][ 🖼 30 ][ 🎥 12 ][ GIF 5 ]│
+├───────────────────────────────────────────┤
+│ 📅 Date Range                        ›    │
+├───────────────────────────────────────────┤
+│ ● Sẵn sàng — @NASA                       │
+├───────────────────────────────────────────┤
+│ [ 🔍 Bắt đầu Thu Thập                   ]│
+│ [ ↓ Download (47) ][ + Queue ][ CSV ][ 🗑]│
+├───────────────────────────────────────────┤
+│ [ Main ]        [ Queue ]       [ Stats ]│  ← Tab bar
+└───────────────────────────────────────────┘
 ```
 
 #### 3. Thu thập media
@@ -215,6 +219,10 @@ Click biểu tượng **⚙** trên popup để mở trang cài đặt:
 | **🔍 Smart Filters** | Bật | Tự động lọc avatar, banner, card preview; ảnh nhỏ hơn 150×150px bị bỏ qua |
 | **Min ảnh W × H** | 150 × 150 px | Ngưỡng kích thước tối thiểu (đặt 0 để tắt) |
 | **🔔 Snackbar tiến trình** | Bật | Hiển thị progress bar mini trên trang X.com khi đang tải (v4.0.0) |
+| **🔔 System Notification** | Bật | Thông báo hệ thống khi tải xong (v4.1.0) |
+| **📤 Export Settings** | — | Xuất toàn bộ cài đặt ra file JSON để backup (v4.2.0) |
+| **📥 Import Settings** | — | Nạp file JSON cài đặt đã export, tự động reload (v4.2.0) |
+| **🔄 Reset to Default** | — | Đặt lại tất cả cài đặt về mặc định (v4.2.0) |
 
 ---
 
@@ -373,6 +381,29 @@ Downloads/
 
 ---
 
+## 🆕 Tính Năng Mới (v4.2.0 – v4.3.0)
+
+### 📋 Multi-Profile Queue (v4.2.0)
+Thêm nhiều profile vào hàng đợi và extension tự động tải tuần tự mà không cần giám sát:
+1. Collect media của profile đầu tiên → click **"+Queue"** bên cạnh nút Download
+2. Chuyển sang profile khác → collect → click **"+Queue"** lần nữa
+3. Vào tab **Queue** → click **"Start"** → extension tự chạy lần lượt từng profile
+
+### 📅 Date Range Filter (v4.3.0)
+Lọc chỉ download media trong khoảng thời gian nhất định:
+1. Sau khi collect, click thanh **"📅 Date Range"** trong Main tab để mở filter
+2. Chọn ngày From / To hoặc dùng preset: **7 days / 30 days / 3 months / This year**
+3. Preview count hiển thị ngay số item khớp
+4. Click **Download** → chỉ tải media trong khoảng ngày đã chọn
+5. Xóa filter bằng nút **×** bên cạnh header
+
+### 📊 Tab Navigation v2 (v4.2.0)
+- **Tab Main**: Giao diện chính như cũ
+- **Tab Queue**: Danh sách hàng đợi profile với status badge
+- **Tab Stats**: Biểu đồ donut phân loại media + lịch sử tải
+
+---
+
 ## 📞 Hỗ Trợ
 
 Nếu gặp vấn đề, hãy kiểm tra:
@@ -383,4 +414,4 @@ Nếu gặp vấn đề, hãy kiểm tra:
 
 ---
 
-*Phiên bản: 4.0.1 | Cập nhật: 2026-06-03*
+*Phiên bản: 4.3.0 | Cập nhật: 2026-06-04*

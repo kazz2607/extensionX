@@ -1,7 +1,7 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-06-03 | Phiên bản hiện tại: **4.1.0**
+> Cập nhật: 2026-06-04 | Phiên bản hiện tại: **4.3.0**
 
 ---
 
@@ -103,10 +103,12 @@ File được lưu vào:
 - **v3.8.0** Smart Filters — lọc avatar/banner/card-preview + kích thước tối thiểu
 - **v3.9.0** FAB Draggable — drag handle trục Y, viewport clamp, persist `localStorage`
 
-### ✅ Phase 4 — UX Nâng Cao (v4.0.x)
+### ✅ Phase 4 — UX Nâng Cao (v4.0.x → v4.2.0)
 - **v4.0.0** Progress Snackbar — snackbar glassmorphism trên trang, realtime, auto-dismiss, toggle trong Options
 - **v4.0.1** Bug Fixes — 7 lỗi sửa trong phiên này
 - **v4.1.0** Duplicate Detection — lọc và bỏ qua các file đã tải, Security S2, Sanitize S4, Notifications U3, System Theme U6
+- **v4.2.0** Multi-Profile Queue — hàng đợi nhiều profile tuần tự, Popup v2 Tab Navigation (3 tabs: Main/Queue/Stats, donut chart), Options Export/Import/Reset
+- **v4.3.0** Date Range Filter — lọc media theo khoảng ngày từ Snowflake ID, collapsible date picker với preset, preview count realtime
 
 ---
 
@@ -123,6 +125,8 @@ File được lưu vào:
 | v4.0.0 | **Progress Snackbar** — Snackbar glassmorphism trên trang X.com, realtime progress, auto-dismiss, toggle trong Options |
 | v4.0.1 | **Bug Fixes** — Guard tweetId rỗng, bỏ format=jpg, debug log, async fix, broadcastToTab 1 tab, FAB i18n fix |
 | v4.1.0 | **Duplicate Detection** — Nhớ danh sách đã tải, bỏ qua file trùng + S2/S4 Security, Notification, System Theme |
+| v4.2.0 | **Multi-Profile Queue** — Hàng đợi nhiều profile tuần tự (SW tự chuyển), Popup v2 Tab Navigation (3 tabs: Main/Queue/Stats với donut chart), Options Export/Import/Reset |
+| v4.3.0 | **Date Range Filter** — Lọc media theo khoảng ngày (Snowflake ID → timestamp), collapsible date picker với 4 preset nhanh, preview count realtime từ SW |
 
 ---
 
@@ -406,9 +410,10 @@ File được lưu vào:
 
 ```
 v4.1.0  ── Duplicate Detection + S2/S4 Security + U3 Notification + U6 System Theme
-v4.2.0  ── Date Range Filter + P4 Incremental Persist + U2 Visual Progress
-v4.3.0  ── Multi-Profile Queue + U1 Popup v2 + U5 Options Export/Import
-v4.4.0  ── Likes & Bookmarks Tab + S3 Rate Limiting + P2 IndexedDB
+v4.2.0  ── Multi-Profile Queue + Popup v2 Tab Navigation + Options Export/Import  ✅ DONE
+v4.3.0  ── Date Range Filter + Snowflake ID parser  ✅ DONE
+v4.4.0  ── P4 Incremental Persist + U2 Visual Progress
+v4.5.0  ── Likes & Bookmarks Tab + S3 Rate Limiting + P2 IndexedDB
 v5.0.0  ── Major rewrite: TypeScript migration, P1 Adaptive Speed, Full MV3 compliance
 ```
 

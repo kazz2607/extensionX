@@ -1,5 +1,5 @@
 /**
- * popup.js — Logic Popup (Phase 3 — Direct Download)
+ * popup.js — Logic Popup (v4.3.0 — Date Range Filter + Multi-Profile Queue + Tab Navigation)
  */
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -12,6 +12,10 @@ let downloadHistory = [];
 let lastScrollCount = 0;
 let lastScrollTime = Date.now();
 let currentSaveFolder = '';  // đọc từ options
+let downloadQueue = [];      // v4.2.0: Multi-Profile Queue
+let dateFrom = '';           // v4.3.0: Date Range Filter (YYYY-MM-DD)
+let dateTo   = '';           // v4.3.0: Date Range Filter (YYYY-MM-DD)
+let _dateRangeOpen = false;  // trạng thái mở/đóng collapsible
 
 // ─── DOM ───────────────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -43,23 +47,53 @@ const els = {
   scrollNew:    $('scroll-new'),
   scrollEta:    $('scroll-eta'),
 
-  btnCollect:   $('btn-collect'),
-  btnCollectTxt:$('btn-collect-text'),
-  btnDownload:  $('btn-download'),
+  btnCollect:    $('btn-collect'),
+  btnCollectTxt: $('btn-collect-text'),
+  btnDownload:   $('btn-download'),
   btnDownloadTxt:$('btn-download-text'),
-  btnCsv:       $('btn-csv'),
-  btnClear:     $('btn-clear'),
-  btnSettings:  $('btn-settings'),
-  btnReload:    $('btn-reload'),
-  btnTheme:     $('btn-theme'),
-  historyList:  $('history-list'),
-  btnHistClear: $('btn-history-clear'),
-  toast:        $('toast'),
-  
+  btnQueueAdd:   $('btn-queue-add'),     // v4.2.0
+  btnCsv:        $('btn-csv'),
+  btnClear:      $('btn-clear'),
+  btnSettings:   $('btn-settings'),
+  btnReload:     $('btn-reload'),
+  btnTheme:      $('btn-theme'),
+  historyList:   $('history-list'),
+  btnHistClear:  $('btn-history-clear'),
+  toast:         $('toast'),
+
   // v4.1.0 Duplicate Detection
-  skipWrap:     $('skip-duplicates-wrap'),
-  skipCheckbox: $('opt-skip-duplicates'),
-  downloadedBadge:$('downloaded-count-badge'),
+  skipWrap:        $('skip-duplicates-wrap'),
+  skipCheckbox:    $('opt-skip-duplicates'),
+  downloadedBadge: $('downloaded-count-badge'),
+
+  // v4.2.0 Queue Panel
+  queueList:       $('queue-list'),
+  queueCountBadge: $('queue-count-badge'),
+  btnQueueStart:   $('btn-queue-start'),
+  btnQueueClear:   $('btn-queue-clear'),
+  btnQueueAddBar:  $('btn-queue-add-bar'),
+  queueAddHint:    $('queue-add-hint'),
+  navQueueBadge:   $('nav-queue-badge'),
+
+  // v4.2.0 Stats / Donut
+  donutArcs:     $('donut-arcs'),
+  donutTotalNum: $('donut-total-num'),
+  legendImages:  $('legend-images'),
+  legendVideos:  $('legend-videos'),
+  legendGifs:    $('legend-gifs'),
+  legendHls:     $('legend-hls'),
+
+  // v4.3.0 Date Range Filter
+  sectionDaterange:    $('section-daterange'),
+  daterangeToggle:     $('daterange-toggle'),
+  daterangeChevron:    $('daterange-chevron'),
+  daterangePanel:      $('daterange-panel'),
+  daterangeActiveBadge:$('daterange-active-badge'),
+  btnDaterangeClear:   $('btn-daterange-clear'),
+  inputDateFrom:       $('filter-date-from'),
+  inputDateTo:         $('filter-date-to'),
+  daterangeCountRow:   $('daterange-count-row'),
+  daterangeCountText:  $('daterange-count-text'),
 };
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
@@ -70,9 +104,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   await applyTheme();
   await loadHistory();
-  await checkSavedSession();   // Session Restore: kiểm tra trước khi load profile
+  await loadQueue();                // v4.2.0
+  await checkSavedSession();
   await detectCurrentTab();
   setupListeners();
+  setupBottomNav();                 // v4.2.0
+  setupDateRange();                 // v4.3.0
   listenToMessages();
 });
 
@@ -101,6 +138,280 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', asy
   }
 });
 
+// ─── v4.3.0: Date Range Filter ─────────────────────────────────────────────────────────────────
+function setupDateRange() {
+  if (!els.daterangeToggle) return;
+
+  // Toggle mở/đóng panel
+  els.daterangeToggle.addEventListener('click', () => {
+    _dateRangeOpen = !_dateRangeOpen;
+    els.daterangePanel.style.display = _dateRangeOpen ? 'block' : 'none';
+    els.daterangeChevron.classList.toggle('open', _dateRangeOpen);
+  });
+
+  // Date inputs — debounce để không query SW quá nhiều
+  let _debounceTimer;
+  const onDateChange = () => {
+    clearTimeout(_debounceTimer);
+    _debounceTimer = setTimeout(() => {
+      dateFrom = els.inputDateFrom.value;
+      dateTo   = els.inputDateTo.value;
+      updateDateRangeUI();
+      updateDateRangeCount();
+    }, 300);
+  };
+  els.inputDateFrom.addEventListener('change', onDateChange);
+  els.inputDateTo.addEventListener('change', onDateChange);
+
+  // Preset buttons
+  document.querySelectorAll('.btn-preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const preset = btn.dataset.preset;
+      const now = new Date();
+      const toDate = now.toISOString().slice(0, 10);
+      let fromDate = '';
+
+      if (preset === '7d') {
+        fromDate = new Date(now - 7 * 86400000).toISOString().slice(0, 10);
+      } else if (preset === '30d') {
+        fromDate = new Date(now - 30 * 86400000).toISOString().slice(0, 10);
+      } else if (preset === '90d') {
+        fromDate = new Date(now - 90 * 86400000).toISOString().slice(0, 10);
+      } else if (preset === '1y') {
+        fromDate = `${now.getFullYear()}-01-01`;
+      }
+
+      els.inputDateFrom.value = fromDate;
+      els.inputDateTo.value   = toDate;
+      dateFrom = fromDate;
+      dateTo   = toDate;
+
+      // Update active state
+      document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      updateDateRangeUI();
+      updateDateRangeCount();
+    });
+  });
+
+  // Clear button
+  if (els.btnDaterangeClear) {
+    els.btnDaterangeClear.addEventListener('click', () => {
+      clearDateRange();
+    });
+  }
+}
+
+function clearDateRange() {
+  dateFrom = ''; dateTo = '';
+  if (els.inputDateFrom) els.inputDateFrom.value = '';
+  if (els.inputDateTo)   els.inputDateTo.value   = '';
+  document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+  updateDateRangeUI();
+  if (els.daterangeCountRow) els.daterangeCountRow.style.display = 'none';
+  updateButtons();
+}
+
+function updateDateRangeUI() {
+  const hasFilter = !!dateFrom || !!dateTo;
+
+  if (els.daterangeToggle) els.daterangeToggle.classList.toggle('has-filter', hasFilter);
+  if (els.daterangeActiveBadge) els.daterangeActiveBadge.style.display = hasFilter ? 'inline' : 'none';
+  if (els.btnDaterangeClear)    els.btnDaterangeClear.style.display    = hasFilter ? 'flex'   : 'none';
+
+  // Update download button badge
+  updateButtons();
+}
+
+let _countTimer;
+async function updateDateRangeCount() {
+  if (!currentUsername) return;
+  if (!dateFrom && !dateTo) return;
+
+  clearTimeout(_countTimer);
+  _countTimer = setTimeout(async () => {
+    const res = await sendBG('GET_MEDIA_COUNT_FILTERED', {
+      username: currentUsername,
+      filterType: activeFilter,
+      dateFrom,
+      dateTo,
+    });
+    const count = res?.count ?? 0;
+    if (els.daterangeCountRow) els.daterangeCountRow.style.display = 'flex';
+    if (els.daterangeCountText) {
+      els.daterangeCountText.textContent = `${count} item${count !== 1 ? 's' : ''} match filter`;
+    }
+  }, 200);
+}
+
+// ─── v4.2.0: Bottom Nav ───────────────────────────────────────────────────────
+function setupBottomNav() {
+  const navTabs = document.querySelectorAll('.nav-tab');
+  navTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const panelId = tab.dataset.panel;
+      // Deactivate all
+      navTabs.forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      // Activate selected
+      tab.classList.add('active');
+      const panel = document.getElementById(panelId);
+      if (panel) panel.classList.add('active');
+
+      // Refresh donut on Stats open
+      if (panelId === 'panel-stats') renderDonutChart();
+    });
+  });
+}
+
+// ─── v4.2.0: Queue ────────────────────────────────────────────────────────────
+async function loadQueue() {
+  const res = await sendBG('GET_QUEUE', {});
+  downloadQueue = res?.queue || [];
+  renderQueue();
+}
+
+function renderQueue() {
+  const list = els.queueList;
+  if (!list) return;
+
+  // Update badges
+  const waitingCount = downloadQueue.filter(q => q.status === 'waiting').length;
+  const totalActive = downloadQueue.filter(q => q.status !== 'done' && q.status !== 'error').length;
+
+  if (els.queueCountBadge) {
+    els.queueCountBadge.textContent = totalActive;
+    els.queueCountBadge.style.display = totalActive > 0 ? 'inline' : 'none';
+  }
+  if (els.navQueueBadge) {
+    els.navQueueBadge.textContent = waitingCount;
+    els.navQueueBadge.style.display = waitingCount > 0 ? 'flex' : 'none';
+  }
+
+  if (downloadQueue.length === 0) {
+    list.innerHTML = `
+      <li class="queue-empty" id="queue-empty">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.3">
+          <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+          <line x1="8" y1="18" x2="21" y2="18"/>
+          <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/>
+          <line x1="3" y1="18" x2="3.01" y2="18"/>
+        </svg>
+        <span>Hàng đợi trống</span>
+        <span class="queue-empty-hint">Thêm profile vào queue để tải tuần tự mà không cần giám sát</span>
+      </li>`;
+    return;
+  }
+
+  const statusLabels = { waiting: 'Chờ', downloading: 'Đang tải', done: 'Xong', error: 'Lỗi' };
+  const filterIcons  = { all: '📦', images: '🖼️', videos: '🎬', gifs: '🎞️' };
+
+  list.innerHTML = downloadQueue.map(item => {
+    const icon = filterIcons[item.filterType || 'all'] || '📦';
+    const statusLabel = statusLabels[item.status] || item.status;
+    const metaText = item.result
+      ? (item.result.error ? item.result.error : `${item.result.success}/${item.result.total} files`)
+      : `${item.mediaCount} media · ${icon} ${item.filterType || 'all'}`;
+    const canRemove = item.status !== 'downloading';
+
+    return `<li class="queue-item status-${item.status}" data-id="${item.id}">
+      <div class="queue-item-avatar">${item.username.slice(0, 2).toUpperCase()}</div>
+      <div class="queue-item-info">
+        <div class="queue-item-name">@${item.username}</div>
+        <div class="queue-item-meta">${metaText}</div>
+      </div>
+      <span class="queue-status ${item.status}">${statusLabel}</span>
+      ${canRemove ? `<button class="btn-queue-remove" data-id="${item.id}" title="Xóa khỏi queue">×</button>` : ''}
+    </li>`;
+  }).join('');
+
+  // Remove listeners
+  list.querySelectorAll('.btn-queue-remove').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      await sendBG('REMOVE_FROM_QUEUE', { id });
+      showToast('Đã xóa khỏi hàng đợi', 'info');
+    });
+  });
+}
+
+async function addCurrentToQueue() {
+  if (!currentUsername) return;
+  const mediaCount = parseInt(els.badge.textContent) || 0;
+  if (mediaCount === 0) {
+    showToast('Chưa có media — hãy thu thập trước', 'error');
+    return;
+  }
+  const skipDuplicates = els.skipCheckbox ? els.skipCheckbox.checked : true;
+  const res = await sendBG('ADD_TO_QUEUE', {
+    username: currentUsername,
+    filterType: activeFilter,
+    skipDuplicates,
+  });
+  if (res?.error === 'Already in queue') {
+    showToast(`@${currentUsername} đã trong hàng đợi`, 'info');
+  } else if (res?.ok) {
+    showToast(`✓ Đã thêm @${currentUsername} vào queue`, 'success');
+    // Switch to queue tab
+    document.getElementById('nav-queue')?.click();
+  } else {
+    showToast('Lỗi khi thêm vào queue', 'error');
+  }
+}
+
+// ─── v4.2.0: Donut Chart ──────────────────────────────────────────────────────
+function renderDonutChart() {
+  const arcs = els.donutArcs;
+  const totalEl = els.donutTotalNum;
+  if (!arcs || !totalEl) return;
+
+  const data = [
+    { key: 'image', color: '#1D9BF0', label: 'Images', val: stats.image || 0 },
+    { key: 'video', color: '#a855f7', label: 'Videos', val: (stats.video || 0) + (stats.hls || 0) },
+    { key: 'gif',   color: '#00ba7c', label: 'GIFs',   val: stats.gif || 0 },
+    { key: 'hls',   color: '#ff7a00', label: 'HLS',    val: 0 }, // merged into video
+  ];
+
+  // Merge HLS into video (already done above), show separate HLS legend
+  const hlsOnly = stats.hls || 0;
+  if (els.legendHls) els.legendHls.textContent = hlsOnly;
+
+  const total = (stats.image || 0) + (stats.video || 0) + (stats.gif || 0) + (stats.hls || 0);
+  totalEl.textContent = total > 9999 ? '9k+' : String(total);
+
+  if (els.legendImages) els.legendImages.textContent = stats.image || 0;
+  if (els.legendVideos) els.legendVideos.textContent = (stats.video || 0) + (stats.hls || 0);
+  if (els.legendGifs)   els.legendGifs.textContent   = stats.gif || 0;
+
+  if (total === 0) {
+    arcs.innerHTML = `<circle cx="50" cy="50" r="38" fill="none" stroke="var(--border)" stroke-width="12"/>`;
+    return;
+  }
+
+  // Draw arcs
+  const r = 38;
+  const circ = 2 * Math.PI * r;
+  let offset = 0;
+  const segments = data.filter(d => d.val > 0);
+
+  arcs.innerHTML = segments.map(seg => {
+    const frac = seg.val / total;
+    const dash = frac * circ;
+    const gap  = circ - dash;
+    const el = `<circle
+      cx="50" cy="50" r="${r}" fill="none"
+      stroke="${seg.color}" stroke-width="12"
+      stroke-dasharray="${dash.toFixed(2)} ${gap.toFixed(2)}"
+      stroke-dashoffset="${(-offset * circ / 360).toFixed(2)}"
+      style="transition: stroke-dasharray 0.5s ease; transform-origin: 50% 50%;"
+    />`;
+    offset += frac * 360;
+    return el;
+  }).join('');
+}
+
 // ─── Session Restore ──────────────────────────────────────────────────────────
 async function checkSavedSession() {
   try {
@@ -108,7 +419,6 @@ async function checkSavedSession() {
     const session = res?.session;
     if (!session?.username || !session?.mediaCount) return;
 
-    // Tính thời gian kể từ lần lưu cuối
     const minutesAgo = Math.round((Date.now() - (session.savedAt || 0)) / 60000);
     const timeStr = minutesAgo < 1   ? 'vừa xong'
                   : minutesAgo < 60  ? `${minutesAgo} phút trước`
@@ -133,7 +443,6 @@ function showRestoreBanner(username, count, scrolls, timeStr) {
     const res = await sendBG('RESTORE_SESSION', { username });
     if (res?.ok) {
       showToast(`✓ Đã khôi phục ${res.count} media của @${username}`, 'success');
-      // setCurrentUser sẽ được gọi bởi SESSION_RESTORED broadcast từ SW
       await setCurrentUser(username);
     } else {
       showToast('Ảnh/video cũ không tìm thấy', 'error');
@@ -172,16 +481,19 @@ async function setCurrentUser(username) {
   els.profileCard.classList.add('active');
   els.avatar.textContent = username.slice(0, 2).toUpperCase();
 
-  // Hiển thị folder path
+  // Cập nhật queue add bar hint
+  if (els.queueAddHint) els.queueAddHint.textContent = `@${username} — thêm vào hàng đợi`;
+  if (els.btnQueueAddBar) els.btnQueueAddBar.disabled = false;
+  if (els.btnQueueAdd)    els.btnQueueAdd.disabled    = false;
+
   await updateFolderDisplay(username);
 
-  // Lấy count & stats & tab state & download state
   const [countRes, statsRes, stateRes, dlStateRes, downloadedRes] = await Promise.all([
     sendBG('GET_MEDIA_COUNT', { username }),
     sendBG('GET_STATS', { username }),
     sendBG('GET_TAB_STATE', { username }),
-    sendBG('GET_DOWNLOAD_STATE', {}), // BUG-8 FIX: Restore trạng thái download
-    sendBG('GET_DOWNLOADED_COUNT', { username }), // v4.1.0
+    sendBG('GET_DOWNLOAD_STATE', {}),
+    sendBG('GET_DOWNLOADED_COUNT', { username }),
   ]);
 
   if (statsRes?.stats) {
@@ -190,6 +502,11 @@ async function setCurrentUser(username) {
   }
 
   updateMediaCount(countRes?.count || 0);
+
+  // v4.3.0: Hiện Date Range Filter section khi có media
+  if (els.sectionDaterange) {
+    els.sectionDaterange.style.display = 'block';
+  }
 
   // v4.1.0: Duplicate Detection UI
   if (downloadedRes?.count > 0 && els.skipWrap) {
@@ -201,14 +518,14 @@ async function setCurrentUser(username) {
     els.skipWrap.style.display = 'none';
   }
 
-  // BUG-8 FIX: Restore download state nếu SW đang tải
+  // BUG-8 FIX: Restore download state
   if (dlStateRes?.isDownloading) {
     isDownloading = true;
     showProgress(true);
     const downloadingTxt = window.i18n ? window.i18n.t('status_downloading') : 'Đang tải...';
     setStatus('downloading', downloadingTxt);
   }
-  
+
   if (stateRes?.isCollecting) {
     isCollecting = true;
     els.scrollSec.style.display = 'block';
@@ -221,7 +538,7 @@ async function setCurrentUser(username) {
     const readyTxt = window.i18n ? window.i18n.t('status_ready') : 'Sẵn sàng';
     setStatus('ready', `${readyTxt} — @${username}`);
   }
-  
+
   updateButtons();
 }
 
@@ -251,7 +568,7 @@ function getFilteredCount() {
   return 0;
 }
 
-// ─── Tabs ─────────────────────────────────────────────────────────────────────
+// ─── Filter Tabs ──────────────────────────────────────────────────────────────
 function setupTabs() {
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
@@ -260,7 +577,6 @@ function setupTabs() {
       activeFilter = tab.dataset.filter;
       updateButtons();
 
-      // Update download button label
       const dlTxt = window.i18n ? window.i18n.t('btn_download') : 'Download';
       const labels = {
         all: dlTxt,
@@ -282,10 +598,12 @@ function updateButtons() {
   const totalCount = parseInt(els.badge.textContent) || 0;
   const filteredCount = getFilteredCount();
 
-  els.btnCollect.disabled   = !hasUser || isDownloading;
-  els.btnDownload.disabled  = !hasUser || filteredCount === 0 || isDownloading;
-  els.btnCsv.disabled       = !hasUser || totalCount === 0;
-  els.btnClear.disabled     = !hasUser || totalCount === 0;
+  els.btnCollect.disabled  = !hasUser || isDownloading;
+  els.btnDownload.disabled = !hasUser || filteredCount === 0 || isDownloading;
+  els.btnCsv.disabled      = !hasUser || totalCount === 0;
+  els.btnClear.disabled    = !hasUser || totalCount === 0;
+  if (els.btnQueueAdd)    els.btnQueueAdd.disabled    = !hasUser || filteredCount === 0;
+  if (els.btnQueueAddBar) els.btnQueueAddBar.disabled = !hasUser;
 
   if (isCollecting) {
     els.btnCollect.classList.add('collecting');
@@ -303,7 +621,7 @@ function updateScrollSpeed(newCount) {
   const delta = newCount - lastScrollCount;
 
   if (elapsed > 0 && delta > 0) {
-    const rate = (delta / elapsed * 60).toFixed(0); // media/min
+    const rate = (delta / elapsed * 60).toFixed(0);
     els.statusSpeed.textContent = `${rate}/min`;
   }
 
@@ -351,12 +669,42 @@ function setupListeners() {
 
     await sendBG('START_DOWNLOAD', {
       username: currentUsername,
-      options: { 
+      options: {
         filterType: activeFilter,
-        skipDuplicates: els.skipCheckbox ? els.skipCheckbox.checked : true
+        skipDuplicates: els.skipCheckbox ? els.skipCheckbox.checked : true,
+        // v4.3.0: Truyền date range vào SW
+        dateFrom: dateFrom || undefined,
+        dateTo:   dateTo   || undefined,
       }
     });
   });
+
+  // Add to Queue (action row button)
+  if (els.btnQueueAdd) {
+    els.btnQueueAdd.addEventListener('click', addCurrentToQueue);
+  }
+
+  // Add to Queue (queue panel bar button)
+  if (els.btnQueueAddBar) {
+    els.btnQueueAddBar.addEventListener('click', addCurrentToQueue);
+  }
+
+  // Queue Start
+  if (els.btnQueueStart) {
+    els.btnQueueStart.addEventListener('click', async () => {
+      await sendBG('START_QUEUE', {});
+      showToast('Hàng đợi đã bắt đầu', 'success');
+    });
+  }
+
+  // Queue Clear
+  if (els.btnQueueClear) {
+    els.btnQueueClear.addEventListener('click', async () => {
+      if (!confirm('Xóa toàn bộ hàng đợi (không xóa item đang tải)?')) return;
+      await sendBG('CLEAR_QUEUE', {});
+      showToast('Đã xóa hàng đợi', 'info');
+    });
+  }
 
   // CSV Export
   els.btnCsv.addEventListener('click', async () => {
@@ -368,7 +716,6 @@ function setupListeners() {
 
     if (!res?.csv) { showToast('Không có dữ liệu để xuất', 'error'); return; }
 
-    // Download trực tiếp qua data URL (không cần offscreen)
     const dataUrl = 'data:text/csv;charset=utf-8,' + encodeURIComponent(res.csv);
     const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
     chrome.downloads.download({
@@ -401,7 +748,7 @@ function setupListeners() {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab?.id) {
         chrome.tabs.reload(tab.id);
-        window.close(); // Close popup after reload
+        window.close();
       }
     });
   }
@@ -433,8 +780,6 @@ function listenToMessages() {
       case 'SCROLL_PROGRESS':
         if (payload.username !== currentUsername) break;
         els.scrollCount.textContent = payload.scrollCount;
-
-        // Tính media mới trong lần scroll này
         const prevBadge = parseInt(els.badge.textContent) || 0;
         const newMedia = (payload.mediaCount || 0) - prevBadge;
         els.scrollNew.textContent = newMedia >= 0 ? `+${newMedia}` : newMedia;
@@ -483,7 +828,7 @@ function listenToMessages() {
         if (payload.username !== currentUsername) break;
         els.progressFill.style.width = `${payload.percent}%`;
         els.progressLbl.textContent = `${payload.current} / ${payload.total}`;
-        
+
         if (payload.done) {
           if (payload.failed > 0) {
             const errDetails = (payload.errors || []).join(' | ');
@@ -497,14 +842,8 @@ function listenToMessages() {
         break;
 
       case 'MP4_PROGRESS':
-        // Chỉ cập nhật text trạng thái để biết không bị treo
         setStatus('downloading', `Đang tải xuống máy: ${(payload.bytesReceived / 1024 / 1024).toFixed(1)} MB...`);
         break;
-
-
-      // MP4_FETCH_PROGRESS: Dead code từ thời offscreen (SW không gửi type này nữa — dùng MP4_PROGRESS)
-      // case 'MP4_FETCH_PROGRESS': break;
-
 
       case 'HLS_PROGRESS':
         if (payload.username === currentUsername) {
@@ -513,7 +852,6 @@ function listenToMessages() {
         break;
 
       case 'IDM_DETECTED':
-        // IDM Integration Module detected — files won't be in username folder
         showToast('⚠️ IDM đang chiếm quyền download! File sẽ không vào thư mục username. Hãy tắt IDM Integration Module.', 'warning');
         setStatus('error', '⚠️ IDM detected — file không vào đúng thư mục');
         break;
@@ -550,11 +888,16 @@ function listenToMessages() {
       }
 
       case 'SESSION_RESTORED':
-        // Khôi phục thành công — cập nhật stats và badge
         if (payload.username === currentUsername) {
           if (payload.stats) { stats = payload.stats; updateStatTabs(); }
           updateMediaCount(payload.count);
         }
+        break;
+
+      // v4.2.0: Queue updates from SW
+      case 'QUEUE_UPDATE':
+        downloadQueue = payload.queue || [];
+        renderQueue();
         break;
     }
   });
@@ -577,7 +920,6 @@ function showToast(msg, type = '') {
   clearTimeout(toastTimer);
   els.toast.textContent = msg;
   els.toast.className = 'toast show ' + type;
-  // Warning toasts stay longer so users can read them
   const duration = type === 'warning' ? 7000 : 3000;
   toastTimer = setTimeout(() => { els.toast.className = 'toast'; }, duration);
 }

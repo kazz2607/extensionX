@@ -1,11 +1,13 @@
 /**
- * service-worker.js — Background Service Worker (Phase 3)
+ * service-worker.js — Background Service Worker (v4.3.0)
  * Thay đổi chính:
  *   - Bỏ ZIP hoàn toàn
  *   - Dùng chrome.downloads.download() tải từng file
  *   - Lưu vào: {Downloads}/{saveFolder}/{username}/{images|videos|gifs}/
  *   - Download queue với giới hạn concurrent
  *   - Track progress qua chrome.downloads.onChanged
+ *   - v4.2.0: Multi-Profile Queue — hàng đợi nhiều profile tuần tự
+ *   - v4.3.0: Date Range Filter — lọc media theo khoảng ngày từ Snowflake ID
  */
 
 import { fetchVideoForTweet } from './tweet-api.js';
@@ -19,6 +21,75 @@ const statsStore = new Map();   // Map<username, {image,video,gif,hls}>
 const downloadedStore = new Map(); // Map<username, Set<url>>
 
 let downloadInProgress = false;
+
+// ─── v4.2.0: Multi-Profile Queue ─────────────────────────────────────────────
+// profileQueue: Array<{ id, username, filterType, skipDuplicates, addedAt, status, mediaCount, result }>
+let profileQueue = [];
+
+async function loadPersistedQueue() {
+  try {
+    const data = await chrome.storage.local.get('profile_queue');
+    const saved = data.profile_queue || [];
+    // Các item đang 'downloading' khi SW restart → đặt lại 'waiting'
+    profileQueue = saved.map(item =>
+      item.status === 'downloading' ? { ...item, status: 'waiting' } : item
+    );
+  } catch (_) {
+    profileQueue = [];
+  }
+}
+
+let _queuePersistTimer = null;
+function persistQueue() {
+  if (_queuePersistTimer) clearTimeout(_queuePersistTimer);
+  _queuePersistTimer = setTimeout(async () => {
+    _queuePersistTimer = null;
+    try {
+      await chrome.storage.local.set({ profile_queue: profileQueue });
+    } catch (err) {
+      console.debug('[SW] persistQueue error:', err.message);
+    }
+  }, 500);
+}
+
+function broadcastQueueUpdate() {
+  broadcastToPopup('QUEUE_UPDATE', { queue: profileQueue });
+}
+
+async function startNextInQueue() {
+  if (downloadInProgress) return; // Đang có download chạy — đợi
+  const next = profileQueue.find(item => item.status === 'waiting');
+  if (!next) return; // Hàng đợi rỗng
+
+  const store = mediaStore.get(next.username);
+  if (!store?.size) {
+    // Không có media → đánh dấu error và chuyển tiếp
+    next.status = 'error';
+    next.result = { error: 'No media found' };
+    persistQueue();
+    broadcastQueueUpdate();
+    startNextInQueue();
+    return;
+  }
+
+  next.status = 'downloading';
+  persistQueue();
+  broadcastQueueUpdate();
+
+  // startDownload sẽ tự gọi startNextInQueue() trong finally
+  startDownload(next.username, {
+    filterType: next.filterType || 'all',
+    skipDuplicates: next.skipDuplicates !== false,
+    _fromQueue: true,
+    _queueId: next.id,
+  });
+}
+
+// Khởi tải queue từ storage khi SW khởi động
+loadPersistedQueue().then(() => {
+  // Không auto-resume download ngay khi SW khởi động lại — chờ user tương tác
+  broadcastQueueUpdate();
+});
 
 // ─── Download Tracker ─────────────────────────────────────────────────────────
 // Map<downloadId, {resolve, reject}>
@@ -240,9 +311,95 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
 
+    // ─── v4.2.0: Multi-Profile Queue ────────────────────────────────────────
+    case 'ADD_TO_QUEUE': {
+      const { username, filterType, skipDuplicates } = payload;
+      if (!username) { sendResponse({ error: 'No username' }); return false; }
+      // Không thêm trùng username (chỉ 1 entry mỗi username trong queue)
+      const exists = profileQueue.find(q => q.username === username && q.status === 'waiting');
+      if (exists) { sendResponse({ error: 'Already in queue' }); return false; }
+
+      const mediaCount = mediaStore.get(username)?.size || 0;
+      const item = {
+        id: `${username}_${Date.now()}`,
+        username,
+        filterType: filterType || 'all',
+        skipDuplicates: skipDuplicates !== false,
+        addedAt: Date.now(),
+        status: 'waiting',
+        mediaCount,
+        result: null,
+      };
+      profileQueue.push(item);
+      persistQueue();
+      broadcastQueueUpdate();
+      sendResponse({ ok: true, queue: profileQueue });
+      // Nếu không có download đang chạy → start ngay
+      if (!downloadInProgress) startNextInQueue();
+      return true;
+    }
+
+    case 'REMOVE_FROM_QUEUE': {
+      const { id } = payload;
+      profileQueue = profileQueue.filter(q => q.id !== id);
+      persistQueue();
+      broadcastQueueUpdate();
+      sendResponse({ ok: true });
+      return false;
+    }
+
+    case 'GET_QUEUE': {
+      sendResponse({ queue: profileQueue });
+      return true;
+    }
+
+    case 'CLEAR_QUEUE': {
+      // Chỉ xóa các item chưa chạy (waiting) — không hủy item đang 'downloading'
+      profileQueue = profileQueue.filter(q => q.status === 'downloading');
+      persistQueue();
+      broadcastQueueUpdate();
+      sendResponse({ ok: true });
+      return false;
+    }
+
+    case 'START_QUEUE': {
+      if (!downloadInProgress) startNextInQueue();
+      sendResponse({ ok: true });
+      return false;
+    }
+
     case 'GET_DOWNLOAD_STATE': {
       // BUG-8 FIX: Popup query trạng thái download khi mở lại
       sendResponse({ isDownloading: downloadInProgress });
+      return true;
+    }
+
+    // v4.3.0: Đếm media theo filter type + date range (cho popup preview)
+    case 'GET_MEDIA_COUNT_FILTERED': {
+      const { username, filterType, dateFrom, dateTo } = payload;
+      const store = mediaStore.get(username);
+      if (!store) { sendResponse({ count: 0 }); return true; }
+
+      let items = Array.from(store.values());
+
+      // Filter theo type
+      if (filterType && filterType !== 'all') {
+        if (filterType === 'images') items = items.filter(i => i.type === 'image');
+        else if (filterType === 'videos') items = items.filter(i => i.type === 'video' || i.type === 'hls');
+        else if (filterType === 'gifs') items = items.filter(i => i.type === 'gif');
+      }
+
+      // Filter theo date range
+      if (dateFrom || dateTo) {
+        const from = dateFrom ? new Date(dateFrom).getTime() : 0;
+        const to   = dateTo  ? new Date(dateTo + 'T23:59:59Z').getTime() : Infinity;
+        items = items.filter(item => {
+          const d = item.tweetDate || 0;
+          return d >= from && d <= to;
+        });
+      }
+
+      sendResponse({ count: items.length });
       return true;
     }
 
@@ -361,6 +518,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
+// ─── v4.3.0: Snowflake ID → Timestamp ────────────────────────────────────────
+function tweetDateFromId(tweetId) {
+  if (!tweetId || !/^\d{10,}$/.test(String(tweetId))) return null;
+  try {
+    const ms = Number(BigInt(String(tweetId)) >> 22n) + 1288834974657;
+    if (ms < 1136073600000 || ms > Date.now() + 86400000) return null;
+    return ms; // timestamp ms — dễ so sánh
+  } catch {
+    return null;
+  }
+}
+
 // ─── Add Media Items ──────────────────────────────────────────────────────────
 function addMediaItems(username, items) {
   if (!mediaStore.has(username)) mediaStore.set(username, new Map());
@@ -372,7 +541,9 @@ function addMediaItems(username, items) {
 
   items.forEach(item => {
     if (store.has(item.url)) return;
-    store.set(item.url, { ...item, addedAt: Date.now() });
+    // v4.3.0: Gắn tweetDate từ Snowflake ID
+    const tweetDate = tweetDateFromId(item.tweetId);
+    store.set(item.url, { ...item, addedAt: Date.now(), tweetDate });
     newCount++;
     if (item.type === 'image') stats.image++;
     else if (item.type === 'gif') stats.gif++;
@@ -898,6 +1069,19 @@ async function startDownload(username, options = {}) {
     else if (options.filterType === 'gifs') items = items.filter(i => i.type === 'gif');
   }
 
+  // v4.3.0: Lọc theo Date Range
+  const dateFrom = options.dateFrom ? new Date(options.dateFrom).getTime() : 0;
+  const dateTo   = options.dateTo   ? new Date(options.dateTo + 'T23:59:59Z').getTime() : Infinity;
+  if (options.dateFrom || options.dateTo) {
+    const beforeDate = items.length;
+    items = items.filter(item => {
+      const d = item.tweetDate || 0;
+      return d >= dateFrom && d <= dateTo;
+    });
+    const dateFiltered = beforeDate - items.length;
+    if (dateFiltered > 0) console.log(`[SW] Date filter: ${dateFiltered} items ngoài khoảng ngày — bỏ qua`);
+  }
+
   // v4.1.0: Duplicate Detection — load downloaded URLs rồi lọc ra
   await loadDownloadedUrls(username);
   const skipDuplicates = options.skipDuplicates !== false; // mặc định bật
@@ -1038,6 +1222,20 @@ async function startDownload(username, options = {}) {
         }).catch(() => {});
       }
     });
+
+    // v4.2.0: Cập nhật queue item result nếu download từ queue
+    if (options._fromQueue && options._queueId) {
+      const qItem = profileQueue.find(q => q.id === options._queueId);
+      if (qItem) {
+        qItem.status = failed === total && total > 0 ? 'error' : 'done';
+        qItem.result = { success, failed, total, skipped };
+        persistQueue();
+        broadcastQueueUpdate();
+      }
+    }
+
+    // v4.2.0: Chạy profile tiếp theo trong queue
+    setTimeout(() => startNextInQueue(), 500);
   }
 }
 
@@ -1272,6 +1470,6 @@ function waitForTabLoad(tabId) {
 }
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('[X Media Downloader] v4.1.0 — Duplicate Detection + Security + Notifications');
+  console.log('[X Media Downloader] v4.3.0 — Date Range Filter + Multi-Profile Queue + Popup v2');
 });
 

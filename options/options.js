@@ -1,5 +1,5 @@
 /**
- * options.js — Logic trang Cài đặt (Phase 3)
+ * options.js — Logic trang Cài đặt (v4.2.0)
  */
 
 const DEFAULT_OPTIONS = {
@@ -209,3 +209,93 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', asy
     document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
   }
 });
+
+// ─── v4.2.0: Export / Import / Reset ──────────────────────────────────────────────────
+
+async function exportSettings() {
+  try {
+    const stored = await chrome.storage.sync.get('options').catch(() => ({}));
+    const opts = stored.options || DEFAULT_OPTIONS;
+    const exportData = {
+      _version: '4.2.0',
+      _exportedAt: new Date().toISOString(),
+      options: opts,
+    };
+    const json = JSON.stringify(exportData, null, 2);
+    const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    const dataUrl = 'data:application/json;charset=utf-8,' + encodeURIComponent(json);
+    await chrome.downloads.download({
+      url: dataUrl,
+      filename: `extensionx_settings_${dateStr}.json`,
+      saveAs: false,
+    });
+    showSaveStatus('✓ Exported successfully');
+  } catch (err) {
+    console.error('[Options] exportSettings error:', err);
+    alert('Export thất bại: ' + err.message);
+  }
+}
+
+async function importSettings(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  // Reset input để có thể import lại cùng file
+  event.target.value = '';
+
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+
+    // Validate cơ bản
+    if (!parsed.options || typeof parsed.options !== 'object') {
+      throw new Error('File không hợp lệ: thiếu trường options');
+    }
+
+    // Merge với DEFAULT_OPTIONS để đảm bảo các field bị thiếu được fill
+    const merged = { ...DEFAULT_OPTIONS, ...parsed.options };
+    if (parsed.options.smartFilters) {
+      merged.smartFilters = { ...DEFAULT_OPTIONS.smartFilters, ...parsed.options.smartFilters };
+    }
+    if (parsed.options.mediaTypes) {
+      merged.mediaTypes = { ...DEFAULT_OPTIONS.mediaTypes, ...parsed.options.mediaTypes };
+    }
+
+    await chrome.storage.sync.set({ options: merged });
+
+    // Reload page để apply
+    showSaveStatus('✓ Imported! Reloading...');
+    setTimeout(() => location.reload(), 800);
+  } catch (err) {
+    console.error('[Options] importSettings error:', err);
+    alert('Import thất bại: ' + err.message);
+  }
+}
+
+async function resetSettings() {
+  const confirmed = confirm(
+    'Reset toàn bộ cài đặt về mặc định?\n\nHành động này không thể hoàn tác.'
+  );
+  if (!confirmed) return;
+
+  try {
+    await chrome.storage.sync.set({ options: DEFAULT_OPTIONS });
+    showSaveStatus('✓ Reset! Reloading...');
+    setTimeout(() => location.reload(), 600);
+  } catch (err) {
+    console.error('[Options] resetSettings error:', err);
+    alert('Reset thất bại: ' + err.message);
+  }
+}
+
+function showSaveStatus(msg = '✓ Saved successfully') {
+  const el = document.getElementById('save-status');
+  if (!el) return;
+  const prev = el.textContent;
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => {
+    el.classList.remove('show');
+    el.textContent = prev;
+  }, 2500);
+}
