@@ -31,19 +31,19 @@ function handleContextInvalidated() {
 }
 
 // Hàm gửi message an toàn, tự động bắt lỗi context bị huỷ
-function safeSendMessage(message) {
+function safeSendMessage(message: any): Promise<any> {
   if (_contextDead || !isExtensionValid()) {
     handleContextInvalidated();
     return Promise.reject(new Error('Extension context invalidated'));
   }
   try {
-    return chrome.runtime.sendMessage(message).catch(err => {
+    return chrome.runtime.sendMessage(message).catch((err: any) => {
       if (err?.message?.includes('Extension context invalidated')) {
         handleContextInvalidated();
       }
       throw err;
     });
-  } catch (err) {
+  } catch (err: any) {
     if (err?.message?.includes('Extension context invalidated')) {
       handleContextInvalidated();
     }
