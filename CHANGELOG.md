@@ -2,6 +2,14 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [5.0.3] - 2026-06-04
+### UI & Localization
+- **[Full i18n Support]:** Quét và bổ sung `data-i18n` cho toàn bộ các text bị gán cứng trong `popup.html` và `options.html` (như Date Filters, Download Queue, Smart Filters, v.v.).
+- Bổ sung hơn 40 cụm từ tiếng Anh & tiếng Việt mới vào `src/lib/i18n.ts`.
+- Mở rộng hàm `applyI18nToDOM` để hỗ trợ đa ngôn ngữ cho cả `title` (`data-i18n-title`) và `placeholder` (`data-i18n-placeholder`).
+
+---
+
 ## [5.0.2] - 2026-06-04
 ### Bug Fixes
 - **[Vite Build Fix]:** Sửa lỗi nghiêm trọng `page-interceptor` và các scripts inject động không được bundle vào thư mục `dist/`.

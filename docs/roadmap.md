@@ -1,11 +1,11 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-06-04 | Phiên bản hiện tại: **5.0.2**
+> Cập nhật: 2026-06-04 | Phiên bản hiện tại: **5.0.3**
 
 ---
 
-## 1. Kiến Trúc Hiện Tại (v5.0.2)
+## 1. Kiến Trúc Hiện Tại (v5.0.3)
 
 ```text
 extensionX/
@@ -13,7 +13,7 @@ extensionX/
 ├── tsconfig.json                  # Cấu hình TypeScript (strict: true)
 ├── vite.config.ts                 # Cấu hình Vite bundler
 ├── src/
-│   ├── manifest.json              # Chrome Extension Manifest V3 (version 5.0.2)
+│   ├── manifest.json              # Chrome Extension Manifest V3 (version 5.0.3)
 │   ├── background/
 │   │   ├── service-worker.ts      # Service Worker: core logic, queue, date filter
 │   │   ├── tweet-api.ts           # Fallback API & User Session bypass CORS
@@ -152,6 +152,7 @@ File được lưu vào:
 | v4.8.0 | **Keyword Filter + Compact Mode** — Lọc media theo text của tweet, Giao diện thu gọn siêu tốc |
 | v5.0.0 | **Major TypeScript Rewrite** — Chuyển đổi 100% codebase sang TypeScript, sử dụng Vite Bundler & ESM |
 | v5.0.2 | **Vite Bundle Fixes** — Fix lỗi không copy resources và scripts động ở chế độ production build |
+| v5.0.3 | **Full UI Localization** — Hoàn thiện hệ thống đa ngôn ngữ (i18n), dịch 100% text giao diện bị gán cứng |
 
 ---
 
@@ -227,6 +228,7 @@ File được lưu vào:
 v4.8.0  ── Keyword / Hashtag Filter + U4 Compact Mode                                  ✅ DONE
 v5.0.0  ── Major rewrite: TypeScript migration, Vite Bundler, Modularization           ✅ DONE
 v5.0.2  ── Vite Bundle Fixes for Production Mode                                       ✅ DONE
+v5.0.3  ── Full UI Localization (i18n) for Popup & Options                             ✅ DONE
 
 [TƯƠNG LAI]
 v6.0.0  ── Full-page Dashboard, Masonry Media Gallery, Bulk Selection
