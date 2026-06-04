@@ -2,6 +2,14 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [5.0.5] - 2026-06-04
+### Bug Fixes & Improvements
+- **[Queue Engine]:** Sửa triệt để lỗi Queue bị đứng (không hoạt động khi bấm Start) sau khi Service Worker vào trạng thái ngủ ngầm (sleep), bằng cách tự động khôi phục danh sách media từ IndexedDB.
+- **[State Variable Fix]:** Sửa lỗi `ReferenceError` chết ngầm liên quan đến biến `downloadInProgress` (đã được thay bằng `downloadState.inProgress` trong đợt refactor).
+- **[Options Auto-Save]:** Bổ sung tính năng Auto-save cho trang Cài đặt (Options) kèm theo kỹ thuật debounce cho text/number input, mang lại trải nghiệm mượt mà không cần phải bấm nút Lưu. Sửa lỗi TypeScript ngầm trong file `options.ts`.
+
+---
+
 ## [5.0.4] - 2026-06-04
 ### UI & Bug Fixes
 - **[Dark Mode Popup]:** Cập nhật `color-scheme: dark` trong `popup.css` để sửa lỗi viền trắng mặc định của trình duyệt xuất hiện bao quanh cửa sổ extension ở chế độ Dark Mode.

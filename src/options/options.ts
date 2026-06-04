@@ -1,6 +1,6 @@
 
 /**
- * options.js — Logic trang Cài đặt (v5.0.4)
+ * options.js — Logic trang Cài đặt (v5.0.5)
  */
 
 const DEFAULT_OPTIONS = {
@@ -78,7 +78,7 @@ async function loadOptions() {
   updateScrollLabel(opts.scrollDelay || 2);
   updateConcurrencyLabel(opts.concurrency || 3);
 // @ts-ignore
-  updateFolderPreview(opts.saveFolder || '');
+  updateFolderPreview();
 }
 
 // ─── Save ─────────────────────────────────────────────────────────────────────
@@ -268,9 +268,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   setTimeout(updateFolderPreview, 100);
 
   // Debounce helper
-  function debounce(func, wait) {
-    let timeout;
-    return function(...args) {
+  function debounce(func: (...args: any[]) => void, wait: number) {
+    let timeout: any;
+    return function(this: any, ...args: any[]) {
       clearTimeout(timeout);
       timeout = setTimeout(() => func.apply(this, args), wait);
     };
@@ -321,14 +321,14 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', asy
   }
 });
 
-// ─── v5.0.4: Export / Import / Reset ──────────────────────────────────────────────────
+// ─── v5.0.5: Export / Import / Reset ──────────────────────────────────────────────────
 
 async function exportSettings() {
   try {
     const stored: any = await chrome.storage.sync.get('options').catch(() => ({}));
     const opts = stored.options || DEFAULT_OPTIONS;
     const exportData = {
-      _version: '5.0.4',
+      _version: '5.0.5',
       _exportedAt: new Date().toISOString(),
       options: opts,
     };
