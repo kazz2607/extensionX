@@ -2,7 +2,7 @@
 // @ts-ignore
 import { mediaStore, downloadedStore, tabState, downloadState, pendingHlsRequests, activeDownloads } from './state.ts';
 import { broadcastToPopup, broadcastToTab, sanitizeFolder, broadcastFABState } from './utils.ts';
-import { showDownloadNotification, fetchVideoForTweetWithRefresh } from './scraper.ts';
+import { showDownloadNotification, fetchVideoForTweetWithRefresh, loadDownloadedUrls, isAlreadyDownloaded, markDownloaded } from './scraper.ts';
 import { startNextInQueue, profileQueue, persistQueue, broadcastQueueUpdate } from './queue.ts';
 
 // ─── Download Tracker ─────────────────────────────────────────────────────────
