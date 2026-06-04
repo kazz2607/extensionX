@@ -1,6 +1,6 @@
 
 /**
- * options.js — Logic trang Cài đặt (v4.2.0)
+ * options.js — Logic trang Cài đặt (v5.0.4)
  */
 
 const DEFAULT_OPTIONS = {
@@ -302,14 +302,14 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', asy
   }
 });
 
-// ─── v4.2.0: Export / Import / Reset ──────────────────────────────────────────────────
+// ─── v5.0.4: Export / Import / Reset ──────────────────────────────────────────────────
 
 async function exportSettings() {
   try {
     const stored: any = await chrome.storage.sync.get('options').catch(() => ({}));
     const opts = stored.options || DEFAULT_OPTIONS;
     const exportData = {
-      _version: '4.2.0',
+      _version: '5.0.4',
       _exportedAt: new Date().toISOString(),
       options: opts,
     };

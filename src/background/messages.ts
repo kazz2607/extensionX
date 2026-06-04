@@ -196,7 +196,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
 
-    // ─── v4.2.0: Multi-Profile Queue ────────────────────────────────────────
+    // ─── v5.0.3: Multi-Profile Queue ────────────────────────────────────────
     case 'ADD_TO_QUEUE': {
       const { username, filterType, skipDuplicates } = payload;
       if (!username) { sendResponse({ error: 'No username' }); return false; }

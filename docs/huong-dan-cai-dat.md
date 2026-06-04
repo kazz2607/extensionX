@@ -220,9 +220,9 @@ Click biểu tượng **⚙** trên popup để mở trang cài đặt:
 | **Min ảnh W × H** | 150 × 150 px | Ngưỡng kích thước tối thiểu (đặt 0 để tắt) |
 | **🔔 Snackbar tiến trình** | Bật | Hiển thị progress bar mini trên trang X.com khi đang tải (v4.0.0) |
 | **🔔 System Notification** | Bật | Thông báo hệ thống khi tải xong (v4.1.0) |
-| **📤 Export Settings** | — | Xuất toàn bộ cài đặt ra file JSON để backup (v4.2.0) |
-| **📥 Import Settings** | — | Nạp file JSON cài đặt đã export, tự động reload (v4.2.0) |
-| **🔄 Reset to Default** | — | Đặt lại tất cả cài đặt về mặc định (v4.2.0) |
+| **📤 Export Settings** | — | Xuất toàn bộ cài đặt ra file JSON để backup (v5.0.3) |
+| **📥 Import Settings** | — | Nạp file JSON cài đặt đã export, tự động reload (v5.0.3) |
+| **🔄 Reset to Default** | — | Đặt lại tất cả cài đặt về mặc định (v5.0.3) |
 
 ---
 
@@ -381,9 +381,9 @@ Downloads/
 
 ---
 
-## 🌟 Tính Năng Mới (v4.2.0 - v4.8.0)
+## 🌟 Tính Năng Mới (v5.0.3)
 
-### 📋 Multi-Profile Queue (v4.2.0)
+### 📋 Multi-Profile Queue (v5.0.3)
 Thêm nhiều profile vào hàng đợi và extension tự động tải tuần tự mà không cần giám sát:
 1. Collect media của profile đầu tiên → click **"+Queue"** bên cạnh nút Download
 2. Chuyển sang profile khác → collect → click **"+Queue"** lần nữa
@@ -397,7 +397,7 @@ Lọc chỉ download media trong khoảng thời gian nhất định:
 4. Click **Download** → chỉ tải media trong khoảng ngày đã chọn
 5. Xóa filter bằng nút **×** bên cạnh header
 
-### 📊 Tab Navigation v2 (v4.2.0)
+### 📊 Tab Navigation v2 (v5.0.3)
 - **Tab Main**: Giao diện chính như cũ
 - **Tab Queue**: Danh sách hàng đợi profile với status badge
 - **Tab Stats**: Biểu đồ donut phân loại media + lịch sử tải

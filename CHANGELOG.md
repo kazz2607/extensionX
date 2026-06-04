@@ -2,6 +2,13 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [5.0.4] - 2026-06-04
+### UI & Bug Fixes
+- **[Dark Mode Popup]:** Cập nhật `color-scheme: dark` trong `popup.css` để sửa lỗi viền trắng mặc định của trình duyệt xuất hiện bao quanh cửa sổ extension ở chế độ Dark Mode.
+- **[Codebase Versions]:** Đồng bộ cập nhật lại toàn bộ các version strings và lịch sử bị tồn đọng (v4.2.0) trong source code và tài liệu hướng dẫn thành version mới nhất.
+
+---
+
 ## [5.0.3] - 2026-06-04
 ### UI & Localization
 - **[Full i18n Support]:** Quét và bổ sung `data-i18n` cho toàn bộ các text bị gán cứng trong `popup.html` và `options.html` (như Date Filters, Download Queue, Smart Filters, v.v.).

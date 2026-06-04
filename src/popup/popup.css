@@ -520,7 +520,7 @@ html {
 }
 
 
-/* ─── v4.2.0: Tab Panel System ───────────────────────────────────────────── */
+/* ─── v5.0.3: Tab Panel System ───────────────────────────────────────────── */
 .tab-panels {
   position: relative;
   overflow: hidden;
@@ -539,7 +539,7 @@ html {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ─── v4.2.0: Bottom Navigation ──────────────────────────────────────────── */
+/* ─── v5.0.3: Bottom Navigation ──────────────────────────────────────────── */
 .bottom-nav {
   display: flex;
   align-items: center;
@@ -599,7 +599,7 @@ html {
   border: 1.5px solid var(--bg);
 }
 
-/* ─── v4.2.0: Queue Panel ────────────────────────────────────────────────── */
+/* ─── v5.0.3: Queue Panel ────────────────────────────────────────────────── */
 .queue-header {
   display: flex;
   align-items: center;
@@ -761,7 +761,7 @@ html {
 .btn--queue-add:not(:disabled):hover { background: rgba(0,186,124,0.18); }
 .btn--queue-add:disabled { opacity: 0.38; cursor: not-allowed; }
 
-/* ─── v4.2.0: Stats Panel ────────────────────────────────────────────────── */
+/* ─── v5.0.3: Stats Panel ────────────────────────────────────────────────── */
 .stats-section {
   padding: 12px 14px 10px;
   background: var(--bg);

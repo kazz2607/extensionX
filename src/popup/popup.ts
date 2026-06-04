@@ -16,7 +16,7 @@ let lastScrollCount = 0;
 let lastScrollTime = Date.now();
 let currentSaveFolder = '';  // đọc từ options
 // @ts-ignore
-let downloadQueue = [];      // v4.2.0: Multi-Profile Queue
+let downloadQueue = [];      // v5.0.3: Multi-Profile Queue
 let dateFrom = '';           // v4.3.0: Date Range Filter (YYYY-MM-DD)
 let dateTo   = '';           // v4.3.0: Date Range Filter (YYYY-MM-DD)
 let _dateRangeOpen = false;  // trạng thái mở/đóng collapsible
@@ -57,7 +57,7 @@ const els: any = {
   btnCollectTxt: $('btn-collect-text'),
   btnDownload:   $('btn-download'),
   btnDownloadTxt:$('btn-download-text'),
-  btnQueueAdd:   $('btn-queue-add'),     // v4.2.0
+  btnQueueAdd:   $('btn-queue-add'),     // v5.0.3
   btnCsv:        $('btn-csv'),
   btnClear:      $('btn-clear'),
   btnSettings:   $('btn-settings'),
@@ -73,7 +73,7 @@ const els: any = {
   skipCheckbox:    $('opt-skip-duplicates'),
   downloadedBadge: $('downloaded-count-badge'),
 
-  // v4.2.0 Queue Panel
+  // v5.0.3 Queue Panel
   queueList:       $('queue-list'),
   queueCountBadge: $('queue-count-badge'),
   btnQueueStart:   $('btn-queue-start'),
@@ -82,7 +82,7 @@ const els: any = {
   queueAddHint:    $('queue-add-hint'),
   navQueueBadge:   $('nav-queue-badge'),
 
-  // v4.2.0 Stats / Donut
+  // v5.0.3 Stats / Donut
   donutArcs:     $('donut-arcs'),
   donutTotalNum: $('donut-total-num'),
   legendImages:  $('legend-images'),
@@ -113,11 +113,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   await applyTheme();
   await applyCompactMode(); // v4.8.0
   await loadHistory();
-  await loadQueue();                // v4.2.0
+  await loadQueue();                // v5.0.3
   await checkSavedSession();
   await detectCurrentTab();
   setupListeners();
-  setupBottomNav();                 // v4.2.0
+  setupBottomNav();                 // v5.0.3
   setupDateRange();                 // v4.3.0
   listenToMessages();
 });
@@ -282,7 +282,7 @@ async function updateDateRangeCount() {
   }, 200);
 }
 
-// ─── v4.2.0: Bottom Nav ───────────────────────────────────────────────────────
+// ─── v5.0.3: Bottom Nav ───────────────────────────────────────────────────────
 function setupBottomNav() {
   const navTabs = document.querySelectorAll('.nav-tab');
   navTabs.forEach(tab => {
@@ -303,7 +303,7 @@ function setupBottomNav() {
   });
 }
 
-// ─── v4.2.0: Queue ────────────────────────────────────────────────────────────
+// ─── v5.0.3: Queue ────────────────────────────────────────────────────────────
 async function loadQueue() {
   const res: any = await sendBG('GET_QUEUE', {});
   downloadQueue = res?.queue || [];
@@ -408,7 +408,7 @@ async function addCurrentToQueue() {
   }
 }
 
-// ─── v4.2.0: Donut Chart ──────────────────────────────────────────────────────
+// ─── v5.0.3: Donut Chart ──────────────────────────────────────────────────────
 function renderDonutChart() {
   const arcs = els.donutArcs;
   const totalEl = els.donutTotalNum;
@@ -1011,7 +1011,7 @@ function listenToMessages() {
         }
         break;
 
-      // v4.2.0: Queue updates from SW
+      // v5.0.3: Queue updates from SW
       case 'QUEUE_UPDATE':
         downloadQueue = payload.queue || [];
         renderQueue();

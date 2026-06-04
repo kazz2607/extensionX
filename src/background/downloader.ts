@@ -459,7 +459,7 @@ async function startDownload(username, options = {}) {
       }
     });
 
-    // v4.2.0: Cập nhật queue item result nếu download từ queue
+    // v5.0.3: Cập nhật queue item result nếu download từ queue
 // @ts-ignore
     if (options._fromQueue && options._queueId) {
 // @ts-ignore
@@ -472,7 +472,7 @@ async function startDownload(username, options = {}) {
       }
     }
 
-    // v4.2.0: Chạy profile tiếp theo trong queue
+    // v5.0.3: Chạy profile tiếp theo trong queue
     setTimeout(() => startNextInQueue(), 500);
   }
 }
