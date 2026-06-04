@@ -437,4 +437,16 @@ Nếu gặp vấn đề, hãy kiểm tra:
 - **Xuất CSV thông minh hơn:** Khi có hơn 10.000 media, CSV được chia thành các trang 10.000 dòng. Bấm nút CSV lần đầu để tải trang 1, bấm lại để tải trang 2... Tên file tự động thêm `_p2`, `_p3`.
 - **Cảnh báo bộ nhớ:** Khi thu thập vượt 50.000 media items, một thông báo cảnh báo màu vàng sẽ xuất hiện trong popup — nhắc bạn nên tải xuống trước khi thu thập thêm để tránh chậm máy.
 
-*Phiên bản: 5.2.0 | Cập nhật: 2026-06-04*
+---
+
+## 🌟 Cải Tiến v5.3.0 (2026-06-04)
+
+### 🎨 UI & Trải Nghiệm
+- **Chi tiết lỗi + Retry:** Khi download có file bị lỗi, popup hiện danh sách chi tiết từng lỗi và nút **Retry** để tải lại đúng các file đó (bỏ qua file đã tải OK).
+- **Biểu đồ donut realtime:** Tab Stats tự cập nhật biểu đồ khi đang thu thập — không cần chuyển tab qua lại.
+- **FAB hiện tiến độ %:** Nút Download trên FAB hiển thị `⏳ 45% (45/100)` khi đang tải hàng loạt.
+- **Queue có progress bar:** Item đang tải trong Queue tab hiển thị thanh tiến độ xanh realtime.
+- **Hướng dẫn bắt đầu:** Khi mở popup mà chưa nhận ra profile X.com, hiển thị card 3 bước hướng dẫn.
+- **Auto-save feedback:** Trang Settings hiện `⏳ Saving...` ngay khi gõ, `✓ Saved` khi lưu xong.
+
+*Phiên bản: 5.3.0 | Cập nhật: 2026-06-04*

@@ -83,6 +83,16 @@ const els: any = {
   queueAddHint:    $('queue-add-hint'),
   navQueueBadge:   $('nav-queue-badge'),
 
+  // UI-04: Onboarding
+  onboardingSection: $('onboarding-section'),
+
+  // UI-01: Error details
+  errorDetails:      $('error-details'),
+  errorDetailsCount: $('error-details-count'),
+  errorList:         $('error-list'),
+  btnRetry:          $('btn-retry'),
+  btnErrorClose:     $('btn-error-close'),
+
   // v5.0.3 Stats / Donut
   donutArcs:     $('donut-arcs'),
   donutTotalNum: $('donut-total-num'),
@@ -370,6 +380,15 @@ function renderQueue() {
     </li>`;
   }).join('');
 
+  // Restore live progress bar nếu có item đang downloading
+  const activeItem = (downloadQueue as any[]).find(q => q.status === 'downloading');
+  if (activeItem) {
+    const metaEl = list.querySelector<HTMLElement>(`.queue-item[data-id="${activeItem.id}"] .queue-item-meta`);
+    if (metaEl && metaEl.dataset.progress) {
+      metaEl.innerHTML = metaEl.dataset.progress;
+    }
+  }
+
   // Remove listeners
 // @ts-ignore
   list.querySelectorAll('.btn-queue-remove').forEach(btn => {
@@ -381,6 +400,19 @@ function renderQueue() {
       showToast('Đã xóa khỏi hàng đợi', 'info');
     });
   });
+}
+
+// UI-06: Cập nhật progress bar live của queue item đang downloading
+function updateQueueItemProgress(payload: any) {
+  const active = (downloadQueue as any[]).find(q => q.status === 'downloading');
+  if (!active) return;
+  const metaEl = document.querySelector<HTMLElement>(`.queue-item[data-id="${active.id}"] .queue-item-meta`);
+  if (!metaEl) return;
+  const progressHTML = `
+    <div class="queue-mini-progress"><div class="queue-mini-bar" style="width:${payload.percent}%"></div></div>
+    <span style="font-size:10px">${payload.current}/${payload.total} • ${payload.percent}%</span>`;
+  metaEl.innerHTML = progressHTML;
+  metaEl.dataset.progress = progressHTML; // cache để renderQueue có thể restore
 }
 
 async function addCurrentToQueue() {
@@ -510,27 +542,38 @@ function showRestoreBanner(username, count, scrolls, timeStr) {
 }
 
 // ─── Detect active tab ────────────────────────────────────────────────────────
+// UI-04: Hiện/ẩn onboarding card
+function updateOnboardingState() {
+  if (!els.onboardingSection) return;
+  els.onboardingSection.style.display = currentUsername ? 'none' : 'block';
+}
+
 async function detectCurrentTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.url) return;
+  if (!tab?.url) { updateOnboardingState(); return; }
 
   const url = tab.url;
   if (!url.includes('x.com') && !url.includes('twitter.com')) {
     setStatus('idle', window.i18n ? window.i18n.t('profile_hint_default') : 'Mở X.com để bắt đầu');
+    updateOnboardingState(); // UI-04: không phải X.com → hiện onboarding
     return;
   }
 
 // @ts-ignore
   chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_INFO' }, (res: any) => {
-    if (chrome.runtime.lastError || !res?.username) return;
+    if (chrome.runtime.lastError || !res?.username) {
+      updateOnboardingState(); // UI-04: trên X.com nhưng không nhận ra profile
+      return;
+    }
     setCurrentUser(res.username);
   });
 }
 
 // @ts-ignore
 async function setCurrentUser(username) {
-  if (currentUsername !== username) _csvOffset = 0; // PERF-04: reset CSV pagination khi đổi profile
+  if (currentUsername !== username) _csvOffset = 0;
   currentUsername = username;
+  updateOnboardingState(); // UI-04: ẩn onboarding khi biết profile
 
   els.username.textContent = `@${username}`;
   els.hint.textContent = window.i18n ? window.i18n.t('profile_hint_active') : 'Profile đang được xem';
@@ -842,6 +885,23 @@ function setupListeners() {
     });
   }
 
+  // UI-01: Error details — Retry và Close
+  if (els.btnRetry) {
+    els.btnRetry.addEventListener('click', async () => {
+      els.errorDetails.style.display = 'none';
+      await sendBG('RETRY_FAILED', {});
+      showToast('Đang retry các file lỗi...', 'info');
+      isDownloading = true;
+      showProgress(true);
+      updateButtons();
+    });
+  }
+  if (els.btnErrorClose) {
+    els.btnErrorClose.addEventListener('click', () => {
+      els.errorDetails.style.display = 'none';
+    });
+  }
+
   // Theme toggle
   els.btnTheme.addEventListener('click', toggleTheme);
 
@@ -870,6 +930,8 @@ function listenToMessages() {
         if (payload.username !== currentUsername) break;
         if (payload.stats) { stats = payload.stats; updateStatTabs(); }
         updateMediaCount(payload.count);
+        // UI-02: Realtime donut khi Stats panel đang mở
+        if (document.getElementById('panel-stats')?.classList.contains('active')) renderDonutChart();
         break;
 
       // PERF-03: Cảnh báo bộ nhớ khi store > 50k items
@@ -956,6 +1018,7 @@ function listenToMessages() {
         } else {
           setStatus('downloading', `Đang tải: ${payload.currentFile || ''} (${payload.success}/${payload.total})`);
         }
+        updateQueueItemProgress(payload); // UI-06: live progress trong Queue tab
         break;
 
       case 'ACTIVE_DOWNLOADS_UPDATE':
@@ -1005,6 +1068,18 @@ function listenToMessages() {
         setStatus('done', doneMsg);
         showToast(doneMsg, success > 0 ? 'success' : 'error');
         updateButtons();
+
+        // UI-01: Hiện error details panel khi có lỗi
+        if (failed > 0 && els.errorDetails) {
+          els.errorDetailsCount.textContent = `${failed} file lỗi`;
+          els.errorList.innerHTML = (payload.errors || [])
+            .slice(0, 10)
+            .map((e: string) => `<li title="${e}">${e}</li>`)
+            .join('');
+          els.errorDetails.style.display = 'block';
+        } else if (els.errorDetails) {
+          els.errorDetails.style.display = 'none';
+        }
         addToHistory({
 // @ts-ignore
           username: currentUsername,

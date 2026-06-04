@@ -1,7 +1,7 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-06-04 | Phiên bản hiện tại: **5.2.0**
+> Cập nhật: 2026-06-04 | Phiên bản hiện tại: **5.3.0**
 
 ---
 
@@ -13,7 +13,7 @@ extensionX/
 ├── tsconfig.json                  # Cấu hình TypeScript (strict: true)
 ├── vite.config.ts                 # Cấu hình Vite bundler
 ├── src/
-│   ├── manifest.json              # Chrome Extension Manifest V3 (version 5.2.0)
+│   ├── manifest.json              # Chrome Extension Manifest V3 (version 5.3.0)
 │   ├── background/
 │   │   ├── service-worker.ts      # Service Worker: core logic, queue, date filter
 │   │   ├── tweet-api.ts           # Fallback API & User Session bypass CORS
@@ -139,6 +139,7 @@ File được lưu vào:
 - **v5.0.5** Queue Engine fix (recover from SW sleep), auto-save options với debounce
 - **v5.1.0** Bug Fixes P0 + Security Hardening P2: activeDownloads fix, options cache, duplicate detection, path traversal, CSRF scoping, URL validation, dynamic bearer token
 - **v5.2.0** Performance Optimization: offscreen cache flag, memory warning 50k, CSV chunked 10k/page pagination, SEC-02 patch CSRF refresh path
+- **v5.3.0** UI Polish: error details + retry, stats donut realtime, auto-save indicator, empty state onboarding, FAB progress %, queue live progress bar
 
 ---
 
@@ -163,6 +164,7 @@ File được lưu vào:
 | v5.0.0 | **Major TypeScript Rewrite** — Chuyển đổi 100% codebase sang TypeScript, sử dụng Vite Bundler & ESM |
 | v5.0.2 | **Vite Bundle Fixes** — Fix lỗi không copy resources và scripts động ở chế độ production build |
 | v5.0.3 | **Full UI Localization** — Hoàn thiện hệ thống đa ngôn ngữ (i18n), dịch 100% text giao diện bị gán cứng |
+| v5.3.0 | **UI Polish** — error details panel + retry failed downloads, stats donut realtime, auto-save "Saving..." indicator, empty state onboarding card, FAB % progress, queue live progress bar |
 | v5.2.0 | **Performance Optimization** — offscreen cache flag (skip getContexts per HLS), memory warning 50k items, CSV chunked 10k/page with pagination, fix CSRF refresh path SEC-02 patch |
 | v5.1.0 | **Bug Fixes P0 + Security P2** — activeDownloads conflict, options cache (99% I/O reduction), mini-btn duplicate detection, path traversal fix, CSRF token scoping, URL path validation, dynamic bearer token pipeline |
 | v5.0.5 | **Queue Fix & Auto-Save** — Sửa triệt để lỗi Queue đứng khi sleep, thêm cơ chế Auto-save cho options page |
@@ -315,16 +317,16 @@ File được lưu vào:
 
 ---
 
-### 🟡 Phase 5.3 — UI Polish (v5.3.0)
-> **Mục tiêu:** Hoàn thiện UX dựa trên các điểm yếu phát hiện trong audit.
+### ✅ Phase 5.3 — UI Polish (v5.3.0) — HOÀN THÀNH
+> **Kết quả:** Hoàn thiện 6 điểm UX yếu được phát hiện trong audit v5.0.5.
 
-**Scope:**
-- [ ] UI-01: Error details panel trong popup + Retry failed downloads button
-- [ ] UI-02: Stats tab donut chart realtime subscription
-- [ ] UI-03: Auto-save visual indicator ("Saving..." / "Saved ✓")
-- [ ] UI-04: Empty state onboarding card khi media = 0
-- [ ] UI-05: Mini progress ring/text trên FAB khi download đang chạy
-- [ ] UI-06: Live progress bar trong Queue tab cho item đang active
+**Đã hoàn thành:**
+- [x] UI-01: Error details panel (tối đa 10 entries) + Retry button — `RETRY_FAILED` → `retryLastDownload()`
+- [x] UI-02: Stats donut tự re-render khi `MEDIA_COUNT_UPDATE`/`SCROLL_PROGRESS` khi panel active
+- [x] UI-03: `showSavingIndicator()` hiện `⏳ Saving...` ngay khi input, đổi `✓ Saved` sau save
+- [x] UI-04: Onboarding card 3 bước khi không nhận ra profile X.com
+- [x] UI-05: FAB broadcast `DOWNLOAD_PROGRESS` (throttle 2s) → fab.ts hiện `⏳ 45% (45/100)`
+- [x] UI-06: `updateQueueItemProgress()` cập nhật DOM in-place — không re-render toàn bộ queue
 
 ---
 
@@ -408,9 +410,10 @@ File được lưu vào:
 v5.0.5  ── Queue Engine fix, Options Auto-save debounce                             ✅ DONE
 v5.1.0  ── Bug Fixes P0 + Security Hardening P2 (9 issues fixed, build clean)      ✅ DONE
 v5.2.0  ── Performance: Offscreen cache, memory warning 50k, CSV chunked pagination ✅ DONE
+v5.3.0  ── UI Polish: error details+retry, donut realtime, FAB%, queue progress     ✅ DONE
 
 [TIẾP THEO]
-v5.3.0  ── UI Polish (UI-01..06: error details, realtime stats, FAB progress...)    🟡 Tiếp theo
+v6.0.0  ── Full-page Dashboard, Masonry Media Gallery, Bulk Selection
 
 [TƯƠNG LAI]
 v6.0.0  ── Full-page Dashboard, Masonry Media Gallery, Bulk Selection

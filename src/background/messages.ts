@@ -1,7 +1,7 @@
 
 import { mediaStore, statsStore, tabState, downloadedStore, downloadState, pendingHlsRequests, setCsrfToken } from './state.ts';
 import { addMediaItems, applyOptionsFilter, checkAutoScroll, startCollecting, stopCollecting, clearSession, fetchVideoForTweetWithRefresh } from './scraper.ts';
-import { startDownload, handleDownloadTweet, buildCSV } from './downloader.ts';
+import { startDownload, handleDownloadTweet, buildCSV, retryLastDownload } from './downloader.ts';
 import { profileQueue, setProfileQueue, persistQueue, startNextInQueue, broadcastQueueUpdate } from './queue.ts';
 import { updateBadge, broadcastToPopup, updateFAB } from './utils.ts';
 import { getMediaItems } from './indexeddb.ts';
@@ -405,6 +405,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const { username } = payload;
       clearSession(username);
       sendResponse({ ok: true });
+      return false;
+    }
+
+    // UI-01: Retry — chạy lại download cuối cùng (skipDuplicates tự bỏ qua file đã tải)
+    case 'RETRY_FAILED': {
+      const ok = retryLastDownload();
+      sendResponse({ ok });
       return false;
     }
 

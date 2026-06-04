@@ -9,6 +9,29 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="popup.css" />
+  <style>
+    /* ── UI-04: Onboarding ── */
+    .onboarding-section { padding: 0 16px 8px; }
+    .onboarding-card { background: rgba(29,155,240,.06); border: 1px dashed rgba(29,155,240,.25); border-radius: 12px; padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start; }
+    .onboarding-steps { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+    .onboarding-step { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-sec); }
+    .onboarding-step code { font-size: 11px; background: rgba(255,255,255,.07); padding: 1px 5px; border-radius: 4px; color: var(--accent); }
+    .step-num { min-width: 18px; height: 18px; background: var(--accent); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
+
+    /* ── UI-01: Error details panel ── */
+    .error-details { margin: 6px 16px; background: rgba(239,68,68,.07); border: 1px solid rgba(239,68,68,.2); border-radius: 10px; overflow: hidden; }
+    .error-details-header { display: flex; align-items: center; gap: 6px; padding: 7px 10px; }
+    .error-details-count { font-size: 12px; color: #ef4444; font-weight: 600; flex: 1; }
+    .btn-retry { font-size: 11px; display: flex; align-items: center; gap: 4px; background: rgba(239,68,68,.15); border: 1px solid rgba(239,68,68,.25); color: #ef4444; border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+    .btn-retry:hover { background: rgba(239,68,68,.25); }
+    .btn-error-close { font-size: 14px; color: var(--text-sec); background: none; border: none; cursor: pointer; padding: 0 4px; line-height: 1; }
+    .error-list { list-style: none; padding: 0 10px 8px; margin: 0; max-height: 80px; overflow-y: auto; }
+    .error-list li { font-size: 11px; color: var(--text-sec); padding: 2px 0; border-top: 1px solid rgba(255,255,255,.04); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* ── UI-06: Queue mini progress ── */
+    .queue-mini-progress { height: 3px; background: rgba(255,255,255,.1); border-radius: 2px; margin: 4px 0; overflow: hidden; }
+    .queue-mini-bar { height: 100%; background: var(--accent); border-radius: 2px; transition: width .3s; }
+  </style>
 </head>
 <body>
   <div class="app">
@@ -23,7 +46,7 @@
         </div>
         <div class="header-text">
           <h1 class="app-name">Media Downloader</h1>
-          <span class="app-version">v5.0.3</span>
+          <span class="app-version">v5.3.0</span>
         </div>
       </div>
       <button class="btn-icon btn-theme" id="btn-theme" title="Đổi giao diện">
@@ -98,6 +121,20 @@
               <p class="profile-hint" id="profile-hint" data-i18n="profile_hint_default">Open a profile on X.com to start</p>
             </div>
             <div class="profile-badge" id="media-count-badge">0</div>
+          </div>
+        </section>
+
+        <!-- UI-04: Empty State Onboarding -->
+        <section class="onboarding-section" id="onboarding-section" style="display:none">
+          <div class="onboarding-card">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" opacity="0.5">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.253 5.622L18.244 2.25z" fill="currentColor"/>
+            </svg>
+            <div class="onboarding-steps">
+              <div class="onboarding-step"><span class="step-num">1</span><span>Mở <code>x.com/username/media</code></span></div>
+              <div class="onboarding-step"><span class="step-num">2</span><span>Bấm <strong>Start Collecting</strong></span></div>
+              <div class="onboarding-step"><span class="step-num">3</span><span>Bấm <strong>Download</strong></span></div>
+            </div>
           </div>
         </section>
 
@@ -186,6 +223,19 @@
           <!-- v4.4.0: Visual Progress per File -->
           <div class="active-downloads-list" id="active-downloads-list" style="display:none"></div>
         </section>
+
+        <!-- UI-01: Error Details Panel -->
+        <div class="error-details" id="error-details" style="display:none">
+          <div class="error-details-header">
+            <span class="error-details-count" id="error-details-count">0 lỗi</span>
+            <button class="btn-retry" id="btn-retry">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.36"/></svg>
+              Retry
+            </button>
+            <button class="btn-error-close" id="btn-error-close" title="Đóng">×</button>
+          </div>
+          <ul class="error-list" id="error-list"></ul>
+        </div>
 
         <!-- Scroll Progress -->
         <section class="scroll-section" id="section-scroll" style="display:none">

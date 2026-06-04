@@ -1,6 +1,6 @@
 
 /**
- * options.js — Logic trang Cài đặt (v5.2.0)
+ * options.js — Logic trang Cài đặt (v5.3.0)
  */
 
 const DEFAULT_OPTIONS = {
@@ -132,11 +132,13 @@ async function saveOptions() {
 
   await chrome.storage.sync.set({ options: opts });
 
+  // UI-03: Reset text về "✓ Saved" sau khi lưu xong (có thể đang là "Saving...")
   const el = document.getElementById('save-status');
-// @ts-ignore
-  el.classList.add('show');
-// @ts-ignore
-  setTimeout(() => el.classList.remove('show'), 2500);
+  if (el) {
+    el.textContent = window.i18n ? window.i18n.t('save_success') : '✓ Saved';
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2500);
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -278,10 +280,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const debouncedSave = debounce(saveOptions, 500);
 
+  // UI-03: "Saving..." hiển thị ngay khi user gõ, trước khi debounce fire
+  function showSavingIndicator() {
+    const el = document.getElementById('save-status');
+    if (!el) return;
+    el.textContent = '⏳ Saving...';
+    el.classList.add('show');
+  }
+
   // Auto-save khi thay đổi bất kỳ setting nào
   document.querySelectorAll('input').forEach(input => {
     if (input.type === 'text' || input.type === 'number') {
-      input.addEventListener('input', debouncedSave);
+      input.addEventListener('input', () => { showSavingIndicator(); debouncedSave(); });
     }
     input.addEventListener('change', saveOptions);
   });
@@ -321,14 +331,14 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', asy
   }
 });
 
-// ─── v5.2.0: Export / Import / Reset ──────────────────────────────────────────────────
+// ─── v5.3.0: Export / Import / Reset ──────────────────────────────────────────────────
 
 async function exportSettings() {
   try {
     const stored: any = await chrome.storage.sync.get('options').catch(() => ({}));
     const opts = stored.options || DEFAULT_OPTIONS;
     const exportData = {
-      _version: '5.2.0',
+      _version: '5.3.0',
       _exportedAt: new Date().toISOString(),
       options: opts,
     };

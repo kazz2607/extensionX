@@ -482,6 +482,13 @@
       scrollInfo.classList.remove('visible');
     }
 
+    // UI-05: FAB mini progress — hiện % khi đang download
+    if (state === 'DOWNLOAD_PROGRESS' && e.detail.percent !== undefined) {
+      const pct = e.detail.percent;
+// @ts-ignore
+      setPanelButtonText(downloadBtn, `⏳ ${pct}% (${e.detail.current}/${e.detail.total})`);
+    }
+
     if (state === 'DOWNLOAD_DONE') {
       isDownloading = false;  // FIX: reset flag để cho phép download lần tiếp
       setPanelButtonText(downloadBtn, window.i18n ? window.i18n.t('fab_download') : '↓ Download');

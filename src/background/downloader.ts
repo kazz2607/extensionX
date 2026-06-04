@@ -8,6 +8,9 @@ import { startNextInQueue, profileQueue, persistQueue, broadcastQueueUpdate } fr
 const KEEPALIVE_ALARM = 'sw-keepalive';
 const DOWNLOAD_TIMEOUT_MS = 90_000; // BUG-1 FIX: 90 giây timeout mỗi file
 
+// UI-05: FAB progress throttle (2s giữa các lần broadcast)
+let _lastFabProgressTime = 0;
+
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === KEEPALIVE_ALARM) {
     // Ping nhẹ để giữ SW sống. Không làm gì thêm.
@@ -263,6 +266,10 @@ async function handleDownloadTweet(tweetId, username, tabId) {
     sendResult('error', { message: err.message });
   }
 }
+// UI-01: Lưu last download context để Retry dùng lại
+let _lastDownloadUsername = '';
+let _lastDownloadOptions: any = {};
+
 // @ts-ignore
 async function startDownload(username, options = {}) {
 // @ts-ignore
@@ -273,6 +280,8 @@ async function startDownload(username, options = {}) {
 // @ts-ignore
   downloadState.inProgress = true;
   activeErrors = [];
+  _lastDownloadUsername = username;
+  _lastDownloadOptions = options;
 
   // BUG-2 FIX: Bật keep-alive để SW không bị Chrome terminate
   startKeepAlive();
@@ -414,6 +423,18 @@ async function startDownload(username, options = {}) {
       currentFile: filename.split('/').pop(),
       done: success + failed === total,
     });
+
+    // UI-05: FAB mini progress (throttle 2s để tránh quá nhiều messages)
+    const nowFab = Date.now();
+    if (nowFab - _lastFabProgressTime > 2000 || success + failed === total) {
+      _lastFabProgressTime = nowFab;
+      broadcastToTab(username, 'FAB_UPDATE', {
+        state: 'DOWNLOAD_PROGRESS',
+        percent: Math.round(((success + failed) / total) * 100),
+        current: success + failed,
+        total,
+      });
+    }
   }
 
   try {
@@ -464,7 +485,8 @@ async function startDownload(username, options = {}) {
 // @ts-ignore
     downloadState.inProgress = false;
     stopKeepAlive(); // BUG-2 FIX: Tắt keep-alive khi xong
-    broadcastToPopup('DOWNLOAD_DONE', { username, success, failed, total, skipped });
+    // UI-01: Truyền errors array để popup có thể hiện chi tiết lỗi
+    broadcastToPopup('DOWNLOAD_DONE', { username, success, failed, total, skipped, errors: activeErrors.slice(0, 20) });
     // v4.1.0: Hiện system notification
     showDownloadNotification(username, success, failed, total, skipped);
     // Snackbar: thông báo hoàn thành
@@ -674,4 +696,11 @@ function buildCSV(username: string, filterType = 'all', offset = 0) {
   };
 }
 
-export { startDownload, handleDownloadTweet, activeErrors, buildCSV };
+// UI-01: Retry bằng cách chạy lại download cuối — skipDuplicates tự bỏ qua file đã tải OK
+function retryLastDownload(): boolean {
+  if (downloadState.inProgress || !_lastDownloadUsername) return false;
+  startDownload(_lastDownloadUsername, _lastDownloadOptions);
+  return true;
+}
+
+export { startDownload, handleDownloadTweet, activeErrors, buildCSV, retryLastDownload };

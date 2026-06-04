@@ -2,6 +2,18 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [5.3.0] - 2026-06-04
+### UI Polish
+
+- **[UI-01 — Error Details + Retry]:** Sau khi download có lỗi, popup hiện panel màu đỏ với danh sách chi tiết (tối đa 10 entries). Nút **Retry** tái khởi động download — `skipDuplicates` tự bỏ qua file đã tải OK, chỉ retry đúng file lỗi.
+- **[UI-02 — Stats Donut Realtime]:** Biểu đồ donut trong Stats tab giờ tự cập nhật khi đang thu thập nếu tab đang mở — không cần chuyển tab qua lại.
+- **[UI-03 — Auto-save Indicator]:** Options page hiện `⏳ Saving...` ngay khi user gõ (trước khi debounce 500ms fire), rồi đổi thành `✓ Saved` sau khi lưu thành công.
+- **[UI-04 — Empty State Onboarding]:** Khi popup mở mà chưa nhận ra profile X.com (không phải X.com, hoặc trang không phải media), hiển thị card hướng dẫn 3 bước: Mở `/media` → Start Collecting → Download.
+- **[UI-05 — FAB Mini Progress]:** FAB download button hiển thị `⏳ 45% (45/100)` realtime trong khi batch download đang chạy (throttle 2s). Reset về `↓ Download` khi xong.
+- **[UI-06 — Queue Live Progress Bar]:** Queue item đang `downloading` hiện mini progress bar màu xanh + text `current/total (%)` cập nhật realtime — không re-render toàn bộ list.
+
+---
+
 ## [5.2.0] - 2026-06-04
 ### Performance Optimization
 
