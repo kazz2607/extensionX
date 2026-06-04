@@ -1,4 +1,5 @@
 import { mediaStore, downloadState } from './state.ts';
+import { getMediaItems } from './indexeddb.ts';
 import { startDownload } from './downloader.ts';
 import { broadcastToPopup } from './utils.ts';
 import { QueueItem } from '../types.ts';
@@ -42,7 +43,19 @@ async function startNextInQueue() {
   const next = profileQueue.find(item => item.status === 'waiting');
   if (!next) return; // Hàng đợi rỗng
 
-  const store = mediaStore.get(next.username);
+  let store = mediaStore.get(next.username);
+  if (!store?.size) {
+    // Thử load từ IndexedDB nếu service worker vừa restart và store trống
+    const itemsArray = await getMediaItems(next.username) as any[];
+    if (itemsArray && itemsArray.length > 0) {
+      if (!mediaStore.has(next.username)) mediaStore.set(next.username, new Map());
+      store = mediaStore.get(next.username);
+      itemsArray.forEach((item: any) => {
+        if (item?.url && !store!.has(item.url)) store!.set(item.url, item);
+      });
+    }
+  }
+
   if (!store?.size) {
     // Không có media → đánh dấu error và chuyển tiếp
     next.status = 'error';
