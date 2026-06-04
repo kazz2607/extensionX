@@ -71,6 +71,9 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
+  margin: 0;
+  padding: 0;
+  border: none;
   font-family: var(--font);
   font-size: 13px;
   background: var(--bg);
@@ -80,12 +83,19 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+html {
+  background: var(--bg);
+  border: none;
+}
+
 /* ─── App Container ──────────────────────────────────────────────────────── */
 .app {
   display: flex;
   flex-direction: column;
   gap: 1px;
   background: var(--border);
+  box-shadow: var(--shadow);
+  min-height: 100vh;
 }
 
 /* ─── Header ─────────────────────────────────────────────────────────────── */
