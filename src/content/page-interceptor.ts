@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * page-interceptor.js — Chạy trong PAGE CONTEXT (không phải isolated world)
  * Mục đích: Hook window.fetch + XHR để bắt URL video khi X.com tải video phát.
@@ -15,13 +14,16 @@
   'use strict';
 
   // Tránh khởi tạo nhiều lần
+// @ts-ignore
   if (window.__XMD_PAGE_INTERCEPTOR__) return;
+// @ts-ignore
   window.__XMD_PAGE_INTERCEPTOR__ = true;
 
   // Tập hợp URL đã xử lý (dedup theo base URL không có query string)
   const seenUrls = new Set();
 
   // ─── Extract Tweet ID từ URL video ──────────────────────────────────────────
+// @ts-ignore
   function extractTweetIdFromUrl(url) {
     // ext_tw_video chứa tweet ID trong đường dẫn
     // VD: video.twimg.com/ext_tw_video/1234567890/pu/pl/abc.m3u8
@@ -39,6 +41,7 @@
         if (rect.top >= -300 && rect.top <= window.innerHeight + 300) {
           const link = article.querySelector('a[href*="/status/"]');
           if (link) {
+// @ts-ignore
             const m = link.href.match(/\/status\/(\d+)/);
             if (m) return m[1];
           }
@@ -55,6 +58,7 @@
   }
 
   // ─── Xử lý URL video tiềm năng ──────────────────────────────────────────────
+// @ts-ignore
   function notifyVideoUrl(rawUrl) {
     if (!rawUrl || typeof rawUrl !== 'string') return;
     if (!rawUrl.includes('video.twimg.com')) return;
@@ -99,11 +103,15 @@
   }
 
   // ─── P1: Adaptive Speed Tracker ───────────────────────────────────────────────
+// @ts-ignore
   const recentDurations = [];
+// @ts-ignore
   function reportResponseTime(duration) {
     if (duration > 30000) return; // Bỏ qua nếu bất thường (>30s)
     recentDurations.push(duration);
+// @ts-ignore
     if (recentDurations.length > 5) recentDurations.shift();
+// @ts-ignore
     const sum = recentDurations.reduce((a, b) => a + b, 0);
     const avg = Math.round(sum / recentDurations.length);
     window.dispatchEvent(new CustomEvent('X_ADAPTIVE_SPEED', {
@@ -123,6 +131,7 @@
       notifyVideoUrl(url);
     } catch (_) {}
     
+// @ts-ignore
     const response = await _originalFetch.apply(this, arguments);
     const duration = Date.now() - startTime;
     
@@ -132,10 +141,13 @@
         reportResponseTime(duration);
         const clone = response.clone();
         clone.json().then(data => {
+// @ts-ignore
           const mediaItems = [];
+// @ts-ignore
           extractMediaFromResponse(data, mediaItems);
           if (mediaItems.length > 0) {
             window.dispatchEvent(new CustomEvent('X_MEDIA_FOUND', {
+// @ts-ignore
               detail: { mediaItems, sourceUrl: 'graphql-fetch' }
             }));
           }
@@ -147,27 +159,33 @@
   };
 
   // ─── Helper: Lấy extension ảnh từ URL ──────────────────────────────────────
+// @ts-ignore
   function getImageExt(url) {
     const m = url.match(/\.(jpg|jpeg|png|webp|gif)(?:[?#]|$)/i);
     return m ? m[1].toLowerCase() : 'jpg';
   }
 
   // ─── Helper: Parse JSON GraphQL tìm video ─────────────────────────────────────
+// @ts-ignore
   function extractMediaFromResponse(obj, results, depth = 0) {
     if (depth > 35 || !obj || typeof obj !== 'object') return;
 
     if (obj.extended_entities && Array.isArray(obj.extended_entities.media)) {
+// @ts-ignore
       obj.extended_entities.media.forEach(media => {
         const type = media.type;
         const tweetId = media.source_status_id_str || media.id_str || '';
         if (type === 'video' || type === 'animated_gif') {
           const variants = media.video_info?.variants || [];
           let bestMp4 = variants
+// @ts-ignore
             .filter(v => v.content_type === 'video/mp4')
+// @ts-ignore
             .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
 
           let isHls = false;
           if (!bestMp4) {
+// @ts-ignore
             bestMp4 = variants.find(v => v.content_type === 'application/x-mpegURL');
             if (bestMp4) isHls = true;
           }
@@ -221,9 +239,11 @@
   XMLHttpRequest.prototype.open = function (method, url) {
     try { 
       const urlStr = String(url || '');
+// @ts-ignore
       this._interceptUrl = urlStr;
       notifyVideoUrl(urlStr); 
     } catch (_) {}
+// @ts-ignore
     return _originalXhrOpen.apply(this, arguments);
   };
 
@@ -233,25 +253,31 @@
     this.addEventListener('load', function() {
       const duration = Date.now() - startTime;
       try {
+// @ts-ignore
         const url = this._interceptUrl || this.responseURL || '';
         if (url.includes('/graphql/')) {
           reportResponseTime(duration);
           const text = this.responseText;
           const data = JSON.parse(text);
+// @ts-ignore
           const mediaItems = [];
+// @ts-ignore
           extractMediaFromResponse(data, mediaItems);
           if (mediaItems.length > 0) {
             window.dispatchEvent(new CustomEvent('X_MEDIA_FOUND', {
+// @ts-ignore
               detail: { mediaItems, sourceUrl: 'graphql-xhr' }
             }));
           }
         }
       } catch (_) {}
     });
+// @ts-ignore
     return _originalXhrSend.apply(this, arguments);
   };
 
   // ─── 3. Theo dõi video elements (phát hiện src/currentSrc trực tiếp) ─────────
+// @ts-ignore
   function watchVideoElement(videoEl) {
     const checkSrc = () => {
       const src = videoEl.currentSrc || videoEl.src;
@@ -271,9 +297,11 @@
     for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
         if (node.nodeType !== 1) continue; // Chỉ xử lý Element nodes
+// @ts-ignore
         if (node.tagName === 'VIDEO') {
           watchVideoElement(node);
         } else {
+// @ts-ignore
           node.querySelectorAll?.('video').forEach(watchVideoElement);
         }
       }
@@ -301,10 +329,13 @@
     const result = _originalParse(text, reviver);
     try {
       if (typeof text === 'string' && text.includes('extended_entities')) {
+// @ts-ignore
         const mediaItems = [];
+// @ts-ignore
         extractMediaFromResponse(result, mediaItems);
         if (mediaItems.length > 0) {
           window.dispatchEvent(new CustomEvent('X_MEDIA_FOUND', {
+// @ts-ignore
             detail: { mediaItems, sourceUrl: 'json-interceptor' }
           }));
         }

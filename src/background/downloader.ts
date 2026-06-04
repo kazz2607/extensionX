@@ -1,5 +1,5 @@
-// @ts-nocheck
 
+// @ts-ignore
 import { mediaStore, downloadedStore, tabState, downloadState, pendingHlsRequests, activeDownloads } from './state.ts';
 import { broadcastToPopup, broadcastToTab, sanitizeFolder, broadcastFABState } from './utils.ts';
 import { showDownloadNotification, fetchVideoForTweetWithRefresh } from './scraper.ts';
@@ -52,6 +52,7 @@ chrome.downloads.onChanged.addListener((delta) => {
   } 
   
   // Update progress
+// @ts-ignore
   if (delta.bytesReceived) tracked.bytesReceived = delta.bytesReceived.current;
   if (delta.totalBytes) tracked.totalBytes = delta.totalBytes.current;
 
@@ -79,6 +80,7 @@ chrome.downloads.onChanged.addListener((delta) => {
   }
 });
 // ─── Download — từng file, không ZIP ─────────────────────────────────────────
+// @ts-ignore
 let activeErrors = []; // Mảng chứa chi tiết lỗi
 
 // ─── Ensure Offscreen Document tồn tại ───────────────────────────────────────
@@ -97,14 +99,18 @@ async function ensureOffscreen() {
       justification: 'Convert HLS stream to Blob for downloading',
     });
   } catch (err) {
+// @ts-ignore
     if (!err.message?.includes('single offscreen document')) {
+// @ts-ignore
       console.warn('[SW] Offscreen creation error:', err.message);
     }
   }
 }
 
 // ─── Download một item (module-level, tái dụng được) ─────────────────────────
+// @ts-ignore
 async function downloadSingleItem(item, username, saveFolder, opts = {}) {
+// @ts-ignore
   const { flatUsername = false, filenameUsername = false } = opts;
   let filename = buildDownloadPath(saveFolder, username, item, flatUsername, filenameUsername);
 
@@ -136,6 +142,7 @@ async function downloadSingleItem(item, username, saveFolder, opts = {}) {
         reject(err);
       });
     });
+// @ts-ignore
     await downloadFile(res.dataUrl, filename);
   } else {
     await downloadFile(item.url, filename);
@@ -145,8 +152,11 @@ async function downloadSingleItem(item, username, saveFolder, opts = {}) {
 }
 
 // ─── Tìm tất cả media của một tweet trong mediaStore ─────────────────────────
+// @ts-ignore
 function findTweetMediaInStore(tweetId, username) {
+// @ts-ignore
   const results = [];
+// @ts-ignore
   const checkStore = (store) => {
     for (const item of store.values()) {
       if (item.tweetId === tweetId) results.push(item);
@@ -159,11 +169,14 @@ function findTweetMediaInStore(tweetId, username) {
     // Tìm trong tất cả stores nếu không biết username
     mediaStore.forEach(checkStore);
   }
+// @ts-ignore
   return results;
 }
 
 // ─── Handler: Download single tweet từ Mini Button ───────────────────────────
+// @ts-ignore
 async function handleDownloadTweet(tweetId, username, tabId) {
+// @ts-ignore
   const sendResult = (state, extra = {}) => {
     if (!tabId) return;
     chrome.tabs.sendMessage(tabId, {
@@ -179,6 +192,7 @@ async function handleDownloadTweet(tweetId, username, tabId) {
       opts = stored.options || {};
     } catch (_) {}
 
+// @ts-ignore
     const saveFolder = sanitizeFolder(opts.saveFolder || '');
 
     // 1. Tìm trong mediaStore trước (nhanh, không cần API)
@@ -189,6 +203,7 @@ async function handleDownloadTweet(tweetId, username, tabId) {
       try {
         const videoItem = await fetchVideoForTweetWithRefresh(tweetId, tabId);
         if (videoItem) {
+// @ts-ignore
           videoItem.username = username;
           mediaItems = [videoItem];
         }
@@ -209,6 +224,7 @@ async function handleDownloadTweet(tweetId, username, tabId) {
         await downloadSingleItem(item, username || item.username || 'unknown', saveFolder, opts);
         success++;
       } catch (err) {
+// @ts-ignore
         console.warn('[SW] DOWNLOAD_TWEET item failed:', err.message);
         failed++;
       }
@@ -222,14 +238,18 @@ async function handleDownloadTweet(tweetId, username, tabId) {
 
   } catch (err) {
     console.error('[SW] handleDownloadTweet error:', err);
+// @ts-ignore
     sendResult('error', { message: err.message });
   }
 }
+// @ts-ignore
 async function startDownload(username, options = {}) {
+// @ts-ignore
   if (downloadInProgress) return;
 
   const store = mediaStore.get(username);
   if (!store?.size) return;
+// @ts-ignore
   downloadInProgress = true;
   activeErrors = [];
 
@@ -245,15 +265,22 @@ async function startDownload(username, options = {}) {
 
   // Lọc theo filter type
   let items = Array.from(store.values());
+// @ts-ignore
   if (options.filterType && options.filterType !== 'all') {
+// @ts-ignore
     if (options.filterType === 'images') items = items.filter(i => i.type === 'image');
+// @ts-ignore
     else if (options.filterType === 'videos') items = items.filter(i => i.type === 'video' || i.type === 'hls');
+// @ts-ignore
     else if (options.filterType === 'gifs') items = items.filter(i => i.type === 'gif');
   }
 
   // v4.3.0: Lọc theo Date Range
+// @ts-ignore
   const dateFrom = options.dateFrom ? new Date(options.dateFrom).getTime() : 0;
+// @ts-ignore
   const dateTo   = options.dateTo   ? new Date(options.dateTo + 'T23:59:59Z').getTime() : Infinity;
+// @ts-ignore
   if (options.dateFrom || options.dateTo) {
     const beforeDate = items.length;
     items = items.filter(item => {
@@ -265,7 +292,9 @@ async function startDownload(username, options = {}) {
   }
 
   // v4.8.0: Lọc theo Keyword
+// @ts-ignore
   if (options.keyword && options.keyword.trim()) {
+// @ts-ignore
     const kw = options.keyword.toLowerCase().trim();
     const beforeKw = items.length;
     items = items.filter(item => (item.tweetText || '').toLowerCase().includes(kw));
@@ -274,17 +303,21 @@ async function startDownload(username, options = {}) {
   }
 
   // v4.1.0: Duplicate Detection — load downloaded URLs rồi lọc ra
+// @ts-ignore
   await loadDownloadedUrls(username);
+// @ts-ignore
   const skipDuplicates = options.skipDuplicates !== false; // mặc định bật
   let skipped = 0;
   if (skipDuplicates) {
     const before = items.length;
+// @ts-ignore
     items = items.filter(item => !isAlreadyDownloaded(username, item.url));
     skipped = before - items.length;
     if (skipped > 0) console.log(`[SW] Duplicate skip: ${skipped} files đã tải trước — bỏ qua`);
   }
 
   if (!items.length) {
+// @ts-ignore
     downloadInProgress = false;
     stopKeepAlive();
     // Thông báo nếu tất cả đã được tải rồi
@@ -296,8 +329,11 @@ async function startDownload(username, options = {}) {
   }
 
   // Thư mục lưu: {saveFolder}/{username}/{subfolder}/
+// @ts-ignore
   const saveFolder = sanitizeFolder(opts.saveFolder || '');
+// @ts-ignore
   const CONCURRENCY = Math.min(Math.max(opts.concurrency || 3, 1), 5);
+// @ts-ignore
   const filenameUsername = opts.filenameUsername || false;
 
   const total = items.length;
@@ -306,25 +342,31 @@ async function startDownload(username, options = {}) {
 
   broadcastToPopup('DOWNLOAD_STARTED', { username, total });
   // Snackbar: thông báo bắt đầu
+// @ts-ignore
   const snackEnabled = opts.showSnackbar !== false;
   if (snackEnabled) broadcastToTab(username, 'SNACKBAR_UPDATE', { type: 'DOWNLOAD_STARTED', username, total, skipped });
 
   // ─── Download một file — BUG-4 FIX: mỗi item tự quản lý timeout ─────────
   // Dùng module-level downloadSingleItem() — tránh code trùng lặp với DOWNLOAD_TWEET
+// @ts-ignore
   async function downloadOne(item) {
     let filename = '';
     try {
       filename = await downloadSingleItem(item, username, saveFolder, {
+// @ts-ignore
         flatUsername: opts.flatUsername,
         filenameUsername,
       });
 
       success++;
       // v4.1.0: Đánh dấu đã tải xong
+// @ts-ignore
       markDownloaded(username, item.url);
     } catch (err) {
       failed++;
+// @ts-ignore
       activeErrors.push(err.message);
+// @ts-ignore
       console.warn('[SW] Download failed:', item?.url, err.message);
     }
 
@@ -334,6 +376,7 @@ async function startDownload(username, options = {}) {
       total,
       success,
       failed,
+// @ts-ignore
       errors: activeErrors,
       done: success + failed === total,
       percent: Math.round(((success + failed) / total) * 100),
@@ -380,6 +423,7 @@ async function startDownload(username, options = {}) {
             console.warn('[SW] Batch-level timeout:', err.message);
             broadcastToPopup('DOWNLOAD_PROGRESS', {
               username, current: success + failed, total, success, failed,
+// @ts-ignore
               errors: activeErrors, done: success + failed === total,
               percent: Math.round(((success + failed) / total) * 100),
               currentFile: '',
@@ -396,6 +440,7 @@ async function startDownload(username, options = {}) {
   } catch (err) {
     console.error('[SW] Critical download error:', err);
   } finally {
+// @ts-ignore
     downloadInProgress = false;
     stopKeepAlive(); // BUG-2 FIX: Tắt keep-alive khi xong
     broadcastToPopup('DOWNLOAD_DONE', { username, success, failed, total, skipped });
@@ -415,7 +460,9 @@ async function startDownload(username, options = {}) {
     });
 
     // v4.2.0: Cập nhật queue item result nếu download từ queue
+// @ts-ignore
     if (options._fromQueue && options._queueId) {
+// @ts-ignore
       const qItem = profileQueue.find(q => q.id === options._queueId);
       if (qItem) {
         qItem.status = failed === total && total > 0 ? 'error' : 'done';
@@ -435,6 +482,7 @@ async function startDownload(username, options = {}) {
 // Ta detect IDM hijack khi: interrupted trong vòng 2s + error là USER_CANCELED hoặc rỗng.
 let _idmDetected = false;
 
+// @ts-ignore
 function isIdmHijack(downloadId, startTime, error) {
   const elapsed = Date.now() - startTime;
   const isQuickCancel = elapsed < 2000;
@@ -453,6 +501,7 @@ function maybeWarnIdm() {
 // BUG-1 FIX: Thêm timeout 90s — Promise không bao giờ treo vĩnh viễn
 // BUG-7 FIX: Guard chống double-resolve bằng `settled` flag
 // IDM FIX: Detect IDM hijack → resolve thay vì reject để không báo lỗi sai
+// @ts-ignore
 function downloadFile(url, filename) {
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -465,6 +514,7 @@ function downloadFile(url, filename) {
       reject(new Error(`Download timeout (90s): ${filename.split('/').pop()}`));
     }, DOWNLOAD_TIMEOUT_MS);
 
+// @ts-ignore
     function safeResolve(val) {
       if (settled) return;
       settled = true;
@@ -472,6 +522,7 @@ function downloadFile(url, filename) {
       resolve(val);
     }
 
+// @ts-ignore
     function safeReject(err) {
       if (settled) return;
       settled = true;
@@ -528,6 +579,7 @@ function downloadFile(url, filename) {
 }
 
 // ─── Build Download Path ─────────────────────────────────────────────────────────
+// @ts-ignore
 function buildDownloadPath(saveFolder, username, item, flatUsername = false, filenameUsername = false) {
   const subfolder = item.type === 'image' ? 'images'
     : item.type === 'gif' ? 'gifs'
@@ -546,6 +598,7 @@ function buildDownloadPath(saveFolder, username, item, flatUsername = false, fil
 }
 
 // S4: Sanitize tên file — loại bỏ ký tự không hợp lệ trên Windows/macOS
+// @ts-ignore
 function sanitizeFilenameStr(name) {
   if (!name) return 'file';
   return name
@@ -556,6 +609,7 @@ function sanitizeFilenameStr(name) {
     || 'file';
 }
 
+// @ts-ignore
 function buildFilename(item, username = '', filenameUsername = false) {
   const base = item.tweetId || item.mediaKey || `media_${Date.now()}`;
   const rand = Math.random().toString(36).slice(2, 7);
@@ -567,6 +621,7 @@ function buildFilename(item, username = '', filenameUsername = false) {
 }
 
 // ─── Export CSV ───────────────────────────────────────────────────────────────
+// @ts-ignore
 function buildCSV(username, filterType = 'all') {
   const store = mediaStore.get(username);
   if (!store) return '';

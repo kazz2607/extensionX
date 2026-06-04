@@ -1,11 +1,11 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-06-04 | Phiên bản hiện tại: **4.8.0**
+> Cập nhật: 2026-06-04 | Phiên bản hiện tại: **5.0.0**
 
 ---
 
-## 1. Kiến Trúc Hiện Tại (v4.8.0)
+## 1. Kiến Trúc Hiện Tại (v5.0.0)
 
 ```
 extensionX/
@@ -139,28 +139,17 @@ File được lưu vào:
 | v4.6.0 | **HLS Song Song Per-File** — FIFO queue 2 file HLS đồng thời, 8 TS segment/file, Promise+requestId SW |
 | v4.7.0 | **S3 Rate Limiting + S1 CSRF Auto-Refresh** — Token Bucket 20 calls/phút, tự động refresh ct0 khi 403 |
 | v4.8.0 | **Keyword Filter + Compact Mode** — Lọc media theo text của tweet, Giao diện thu gọn siêu tốc |
+| v5.0.0 | **Major TypeScript Rewrite** — Chuyển đổi 100% codebase sang TypeScript, sử dụng Vite Bundler & ESM |
 
 ---
 
-## 4. Đề Xuất Phát Triển Tiếp Theo (Phase 5+)
+## 4. Đề Xuất Phát Triển Tiếp Theo (Phase 6+)
 
-> Dự án đã hoàn thiện xuất sắc toàn bộ các tính năng cốt lõi ở **Phase 4** (v4.8.0). Dưới đây là lộ trình đề xuất cho các Phase tiếp theo để nâng tầm dự án từ một "tool nhỏ" thành một "Nền tảng Quản lý Media" chuyên nghiệp.
-
----
-
-### 🔴 4.1. Phase 5 — Kiến trúc mới & Độ ổn định (v5.0.0)
-
-**Vấn đề:** Codebase hiện tại là Vanilla JS. File `service-worker.js` đã dài hơn 1600 dòng, `popup.js` gần 1000 dòng. Việc bảo trì, thêm tính năng mới hoặc debug sẽ ngày càng khó khăn và dễ gây ra side-effect.
-
-**Đề xuất (TypeScript & Bundler):**
-- Đập đi xây lại (Rewrite) bằng **TypeScript** để có type-safety, dễ dàng auto-complete và hạn chế lỗi runtime.
-- Chia nhỏ logic thành các ES Modules riêng biệt (VD: `queue.ts`, `api.ts`, `storage.ts`, `hls.ts`).
-- Sử dụng **Vite** hoặc **Webpack** để bundle code cho Chrome Extension.
-- Cập nhật hoàn toàn lên chuẩn **Manifest V3** khắt khe nhất (bỏ các polyfill cũ nếu có).
+> Dự án đã hoàn thành xuất sắc toàn bộ Phase 5: Đại tu kiến trúc sang TypeScript. Dưới đây là lộ trình đề xuất cho các Phase tiếp theo để nâng tầm UX và tự động hoá.
 
 ---
 
-### 🟡 4.2. Phase 6 — Nâng cấp Trải nghiệm người dùng (v6.0.0)
+### 🟡 4.1. Phase 6 — Nâng cấp Trải nghiệm người dùng (v6.0.0)
 
 **Vấn đề:** Popup extension có không gian quá chật hẹp, không thể hiển thị được nhiều thông tin, ảnh preview hay quản lý hàng ngàn file media cùng lúc.
 
@@ -208,11 +197,10 @@ File được lưu vào:
 
 ---
 
-## 6. Ma Trận Ưu Tiên Mới (Phase 5+)
+## 6. Ma Trận Ưu Tiên Mới (Phase 6+)
 
 | Tính năng / Mục tiêu | Độ khó | Impact | Ưu tiên |
 |---|---|---|---|
-| **v5.0.0** TypeScript Migration & Refactoring | ⭐⭐⭐⭐ | 🔥🔥🔥 | 🔴 Cao |
 | **v6.0.0** Full-page Dashboard & Gallery View | ⭐⭐⭐ | 🔥🔥🔥 | 🟡 Trung bình |
 | **v6.1.0** Selective Download (Chọn file để tải) | ⭐⭐ | 🔥🔥 | 🟡 Trung bình |
 | **v7.0.0** Auto-fetch (Theo dõi tự động tải) | ⭐⭐⭐⭐⭐ | 🔥🔥🔥🔥 | 🔵 Thấp |
@@ -224,12 +212,11 @@ File được lưu vào:
 
 ```
 [QUÁ KHỨ]
-v4.6.0  ── P3 HLS Download Song Song Per-File (FIFO queue, 8 segments)                 ✅ DONE
 v4.7.0  ── S3 Rate Limiting (Token Bucket) + S1 CSRF Auto-Refresh                      ✅ DONE
 v4.8.0  ── Keyword / Hashtag Filter + U4 Compact Mode                                  ✅ DONE
+v5.0.0  ── Major rewrite: TypeScript migration, Vite Bundler, Modularization           ✅ DONE
 
 [TƯƠNG LAI]
-v5.0.0  ── Major rewrite: TypeScript migration, Vite Bundler, Modularization
 v6.0.0  ── Full-page Dashboard, Masonry Media Gallery, Bulk Selection
 v7.0.0  ── Automation: Background Cron-job Auto-fetch, Cloud Integration
 ```

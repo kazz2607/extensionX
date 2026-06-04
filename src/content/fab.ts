@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * fab.js — Floating Action Button trên trang X.com
  * Hiển thị mini widget góc phải màn hình với:
@@ -325,10 +324,12 @@
   const lblScroll  = document.getElementById('__xmd_lbl_scroll__');
   const dragHandle = document.getElementById('__xmd_drag_handle__');
 
+// @ts-ignore
   function panelButtonLabel(rawLabel) {
     return String(rawLabel || '').replace(/^(?:[▶⏹↓⏳⟳]\s*)+/u, '').trim();
   }
 
+// @ts-ignore
   function setPanelButtonText(button, label) {
     const textEl = button.querySelector('.__xmd_btn_text__');
     if (textEl) textEl.textContent = panelButtonLabel(label);
@@ -337,7 +338,9 @@
   // Hàm update text i18n
   function updateFabI18n() {
     if (!window.i18n) return;
+// @ts-ignore
     lblMedia.textContent = window.i18n.t('fab_media_collected');
+// @ts-ignore
     lblScroll.textContent = window.i18n.t('fab_scroll');
     setPanelButtonText(collectBtn, isCollecting ? window.i18n.t('fab_collect_stop') : window.i18n.t('fab_collect_start'));
     // BUG-F FIX: Dùng isDownloading flag thay vì check text content (ngược logic cũ)
@@ -345,21 +348,26 @@
     setPanelButtonText(downloadBtn, isDownloading
       ? window.i18n.t('fab_downloading')
       : window.i18n.t('fab_download'));
+// @ts-ignore
     scrollInfo.textContent = window.i18n.t('fab_scrolling');
   }
 
   window.addEventListener('XMD_LANG_UPDATE', (e) => {
+// @ts-ignore
     if (window.i18n && e.detail?.lang) {
+// @ts-ignore
       window.i18n.lang = e.detail.lang;
       updateFabI18n();
     }
   });
 
   // ─── Toggle Panel ────────────────────────────────────────────────────────────
+// @ts-ignore
   mainBtn.addEventListener('click', () => {
     // Nếu đang download: bấm vào main btn = toggle panel (xem tiến độ)
     if (isDownloading) {
       panelOpen = !panelOpen;
+// @ts-ignore
       panel.classList.toggle('visible', panelOpen);
       return;
     }
@@ -370,34 +378,43 @@
         detail: { action: 'START_DOWNLOAD' }
       }));
       setPanelButtonText(downloadBtn, window.i18n ? window.i18n.t('fab_downloading') : '⏳ Đang tải...');
+// @ts-ignore
       downloadBtn.disabled = true;
       // Đóng panel nếu đang mở
       panelOpen = false;
+// @ts-ignore
       panel.classList.remove('visible');
       return;
     }
     // Chưa có media: toggle panel để dùng nút Thu Thập
     panelOpen = !panelOpen;
+// @ts-ignore
     panel.classList.toggle('visible', panelOpen);
   });
 
   // Đóng panel khi click ra ngoài
   document.addEventListener('click', (e) => {
+// @ts-ignore
     if (!fab.contains(e.target)) {
       panelOpen = false;
+// @ts-ignore
       panel.classList.remove('visible');
     }
   }, true);
 
   // ─── Collect Button ──────────────────────────────────────────────────────────
+// @ts-ignore
   collectBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     isCollecting = !isCollecting;
 
     if (isCollecting) {
       setPanelButtonText(collectBtn, window.i18n ? window.i18n.t('fab_collect_stop') : '⏹ Dừng');
+// @ts-ignore
       collectBtn.classList.add('active');
+// @ts-ignore
       mainBtn.classList.add('collecting');
+// @ts-ignore
       scrollInfo.classList.add('visible');
       // Gửi lệnh START_COLLECTING qua custom event → content.js relay
       window.dispatchEvent(new CustomEvent('XMD_FAB_ACTION', {
@@ -405,8 +422,11 @@
       }));
     } else {
       setPanelButtonText(collectBtn, window.i18n ? window.i18n.t('fab_collect_start') : '▶ Thu Thập');
+// @ts-ignore
       collectBtn.classList.remove('active');
+// @ts-ignore
       mainBtn.classList.remove('collecting');
+// @ts-ignore
       scrollInfo.classList.remove('visible');
       window.dispatchEvent(new CustomEvent('XMD_FAB_ACTION', {
         detail: { action: 'STOP_COLLECTING' }
@@ -415,44 +435,57 @@
   });
 
   // ─── Download Button ─────────────────────────────────────────────────────────
+// @ts-ignore
   downloadBtn.addEventListener('click', (e) => {
     e.stopPropagation();
+// @ts-ignore
     if (downloadBtn.disabled || isDownloading) return;
     isDownloading = true;
     window.dispatchEvent(new CustomEvent('XMD_FAB_ACTION', {
       detail: { action: 'START_DOWNLOAD' }
     }));
     setPanelButtonText(downloadBtn, window.i18n ? window.i18n.t('fab_downloading') : '⏳ Đang tải...');
+// @ts-ignore
     downloadBtn.disabled = true;
   });
 
   // ─── Update từ messages ──────────────────────────────────────────────────────
   window.addEventListener('XMD_FAB_UPDATE', (e) => {
+// @ts-ignore
     const { count, scrollCount, state } = e.detail || {};
 
     if (count !== undefined) {
       mediaCount = count;
+// @ts-ignore
       countEl.textContent = count;
+// @ts-ignore
       badge.textContent = count > 999 ? '999+' : String(count);
+// @ts-ignore
       badge.style.display = count > 0 ? 'flex' : 'none';
+// @ts-ignore
       downloadBtn.disabled = count === 0;
     }
 
     if (scrollCount !== undefined) {
+// @ts-ignore
       scrollsEl.textContent = scrollCount;
     }
 
     if (state === 'COLLECT_DONE') {
       isCollecting = false;
       setPanelButtonText(collectBtn, window.i18n ? window.i18n.t('fab_collect_start') : '▶ Thu Thập');
+// @ts-ignore
       collectBtn.classList.remove('active');
+// @ts-ignore
       mainBtn.classList.remove('collecting');
+// @ts-ignore
       scrollInfo.classList.remove('visible');
     }
 
     if (state === 'DOWNLOAD_DONE') {
       isDownloading = false;  // FIX: reset flag để cho phép download lần tiếp
       setPanelButtonText(downloadBtn, window.i18n ? window.i18n.t('fab_download') : '↓ Download');
+// @ts-ignore
       downloadBtn.disabled = mediaCount === 0;
     }
   });
@@ -487,6 +520,7 @@
   }
 
   // Clamp top trong viewport (tính theo px)
+// @ts-ignore
   function clampTop(topPx) {
     const fabHeight = fab.offsetHeight || 100;
     const minTop = 8;
@@ -495,6 +529,7 @@
   }
 
   // Áp dụng vị trí top bằng px
+// @ts-ignore
   function applyTop(topPx) {
     fab.style.top = topPx + 'px';
     fab.style.bottom = 'auto';
@@ -506,6 +541,7 @@
   let dragStartClientY = 0;
   let dragStartTopPx = 0;
 
+// @ts-ignore
   dragHandle.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return; // chỉ chuột trái
     isDragging = true;
@@ -514,6 +550,7 @@
     dragStartTopPx = fab.getBoundingClientRect().top;
 
     fab.classList.add('dragging');
+// @ts-ignore
     dragHandle.classList.add('grabbing');
     document.body.style.userSelect = 'none';
     e.preventDefault();
@@ -528,6 +565,7 @@
       hasMoved = true;
       // Đóng panel ngay khi bắt đầu kéo
       panelOpen = false;
+// @ts-ignore
       panel.classList.remove('visible');
     }
 
@@ -540,6 +578,7 @@
     if (!isDragging) return;
     isDragging = false;
     fab.classList.remove('dragging');
+// @ts-ignore
     dragHandle.classList.remove('grabbing');
     document.body.style.userSelect = '';
 
@@ -550,11 +589,13 @@
   });
 
   // ── Touch drag ──
+// @ts-ignore
   let touchId = null;
   let touchStartClientY = 0;
   let touchStartTopPx = 0;
   let touchHasMoved = false;
 
+// @ts-ignore
   dragHandle.addEventListener('touchstart', (e) => {
     if (e.touches.length !== 1) return;
     const touch = e.touches[0];
@@ -564,13 +605,16 @@
     touchStartTopPx = fab.getBoundingClientRect().top;
 
     fab.classList.add('dragging');
+// @ts-ignore
     dragHandle.classList.add('grabbing');
     e.preventDefault(); // ngăn scroll trang
     e.stopPropagation();
   }, { passive: false });
 
   document.addEventListener('touchmove', (e) => {
+// @ts-ignore
     if (touchId === null) return;
+// @ts-ignore
     const touch = Array.from(e.changedTouches).find(t => t.identifier === touchId);
     if (!touch) return;
 
@@ -579,6 +623,7 @@
     if (!touchHasMoved && Math.abs(delta) >= DRAG_THRESHOLD) {
       touchHasMoved = true;
       panelOpen = false;
+// @ts-ignore
       panel.classList.remove('visible');
     }
 
@@ -589,10 +634,12 @@
   }, { passive: false });
 
   document.addEventListener('touchend', (e) => {
+// @ts-ignore
     const touch = Array.from(e.changedTouches).find(t => t.identifier === touchId);
     if (!touch) return;
     touchId = null;
     fab.classList.remove('dragging');
+// @ts-ignore
     dragHandle.classList.remove('grabbing');
 
     if (touchHasMoved) {

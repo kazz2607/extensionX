@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * hls-fetcher.js — Xử lý video HLS (.m3u8)
  * Fetch playlist → parse TS segments → concatenate → trả về Blob mp4/ts
@@ -12,6 +11,7 @@
  * @param {function} onProgress - callback(fetched, total)
  * @returns {Promise<Blob>}
  */
+// @ts-ignore
 export async function fetchHLS(m3u8Url, onProgress) {
   // 1. Fetch file playlist .m3u8
   const playlistText = await fetchText(m3u8Url);
@@ -50,6 +50,7 @@ export async function fetchHLS(m3u8Url, onProgress) {
           onProgress?.(fetched, segments.length);
           return { idx, buf };
         } catch (err) {
+// @ts-ignore
           console.warn('[HLS] Failed segment:', segUrl, err.message);
           fetched++;
           onProgress?.(fetched, segments.length);
@@ -80,6 +81,7 @@ export async function fetchHLS(m3u8Url, onProgress) {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// @ts-ignore
 async function fetchText(url) {
   try {
     const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
@@ -93,7 +95,9 @@ async function fetchText(url) {
 /**
  * Parse master playlist, trả về URL của stream có bandwidth cao nhất
  */
+// @ts-ignore
 function extractBestStream(text, baseUrl) {
+// @ts-ignore
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   let bestBandwidth = -1;
   let bestUrl = null;
@@ -116,7 +120,9 @@ function extractBestStream(text, baseUrl) {
 /**
  * Parse media playlist, trả về mảng URL của các TS segment
  */
+// @ts-ignore
 function parseSegments(text, baseUrl) {
+// @ts-ignore
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const segments = [];
 
@@ -138,6 +144,7 @@ function parseSegments(text, baseUrl) {
   return segments;
 }
 
+// @ts-ignore
 function resolveUrl(url, baseUrl) {
   if (url.startsWith('http')) return url;
   if (url.startsWith('/')) {

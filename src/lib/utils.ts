@@ -1,12 +1,11 @@
-// @ts-nocheck
 /**
- * utils.js — Hàm tiện ích dùng chung cho extension
+ * utils.ts — Hàm tiện ích dùng chung cho extension
  */
 
 /**
  * Format ngày tháng dạng YYYYMMDD
  */
-export function formatDate(date = new Date()) {
+export function formatDate(date: Date = new Date()): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
@@ -16,21 +15,21 @@ export function formatDate(date = new Date()) {
 /**
  * Tạo random string ngắn cho tên file
  */
-export function randomStr(len = 6) {
+export function randomStr(len: number = 6): string {
   return Math.random().toString(36).slice(2, 2 + len);
 }
 
 /**
  * Delay (ms)
  */
-export function sleep(ms) {
+export function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**
  * Delay ngẫu nhiên trong khoảng [min, max] ms
  */
-export function randomDelay(min = 1500, max = 3000) {
+export function randomDelay(min: number = 1500, max: number = 3000): Promise<void> {
   const ms = Math.floor(Math.random() * (max - min)) + min;
   return sleep(ms);
 }
@@ -38,14 +37,14 @@ export function randomDelay(min = 1500, max = 3000) {
 /**
  * Làm sạch username: chỉ giữ ký tự alphanum + underscore
  */
-export function sanitizeUsername(username) {
+export function sanitizeUsername(username?: string): string {
   return (username || 'unknown').replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
 }
 
 /**
  * Format số bytes thành chuỗi dễ đọc (KB, MB, GB)
  */
-export function formatBytes(bytes) {
+export function formatBytes(bytes: number): string {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
   if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
@@ -55,7 +54,7 @@ export function formatBytes(bytes) {
 /**
  * Lấy extension từ URL (jpg, mp4, ...)
  */
-export function getExtFromUrl(url) {
+export function getExtFromUrl(url: string): string {
   try {
     const u = new URL(url);
     const pathname = u.pathname;
@@ -69,7 +68,7 @@ export function getExtFromUrl(url) {
 /**
  * Kiểm tra URL có phải media không
  */
-export function isMediaUrl(url) {
+export function isMediaUrl(url: string): boolean {
   return /\.(jpg|jpeg|png|webp|gif|mp4|mov|m3u8)/i.test(url) ||
     url.includes('pbs.twimg.com') ||
     url.includes('video.twimg.com');
@@ -78,9 +77,13 @@ export function isMediaUrl(url) {
 /**
  * Giới hạn số lượng Promise chạy song song
  */
-export async function asyncPool(concurrency, iterable, iteratorFn) {
-  const results = [];
-  const executing = new Set();
+export async function asyncPool<T, R>(
+  concurrency: number,
+  iterable: Iterable<T>,
+  iteratorFn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: Promise<R>[] = [];
+  const executing = new Set<Promise<R>>();
 
   for (const item of iterable) {
     const p = Promise.resolve().then(() => iteratorFn(item));
@@ -104,7 +107,7 @@ export async function asyncPool(concurrency, iterable, iteratorFn) {
  * @param {string} name - Tên file (không có đường dẫn)
  * @returns {string}
  */
-export function sanitizeFilename(name) {
+export function sanitizeFilename(name?: string): string {
   if (!name) return 'file';
   return name
     .replace(/[\x00-\x1f\x7f]/g, '')          // control chars
@@ -119,7 +122,7 @@ export function sanitizeFilename(name) {
  * @param {string} folder
  * @returns {string}
  */
-export function sanitizeFolder(folder) {
+export function sanitizeFolder(folder?: string): string {
   if (!folder) return '';
   return folder
     .replace(/[\x00-\x1f\x7f]/g, '')
@@ -135,7 +138,7 @@ export function sanitizeFolder(folder) {
  * @param {object} item
  * @returns {boolean}
  */
-export function validateMediaItem(item) {
+export function validateMediaItem(item: any): boolean {
   if (!item || typeof item !== 'object') return false;
 
   // type phải nằm trong whitelist
@@ -162,4 +165,3 @@ export function validateMediaItem(item) {
 
   return true;
 }
-

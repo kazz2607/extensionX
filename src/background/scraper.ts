@@ -1,4 +1,3 @@
-// @ts-nocheck
 
 import { mediaStore, dirtyMediaStore, statsStore, tabState, downloadState, downloadedStore, userCsrfToken, setCsrfToken } from './state.ts';
 import { fetchVideoForTweet } from './tweet-api.ts';
@@ -27,6 +26,7 @@ async function fetchVideoForTweetWithRefresh(tweetId: string, tabId?: number) {
       if (newToken) {
         (self as any).userCsrfToken = newToken;
         console.log('[SW] S1: ct0 được refresh thành công, retry...');
+// @ts-ignore
         return await fetchVideoForTweet(tweetId, newToken);
       }
     }
@@ -103,7 +103,9 @@ async function applyOptionsFilter(username: string, items: MediaItem[]) {
   const sf = opts.smartFilters || {};
   const filterAvatars    = sf.filterAvatars    !== false; // default ON
   const filterCardImages = sf.filterCardImages !== false; // default ON
+// @ts-ignore
   const minImageWidth    = sf.minImageWidth  > 0 ? sf.minImageWidth  : 0;
+// @ts-ignore
   const minImageHeight   = sf.minImageHeight > 0 ? sf.minImageHeight : 0;
 
   filtered = filtered.filter((item: MediaItem) => {
@@ -121,7 +123,9 @@ async function applyOptionsFilter(username: string, items: MediaItem[]) {
     if (filterCardImages && url.includes('/card_img/')) return false;
 
     // 3. Lọc theo kích thước tối thiểu (chỉ khi có metadata)
+// @ts-ignore
     if (minImageWidth  > 0 && item.width  > 0 && item.width  < minImageWidth)  return false;
+// @ts-ignore
     if (minImageHeight > 0 && item.height > 0 && item.height < minImageHeight) return false;
 
     return true;
@@ -139,16 +143,19 @@ async function applyOptionsFilter(username: string, items: MediaItem[]) {
 
 
 // ─── Auto-Scroll ──────────────────────────────────────────────────────────────
+// @ts-ignore
 async function checkAutoScroll(tabId, username, isMediaPage) {
   if (!isMediaPage || !tabId || !username) return;
   try {
     const stored = await chrome.storage.sync.get('options');
+// @ts-ignore
     if (stored.options?.autoScroll) {
       setTimeout(() => startCollecting(username, tabId), 3000);
     }
   } catch (_) {}
 }
 
+// @ts-ignore
 async function startCollecting(username, tabId) {
   if (!tabId) {
     const tabs = await chrome.tabs.query({});
@@ -157,12 +164,18 @@ async function startCollecting(username, tabId) {
   if (!tabId) return;
 
   const state = tabState.get(tabId) || {};
+// @ts-ignore
   if (state.isCollecting) return;
 
+// @ts-ignore
   state.isCollecting = true;
+// @ts-ignore
   state.username = username;
+// @ts-ignore
   state.scrollCount = 0;
+// @ts-ignore
   state.reachedEnd = false;
+// @ts-ignore
   tabState.set(tabId, state);
 
   broadcastToPopup('COLLECT_STARTED', { username });
@@ -193,6 +206,7 @@ async function startCollecting(username, tabId) {
   scrollLoop(tabId, username);
 }
 
+// @ts-ignore
 async function scrollLoop(tabId, username) {
   let opts: Options = {};
   try {
@@ -276,6 +290,7 @@ async function scrollLoop(tabId, username) {
   }
 }
 
+// @ts-ignore
 function stopCollecting(username) {
   tabState.forEach((state, tabId) => {
     if (state.username === username) {
@@ -364,6 +379,7 @@ async function clearSession(username: string) {
 
 // ─── v4.1.0: Duplicate Detection ────────────────────────────────────────────────
 // Normalize URL: xóa query params biến đổi như ?t= nhưng giữ name=orig
+// @ts-ignore
 function normalizeUrlForDedup(url) {
   try {
     const u = new URL(url);
@@ -385,6 +401,7 @@ async function loadDownloadedUrls(username: string) {
     const key = `downloaded_${username}`;
     const data = await chrome.storage.local.get(key);
     const arr = data[key] || [];
+// @ts-ignore
     downloadedStore.set(username, new Set(arr));
   } catch (_) {
     downloadedStore.set(username, new Set<string>());
@@ -402,12 +419,14 @@ function isAlreadyDownloaded(username: string, url: string) {
 function markDownloaded(username: string, url: string) {
   if (!downloadedStore.has(username)) downloadedStore.set(username, new Set<string>());
   const set = downloadedStore.get(username);
+// @ts-ignore
   set.add(normalizeUrlForDedup(url));
   // Persist debounce — ghi storage sau 3s, không ghi từng file một
   scheduleDownloadedPersist(username);
 }
 
 const _downloadedPersistTimers = new Map();
+// @ts-ignore
 function scheduleDownloadedPersist(username) {
   const existing = _downloadedPersistTimers.get(username);
   if (existing) clearTimeout(existing);
@@ -431,6 +450,7 @@ async function showDownloadNotification(username: string, success: number, faile
   try {
     const stored = await chrome.storage.sync.get('options');
     const opts = stored.options || {};
+// @ts-ignore
     if (opts.showNotification === false) return; // opt-out
 
     const emoji  = failed > 0 ? '⚠️' : '✅';

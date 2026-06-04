@@ -10,7 +10,7 @@ export function setProfileQueue(q: QueueItem[]) { profileQueue = q; }
 async function loadPersistedQueue() {
   try {
     const data = await chrome.storage.local.get('profile_queue');
-    const saved = data.profile_queue || [];
+    const saved: QueueItem[] = (data.profile_queue as QueueItem[]) || [];
     // Các item đang 'downloading' khi SW restart → đặt lại 'waiting'
     profileQueue = saved.map((item: QueueItem) =>
       item.status === 'downloading' ? { ...item, status: 'waiting' } : item

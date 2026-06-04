@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * dom-scanner.js — DOM Fallback Scanner
  * Chạy trong PAGE CONTEXT (inject từ content.js)
@@ -12,7 +11,9 @@
 (function () {
   'use strict';
 
+// @ts-ignore
   if (window.__X_DOM_SCANNER_LOADED__) return;
+// @ts-ignore
   window.__X_DOM_SCANNER_LOADED__ = true;
 
   // Tập hợp URL đã phát hiện (tránh duplicate)
@@ -22,6 +23,7 @@
   const IMAGE_DOMAINS = ['pbs.twimg.com'];
   const VIDEO_DOMAINS = ['video.twimg.com'];
 
+// @ts-ignore
   function isImageUrl(src) {
     return IMAGE_DOMAINS.some(d => src.includes(d)) &&
       !src.includes('profile_images') &&
@@ -29,16 +31,19 @@
       !src.includes('emoji');
   }
 
+// @ts-ignore
   function isVideoUrl(src) {
     return VIDEO_DOMAINS.some(d => src.includes(d));
   }
 
   // ─── Extract media from DOM ─────────────────────────────────────────────────
   function scanDOM() {
+// @ts-ignore
     const found = [];
 
     // ─── Images: <img> ─────────────────────────────────────────────────────
     document.querySelectorAll('img[src]').forEach(img => {
+// @ts-ignore
       const src = img.src || img.getAttribute('src') || '';
       if (!src || !isImageUrl(src)) return;
 
@@ -74,6 +79,7 @@
       const tweetId = extractTweetId(article);
 
       // Ưu tiên 1: Có currentSrc hoặc src thực sự (video đã được load)
+// @ts-ignore
       const realSrc = el.currentSrc || el.src || el.getAttribute('src') || '';
       if (realSrc && isVideoUrl(realSrc) && !realSrc.startsWith('blob:')) {
         const baseKey = `video_url_${realSrc.split('?')[0]}`;
@@ -112,6 +118,7 @@
     // Trên trang /media, X.com hiển thị video bằng <img> thumbnail, không phải <video>
     // URL pattern: pbs.twimg.com/ext_tw_video_thumb/{tweetId}/... hoặc amplify_video_thumb
     document.querySelectorAll('img[src*="video_thumb"]').forEach(img => {
+// @ts-ignore
       const src = img.src || img.getAttribute('src') || '';
       if (!src.includes('pbs.twimg.com')) return;
 
@@ -129,6 +136,7 @@
           const statusLink = img.closest('a[href*="/status/"]') ||
             img.parentElement?.closest('a[href*="/status/"]');
           if (statusLink) {
+// @ts-ignore
             const m = statusLink.href.match(/\/status\/(\d+)/);
             if (m) tweetId = m[1];
           }
@@ -150,6 +158,7 @@
 
     if (found.length > 0) {
       window.dispatchEvent(new CustomEvent('X_MEDIA_FOUND', {
+// @ts-ignore
         detail: { mediaItems: found, sourceUrl: 'dom-scanner' }
       }));
     }
@@ -158,6 +167,7 @@
   }
 
   // ─── Extract tweet ID từ article element ───────────────────────────────────
+// @ts-ignore
   function extractTweetId(article) {
     if (!article) return '';
     // Tìm link dạng /status/1234567890
@@ -176,6 +186,7 @@
   }
 
   // ─── Extract tweet ID từ URL video (ext_tw_video type) ────────────────────
+// @ts-ignore
   function extractTweetIdFromVideoUrl(url) {
     if (!url) return '';
     const m = url.match(/ext_tw_video\/(\d+)/);
@@ -184,24 +195,32 @@
 
 
   // ─── MutationObserver: quét khi DOM thay đổi ───────────────────────────────
+// @ts-ignore
   let scanTimeout;
   const observer = new MutationObserver((mutations) => {
     // Debounce — chờ DOM ổn định 800ms rồi mới scan
     const hasRelevant = mutations.some(m =>
       Array.from(m.addedNodes).some(n =>
         n.nodeType === 1 && (
+// @ts-ignore
           n.tagName === 'ARTICLE' ||
+// @ts-ignore
           n.querySelector?.('article') ||
+// @ts-ignore
           n.tagName === 'IMG' ||
+// @ts-ignore
           n.tagName === 'VIDEO' ||
           // Phát hiện cell mới trong media grid
+// @ts-ignore
           n.querySelector?.('img[src*="video_thumb"]') ||
+// @ts-ignore
           n.querySelector?.('img[src*="pbs.twimg.com"]')
         )
       )
     );
 
     if (hasRelevant) {
+// @ts-ignore
       clearTimeout(scanTimeout);
       scanTimeout = setTimeout(scanDOM, 800);
     }
@@ -223,6 +242,7 @@
   setTimeout(scanDOM, 2000);
 
   // Expose để content.js có thể gọi thủ công
+// @ts-ignore
   window.__scanDOM__ = scanDOM;
 
 })();

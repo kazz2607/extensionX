@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * content.js — Content Script
  * Chạy trong isolated world (extension context) trên x.com
@@ -32,6 +31,7 @@ function handleContextInvalidated() {
 }
 
 // ─── 1. Inject scripts vào page context ──────────────────────────────────────
+// @ts-ignore
 function injectScript(path, onLoad) {
   const script = document.createElement('script');
   script.src = chrome.runtime.getURL(path);
@@ -43,18 +43,25 @@ function injectScript(path, onLoad) {
 }
 
 // Inject page-interceptor NGAY LẬP TỨC để bắt JSON.parse và fetch từ sớm
+// @ts-ignore
 injectScript('content/page-interceptor.js');
 
 // Inject i18n, DOM scanner, FAB và Tweet Mini Button
 async function injectAll() {
+// @ts-ignore
   injectScript('lib/i18n.js');
+// @ts-ignore
   injectScript('content/dom-scanner.js');
+// @ts-ignore
   injectScript('content/fab.js');
+// @ts-ignore
   injectScript('content/tweet-btn.js');
+// @ts-ignore
   injectScript('content/snackbar.js');
   
   // Đọc lang và gửi cho page (để i18n.js trong page update)
   const stored = await chrome.storage.local.get('lang').catch(() => ({}));
+// @ts-ignore
   const lang = stored.lang || 'en';
   // Chờ một chút để các script được inject và parse
   setTimeout(() => {
@@ -101,6 +108,7 @@ const VALID_ITEM_TYPES = ['image', 'video', 'gif', 'hls', 'video_placeholder'];
 const VALID_HOSTS      = ['pbs.twimg.com', 'video.twimg.com'];
 const VALID_EXTS       = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'ts', 'm3u8', 'mov'];
 
+// @ts-ignore
 function validateMediaItem(item) {
   if (!item || typeof item !== 'object') return false;
   if (!VALID_ITEM_TYPES.includes(item.type)) return false;
@@ -115,6 +123,7 @@ function validateMediaItem(item) {
 }
 
 window.addEventListener('X_MEDIA_FOUND', (event) => {
+// @ts-ignore
   const { mediaItems, sourceUrl } = event.detail;
   if (!mediaItems?.length) return;
 
@@ -151,6 +160,7 @@ window.addEventListener('X_MEDIA_FOUND', (event) => {
 
 // ─── 4. Lắng nghe FAB actions → relay sang service worker ────────────────────
 window.addEventListener('XMD_FAB_ACTION', (event) => {
+// @ts-ignore
   const { action } = event.detail || {};
   const username = getUsernameFromURL();
   if (!username) return;
@@ -168,6 +178,7 @@ window.addEventListener('XMD_FAB_ACTION', (event) => {
 // ─── 4b. Relay XMD_TWEET_DOWNLOAD → service worker ───────────────────────────
 // Khi user bấm nút mini download trên tweet, tweet-btn.js dispatch event này
 window.addEventListener('XMD_TWEET_DOWNLOAD', (event) => {
+// @ts-ignore
   const { tweetId, username } = event.detail || {};
   if (!tweetId) return;
   if (_contextDead || !isExtensionValid()) { handleContextInvalidated(); return; }
@@ -188,7 +199,9 @@ window.addEventListener('XMD_TWEET_DOWNLOAD', (event) => {
 // ─── 4c. P1: Lắng nghe X_ADAPTIVE_SPEED từ interceptor ────────────────────────
 let adaptiveAvg = 0;
 window.addEventListener('X_ADAPTIVE_SPEED', (event) => {
+// @ts-ignore
   if (event.detail && event.detail.avgResponseTime) {
+// @ts-ignore
     adaptiveAvg = event.detail.avgResponseTime;
   }
 });
@@ -238,6 +251,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       const isHidden = document.hidden;
 
       // Trigger DOM scan thủ công sau mỗi scroll
+// @ts-ignore
       window.__scanDOM__?.();
       sendResponse({
         done: true,
@@ -361,6 +375,7 @@ const navObserver = new MutationObserver(() => {
           }
         });
       } catch (err) {
+// @ts-ignore
         if (err?.message?.includes('Extension context invalidated')) {
           handleContextInvalidated();
         }

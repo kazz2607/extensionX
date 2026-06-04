@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * tweet-btn.js — Download Mini Button cho từng Tweet
  * Chạy trong PAGE CONTEXT (inject từ content.js)
@@ -15,7 +14,9 @@
 (function () {
   'use strict';
 
+// @ts-ignore
   if (window.__XMD_TWEET_BTN_LOADED__) return;
+// @ts-ignore
   window.__XMD_TWEET_BTN_LOADED__ = true;
 
   // ─── Inject CSS ──────────────────────────────────────────────────────────────
@@ -135,6 +136,7 @@
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
   /** Trích tweet ID từ article */
+// @ts-ignore
   function extractTweetId(article) {
     if (!article) return '';
     // 1. Link /status/
@@ -153,6 +155,7 @@
   }
 
   /** Kiểm tra article có chứa media không (ảnh hoặc video) */
+// @ts-ignore
   function hasMedia(article) {
     // Ảnh (bỏ avatar/banner/emoji)
     const imgs = article.querySelectorAll('img[src*="pbs.twimg.com"]');
@@ -190,6 +193,7 @@
   const btnMap = new Map(); // tweetId → button element
 
   // ─── Tạo nút download ────────────────────────────────────────────────────────
+// @ts-ignore
   function createDownloadBtn(tweetId) {
     const btn = document.createElement('button');
     btn.className = 'xmd-dl-btn';
@@ -218,6 +222,7 @@
   }
 
   /** Cập nhật trạng thái nút */
+// @ts-ignore
   function setButtonState(tweetId, state) {
     const btn = btnMap.get(tweetId);
     if (!btn) return;
@@ -253,6 +258,7 @@
   }
 
   // ─── Inject nút vào action bar của tweet ────────────────────────────────────
+// @ts-ignore
   function injectButton(article) {
     // Đã có nút rồi? Bỏ qua
     if (article.querySelector('[data-xmd-btn]')) return;
@@ -286,18 +292,22 @@
   }
 
   // ─── MutationObserver — phát hiện tweet mới ──────────────────────────────────
+// @ts-ignore
   let scanDebounce;
   const observer = new MutationObserver((mutations) => {
     const hasNewArticle = mutations.some(m =>
       Array.from(m.addedNodes).some(n =>
         n.nodeType === 1 && (
+// @ts-ignore
           n.tagName === 'ARTICLE' ||
+// @ts-ignore
           n.querySelector?.('article')
         )
       )
     );
 
     if (hasNewArticle) {
+// @ts-ignore
       clearTimeout(scanDebounce);
       // Debounce nhỏ hơn dom-scanner (500ms) để nút xuất hiện nhanh hơn
       scanDebounce = setTimeout(scanArticles, 500);
@@ -323,6 +333,7 @@
 
   // ─── Nhận kết quả từ content.js ──────────────────────────────────────────────
   window.addEventListener('XMD_TWEET_BTN_UPDATE', (e) => {
+// @ts-ignore
     const { tweetId, state } = e.detail || {};
     if (!tweetId || !state) return;
     setButtonState(tweetId, state);

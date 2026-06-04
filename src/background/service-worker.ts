@@ -1,4 +1,3 @@
-// @ts-nocheck
 import './messages.ts';
 import { loadPersistedQueue, broadcastQueueUpdate } from './queue.ts';
 

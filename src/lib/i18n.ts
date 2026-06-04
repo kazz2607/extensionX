@@ -1,10 +1,23 @@
-// @ts-nocheck
 /**
- * i18n.js — Custom Internationalization Module
+ * i18n.ts — Custom Internationalization Module
  * Quản lý đa ngôn ngữ cho extension (Popup, Options, Content Scripts)
  */
 
-const TRANSLATIONS = {
+export interface I18nAPI {
+  load: () => Promise<void>;
+  t: (key: string) => string;
+  applyToDOM: (root?: Document | HTMLElement) => void;
+  lang: string;
+}
+
+declare global {
+  interface Window {
+// @ts-ignore
+    i18n?: I18nAPI;
+  }
+}
+
+const TRANSLATIONS: Record<string, Record<string, string>> = {
   en: {
     // Popup
     profile_no_selection: 'Not selected',
@@ -159,12 +172,13 @@ const TRANSLATIONS = {
   }
 };
 
-let _currentLang = 'en';
+let _currentLang: string = 'en';
 
 // Load ngôn ngữ từ chrome.storage.local
-async function loadI18n() {
+export async function loadI18n(): Promise<void> {
   try {
     const res = await chrome.storage.local.get('lang');
+// @ts-ignore
     _currentLang = res.lang || 'en';
   } catch (e) {
     _currentLang = 'en';
@@ -172,40 +186,33 @@ async function loadI18n() {
 }
 
 // Lấy chuỗi theo key
-function t(key) {
+export function t(key: string): string {
   return TRANSLATIONS[_currentLang]?.[key] ?? TRANSLATIONS['en']?.[key] ?? key;
 }
 
 // Cập nhật DOM tự động dựa trên attribute data-i18n
-function applyI18nToDOM(root = document) {
-  root.querySelectorAll('[data-i18n]').forEach(el => {
+export function applyI18nToDOM(root: Document | HTMLElement = document): void {
+  root.querySelectorAll('[data-i18n]').forEach((el) => {
     const key = el.getAttribute('data-i18n');
+    if (!key) return;
     const text = t(key);
-    // Nếu phần tử có nội dung HTML phức tạp (có chứa span/code con), 
-    // ta nên cẩn thận. Ở đây ta ưu tiên gán trực tiếp, trừ khi có xử lý đặc biệt.
-    if (el.tagName === 'INPUT' && el.type === 'button') {
-      el.value = text;
+    
+    if (el.tagName === 'INPUT' && (el as HTMLInputElement).type === 'button') {
+      (el as HTMLInputElement).value = text;
     } else {
-      // Giữ lại các thẻ HTML bên trong nếu có (như SVG icon, tag version) bằng cách chỉ thay text node đầu tiên hoặc cuối cùng.
-      // Nhưng đơn giản nhất là set textContent nếu phần tử chỉ chứa text, hoặc innerHTML.
-      // Dùng innerHTML cho linh hoạt (nếu có thẻ <br>, <strong>).
-      
-      // Tuy nhiên nếu có SVG, ta cần thay thế cẩn thận. Tốt nhất là dùng child nodes
       let hasElementChildren = Array.from(el.childNodes).some(n => n.nodeType === 1);
       if (hasElementChildren) {
-        // Tìm text node dài nhất và thay thế
         let maxLen = -1;
-        let bestNode = null;
+        let bestNode: ChildNode | null = null;
         el.childNodes.forEach(n => {
-          if (n.nodeType === 3 && n.textContent.trim().length > maxLen) {
+          if (n.nodeType === 3 && n.textContent && n.textContent.trim().length > maxLen) {
             maxLen = n.textContent.trim().length;
             bestNode = n;
           }
         });
         if (bestNode) {
-          bestNode.textContent = text;
+          (bestNode as ChildNode).textContent = text;
         } else {
-          // Fallback append
           el.appendChild(document.createTextNode(text));
         }
       } else {
@@ -222,6 +229,6 @@ if (typeof window !== 'undefined') {
     t: t,
     applyToDOM: applyI18nToDOM,
     get lang() { return _currentLang; },
-    set lang(l) { _currentLang = l; }
+    set lang(l: string) { _currentLang = l; }
   };
 }

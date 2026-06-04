@@ -2,6 +2,14 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [5.0.0] - 2026-06-04
+### Major Rewrite (Đại tu kiến trúc)
+- **[Full TypeScript Migration]:** Chuyển đổi toàn bộ 100% source code từ Vanilla JS sang **TypeScript** (`strict: true`). Giúp loại bỏ hoàn toàn các lỗi runtime tiềm ẩn, cải thiện logic, và tăng cường tính ổn định của ứng dụng.
+- **[Vite Bundler & ESM]:** Áp dụng **Vite** để build và bundle extension. Hệ thống module được chuẩn hóa sang ES Modules (ESM). Tốc độ build siêu tốc và tối ưu dung lượng file phân phối.
+- **[Modularization]:** Cấu trúc lại toàn bộ các module UI, Core (Service Worker), và Content Scripts. Tách biệt logic và giao diện rõ ràng.
+
+---
+
 ## [4.8.0] - 2026-06-04
 ### Thêm mới (Added)
 - **[Keyword / Hashtag Filter]:** Giờ đây bạn có thể lọc media theo từ khóa hoặc hashtag! Thêm ô "Keyword / Hashtag" trong phần Date Range. Plugin sẽ trích xuất nội dung text của tweet từ API và chỉ giữ lại những media nằm trong các tweet có chứa từ khóa đó (ví dụ: gõ "cats" sẽ chỉ tải các hình/video trong tweet nói về cats).

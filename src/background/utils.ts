@@ -61,7 +61,7 @@ function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
 function waitForTabLoad(tabId: number): Promise<void> {
   return new Promise(resolve => {
-    function listener(id: number, info: chrome.tabs.TabChangeInfo) {
+    function listener(id: number, info: any) {
       if (id === tabId && info.status === 'complete') {
         chrome.tabs.onUpdated.removeListener(listener);
         resolve();

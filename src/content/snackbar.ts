@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * snackbar.js — Progress Snackbar trên trang X.com (v4.0.0)
  * Hiển thị tiến trình download dưới dạng snackbar mini ở giữa dưới màn hình.
@@ -223,10 +222,12 @@
   const doneMsgEl  = document.getElementById('__xmd_sb_done_msg__');
 
   // ─── State ───────────────────────────────────────────────────────────────────
+// @ts-ignore
   let autoDismissTimer = null;
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
   function show() {
+// @ts-ignore
     clearTimeout(autoDismissTimer);
     sb.classList.remove('hiding', 'done');
     // Force reflow để restart animation nếu đang hiding
@@ -235,6 +236,7 @@
   }
 
   function hide(immediate = false) {
+// @ts-ignore
     clearTimeout(autoDismissTimer);
     if (immediate) {
       sb.classList.remove('visible');
@@ -248,11 +250,13 @@
   }
 
   function autoDismiss(ms = 3000) {
+// @ts-ignore
     clearTimeout(autoDismissTimer);
     autoDismissTimer = setTimeout(() => hide(), ms);
   }
 
   // ─── Event: close button ─────────────────────────────────────────────────────
+// @ts-ignore
   closeBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     hide();
@@ -260,6 +264,7 @@
 
   // ─── Event: XMD_SNACKBAR_UPDATE ──────────────────────────────────────────────
   window.addEventListener('XMD_SNACKBAR_UPDATE', (e) => {
+// @ts-ignore
     const data = e.detail || {};
 
     switch (data.type) {
@@ -267,12 +272,18 @@
       case 'DOWNLOAD_STARTED': {
         // Reset về trạng thái downloading
         sb.classList.remove('done');
+// @ts-ignore
         titleEl.innerHTML = '⬇ Đang tải <span id="__xmd_sb_username__">' +
           (data.username ? '@' + data.username : '') + '</span>';
+// @ts-ignore
         barEl.style.width = '0%';
+// @ts-ignore
         barEl.classList.add('active');
+// @ts-ignore
         counterEl.textContent = '0 / ' + (data.total || 0);
+// @ts-ignore
         filenameEl.textContent = '';
+// @ts-ignore
         doneMsgEl.innerHTML = '';
         show();
         break;
@@ -285,25 +296,30 @@
         const ok    = data.success  || 0;
         const fail  = data.failed   || 0;
 
+// @ts-ignore
         barEl.style.width = pct + '%';
 
         // Counter
         if (fail > 0) {
+// @ts-ignore
           counterEl.innerHTML =
             '<b>' + pct + '%</b>&nbsp;&nbsp;' +
             cur + ' / ' + total +
             ' &nbsp;(<span style="color:#f4212e">✗ ' + fail + '</span>)';
         } else {
+// @ts-ignore
           counterEl.innerHTML = '<b>' + pct + '%</b>&nbsp;&nbsp;' + cur + ' / ' + total;
         }
 
         // Tên file đang tải
         if (data.currentFile) {
+// @ts-ignore
           filenameEl.textContent = data.currentFile;
         }
 
         // Nếu đây là update cuối (done = true từ PROGRESS)
         if (data.done) {
+// @ts-ignore
           barEl.style.width = '100%';
         }
         break;
@@ -312,10 +328,12 @@
       case 'ACTIVE_DOWNLOADS_UPDATE': {
         if (!data.activeList || data.activeList.length === 0) break;
         const topItem = data.activeList[0];
+// @ts-ignore
         const formatSize = (bytes) => (bytes / 1024 / 1024).toFixed(1) + ' MB';
         const speed = (topItem.speedBps / 1024 / 1024).toFixed(1) + ' MB/s';
         const percent = topItem.totalBytes ? Math.round((topItem.bytesReceived / topItem.totalBytes) * 100) + '%' : formatSize(topItem.bytesReceived);
         
+// @ts-ignore
         filenameEl.textContent = `${topItem.filename} (${percent} • ${speed})`;
         break;
       }
@@ -325,7 +343,9 @@
         const fail  = data.failed  || 0;
         const total = data.total   || 0;
 
+// @ts-ignore
         barEl.style.width = '100%';
+// @ts-ignore
         barEl.classList.remove('active');
         sb.classList.add('done');
 
@@ -335,6 +355,7 @@
         if (fail > 0) {
           msg += ' &nbsp;—&nbsp; <span class="__xmd_sb_done_failed__">✗ ' + fail + ' lỗi</span>';
         }
+// @ts-ignore
         doneMsgEl.innerHTML = msg;
 
         // Auto-dismiss sau 3.5s
