@@ -54,10 +54,9 @@ async function fetchVideoForTweetWithRefresh(tweetId: string, tabId?: number) {
       console.warn('[SW] S1: ct0 stale, đang refresh...');
       const newToken = await requestCsrfRefresh(tabId);
       if (newToken) {
-        (self as any).userCsrfToken = newToken;
+        setCsrfToken(newToken as string); // SEC-02 FIX: dùng setCsrfToken thay vì self.*
         console.log('[SW] S1: ct0 được refresh thành công, retry...');
-// @ts-ignore
-        return await fetchVideoForTweet(tweetId, newToken);
+        return await fetchVideoForTweet(tweetId, newToken as string);
       }
     }
     throw err;
@@ -76,6 +75,9 @@ function tweetDateFromId(tweetId: string | number | undefined) {
 }
 
 // ─── Add Media Items ──────────────────────────────────────────────────────────
+const MEMORY_WARN_THRESHOLD = 50_000;
+const _warnedUsers = new Set<string>(); // tránh spam warning mỗi item
+
 function addMediaItems(username: string, items: MediaItem[]) {
   if (!mediaStore.has(username)) mediaStore.set(username, new Map());
   if (!statsStore.has(username)) statsStore.set(username, { image: 0, video: 0, gif: 0, hls: 0 });
@@ -90,7 +92,7 @@ function addMediaItems(username: string, items: MediaItem[]) {
     const tweetDate = tweetDateFromId(item.tweetId);
     const mediaItem = { ...item, addedAt: Date.now(), tweetDate };
     store.set(item.url, mediaItem);
-    
+
     // v4.4.0: Thêm vào dirty store để persist delta
     if (!dirtyMediaStore.has(username)) dirtyMediaStore.set(username, new Map());
     dirtyMediaStore.get(username)!.set(item.url, mediaItem);
@@ -109,6 +111,13 @@ function addMediaItems(username: string, items: MediaItem[]) {
     });
     // Session Restore: lưu session mỗi khi có media mới (debounce 2s)
     persistSession(username);
+
+    // PERF-03: Cảnh báo bộ nhớ khi store vượt ngưỡng 50k items
+    if (store.size >= MEMORY_WARN_THRESHOLD && !_warnedUsers.has(username)) {
+      _warnedUsers.add(username);
+      console.warn(`[SW] ⚠️ @${username}: store đạt ${store.size} items — nên dừng thu thập và tải xuống trước`);
+      broadcastToPopup('MEDIA_MEMORY_WARNING', { username, count: store.size });
+    }
   }
   return newCount;
 }

@@ -78,25 +78,31 @@ chrome.downloads.onChanged.addListener((delta) => {
 // @ts-ignore
 let activeErrors = []; // Mảng chứa chi tiết lỗi
 
-// ─── Ensure Offscreen Document tồn tại ───────────────────────────────────────
+// ─── PERF-02: Offscreen Document cache ───────────────────────────────────────
+// Tránh gọi chrome.runtime.getContexts() (async I/O) mỗi file HLS.
+// Flag reset về false khi SW restart (module scope bị khởi tạo lại).
+let _offscreenReady = false;
+
 async function ensureOffscreen() {
+  if (_offscreenReady) return; // PERF-02: skip I/O nếu đã biết offscreen đang chạy
   try {
     if (chrome.runtime.getContexts) {
       const existing = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] });
-      if (existing.length > 0) return;
+      if (existing.length > 0) { _offscreenReady = true; return; }
     } else {
       const has = await chrome.offscreen.hasDocument();
-      if (has) return;
+      if (has) { _offscreenReady = true; return; }
     }
     await chrome.offscreen.createDocument({
       url: 'offscreen/offscreen.html',
       reasons: ['BLOBS'],
       justification: 'Convert HLS stream to Blob for downloading',
     });
-  } catch (err) {
-// @ts-ignore
-    if (!err.message?.includes('single offscreen document')) {
-// @ts-ignore
+    _offscreenReady = true;
+  } catch (err: any) {
+    if (err.message?.includes('single offscreen document')) {
+      _offscreenReady = true; // document đã tồn tại — cập nhật flag
+    } else {
       console.warn('[SW] Offscreen creation error:', err.message);
     }
   }
@@ -636,21 +642,36 @@ function buildFilename(item, username = '', filenameUsername = false) {
 }
 
 // ─── Export CSV ───────────────────────────────────────────────────────────────
-// @ts-ignore
-function buildCSV(username, filterType = 'all') {
+// PERF-04: Giới hạn 10k rows để tránh string khổng lồ chiếm RAM.
+// Trả về metadata để popup biết có bị truncate hay không.
+const CSV_ROW_LIMIT = 10_000;
+
+function buildCSV(username: string, filterType = 'all', offset = 0) {
   const store = mediaStore.get(username);
-  if (!store) return '';
+  if (!store) return { csv: '', total: 0, exported: 0, truncated: false };
 
   let items = Array.from(store.values());
   if (filterType === 'images') items = items.filter(i => i.type === 'image');
   else if (filterType === 'videos') items = items.filter(i => i.type === 'video' || i.type === 'hls');
   else if (filterType === 'gifs') items = items.filter(i => i.type === 'gif');
 
-  const header = 'url,type,ext,tweetId,mediaKey,addedAt\n';
-  const rows = items.map(item =>
-    `"${item.url}","${item.type}","${item.ext || ''}","${item.tweetId || ''}","${item.mediaKey || ''}","${new Date(item.addedAt || 0).toISOString()}"`
+  const total = items.length;
+  const page = items.slice(offset, offset + CSV_ROW_LIMIT);
+  const truncated = total > offset + CSV_ROW_LIMIT;
+
+  const header = 'url,type,ext,tweetId,mediaKey,tweetDate,addedAt\n';
+  const rows = page.map(item =>
+    `"${item.url}","${item.type}","${item.ext || ''}","${item.tweetId || ''}","${item.mediaKey || ''}","${item.tweetDate ? new Date(item.tweetDate).toISOString() : ''}","${new Date(item.addedAt || 0).toISOString()}"`
   );
-  return header + rows.join('\n');
+
+  return {
+    csv: header + rows.join('\n'),
+    total,
+    exported: page.length,
+    truncated,
+    offset,
+    nextOffset: truncated ? offset + CSV_ROW_LIMIT : null,
+  };
 }
 
 export { startDownload, handleDownloadTweet, activeErrors, buildCSV };

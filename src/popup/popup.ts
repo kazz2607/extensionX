@@ -21,6 +21,7 @@ let dateFrom = '';           // v4.3.0: Date Range Filter (YYYY-MM-DD)
 let dateTo   = '';           // v4.3.0: Date Range Filter (YYYY-MM-DD)
 let _dateRangeOpen = false;  // trạng thái mở/đóng collapsible
 let filterKeyword = '';      // v4.8.0: Keyword / Hashtag Filter
+let _csvOffset = 0;          // PERF-04: CSV pagination offset (reset khi đổi profile/filter)
 
 // ─── DOM ───────────────────────────────────────────────────────────────────────
 // @ts-ignore
@@ -528,6 +529,7 @@ async function detectCurrentTab() {
 
 // @ts-ignore
 async function setCurrentUser(username) {
+  if (currentUsername !== username) _csvOffset = 0; // PERF-04: reset CSV pagination khi đổi profile
   currentUsername = username;
 
   els.username.textContent = `@${username}`;
@@ -639,6 +641,7 @@ function setupTabs() {
       tab.classList.add('active');
 // @ts-ignore
       activeFilter = tab.dataset.filter;
+      _csvOffset = 0; // PERF-04: reset CSV pagination khi đổi filter
       updateButtons();
 
       const dlTxt = window.i18n ? window.i18n.t('btn_download') : 'Download';
@@ -784,18 +787,31 @@ function setupListeners() {
     const res: any = await sendBG('EXPORT_CSV', {
       username: currentUsername,
       filterType: activeFilter,
+      offset: _csvOffset,  // PERF-04: pagination
     });
 
     if (!res?.csv) { showToast('Không có dữ liệu để xuất', 'error'); return; }
 
     const dataUrl = 'data:text/csv;charset=utf-8,' + encodeURIComponent(res.csv);
     const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    // PERF-04: Thêm số trang vào filename khi truncated
+    const pageNum = Math.floor(_csvOffset / 10000) + 1;
+    const pageLabel = res.truncated || _csvOffset > 0 ? `_p${pageNum}` : '';
     chrome.downloads.download({
       url: dataUrl,
-      filename: `${currentUsername}_media_${dateStr}.csv`,
+      filename: `${currentUsername}_media_${dateStr}${pageLabel}.csv`,
       saveAs: false,
     });
-    showToast(`Đã xuất ${res.csv.split('\n').length - 1} URLs ra CSV`, 'success');
+    if (res.truncated) {
+      _csvOffset = res.nextOffset ?? 0; // chuẩn bị sẵn offset trang tiếp
+      showToast(
+        `Đã xuất trang ${pageNum}: ${res.exported.toLocaleString()}/${res.total.toLocaleString()} URLs — bấm lại để xuất tiếp`,
+        'warning'
+      );
+    } else {
+      _csvOffset = 0; // reset sau khi xuất hết
+      showToast(`Đã xuất ${res.exported.toLocaleString()} URLs ra CSV`, 'success');
+    }
   });
 
   // Clear
@@ -854,6 +870,16 @@ function listenToMessages() {
         if (payload.username !== currentUsername) break;
         if (payload.stats) { stats = payload.stats; updateStatTabs(); }
         updateMediaCount(payload.count);
+        break;
+
+      // PERF-03: Cảnh báo bộ nhớ khi store > 50k items
+      case 'MEDIA_MEMORY_WARNING':
+// @ts-ignore
+        if (payload.username !== currentUsername) break;
+        showToast(
+          `⚠️ ${(payload.count as number).toLocaleString()} media trong bộ nhớ — nên tải xuống trước khi thu thập thêm`,
+          'warning'
+        );
         break;
 
       case 'SCROLL_PROGRESS':

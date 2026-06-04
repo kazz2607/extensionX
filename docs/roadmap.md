@@ -1,7 +1,7 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-06-04 | Phiên bản hiện tại: **5.1.0**
+> Cập nhật: 2026-06-04 | Phiên bản hiện tại: **5.2.0**
 
 ---
 
@@ -13,7 +13,7 @@ extensionX/
 ├── tsconfig.json                  # Cấu hình TypeScript (strict: true)
 ├── vite.config.ts                 # Cấu hình Vite bundler
 ├── src/
-│   ├── manifest.json              # Chrome Extension Manifest V3 (version 5.1.0)
+│   ├── manifest.json              # Chrome Extension Manifest V3 (version 5.2.0)
 │   ├── background/
 │   │   ├── service-worker.ts      # Service Worker: core logic, queue, date filter
 │   │   ├── tweet-api.ts           # Fallback API & User Session bypass CORS
@@ -138,6 +138,7 @@ File được lưu vào:
 - **v5.0.4** Dark mode border fix, đồng bộ version strings toàn bộ codebase
 - **v5.0.5** Queue Engine fix (recover from SW sleep), auto-save options với debounce
 - **v5.1.0** Bug Fixes P0 + Security Hardening P2: activeDownloads fix, options cache, duplicate detection, path traversal, CSRF scoping, URL validation, dynamic bearer token
+- **v5.2.0** Performance Optimization: offscreen cache flag, memory warning 50k, CSV chunked 10k/page pagination, SEC-02 patch CSRF refresh path
 
 ---
 
@@ -162,6 +163,7 @@ File được lưu vào:
 | v5.0.0 | **Major TypeScript Rewrite** — Chuyển đổi 100% codebase sang TypeScript, sử dụng Vite Bundler & ESM |
 | v5.0.2 | **Vite Bundle Fixes** — Fix lỗi không copy resources và scripts động ở chế độ production build |
 | v5.0.3 | **Full UI Localization** — Hoàn thiện hệ thống đa ngôn ngữ (i18n), dịch 100% text giao diện bị gán cứng |
+| v5.2.0 | **Performance Optimization** — offscreen cache flag (skip getContexts per HLS), memory warning 50k items, CSV chunked 10k/page with pagination, fix CSRF refresh path SEC-02 patch |
 | v5.1.0 | **Bug Fixes P0 + Security P2** — activeDownloads conflict, options cache (99% I/O reduction), mini-btn duplicate detection, path traversal fix, CSRF token scoping, URL path validation, dynamic bearer token pipeline |
 | v5.0.5 | **Queue Fix & Auto-Save** — Sửa triệt để lỗi Queue đứng khi sleep, thêm cơ chế Auto-save cho options page |
 | v5.0.4 | **UI Fixes & Version Sync** — Sửa viền trắng popup dark mode, đồng bộ lại toàn bộ version cũ trong code và docs |
@@ -298,15 +300,16 @@ File được lưu vào:
 
 ---
 
-### 🟠 Phase 5.2 — Performance Optimization (v5.2.0)
-> **Mục tiêu:** Cải thiện hiệu năng cho large-scale collections (50k+ media).
+### ✅ Phase 5.2 — Performance Optimization (v5.2.0) — HOÀN THÀNH
+> **Kết quả:** Giảm I/O trong session lớn, bảo vệ RAM khi thu thập 50k+ items, CSV export an toàn.
 
-**Scope:**
+**Đã hoàn thành:**
 - [x] PERF-01: Options cache + `storage.onChanged` subscription ← **hoàn thành trong v5.1.0**
 - [x] SEC-04: Dynamic bearer token extraction ← **hoàn thành trong v5.1.0**
-- [ ] PERF-02: Offscreen document cache flag — bỏ `getContexts()` call mỗi file HLS
-- [ ] PERF-03: Memory warning khi store > 50k items, suggest pause & download
-- [ ] PERF-04: CSV export chunked / giới hạn 10k rows + pagination
+- [x] PERF-02: `_offscreenReady` flag — skip `chrome.runtime.getContexts()` từ lần HLS thứ 2 trở đi
+- [x] PERF-03: `MEDIA_MEMORY_WARNING` broadcast khi store > 50k — popup hiện toast cảnh báo (1 lần/profile)
+- [x] PERF-04: `buildCSV()` trả `{ csv, total, exported, truncated, nextOffset }` — giới hạn 10k rows/lần, popup hỗ trợ pagination bấm lại
+- [x] SEC-02 patch: Fix `(self as any).userCsrfToken = newToken` bị bỏ sót trong CSRF refresh path
 
 **Kỳ vọng:** Giảm 80% storage I/O reads trong session thu thập lớn.
 
@@ -404,9 +407,9 @@ File được lưu vào:
 [ĐÃ XONG]
 v5.0.5  ── Queue Engine fix, Options Auto-save debounce                             ✅ DONE
 v5.1.0  ── Bug Fixes P0 + Security Hardening P2 (9 issues fixed, build clean)      ✅ DONE
+v5.2.0  ── Performance: Offscreen cache, memory warning 50k, CSV chunked pagination ✅ DONE
 
 [TIẾP THEO]
-v5.2.0  ── Performance: Offscreen cache, memory warning 50k, CSV chunked export     🟠 Ưu tiên trung bình
 v5.3.0  ── UI Polish (UI-01..06: error details, realtime stats, FAB progress...)    🟡 Tiếp theo
 
 [TƯƠNG LAI]

@@ -428,4 +428,13 @@ Nếu gặp vấn đề, hãy kiểm tra:
 
 ---
 
-*Phiên bản: 5.1.0 | Cập nhật: 2026-06-04*
+---
+
+## 🌟 Cải Tiến v5.2.0 (2026-06-04)
+
+### ⚡ Hiệu Năng
+- **Tải video HLS nhanh hơn:** Extension không còn kiểm tra lại trạng thái offscreen document trước mỗi video — giảm I/O không cần thiết khi tải hàng loạt HLS.
+- **Xuất CSV thông minh hơn:** Khi có hơn 10.000 media, CSV được chia thành các trang 10.000 dòng. Bấm nút CSV lần đầu để tải trang 1, bấm lại để tải trang 2... Tên file tự động thêm `_p2`, `_p3`.
+- **Cảnh báo bộ nhớ:** Khi thu thập vượt 50.000 media items, một thông báo cảnh báo màu vàng sẽ xuất hiện trong popup — nhắc bạn nên tải xuống trước khi thu thập thêm để tránh chậm máy.
+
+*Phiên bản: 5.2.0 | Cập nhật: 2026-06-04*

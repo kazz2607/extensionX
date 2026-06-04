@@ -2,6 +2,16 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [5.2.0] - 2026-06-04
+### Performance Optimization
+
+- **[PERF-02 — Offscreen Cache]:** Thêm module-level flag `_offscreenReady` trong `downloader.ts`. `ensureOffscreen()` giờ skip async `chrome.runtime.getContexts()` I/O call cho mỗi file HLS tiếp theo — chỉ gọi 1 lần duy nhất khi SW khởi động hoặc offscreen chưa tồn tại. Khi Chrome throw lỗi "single offscreen document", flag được set đúng thay vì bỏ qua.
+- **[PERF-03 — Memory Warning 50k]:** `addMediaItems()` trong `scraper.ts` phát hiện khi `mediaStore` vượt 50.000 items và broadcast `MEDIA_MEMORY_WARNING` đến popup (1 lần duy nhất / profile để tránh spam). Popup hiển thị toast cảnh báo màu vàng nhắc user dừng thu thập và tải xuống trước.
+- **[PERF-04 — CSV Export Chunked]:** `buildCSV()` giờ trả `{ csv, total, exported, truncated, nextOffset }` thay vì raw string. Giới hạn 10.000 rows/lần xuất — tránh tạo string khổng lồ trong RAM. Popup hỗ trợ pagination: bấm lại nút CSV để xuất trang tiếp theo, filename tự động thêm `_p2`, `_p3`... Offset reset tự động khi đổi profile hoặc filter.
+- **[SEC-02 Patch]:** Sửa instance bị bỏ sót trong CSRF refresh path của `scraper.ts` — `(self as any).userCsrfToken = newToken` → `setCsrfToken(newToken)`.
+
+---
+
 ## [5.1.0] - 2026-06-04
 ### Bug Fixes & Security Hardening (P0 + P2)
 

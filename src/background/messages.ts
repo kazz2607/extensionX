@@ -300,8 +300,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     case 'EXPORT_CSV': {
-      const csv = buildCSV(payload.username, payload.filterType);
-      sendResponse({ csv });
+      // PERF-04: buildCSV trả { csv, total, exported, truncated, nextOffset }
+      const result = buildCSV(payload.username, payload.filterType, payload.offset || 0);
+      sendResponse(result);
       return true;
     }
 
