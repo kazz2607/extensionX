@@ -1,11 +1,11 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-06-04 | Phiên bản hiện tại: **4.6.0**
+> Cập nhật: 2026-06-04 | Phiên bản hiện tại: **4.7.0**
 
 ---
 
-## 1. Kiến Trúc Hiện Tại (v4.6.0)
+## 1. Kiến Trúc Hiện Tại (v4.7.0)
 
 ```
 extensionX/
@@ -116,6 +116,7 @@ File được lưu vào:
 - **v4.4.0** Likes & Bookmarks Tab, Incremental Persist (IndexedDB Migration), Visual Progress per File
 - **v4.5.0** Adaptive Scroll Speed (Tự động điều chỉnh thời gian chờ dựa trên tốc độ API)
 - **v4.6.0** HLS Download Song Song Per-File (FIFO queue, 2x file song song, 8 segments/file)
+- **v4.7.0** S3 Rate Limiting (Token Bucket 20/phút) + S1 CSRF Auto-Refresh (tự refresh ct0)
 
 ---
 
@@ -135,6 +136,7 @@ File được lưu vào:
 | v4.4.0 | **Likes & Bookmarks Tab** — Tải từ `/likes` và `/i/bookmarks`, **IndexedDB** lưu siêu tốc, **Visual Progress** per file |
 | v4.5.0 | **Adaptive Scroll Speed** — Đo tốc độ GraphQL tự động tinh chỉnh thời gian chờ cuộn trang, tránh sót file |
 | v4.6.0 | **HLS Song Song Per-File** — FIFO queue 2 file HLS đồng thời, 8 TS segment/file, Promise+requestId SW |
+| v4.7.0 | **S3 Rate Limiting + S1 CSRF Auto-Refresh** — Token Bucket 20 calls/phút, tự động refresh ct0 khi 403 |
 
 ---
 
@@ -252,9 +254,7 @@ File được lưu vào:
 
 | Tính năng | Độ khó | Impact | Ưu tiên |
 |---|---|---|---|
-| **v4.7.0** Keyword / Hashtag Filter | ⭐⭐⭐ | 🔥🔥🔥 | 🟡 Trung bình |
-| **S3** API Rate Limiting | ⭐⭐⭐ | 🔥🔥 | 🟡 Trung bình |
-| **S1** CSRF Token Refresh | ⭐⭐⭐ | 🔥🔥 | 🔵 Thấp |
+| **v4.8.0** Keyword / Hashtag Filter | ⭐⭐⭐ | 🔥🔥🔥 | 🟡 Trung bình |
 | **U4** Compact Mode | ⭐⭐ | 🔥 | 🔵 Thấp |
 
 ---
@@ -268,7 +268,8 @@ v4.3.0  ── Date Range Filter + Snowflake ID parser                          
 v4.4.0  ── Likes & Bookmarks Tab + P4 Incremental Persist + U2 Visual Progress         ✅ DONE
 v4.5.0  ── P1 Adaptive Scroll Speed                                                    ✅ DONE
 v4.6.0  ── P3 HLS Download Song Song Per-File (FIFO queue, 8 segments)                 ✅ DONE
-v4.7.0  ── Keyword Filter + S3 Rate Limiting + S1 CSRF Refresh
+v4.7.0  ── S3 Rate Limiting (Token Bucket) + S1 CSRF Auto-Refresh                      ✅ DONE
+v4.8.0  ── Keyword / Hashtag Filter + U4 Compact Mode
 v5.0.0  ── Major rewrite: TypeScript migration, Full MV3
 ```
 

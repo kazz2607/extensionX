@@ -195,6 +195,22 @@ window.addEventListener('X_ADAPTIVE_SPEED', (event) => {
 // ─── 5. Lắng nghe lệnh từ service worker ─────────────────────────────────────
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
+  // S1: Service Worker yêu cầu refresh CSRF token (ct0)
+  if (message.type === 'REQUEST_CSRF_REFRESH') {
+    try {
+      const ct0 = document.cookie
+        .split(';')
+        .map(c => c.trim())
+        .find(c => c.startsWith('ct0='))
+        ?.split('=')?.[1] || '';
+      console.log('[content] S1: CSRF refresh —', ct0 ? 'token found' : 'token not found');
+      sendResponse({ ct0 });
+    } catch (_) {
+      sendResponse({ ct0: '' });
+    }
+    return false;
+  }
+
   // Scroll xuống cuối trang
   if (message.type === 'SCROLL_DOWN') {
     if (!isMediaPage()) {

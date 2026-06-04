@@ -14,6 +14,32 @@ const GUEST_BEARER = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8x
 let cachedGuestToken = null;
 let guestTokenTime = 0;
 
+// ─── S3: Token Bucket Rate Limiter (20 calls/phút) ───────────────────────────────────
+const RATE_BUCKET = {
+  tokens: 20,
+  max: 20,
+  lastRefill: Date.now(),
+  refillMs: 3000,  // 1 token mỗi 3 giây = 20 tokens/phút
+};
+
+async function acquireRateToken() {
+  const now = Date.now();
+  const elapsed = now - RATE_BUCKET.lastRefill;
+  const refilled = Math.floor(elapsed / RATE_BUCKET.refillMs);
+  if (refilled > 0) {
+    RATE_BUCKET.tokens = Math.min(RATE_BUCKET.max, RATE_BUCKET.tokens + refilled);
+    RATE_BUCKET.lastRefill = now - (elapsed % RATE_BUCKET.refillMs);
+  }
+  if (RATE_BUCKET.tokens > 0) {
+    RATE_BUCKET.tokens--;
+    return;
+  }
+  // Hết token → đợi đến khi có token mới
+  const waitMs = RATE_BUCKET.refillMs - (now - RATE_BUCKET.lastRefill);
+  await new Promise(r => setTimeout(r, waitMs + 50));
+  return acquireRateToken();
+}
+
 // ─── Syndication Token Formula ────────────────────────────────────────────────
 // Token = (Number(tweetId) / 1e15 * Math.PI).toString(36).replace(/(0+|\.)/g, '')
 // LƯU Ý QUAN TRỌNG: KHÔNG dùng BigInt. 
@@ -25,6 +51,7 @@ function getSyndicationToken(tweetId) {
 
 // ─── Layer 1: Syndication API ─────────────────────────────────────────────────
 async function fetchVideoViaSyndication(tweetId) {
+  await acquireRateToken(); // S3: Rate limit
   const token = getSyndicationToken(tweetId);
   const url = `https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&lang=en&token=${token}`;
 
@@ -118,6 +145,7 @@ async function getGuestToken() {
 }
 
 async function fetchVideoViaGuestAPI(tweetId) {
+  await acquireRateToken(); // S3: Rate limit
   const gt = await getGuestToken();
 
   const variables = {
@@ -211,6 +239,7 @@ export async function fetchVideoForTweet(tweetId, userCsrfToken = '') {
   // Thực hiện trong Service Worker nên bypass CORS (không bị lỗi 404 OPTIONS preflight)
   if (userCsrfToken) {
     try {
+      await acquireRateToken(); // S3: Rate limit
       const url = new URL('https://x.com/i/api/graphql/Vf8sA4N3s0aEqA_aKusEhw/TweetResultByRestId');
       url.searchParams.set('variables', JSON.stringify({
         tweetId,
@@ -282,6 +311,9 @@ export async function fetchVideoForTweet(tweetId, userCsrfToken = '') {
             }
           }
         }
+      } else if (res.status === 403) {
+        // S1: Token ct0 bị stale → báo cho SW biết để tự refresh
+        throw new Error('CSRF_STALE');
       } else {
         console.warn(`[tweet-api] ⚠ User Session API fail (HTTP ${res.status})`);
       }

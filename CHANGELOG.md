@@ -2,6 +2,17 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [4.7.0] - 2026-06-04
+### Thêm mới (Added)
+- **[S3 API Rate Limiting]:** Implement **Token Bucket** rate limiter trong `tweet-api.js` — tối đa 20 calls/phút (1 token mỗi 3 giây). Áp dụng cho cả 3 layer (User Session, Syndication, Guest API). Tự động throttle thay vì drop request, giúp tránh bị X.com block IP hoặc suspend account.
+- **[S1 CSRF Token Auto-Refresh]:** Khi token `ct0` bị stale và gây lỗi HTTP 403:
+  - `tweet-api.js` throw lỗi `CSRF_STALE` có thể bắt được.
+  - `service-worker.js` tự gửi `REQUEST_CSRF_REFRESH` đến tab X.com đang mở.
+  - `content.js` đọc cookie `ct0` hiện tại và trả về token mới cho SW.
+  - SW retry API call 1 lần với token mới — không cần user reload trang.
+
+---
+
 ## [4.6.0] - 2026-06-04
 ### Thêm mới (Added)
 - **[P3 HLS Download Song Song Per-File]:** Nâng cấp kiến trúc tải HLS:

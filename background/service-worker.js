@@ -13,6 +13,34 @@
 import { fetchVideoForTweet } from './tweet-api.js';
 import { saveMediaItems, getMediaItems, clearMediaItems } from './indexeddb.js'; // v4.4.0 IndexedDB
 
+// ─── S1: CSRF Token Auto-Refresh helpers ────────────────────────────────────────────
+async function requestCsrfRefresh(tabId) {
+  return new Promise(resolve => {
+    const timeout = setTimeout(() => resolve(null), 3000);
+    chrome.tabs.sendMessage(tabId, { type: 'REQUEST_CSRF_REFRESH' }, (res) => {
+      clearTimeout(timeout);
+      resolve(res?.ct0 || null);
+    });
+  });
+}
+
+async function fetchVideoForTweetWithRefresh(tweetId, tabId) {
+  try {
+    return await fetchVideoForTweet(tweetId, self.userCsrfToken);
+  } catch (err) {
+    if (err.message === 'CSRF_STALE' && tabId) {
+      console.warn('[SW] S1: ct0 stale, đang refresh...');
+      const newToken = await requestCsrfRefresh(tabId);
+      if (newToken) {
+        self.userCsrfToken = newToken;
+        console.log('[SW] S1: ct0 được refresh thành công, retry...');
+        return await fetchVideoForTweet(tweetId, newToken);
+      }
+    }
+    throw err;
+  }
+}
+
 // ─── State ────────────────────────────────────────────────────────────────────
 const mediaStore = new Map();   // Map<username, Map<url, MediaItem>>
 const dirtyMediaStore = new Map(); // Map<username, Map<url, MediaItem>> (v4.4.0: Delta write)
@@ -221,7 +249,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
           console.log(`[SW] video_placeholder: tweetId=${item.tweetId}, nguồn=${item.source}`);
           try {
-            const videoItem = await fetchVideoForTweet(item.tweetId, self.userCsrfToken);
+            const videoItem = await fetchVideoForTweetWithRefresh(item.tweetId, tabId);
 
             if (videoItem) {
               videoItem.url = videoItem.url.replace(/name=\w+/, 'name=orig');
@@ -1086,7 +1114,7 @@ async function handleDownloadTweet(tweetId, username, tabId) {
     // 2. Không có trong store → thử API (video/GIF)
     if (!mediaItems.length) {
       try {
-        const videoItem = await fetchVideoForTweet(tweetId, self.userCsrfToken);
+        const videoItem = await fetchVideoForTweetWithRefresh(tweetId, tabId);
         if (videoItem) {
           videoItem.username = username;
           mediaItems = [videoItem];
