@@ -166,45 +166,7 @@ File được lưu vào:
 
 
 
-#### P3 — HLS Download Song Song Per-File
-**Vấn đề:** Các HLS file khác nhau vẫn nằm trong queue tuần tự do `workerPool`. Offscreen document hiện chỉ xử lý 1 HLS request tại một thời điểm.
-
-**Đề xuất:**
-- Implement message queue trong `offscreen.js` với FIFO processing
-- Tăng HLS segment concurrency từ 4 → 8
-- Cho phép Offscreen xử lý nhiều HLS request đồng thời
-
-**Files cần sửa:** `offscreen.js`, `hls-fetcher.js`
-
----
-
-
-
 ### 🔴 4.3. Bảo Mật (Security)
-
-#### S1 — CSRF Token Validation & Rotation
-**Vấn đề:** `self.userCsrfToken` được lưu plain trong Service Worker memory. Nếu SW restart, token có thể bị stale — gây 403 lặp.
-
-**Đề xuất:**
-- Sau mỗi lần API fail với 403, trigger re-fetch CSRF token từ cookie `ct0`
-- Implement `refreshCsrfToken()` — inject script vào page để đọc `document.cookie`
-- Validate token format (`/^[a-f0-9]{32,}$/`) trước khi dùng
-
-**Files cần sửa:** `tweet-api.js`, `service-worker.js`, `content.js`
-
----
-
-#### S3 — Rate Limiting cho API Calls
-**Vấn đề:** `fetchVideoForTweet()` có thể được gọi hàng trăm lần liên tiếp. X.com có thể block IP hoặc suspend account.
-
-**Đề xuất:**
-- Implement **token bucket** rate limiter: tối đa 20 API calls/phút
-- Queue các request vượt limit — drain dần với delay 3s/request
-- Ưu tiên Syndication API (không cần auth) trước Guest Token API
-
-**Files cần sửa:** `tweet-api.js`
-
----
 
 ### 🟡 4.4. Giao Diện (UI/UX)
 
