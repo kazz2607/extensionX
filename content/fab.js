@@ -53,9 +53,10 @@
       justify-content: center;
       pointer-events: all;
       transition: background 0.15s, border-color 0.15s;
-      align-self: center;
+      align-self: auto;
       user-select: none;
       -webkit-user-select: none;
+      margin-bottom: 10px;
     }
 
     #__xmd_drag_handle__:hover {
@@ -138,6 +139,17 @@
       justify-content: center;
       gap: 4px;
     }
+
+    .__xmd_btn_icon__ {
+      width: 13px;
+      height: 13px;
+      flex: 0 0 13px;
+      stroke: currentColor;
+    }
+
+    .__xmd_icon_stop__ { display: none; }
+    .__xmd_btn_collect__.active .__xmd_icon_play__ { display: none; }
+    .__xmd_btn_collect__.active .__xmd_icon_stop__ { display: block; }
 
     .__xmd_panel_btn__:hover { transform: scale(1.04); }
 
@@ -255,10 +267,21 @@
       <div class="__xmd_divider__"></div>
       <div class="__xmd_btn_row__">
         <button class="__xmd_panel_btn__ __xmd_btn_collect__" id="__xmd_collect_btn__">
-          ▶ Thu Thập
+          <svg class="__xmd_btn_icon__ __xmd_icon_play__" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+          <svg class="__xmd_btn_icon__ __xmd_icon_stop__" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M7 7h10v10H7z"/>
+          </svg>
+          <span class="__xmd_btn_text__">Thu Thập</span>
         </button>
         <button class="__xmd_panel_btn__ __xmd_btn_download__" id="__xmd_download_btn__" disabled>
-          ↓ Download
+          <svg class="__xmd_btn_icon__" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 3v12"/>
+            <path d="m7 10 5 5 5-5"/>
+            <path d="M5 21h14"/>
+          </svg>
+          <span class="__xmd_btn_text__">Download</span>
         </button>
       </div>
       <div class="__xmd_scroll_info__" id="__xmd_scroll_info__">
@@ -301,17 +324,26 @@
   const lblScroll  = document.getElementById('__xmd_lbl_scroll__');
   const dragHandle = document.getElementById('__xmd_drag_handle__');
 
+  function panelButtonLabel(rawLabel) {
+    return String(rawLabel || '').replace(/^(?:[▶⏹↓⏳⟳]\s*)+/u, '').trim();
+  }
+
+  function setPanelButtonText(button, label) {
+    const textEl = button.querySelector('.__xmd_btn_text__');
+    if (textEl) textEl.textContent = panelButtonLabel(label);
+  }
+
   // Hàm update text i18n
   function updateFabI18n() {
     if (!window.i18n) return;
     lblMedia.textContent = window.i18n.t('fab_media_collected');
     lblScroll.textContent = window.i18n.t('fab_scroll');
-    collectBtn.textContent = isCollecting ? window.i18n.t('fab_collect_stop') : window.i18n.t('fab_collect_start');
+    setPanelButtonText(collectBtn, isCollecting ? window.i18n.t('fab_collect_stop') : window.i18n.t('fab_collect_start'));
     // BUG-F FIX: Dùng isDownloading flag thay vì check text content (ngược logic cũ)
     // text.includes('...') không tin cậy — nếu đang download thì không overwrite bằng text idle
-    downloadBtn.textContent = isDownloading
+    setPanelButtonText(downloadBtn, isDownloading
       ? window.i18n.t('fab_downloading')
-      : window.i18n.t('fab_download');
+      : window.i18n.t('fab_download'));
     scrollInfo.textContent = window.i18n.t('fab_scrolling');
   }
 
@@ -336,7 +368,7 @@
       window.dispatchEvent(new CustomEvent('XMD_FAB_ACTION', {
         detail: { action: 'START_DOWNLOAD' }
       }));
-      downloadBtn.textContent = window.i18n ? window.i18n.t('fab_downloading') : '⏳ Đang tải...';
+      setPanelButtonText(downloadBtn, window.i18n ? window.i18n.t('fab_downloading') : '⏳ Đang tải...');
       downloadBtn.disabled = true;
       // Đóng panel nếu đang mở
       panelOpen = false;
@@ -362,7 +394,7 @@
     isCollecting = !isCollecting;
 
     if (isCollecting) {
-      collectBtn.textContent = window.i18n ? window.i18n.t('fab_collect_stop') : '⏹ Dừng';
+      setPanelButtonText(collectBtn, window.i18n ? window.i18n.t('fab_collect_stop') : '⏹ Dừng');
       collectBtn.classList.add('active');
       mainBtn.classList.add('collecting');
       scrollInfo.classList.add('visible');
@@ -371,7 +403,7 @@
         detail: { action: 'START_COLLECTING' }
       }));
     } else {
-      collectBtn.textContent = window.i18n ? window.i18n.t('fab_collect_start') : '▶ Thu Thập';
+      setPanelButtonText(collectBtn, window.i18n ? window.i18n.t('fab_collect_start') : '▶ Thu Thập');
       collectBtn.classList.remove('active');
       mainBtn.classList.remove('collecting');
       scrollInfo.classList.remove('visible');
@@ -389,7 +421,7 @@
     window.dispatchEvent(new CustomEvent('XMD_FAB_ACTION', {
       detail: { action: 'START_DOWNLOAD' }
     }));
-    downloadBtn.textContent = window.i18n ? window.i18n.t('fab_downloading') : '⏳ Đang tải...';
+    setPanelButtonText(downloadBtn, window.i18n ? window.i18n.t('fab_downloading') : '⏳ Đang tải...');
     downloadBtn.disabled = true;
   });
 
@@ -411,7 +443,7 @@
 
     if (state === 'COLLECT_DONE') {
       isCollecting = false;
-      collectBtn.textContent = window.i18n ? window.i18n.t('fab_collect_start') : '▶ Thu Thập';
+      setPanelButtonText(collectBtn, window.i18n ? window.i18n.t('fab_collect_start') : '▶ Thu Thập');
       collectBtn.classList.remove('active');
       mainBtn.classList.remove('collecting');
       scrollInfo.classList.remove('visible');
@@ -419,7 +451,7 @@
 
     if (state === 'DOWNLOAD_DONE') {
       isDownloading = false;  // FIX: reset flag để cho phép download lần tiếp
-      downloadBtn.textContent = window.i18n ? window.i18n.t('fab_download') : '↓ Download';
+      setPanelButtonText(downloadBtn, window.i18n ? window.i18n.t('fab_download') : '↓ Download');
       downloadBtn.disabled = mediaCount === 0;
     }
   });
