@@ -2,6 +2,15 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [4.6.0] - 2026-06-04
+### Thêm mới (Added)
+- **[P3 HLS Download Song Song Per-File]:** Nâng cấp kiến trúc tải HLS:
+  - **offscreen.js:** Implement FIFO queue với `HLS_MAX_PARALLEL = 2` — tối đa 2 file HLS được xử lý đồng thời thay vì tuần tự từng cái.
+  - **hls-fetcher.js:** Tăng concurrency tải TS segment từ **4 → 8** per file, giảm thời gian fetch từng video HLS xuống ~2x.
+  - **service-worker.js:** Chuyển từ callback-based sang **Promise + requestId** pattern, cho phép nhiều `DOWNLOAD_HLS` request lưu hành đồng thời mà không bị block.
+
+---
+
 ## [4.5.0] - 2026-06-04
 ### Thêm mới (Added)
 - **[P1 Adaptive Scroll Speed]:** Tự động điều chỉnh tốc độ cuộn trang dựa trên tốc độ phản hồi của GraphQL API, giúp tối ưu thời gian thu thập cho máy có mạng nhanh và tránh sót file với mạng chậm. Người dùng có thể bật/tắt trong phần Cài đặt.

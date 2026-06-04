@@ -96,7 +96,7 @@ Sau khi load, extension sẽ xuất hiện trong danh sách:
 
 ```
 ┌──────────────────────────────────────────┐
-│  ⬇ X Media Downloader          v4.5.0   │
+│  ⬇ X Media Downloader          v4.6.0   │
 │  Tải toàn bộ ảnh & video từ X.com...    │
 │                                          │
 │  [Details]  [Remove]           ● Enabled │
@@ -128,7 +128,7 @@ Click icon **⬇** trên toolbar Chrome. Popup sẽ hiển thị:
 
 ```
 ┌───────────────────────────────────────────┐
-│ ⬇ X Media Downloader        v4.5.0 ⚙☀🔄 │
+│ ⬇ X Media Downloader        v4.6.0 ⚙☀🔄 │
 ├───────────────────────────────────────────┤
 │ 👤 @NASA                             [47]│
 │    Profile đang được xem                 │
@@ -381,7 +381,7 @@ Downloads/
 
 ---
 
-## 🌟 Tính Năng Mới (v4.2.0 - v4.5.0)
+## 🌟 Tính Năng Mới (v4.2.0 - v4.6.0)
 
 ### 📋 Multi-Profile Queue (v4.2.0)
 Thêm nhiều profile vào hàng đợi và extension tự động tải tuần tự mà không cần giám sát:

@@ -24,6 +24,9 @@ const downloadedStore = new Map(); // Map<username, Set<url>>
 
 let downloadInProgress = false;
 
+// P3: Map các HLS request đang chờ kết quả từ Offscreen
+const pendingHlsRequests = new Map(); // Map<requestId, {resolve, reject, timeoutId}>
+
 // ─── v4.2.0: Multi-Profile Queue ─────────────────────────────────────────────
 // profileQueue: Array<{ id, username, filterType, skipDuplicates, addedAt, status, mediaCount, result }>
 let profileQueue = [];
@@ -170,6 +173,18 @@ chrome.downloads.onChanged.addListener((delta) => {
 // ─── Message Handler ──────────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const { type, payload } = message;
+
+  // P3: Offscreen báo kết quả HLS xong
+  if (type === 'HLS_DONE') {
+    const pending = pendingHlsRequests.get(message.requestId);
+    if (pending) {
+      clearTimeout(pending.timeoutId);
+      pendingHlsRequests.delete(message.requestId);
+      if (message.error) pending.reject(new Error(message.error));
+      else pending.resolve({ dataUrl: message.dataUrl });
+    }
+    return false;
+  }
 
   switch (type) {
 
@@ -998,26 +1013,28 @@ async function downloadSingleItem(item, username, saveFolder, opts = {}) {
 
   if (item.type === 'hls' || item.url?.includes('.m3u8') || filename.endsWith('.ts')) {
     await ensureOffscreen();
-    const HLS_TIMEOUT = 5 * 60 * 1000;
-    const res = await Promise.race([
-      new Promise((resolve, reject) => {
-        chrome.runtime.sendMessage({
-          target: 'offscreen',
-          type: 'DOWNLOAD_HLS',
-          url: item.url,
-          username,
-          filename,
-        }, (res) => {
-          if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
-          if (!res) return reject(new Error('No response from offscreen'));
-          if (res.error) return reject(new Error(res.error));
-          resolve(res);
-        });
-      }),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('HLS download timeout (5 min)')), HLS_TIMEOUT)
-      ),
-    ]);
+    // P3: Gửi request với requestId, kết quả trả về qua HLS_DONE message (bất đồng bộ)
+    const res = await new Promise((resolve, reject) => {
+      const requestId = crypto.randomUUID();
+      const HLS_TIMEOUT = 5 * 60 * 1000;
+      const timeoutId = setTimeout(() => {
+        pendingHlsRequests.delete(requestId);
+        reject(new Error('HLS download timeout (5 min)'));
+      }, HLS_TIMEOUT);
+      pendingHlsRequests.set(requestId, { resolve, reject, timeoutId });
+      chrome.runtime.sendMessage({
+        target: 'offscreen',
+        type: 'DOWNLOAD_HLS',
+        requestId,
+        url: item.url,
+        username,
+        filename,
+      }).catch((err) => {
+        clearTimeout(timeoutId);
+        pendingHlsRequests.delete(requestId);
+        reject(err);
+      });
+    });
     await downloadFile(res.dataUrl, filename);
   } else {
     await downloadFile(item.url, filename);
