@@ -73,7 +73,8 @@ function waitForTabLoad(tabId: number): Promise<void> {
 }
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('[X Media Downloader] v4.3.0 — Date Range Filter + Multi-Profile Queue + Popup v2');
+  const manifest = chrome.runtime.getManifest();
+  console.log(`[X Media Downloader] v${manifest.version} — Running service worker`);
 });
 
 
