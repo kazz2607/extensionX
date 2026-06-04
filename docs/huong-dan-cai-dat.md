@@ -404,6 +404,20 @@ Lọc chỉ download media trong khoảng thời gian nhất định:
 
 ---
 
+## 🌟 Cải Tiến v5.1.0 (2026-06-04)
+
+### 🔧 Sửa Lỗi Quan Trọng
+- **Mini Button Download** (nút ↓ trên từng tweet) giờ bỏ qua file đã tải trước đó — nhất quán với tải batch
+- **Hàng đợi Queue** không còn bị trùng lặp dữ liệu nội bộ do xung đột biến `activeDownloads`
+- **Settings tải nhanh hơn nhiều** trong phiên thu thập lớn — options được cache 5 giây, không còn gọi storage mỗi lần có media mới
+
+### 🔒 Bảo Mật
+- Đường dẫn thư mục lưu file được kiểm tra chặt hơn — chặn các ký tự nguy hiểm `../`
+- Extension tự động capture bearer token từ X.com để không bị phụ thuộc token cố định (tự phục hồi khi X.com rotate API keys)
+- Dữ liệu media từ trang web được kiểm tra cấu trúc URL chặt hơn trước khi xử lý
+
+---
+
 ## 📞 Hỗ Trợ
 
 Nếu gặp vấn đề, hãy kiểm tra:
@@ -414,4 +428,4 @@ Nếu gặp vấn đề, hãy kiểm tra:
 
 ---
 
-*Phiên bản: 4.3.0 | Cập nhật: 2026-06-04*
+*Phiên bản: 5.1.0 | Cập nhật: 2026-06-04*

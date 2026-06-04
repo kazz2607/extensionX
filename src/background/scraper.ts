@@ -5,6 +5,35 @@ import { updateBadge, broadcastToPopup, updateFAB, broadcastFABState, sleep, wai
 import { saveMediaItems, getMediaItems, clearMediaItems } from './indexeddb.ts';
 import { MediaItem, Options, CollectState } from '../types.ts';
 
+// ─── BUG-03 FIX: Options Cache — tránh gọi storage.sync N lần per session ────
+let _optionsCache: Options | null = null;
+let _optionsCacheTime = 0;
+const OPTIONS_CACHE_TTL = 5000; // 5 giây
+
+async function getCachedOptions(): Promise<Options> {
+  const now = Date.now();
+  if (_optionsCache !== null && now - _optionsCacheTime < OPTIONS_CACHE_TTL) {
+    return _optionsCache;
+  }
+  try {
+    const stored = await chrome.storage.sync.get('options');
+    _optionsCache = (stored.options as Options) || {};
+    _optionsCacheTime = now;
+  } catch (_) {
+    if (!_optionsCache) _optionsCache = {};
+  }
+  return _optionsCache!;
+}
+
+// Invalidate cache ngay khi user thay đổi cài đặt
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'sync' && changes.options) {
+    _optionsCache = null;
+    _optionsCacheTime = 0;
+    console.debug('[SW] Options cache invalidated');
+  }
+});
+
 // ─── S1: CSRF Token Auto-Refresh helpers ────────────────────────────────────────────
 async function requestCsrfRefresh(tabId: number) {
   return new Promise(resolve => {
@@ -18,7 +47,8 @@ async function requestCsrfRefresh(tabId: number) {
 
 async function fetchVideoForTweetWithRefresh(tweetId: string, tabId?: number) {
   try {
-    return await fetchVideoForTweet(tweetId, (self as any).userCsrfToken);
+    // SEC-02 FIX: Dùng userCsrfToken từ state.ts thay vì self.userCsrfToken
+    return await fetchVideoForTweet(tweetId, userCsrfToken);
   } catch (err: any) {
     if ((err as Error).message === 'CSRF_STALE' && tabId) {
       console.warn('[SW] S1: ct0 stale, đang refresh...');
@@ -85,11 +115,7 @@ function addMediaItems(username: string, items: MediaItem[]) {
 
 // ─── Apply Options Filter ─────────────────────────────────────────────────────
 async function applyOptionsFilter(username: string, items: MediaItem[]) {
-  let opts: Options = {};
-  try {
-    const stored = await chrome.storage.sync.get('options');
-    opts = stored.options || {};
-  } catch (_) {}
+  const opts = await getCachedOptions();
 
   const { mediaTypes = {}, maxMedia = 0 } = opts;
   let filtered = items.filter((item: MediaItem) => {
@@ -146,13 +172,10 @@ async function applyOptionsFilter(username: string, items: MediaItem[]) {
 // @ts-ignore
 async function checkAutoScroll(tabId, username, isMediaPage) {
   if (!isMediaPage || !tabId || !username) return;
-  try {
-    const stored = await chrome.storage.sync.get('options');
-// @ts-ignore
-    if (stored.options?.autoScroll) {
-      setTimeout(() => startCollecting(username, tabId), 3000);
-    }
-  } catch (_) {}
+  const opts = await getCachedOptions();
+  if (opts.autoScroll) {
+    setTimeout(() => startCollecting(username, tabId), 3000);
+  }
 }
 
 // @ts-ignore
@@ -208,11 +231,7 @@ async function startCollecting(username, tabId) {
 
 // @ts-ignore
 async function scrollLoop(tabId, username) {
-  let opts: Options = {};
-  try {
-    const stored = await chrome.storage.sync.get('options');
-    opts = stored.options || {};
-  } catch (_) {}
+  const opts = await getCachedOptions();
 
   const MAX_SCROLLS = opts.maxScrolls || 200;
   let baseDelayMs = (opts.scrollDelay || 2) * 1000;

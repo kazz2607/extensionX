@@ -79,10 +79,16 @@ chrome.runtime.onInstalled.addListener(() => {
 
 
 function sanitizeFolder(folder: string) {
+  // SEC-01: Split theo '/' để lọc từng segment — chặn path traversal kiểu '../../evil'
   return folder
-    .replace(/[<>:"|?*\\]/g, '_') // ký tự không hợp lệ trên Windows
-    .replace(/^\/+|\/+$/g, '')    // bỏ slash đầu/cuối
-    .trim();
-} // sanitizeFolder
+    .split('/')
+    .map(seg => seg
+      .replace(/[<>:"|?*\\]/g, '_')
+      .replace(/^\.+$/, '_')         // block '..' và '.' segment thuần túy
+      .trim()
+    )
+    .filter(Boolean)
+    .join('/');
+}
 
 export { broadcastToPopup, broadcastToTab, updateBadge, updateFAB, broadcastFABState, sanitizeFolder, sleep, waitForTabLoad };

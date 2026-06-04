@@ -2,6 +2,24 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [5.1.0] - 2026-06-04
+### Bug Fixes & Security Hardening (P0 + P2)
+
+#### 🔴 Bug Fixes
+- **[BUG-01 — activeDownloads Conflict]:** Xóa `const activeDownloads = new Map()` khai báo lại trong `downloader.ts` đang shadow import từ `state.ts`. Fix đồng thời `filename.split('/').pop() || ''` để tránh `string | undefined` type error.
+- **[BUG-02 — Duplicate Alarm Listener]:** Xóa `chrome.alarms.onAlarm.addListener` trùng lặp trong `service-worker.ts` — listener đã được quản lý hoàn toàn trong `downloader.ts`.
+- **[BUG-03 — Options I/O Cache]:** Thêm `getCachedOptions()` với TTL 5 giây trong `scraper.ts`. Thay thế toàn bộ `chrome.storage.sync.get('options')` raw calls trong `applyOptionsFilter()`, `checkAutoScroll()`, và `scrollLoop()`. Cache tự invalidate qua `chrome.storage.onChanged` khi user thay đổi Settings — giảm ~99% storage reads trong session thu thập lớn.
+- **[BUG-04 — Mini Button Duplicate Skip]:** `handleDownloadTweet()` (nút ↓ trên từng tweet) giờ gọi `loadDownloadedUrls()` và `isAlreadyDownloaded()` trước khi tải, đồng thời `markDownloaded()` sau khi thành công — nhất quán với luồng `startDownload()` batch.
+
+#### 🔵 Security
+- **[SEC-01 — Path Traversal Fix]:** `sanitizeFolder()` trong `utils.ts` giờ split theo `/`, lọc từng segment riêng lẻ, và block segment thuần túy `..` / `.` — chặn path traversal kiểu `../../evil` ra ngoài thư mục Downloads.
+- **[SEC-02 — CSRF Token Scoping]:** Thay `(self as any).userCsrfToken = ct0` bằng `setCsrfToken(ct0)` trong `messages.ts`; thay `(self as any).userCsrfToken` bằng module-level `userCsrfToken` từ `state.ts` trong `scraper.ts` — token không còn leak lên global SW scope.
+- **[SEC-03 — URL Path Validation]:** `validateMediaItem()` trong `content.ts` thêm bước kiểm tra regex `pathname` chỉ cho phép `[/a-zA-Z0-9._\-~%]` — chặn URL injection với path bất thường từ page context.
+- **[SEC-04 — Dynamic Bearer Token]:** `page-interceptor.ts` capture Authorization header từ API requests của X.com và dispatch `XMD_BEARER_TOKEN` event. `content.ts` relay lên SW qua `UPDATE_BEARER` message (dedup). `messages.ts` gọi `setDynamicBearer()`. `tweet-api.ts` thêm `getBearerToken()` dùng dynamic bearer nếu có, fallback về hardcoded — extension không còn phụ thuộc 100% vào static bearer token.
+- **[SEC-05 — TypeScript @ts-ignore Cleanup]:** Loại bỏ các `@ts-ignore` quan trọng trong `messages.ts`: typed `usernames` array, optional chaining thay casting cho `existingState`, `(err: any)` type annotation thay vì untyped catch, `(mediaItems as any[])` explicit cast thay `@ts-ignore` blindly.
+
+---
+
 ## [5.0.5] - 2026-06-04
 ### Bug Fixes & Improvements
 - **[Queue Engine]:** Sửa triệt để lỗi Queue bị đứng (không hoạt động khi bấm Start) sau khi Service Worker vào trạng thái ngủ ngầm (sleep), bằng cách tự động khôi phục danh sách media từ IndexedDB.

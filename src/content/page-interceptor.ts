@@ -119,6 +119,23 @@
     }));
   }
 
+  // ─── SEC-04: Capture Authorization header từ API requests của X.com ────────
+  function captureBearer(url: string, init?: RequestInit) {
+    if (!url.includes('api.twitter.com') && !url.includes('api.x.com') && !url.includes('x.com/i/api')) return;
+    try {
+      let authHeader = '';
+      const h = init?.headers;
+      if (h instanceof Headers) {
+        authHeader = h.get('authorization') || '';
+      } else if (h && typeof h === 'object') {
+        authHeader = (h as Record<string, string>)['authorization'] || (h as Record<string, string>)['Authorization'] || '';
+      }
+      if (authHeader.startsWith('Bearer ')) {
+        window.dispatchEvent(new CustomEvent('XMD_BEARER_TOKEN', { detail: { bearer: authHeader } }));
+      }
+    } catch (_) {}
+  }
+
   // ─── 1. Hook window.fetch ────────────────────────────────────────────────────
   const _originalFetch = window.fetch;
   window.fetch = async function (resource, init) {
@@ -129,6 +146,7 @@
       else if (resource instanceof URL) url = resource.href;
       else if (resource instanceof Request) url = resource.url;
       notifyVideoUrl(url);
+      captureBearer(url, init); // SEC-04
     } catch (_) {}
     
 // @ts-ignore

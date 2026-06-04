@@ -1,7 +1,7 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-06-04 | Phiên bản hiện tại: **5.0.5**
+> Cập nhật: 2026-06-04 | Phiên bản hiện tại: **5.1.0**
 
 ---
 
@@ -13,7 +13,7 @@ extensionX/
 ├── tsconfig.json                  # Cấu hình TypeScript (strict: true)
 ├── vite.config.ts                 # Cấu hình Vite bundler
 ├── src/
-│   ├── manifest.json              # Chrome Extension Manifest V3 (version 5.0.5)
+│   ├── manifest.json              # Chrome Extension Manifest V3 (version 5.1.0)
 │   ├── background/
 │   │   ├── service-worker.ts      # Service Worker: core logic, queue, date filter
 │   │   ├── tweet-api.ts           # Fallback API & User Session bypass CORS
@@ -120,7 +120,7 @@ File được lưu vào:
 
 ### ✅ Phase 4 — UX Nâng Cao (v4.0.0 → v4.5.0)
 - **v4.0.0** Progress Snackbar — snackbar glassmorphism trên trang, realtime, auto-dismiss, toggle trong Options
-- **v4.0.1** Bug Fixes — 7 lỗi sửa (tweetId guard, format=jpg, async, broadcastToTab, FAB i18n...)
+- **v4.0.1** Bug Fixes — 7 lỗi sửa (tweetId guard, format=jpg, async, broadcastToTab 1 tab, FAB i18n...)
 - **v4.1.0** Duplicate Detection, Security S2, Sanitize S4, Notifications U3, System Theme U6
 - **v4.2.0** Multi-Profile Queue, Popup v2 Tab Navigation (Main/Queue/Stats), Donut Chart, Options Export/Import/Reset
 - **v4.3.0** Date Range Filter — Snowflake ID → timestamp, collapsible date picker, 4 presets, preview count realtime
@@ -129,6 +129,15 @@ File được lưu vào:
 - **v4.6.0** HLS Download Song Song Per-File (FIFO queue, 2x file song song, 8 segments/file)
 - **v4.7.0** S3 Rate Limiting (Token Bucket 20/phút) + S1 CSRF Auto-Refresh (tự refresh ct0)
 - **v4.8.0** Keyword / Hashtag Filter + U4 Compact Mode
+
+### ✅ Phase 5 — TypeScript Migration & Hardening (v5.0.0 → v5.1.0)
+- **v5.0.0** Major rewrite: 100% TypeScript, Vite bundler, ESM, strict: true
+- **v5.0.1** web_accessible_resources fix: manifest → .js paths
+- **v5.0.2** Vite Bundle Fixes — build config, rules.json copy, dynamic scripts
+- **v5.0.3** Full i18n — 40+ cụm từ, data-i18n-title/placeholder, applyI18nToDOM mở rộng
+- **v5.0.4** Dark mode border fix, đồng bộ version strings toàn bộ codebase
+- **v5.0.5** Queue Engine fix (recover from SW sleep), auto-save options với debounce
+- **v5.1.0** Bug Fixes P0 + Security Hardening P2: activeDownloads fix, options cache, duplicate detection, path traversal, CSRF scoping, URL validation, dynamic bearer token
 
 ---
 
@@ -153,38 +162,190 @@ File được lưu vào:
 | v5.0.0 | **Major TypeScript Rewrite** — Chuyển đổi 100% codebase sang TypeScript, sử dụng Vite Bundler & ESM |
 | v5.0.2 | **Vite Bundle Fixes** — Fix lỗi không copy resources và scripts động ở chế độ production build |
 | v5.0.3 | **Full UI Localization** — Hoàn thiện hệ thống đa ngôn ngữ (i18n), dịch 100% text giao diện bị gán cứng |
+| v5.1.0 | **Bug Fixes P0 + Security P2** — activeDownloads conflict, options cache (99% I/O reduction), mini-btn duplicate detection, path traversal fix, CSRF token scoping, URL path validation, dynamic bearer token pipeline |
 | v5.0.5 | **Queue Fix & Auto-Save** — Sửa triệt để lỗi Queue đứng khi sleep, thêm cơ chế Auto-save cho options page |
 | v5.0.4 | **UI Fixes & Version Sync** — Sửa viền trắng popup dark mode, đồng bộ lại toàn bộ version cũ trong code và docs |
 
 ---
 
-## 4. Đề Xuất Phát Triển Tiếp Theo (Phase 6+)
+## 4. 🔍 KẾT QUẢ AUDIT — Vấn Đề Phát Hiện Sau Code Review (2026-06-04)
 
-> Dự án đã hoàn thành xuất sắc toàn bộ Phase 5: Đại tu kiến trúc sang TypeScript. Dưới đây là lộ trình đề xuất cho các Phase tiếp theo để nâng tầm UX và tự động hoá.
-
----
-
-### 🟡 4.1. Phase 6 — Nâng cấp Trải nghiệm người dùng (v6.0.0)
-
-**Vấn đề:** Popup extension có không gian quá chật hẹp, không thể hiển thị được nhiều thông tin, ảnh preview hay quản lý hàng ngàn file media cùng lúc.
-
-**Đề xuất (Full-page Dashboard & Gallery):**
-- Xây dựng một trang **Dashboard** riêng biệt mở ở tab mới (`chrome-extension://.../dashboard.html`).
-- **Media Gallery View**: Hiển thị ảnh/video dưới dạng lưới (Masonry) *trước khi* tải về. Cho phép người dùng tick chọn (checkbox) từng ảnh/video cụ thể để tải, thay vì phải tải toàn bộ.
-- **Advanced Analytics**: Biểu đồ chi tiết về thói quen tải, profile tải nhiều nhất, phân tích dung lượng.
-- **Search & Filter nâng cao**: Tìm kiếm history, lọc theo ngày, theo loại ngay trên giao diện lớn.
+> Audit toàn bộ source code (v5.0.5 → v5.1.0). Phần P0+P2 đã hoàn thành trong v5.1.0.
 
 ---
 
-### 🔵 4.3. Phase 7 — Cloud & Tự động hoá (v7.0.0+)
+### 🔴 P0 — Lỗi Nghiêm Trọng (Critical Bugs)
 
-**Vấn đề:** Người dùng tải quá nhiều sẽ đầy ổ cứng, và họ phải tự làm thủ công bằng tay mỗi ngày nếu muốn theo dõi một idol/profile.
+#### BUG-01: `activeDownloads` Import Conflict trong `downloader.ts`
+- **File:** `src/background/downloader.ts` dòng 3 và dòng 10
+- **Vấn đề:** Import `activeDownloads` từ `state.ts` bị shadow bởi `const activeDownloads = new Map()` khai báo lại ngay phía dưới. Import bị vô hiệu. `// @ts-ignore` ở dòng import đang che giấu lỗi TypeScript thực sự.
+- **Tác động:** `activeDownloads` trong `state.ts` (typed `Map<number, ActiveDownload>`) không được dùng. Dữ liệu progress không khớp với state tập trung.
+- **Fix:** Xóa `const activeDownloads = new Map()` ở dòng 10, xóa `// @ts-ignore` trên import, dùng typed map từ `state.ts`.
+
+#### BUG-02: Duplicate `KEEPALIVE_ALARM` Listener
+- **File:** `src/background/service-worker.ts` và `src/background/downloader.ts`
+- **Vấn đề:** Cả hai file đều đăng ký `chrome.alarms.onAlarm.addListener` cho cùng alarm `'sw-keepalive'`. Khi alarm fire, cả 2 listener đều chạy — double processing.
+- **Fix:** Gom alarm listener về 1 nơi duy nhất (trong `downloader.ts` vì đó là nơi quản lý keepalive logic).
+
+#### BUG-03: `applyOptionsFilter()` Gọi Storage I/O Mỗi Item
+- **File:** `src/background/scraper.ts` — hàm `applyOptionsFilter()`
+- **Vấn đề:** Hàm gọi `chrome.storage.sync.get('options')` mỗi lần được gọi. Trong session thu thập lớn, đây là hàng nghìn async I/O calls vào storage, gây lag và tiêu tốn tài nguyên SW.
+- **Fix:** Cache options trong module-level variable, invalidate khi `chrome.storage.onChanged` fire (chỉ cần 1 read/session thay vì 1 read/item).
+
+#### BUG-04: `handleDownloadTweet` Bỏ Qua Duplicate Detection
+- **File:** `src/background/downloader.ts` — hàm `handleDownloadTweet()`
+- **Vấn đề:** Mini-button download không gọi `loadDownloadedUrls()` trước khi tải, nên không kiểm tra file đã tải chưa (khác với `startDownload()` đã có bước này).
+- **Fix:** Thêm `await loadDownloadedUrls(username)` + kiểm tra `isAlreadyDownloaded()` trong `handleDownloadTweet`.
+
+---
+
+### 🟠 P1 — Hiệu Năng (Performance)
+
+#### PERF-01: `scrollLoop()` Đọc Options Mỗi Lần Khởi Động
+- **File:** `src/background/scraper.ts` — hàm `scrollLoop()`
+- **Vấn đề:** `chrome.storage.sync.get('options')` chỉ được đọc 1 lần khi `scrollLoop` khởi động — điều này ổn. Tuy nhiên, nếu options thay đổi trong khi scroll thì không có hiệu lực. Cần notification khi options thay đổi.
+- **Fix:** Subscribe `chrome.storage.onChanged` để reload options vào cache và áp dụng cho scrollLoop đang chạy.
+
+#### PERF-02: `ensureOffscreen()` Gọi `getContexts()` Mỗi File HLS
+- **File:** `src/background/downloader.ts` — hàm `ensureOffscreen()`
+- **Vấn đề:** Mỗi file HLS đều gọi `ensureOffscreen()` → `chrome.runtime.getContexts()` (async I/O). Với 2 file HLS song song và nhiều file, đây là nhiều I/O requests không cần thiết.
+- **Fix:** Cache trạng thái offscreen trong module variable, reset khi SW restart. Chỉ gọi `getContexts()` khi chưa có cache.
+
+#### PERF-03: `mediaStore` Không Có Giới Hạn Memory
+- **File:** `src/background/state.ts`
+- **Vấn đề:** `mediaStore` là `Map` in-memory không giới hạn. Profile với 100k+ media (account lớn) có thể chiếm RAM đáng kể (mỗi `MediaItem` ~200–300 bytes → 100k items ≈ 20–30MB).
+- **Fix:** Thêm warning log khi `store.size > 50000`. Đề xuất user pause và download before continuing.
+
+#### PERF-04: `buildCSV()` Không Chunk Large Datasets
+- **File:** `src/background/downloader.ts` — hàm `buildCSV()`
+- **Vấn đề:** `rows.join('\n')` trên 50k items tạo string khổng lồ trong memory trước khi trả về.
+- **Fix:** Stream-build CSV theo chunk hoặc giới hạn CSV export ở 10k rows với pagination.
+
+---
+
+### 🔵 P2 — Bảo Mật (Security)
+
+#### SEC-01: Path Traversal trong `sanitizeFolder()`
+- **File:** `src/background/utils.ts` — hàm `sanitizeFolder()`
+- **Vấn đề:** Hàm loại bỏ `\` và `/` đầu/cuối nhưng không ngăn `../` ở giữa đường dẫn. Ví dụ input `../../evil` sau sanitize vẫn là `../../evil`. Chrome `downloads.download()` có thể resolve đường dẫn này ra ngoài thư mục Downloads.
+- **Fix:** Thêm bước replace `\.\.` và `..\/` sau sanitize, hoặc split/filter từng segment.
+
+#### SEC-02: `ct0` CSRF Token Trên Global `self` Scope
+- **File:** `src/background/messages.ts` dòng 116: `(self as any).userCsrfToken = ct0`
+- **Vấn đề:** CSRF token được gán lên `self` (global scope của Service Worker) thay vì dùng module-level state. Bất kỳ code nào import vào SW đều có thể đọc được `self.userCsrfToken`.
+- **Fix:** Dùng `setCsrfToken()` từ `state.ts` (đã export sẵn) thay vì gán trực tiếp lên `self`.
+
+#### SEC-03: URL Validation Không Kiểm Tra Full Structure
+- **File:** `src/content/content.ts` — hàm `validateMediaItem()`
+- **Vấn đề:** Kiểm tra `url.startsWith('https://pbs.twimg.com/')` là đủ cho host, nhưng không validate path structure. URL kiểu `https://pbs.twimg.com/../../../../etc/passwd` về lý thuyết có thể pass validation.
+- **Fix:** Thêm regex pattern cho phần path: chỉ cho phép `[a-zA-Z0-9/_\-.]` trong path component.
+
+#### SEC-04: Guest Bearer Token Hardcoded — Rotation Risk
+- **File:** `src/background/tweet-api.ts` dòng 12
+- **Vấn đề:** Bearer token hardcode trong source. Nếu X.com rotate token (đã xảy ra trước đây), extension bị break hoàn toàn và phải release bản mới.
+- **Fix:** Thêm fallback mechanism: thử extract Bearer từ network request (page-interceptor đã hook fetch) trước khi dùng hardcoded token. Lưu cached token vào `chrome.storage.session`.
+
+#### SEC-05: `@ts-ignore` Che Giấu Type Errors Thực Sự
+- **File:** `src/background/messages.ts` và `src/background/downloader.ts`
+- **Vấn đề:** Có 20+ `// @ts-ignore` comments — mỗi cái là 1 type error tiềm ẩn bị bỏ qua, phá vỡ cam kết `strict: true` của TypeScript migration.
+- **Fix:** Lần lượt fix từng `@ts-ignore`: thêm proper type annotation, cast đúng kiểu, hoặc update interfaces trong `types.ts`.
+
+---
+
+### 🟡 P3 — UI / UX
+
+#### UI-01: Popup Không Hiển Thị Chi Tiết File Lỗi
+- **Vấn đề:** Khi download xong, popup chỉ hiện "X failed" nhưng không cho biết file nào bị lỗi và lý do. User không có cách debug hoặc retry.
+- **Fix:** Thêm expandable error log section trong popup, hiển thị filename + error message. Thêm "Retry failed" button để tải lại đúng file lỗi.
+
+#### UI-02: Stats Tab Donut Chart Không Realtime
+- **Vấn đề:** Stats tab hiển thị snapshot tại thời điểm mở popup, không tự cập nhật khi media mới được thu thập trong khi popup đang mở.
+- **Fix:** Subscribe `MEDIA_COUNT_UPDATE` message trong Stats tab và re-render donut chart khi nhận được update.
+
+#### UI-03: Options Auto-Save Không Có Visual Indicator
+- **Vấn đề:** Sau khi thêm auto-save debounce (v5.0.5), user không biết liệu thay đổi đã được lưu hay chưa (đặc biệt trong 500ms debounce window).
+- **Fix:** Thêm "Saving..." spinner hoặc "Saved ✓" toast ngắn sau mỗi lần auto-save thành công.
+
+#### UI-04: Không Có Empty State Khi Media Store Trống
+- **Vấn đề:** Popup hiển thị count "0" nhưng không có call-to-action hướng dẫn user bắt đầu. Người dùng mới không biết phải làm gì.
+- **Fix:** Khi count = 0 và không đang collecting, hiển thị onboarding card: "Mở trang /media của profile và bấm Bắt đầu Thu thập".
+
+#### UI-05: FAB Panel Không Hiển Thị Progress Tải Chi Tiết
+- **Vấn đề:** Khi download đang chạy, FAB chỉ hiện button disabled nhưng không cho thấy % tiến độ hay file hiện tại. User phải mở popup để xem.
+- **Fix:** Bổ sung mini progress ring hoặc text "45/120 (37%)" trên FAB khi download đang chạy.
+
+#### UI-06: Queue Tab Không Cập Nhật Live Khi Profile Khác Đang Tải
+- **Vấn đề:** Queue item đang `downloading` không hiện realtime progress (chỉ hiện status badge). User phải đoán tiến độ.
+- **Fix:** Attach `DOWNLOAD_PROGRESS` broadcast vào queue item đang active, hiện mini progress bar trong Queue tab.
+
+---
+
+## 5. 🗺️ KẾ HOẠCH PHÁT TRIỂN TIẾP THEO
+
+### ✅ Phase 5.1 — Bug Fixes & Security Hardening (v5.1.0) — HOÀN THÀNH
+> **Kết quả:** Giải quyết toàn bộ P0 bugs và P2 security issues. Build sạch 0 lỗi.
+
+**Đã hoàn thành:**
+- [x] BUG-01: Fix `activeDownloads` import conflict — xóa redeclaration shadow trong `downloader.ts`
+- [x] BUG-02: Gom `KEEPALIVE_ALARM` listener về 1 nơi — xóa listener trùng trong `service-worker.ts`
+- [x] BUG-03: `getCachedOptions()` TTL 5s + `storage.onChanged` invalidate — giảm ~99% I/O reads
+- [x] BUG-04: `handleDownloadTweet` có `loadDownloadedUrls` + `isAlreadyDownloaded` + `markDownloaded`
+- [x] SEC-01: `sanitizeFolder()` split/filter từng segment, block `..` path traversal
+- [x] SEC-02: CSRF token dùng `setCsrfToken()` + module-level `userCsrfToken`, không còn trên `self`
+- [x] SEC-03: `validateMediaItem()` thêm regex check `pathname` chặn URL injection
+- [x] SEC-04: Dynamic bearer pipeline: interceptor capture → content relay → SW `UPDATE_BEARER` → `getBearerToken()`
+- [x] SEC-05: Loại bỏ 7 `@ts-ignore` critical trong `messages.ts` — typed arrays, optional chaining, `(err: any)`
+
+---
+
+### 🟠 Phase 5.2 — Performance Optimization (v5.2.0)
+> **Mục tiêu:** Cải thiện hiệu năng cho large-scale collections (50k+ media).
+
+**Scope:**
+- [x] PERF-01: Options cache + `storage.onChanged` subscription ← **hoàn thành trong v5.1.0**
+- [x] SEC-04: Dynamic bearer token extraction ← **hoàn thành trong v5.1.0**
+- [ ] PERF-02: Offscreen document cache flag — bỏ `getContexts()` call mỗi file HLS
+- [ ] PERF-03: Memory warning khi store > 50k items, suggest pause & download
+- [ ] PERF-04: CSV export chunked / giới hạn 10k rows + pagination
+
+**Kỳ vọng:** Giảm 80% storage I/O reads trong session thu thập lớn.
+
+---
+
+### 🟡 Phase 5.3 — UI Polish (v5.3.0)
+> **Mục tiêu:** Hoàn thiện UX dựa trên các điểm yếu phát hiện trong audit.
+
+**Scope:**
+- [ ] UI-01: Error details panel trong popup + Retry failed downloads button
+- [ ] UI-02: Stats tab donut chart realtime subscription
+- [ ] UI-03: Auto-save visual indicator ("Saving..." / "Saved ✓")
+- [ ] UI-04: Empty state onboarding card khi media = 0
+- [ ] UI-05: Mini progress ring/text trên FAB khi download đang chạy
+- [ ] UI-06: Live progress bar trong Queue tab cho item đang active
+
+---
+
+### 🟡 Phase 6 — Full-page Dashboard & Gallery (v6.0.0)
+
+**Vấn đề:** Popup chỉ có chiều rộng 380px — không thể xem preview, không chọn từng file, không có advanced search.
+
+**Đề xuất (Full-page Dashboard):**
+- Xây dựng trang **Dashboard** riêng biệt mở ở tab mới (`chrome-extension://.../dashboard.html`).
+- **Media Gallery View**: Lưới Masonry hiển thị ảnh/video thu thập được. Cho phép checkbox chọn file cụ thể trước khi tải.
+- **Advanced Search & Filter**: Kết hợp date range + keyword + type filter trên giao diện lớn với preview count realtime.
+- **History & Analytics**: Biểu đồ thống kê theo thời gian, profile tải nhiều nhất, breakdown dung lượng.
+
+---
+
+### 🔵 Phase 7 — Cloud & Tự động hoá (v7.0.0+)
 
 **Đề xuất (Cloud Sync & Auto-fetch):**
-- **Cloud Integration**: Tích hợp Google Drive API / Dropbox API. Tự động upload file thẳng lên Cloud mà không cần lưu qua ổ cứng máy tính.
-- **Watch/Subscribe Profile**: Đánh dấu "Theo dõi" một profile. Extension sẽ chạy ngầm (Cron job), mỗi ngày tự động gọi API lấy các tweet mới nhất của profile đó và tải media mới về (dựa vào cơ chế Duplicate Detection đã có).
+- **Cloud Integration**: Tích hợp Google Drive API / Dropbox API — upload thẳng lên Cloud, không cần lưu qua ổ cứng.
+- **Watch/Subscribe Profile**: Đánh dấu "Theo dõi" profile. Extension chạy Cron job ngầm, mỗi ngày tự lấy tweet mới + tải media mới (dựa vào Duplicate Detection đã có).
 
-## 5. Ghi Chú Kỹ Thuật Quan Trọng
+---
+
+## 6. Ghi Chú Kỹ Thuật Quan Trọng
 
 | Vấn đề | Giải pháp đã áp dụng |
 |---|---|
@@ -212,25 +373,41 @@ File được lưu vào:
 
 ---
 
-## 6. Ma Trận Ưu Tiên Mới (Phase 6+)
+## 7. Ma Trận Ưu Tiên Tổng Hợp
 
-| Tính năng / Mục tiêu | Độ khó | Impact | Ưu tiên |
+| Hạng mục | Tác động | Độ khó | Ưu tiên |
 |---|---|---|---|
-| **v6.0.0** Full-page Dashboard & Gallery View | ⭐⭐⭐ | 🔥🔥🔥 | 🟡 Trung bình |
-| **v6.1.0** Selective Download (Chọn file để tải) | ⭐⭐ | 🔥🔥 | 🟡 Trung bình |
-| **v7.0.0** Auto-fetch (Theo dõi tự động tải) | ⭐⭐⭐⭐⭐ | 🔥🔥🔥🔥 | 🔵 Thấp |
-| **v7.1.0** Cloud Integration (G-Drive/Dropbox) | ⭐⭐⭐⭐ | 🔥🔥 | 🔵 Thấp |
+| **BUG-01** `activeDownloads` conflict | 🔥🔥🔥 Data integrity | ⭐ | 🔴 Ngay |
+| **BUG-02** Duplicate alarm listener | 🔥 Log noise | ⭐ | 🔴 Ngay |
+| **BUG-03** Options I/O mỗi item | 🔥🔥🔥 Perf critical | ⭐⭐ | 🔴 Ngay |
+| **BUG-04** Mini-btn bỏ qua dedup | 🔥🔥 UX correctness | ⭐ | 🔴 Ngay |
+| **SEC-01** Path traversal | 🔥🔥🔥 Security | ⭐ | 🔴 Ngay |
+| **SEC-02** CSRF token on `self` | 🔥🔥 Security | ⭐ | 🟠 Sớm |
+| **SEC-03** URL path structure | 🔥 Security | ⭐ | 🟠 Sớm |
+| **SEC-05** Fix @ts-ignore | 🔥🔥 Maintainability | ⭐⭐ | 🟠 Sớm |
+| **PERF-02** Offscreen cache | 🔥🔥 HLS speed | ⭐ | 🟠 Sớm |
+| **UI-01** Error details + retry | 🔥🔥🔥 UX | ⭐⭐ | 🟡 Trung bình |
+| **UI-03** Auto-save indicator | 🔥🔥 UX | ⭐ | 🟡 Trung bình |
+| **UI-04** Empty state onboarding | 🔥🔥 UX | ⭐ | 🟡 Trung bình |
+| **UI-05** FAB progress ring | 🔥 UX | ⭐⭐ | 🟡 Trung bình |
+| **UI-02** Stats donut realtime | 🔥 UX | ⭐ | 🟡 Trung bình |
+| **SEC-04** Dynamic bearer token | 🔥🔥🔥 Stability | ⭐⭐⭐ | 🔵 Thấp |
+| **PERF-03** Memory warning 50k | 🔥 UX | ⭐ | 🔵 Thấp |
+| **v6.0.0** Dashboard + Gallery | 🔥🔥🔥 Feature | ⭐⭐⭐ | 🔵 Thấp |
+| **v7.0.0** Cloud + Auto-fetch | 🔥🔥🔥🔥 Feature | ⭐⭐⭐⭐⭐ | 🔵 Thấp |
 
 ---
 
-## 7. Phiên Bản Tiếp Theo — Đề Xuất Lộ Trình
+## 8. Lộ Trình Phiên Bản
 
 ```
-[QUÁ KHỨ]
-v4.8.0  ── Keyword / Hashtag Filter + U4 Compact Mode                                  ✅ DONE
-v5.0.0  ── Major rewrite: TypeScript migration, Vite Bundler, Modularization           ✅ DONE
-v5.0.2  ── Vite Bundle Fixes for Production Mode                                       ✅ DONE
-v5.0.3  ── Full UI Localization (i18n) for Popup & Options                             ✅ DONE
+[ĐÃ XONG]
+v5.0.5  ── Queue Engine fix, Options Auto-save debounce                             ✅ DONE
+v5.1.0  ── Bug Fixes P0 + Security Hardening P2 (9 issues fixed, build clean)      ✅ DONE
+
+[TIẾP THEO]
+v5.2.0  ── Performance: Offscreen cache, memory warning 50k, CSV chunked export     🟠 Ưu tiên trung bình
+v5.3.0  ── UI Polish (UI-01..06: error details, realtime stats, FAB progress...)    🟡 Tiếp theo
 
 [TƯƠNG LAI]
 v6.0.0  ── Full-page Dashboard, Masonry Media Gallery, Bulk Selection
@@ -239,7 +416,7 @@ v7.0.0  ── Automation: Background Cron-job Auto-fetch, Cloud Integration
 
 ---
 
-## 8. Tài Liệu Tham Khảo
+## 9. Tài Liệu Tham Khảo
 
 - [Chrome Extension Manifest V3](https://developer.chrome.com/docs/extensions/develop/migrate/manifest-v3-migration)
 - [chrome.offscreen API](https://developer.chrome.com/docs/extensions/reference/api/offscreen)

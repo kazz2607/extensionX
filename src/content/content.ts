@@ -143,6 +143,13 @@ function validateMediaItem(item) {
   }
   const url = item.url || '';
   if (!VALID_HOSTS.some(h => url.startsWith(`https://${h}/`))) return false;
+  // SEC-03: Validate path structure — chỉ cho phép ký tự an toàn, chặn path traversal
+  try {
+    const urlObj = new URL(url);
+    if (!/^[/a-zA-Z0-9._\-~%]+$/.test(urlObj.pathname)) return false;
+  } catch {
+    return false;
+  }
   if (item.tweetId && !/^\d{10,20}$/.test(item.tweetId)) return false;
   if (item.ext && !VALID_EXTS.includes(item.ext.toLowerCase())) return false;
   return true;
@@ -186,6 +193,16 @@ window.addEventListener('XMD_FAB_ACTION', (event) => {
     safeSendMessage({ type: 'STOP_COLLECTING', payload: { username } }).catch(() => {});
   } else if (action === 'START_DOWNLOAD') {
     safeSendMessage({ type: 'START_DOWNLOAD', payload: { username, options: {} } }).catch(() => {});
+  }
+});
+
+// ─── SEC-04: Relay bearer token được capture từ page-interceptor lên SW ─────
+let _lastBearerRelayed = '';
+window.addEventListener('XMD_BEARER_TOKEN', (event: any) => {
+  const { bearer } = event.detail || {};
+  if (bearer && bearer !== _lastBearerRelayed) {
+    _lastBearerRelayed = bearer;
+    safeSendMessage({ type: 'UPDATE_BEARER', payload: { bearer } }).catch(() => {});
   }
 });
 

@@ -1,13 +1,8 @@
 
-// @ts-ignore
 import { mediaStore, downloadedStore, tabState, downloadState, pendingHlsRequests, activeDownloads } from './state.ts';
 import { broadcastToPopup, broadcastToTab, sanitizeFolder, broadcastFABState } from './utils.ts';
 import { showDownloadNotification, fetchVideoForTweetWithRefresh, loadDownloadedUrls, isAlreadyDownloaded, markDownloaded } from './scraper.ts';
 import { startNextInQueue, profileQueue, persistQueue, broadcastQueueUpdate } from './queue.ts';
-
-// ─── Download Tracker ─────────────────────────────────────────────────────────
-// Map<downloadId, {resolve, reject}>
-const activeDownloads = new Map();
 
 // ─── BUG-2 FIX: Keep-alive alarm để SW không bị Chrome terminate ───────────────
 const KEEPALIVE_ALARM = 'sw-keepalive';
@@ -195,6 +190,12 @@ async function handleDownloadTweet(tweetId, username, tabId) {
 // @ts-ignore
     const saveFolder = sanitizeFolder(opts.saveFolder || '');
 
+    // BUG-04 FIX: Load duplicate detection trước khi bắt đầu (giống startDownload)
+// @ts-ignore
+    const skipDuplicates = opts.skipDuplicates !== false;
+    const usernameForDedup = username || 'unknown';
+    if (skipDuplicates) await loadDownloadedUrls(usernameForDedup);
+
     // 1. Tìm trong mediaStore trước (nhanh, không cần API)
     let mediaItems = findTweetMediaInStore(tweetId, username);
 
@@ -216,6 +217,17 @@ async function handleDownloadTweet(tweetId, username, tabId) {
       return;
     }
 
+    // BUG-04 FIX: Lọc file đã tải rồi
+    const originalCount = mediaItems.length;
+    if (skipDuplicates) {
+// @ts-ignore
+      mediaItems = mediaItems.filter((item: any) => !isAlreadyDownloaded(usernameForDedup, item.url));
+      if (mediaItems.length === 0) {
+        sendResult('done', { success: 0, failed: 0, total: originalCount, skipped: originalCount });
+        return;
+      }
+    }
+
     // 4. Download tất cả items của tweet (gallery có thể nhiều ảnh)
     let success = 0;
     let failed = 0;
@@ -223,6 +235,9 @@ async function handleDownloadTweet(tweetId, username, tabId) {
       try {
         await downloadSingleItem(item, username || item.username || 'unknown', saveFolder, opts);
         success++;
+        // BUG-04 FIX: Đánh dấu đã tải (như startDownload đã làm)
+// @ts-ignore
+        markDownloaded(usernameForDedup, item.url);
       } catch (err) {
 // @ts-ignore
         console.warn('[SW] DOWNLOAD_TWEET item failed:', err.message);
@@ -547,7 +562,7 @@ function downloadFile(url, filename) {
           resolve: safeResolve,
           reject: safeReject,
           startTime,
-          filename: filename.split('/').pop(), // v4.4.0
+          filename: filename.split('/').pop() || '',
           bytesReceived: 0,
           totalBytes: 0,
         });

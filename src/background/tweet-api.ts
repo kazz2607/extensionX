@@ -11,6 +11,23 @@
 
 const GUEST_BEARER = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
 
+// SEC-04: Dynamic bearer — được cập nhật từ page-interceptor khi X.com thực hiện request
+let _dynamicBearer = '';
+
+export function setDynamicBearer(bearer: string) {
+  if (bearer && bearer.startsWith('Bearer ') && bearer !== GUEST_BEARER) {
+    if (bearer !== _dynamicBearer) {
+      _dynamicBearer = bearer;
+      console.debug('[tweet-api] Dynamic bearer updated');
+    }
+  }
+}
+
+// Dùng bearer đã capture từ X.com nếu có, fallback về hardcoded
+function getBearerToken(): string {
+  return _dynamicBearer || GUEST_BEARER;
+}
+
 // @ts-ignore
 let cachedGuestToken = null;
 let guestTokenTime = 0;
@@ -136,7 +153,7 @@ async function getGuestToken() {
   const res = await fetch('https://api.x.com/1.1/guest/activate.json', {
     method: 'POST',
     headers: {
-      'authorization': GUEST_BEARER,
+      'authorization': getBearerToken(),
       'content-type': 'application/json',
     },
   });
@@ -190,7 +207,7 @@ async function fetchVideoViaGuestAPI(tweetId) {
 
   const res = await fetch(url.toString(), {
     headers: {
-      'authorization': GUEST_BEARER,
+      'authorization': getBearerToken(),
       'x-guest-token': gt,
       'content-type': 'application/json',
       'accept': '*/*',
@@ -283,7 +300,7 @@ export async function fetchVideoForTweet(tweetId, userCsrfToken = '') {
       const res = await fetch(url.toString(), {
         credentials: 'include', // Kích hoạt gửi HttpOnly Cookie (auth_token)
         headers: {
-          'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
+          'authorization': getBearerToken(),
           'x-csrf-token': userCsrfToken,
           'x-twitter-active-user': 'yes',
           'x-twitter-auth-type': 'OAuth2Session',

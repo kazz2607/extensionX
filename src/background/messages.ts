@@ -5,6 +5,7 @@ import { startDownload, handleDownloadTweet, buildCSV } from './downloader.ts';
 import { profileQueue, setProfileQueue, persistQueue, startNextInQueue, broadcastQueueUpdate } from './queue.ts';
 import { updateBadge, broadcastToPopup, updateFAB } from './utils.ts';
 import { getMediaItems } from './indexeddb.ts';
+import { setDynamicBearer } from './tweet-api.ts';
 
 // ─── Message Handler ──────────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -32,8 +33,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       console.log(`[SW] MEDIA_FOUND: ${mediaItems.length} items từ ${payload.sourceUrl || '?'} cho @${username}`);
 
       // BUG-D FIX: Dùng Promise.all thay vì forEach async để quản lý đúng
-// @ts-ignore
-      Promise.all(mediaItems.map(async (item) => {
+      Promise.all((mediaItems as any[]).map(async (item) => {
         if (!item) return;
 
         if (item.type === 'video_placeholder') {
@@ -62,16 +62,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
             if (videoItem) {
               videoItem.url = videoItem.url.replace(/name=\w+/, 'name=orig');
-// @ts-ignore
-              videoItem.username = username;
-// @ts-ignore
-              const added = addMediaItems(username, [videoItem]);
+              (videoItem as any).username = username;
+              const added = addMediaItems(username, [videoItem as any]);
               if (added > 0) updateFAB(tabId, username);
             } else {
               console.warn(`[SW] ✗ Không lấy được video URL cho tweet ${item.tweetId}`);
             }
-          } catch (err) {
-// @ts-ignore
+          } catch (err: any) {
             console.warn('[SW] fetchVideoForTweet lỗi:', item.tweetId, err.message);
           }
         } else {
@@ -86,7 +83,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             if (added > 0) updateFAB(tabId, username);
           }
         }
-      })).catch(err => console.debug('[SW] MEDIA_FOUND handler error:', err.message));
+      })).catch((err: any) => console.debug('[SW] MEDIA_FOUND handler error:', err.message));
       return false;
     }
 
@@ -94,34 +91,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const { username, url, isMediaPage, ct0 } = payload;
       const tabId = sender.tab?.id;
       if (tabId && username) {
-        const existingState = tabState.get(tabId) || {};
-// @ts-ignore
-        const isCollecting = existingState.isCollecting && isMediaPage;
-        
-        tabState.set(tabId, { 
-          username, 
-          url, 
-          isMediaPage, 
-          isCollecting, 
-// @ts-ignore
-          scrollCount: isCollecting ? existingState.scrollCount : 0, 
-          reachedEnd: false, 
-// @ts-ignore
-          ct0: ct0 || existingState.ct0
+        const existingState = tabState.get(tabId);
+        const wasCollecting = existingState?.isCollecting ?? false;
+        const isCollecting = wasCollecting && isMediaPage;
+
+        tabState.set(tabId, {
+          username,
+          url,
+          isMediaPage,
+          isCollecting,
+          scrollCount: isCollecting ? (existingState?.scrollCount ?? 0) : 0,
+          reachedEnd: false,
+          ct0: ct0 || existingState?.ct0,
         });
-        
+
         if (ct0) {
-          // Lưu ct0 global cho background API
-// @ts-ignore
-          self.userCsrfToken = ct0;
+          // SEC-02 FIX: Dùng setCsrfToken() từ state.ts thay vì gán thẳng lên self
+          setCsrfToken(ct0);
         }
 
         if (isCollecting) {
           chrome.tabs.sendMessage(tabId, { type: 'COLLECT_STARTED_LOCAL' }).catch(() => {});
-// @ts-ignore
-        } else if (!isCollecting && existingState.isCollecting) {
-// @ts-ignore
-          stopCollecting(existingState.username || username);
+        } else if (!isCollecting && wasCollecting) {
+          stopCollecting(existingState?.username || username);
         }
       }
       checkAutoScroll(tabId, username, isMediaPage);
@@ -139,12 +131,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     case 'GET_ALL_USERNAMES': {
-// @ts-ignore
-      const usernames = [];
+      const usernames: { username: string; count: number; stats: ReturnType<typeof statsStore.get> }[] = [];
       mediaStore.forEach((store, username) => {
         usernames.push({ username, count: store.size, stats: statsStore.get(username) });
       });
-// @ts-ignore
       sendResponse({ usernames });
       return true;
     }
@@ -414,6 +404,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const { username } = payload;
       clearSession(username);
       sendResponse({ ok: true });
+      return false;
+    }
+
+    // SEC-04: Nhận bearer token được capture từ page-interceptor
+    case 'UPDATE_BEARER': {
+      const { bearer } = payload;
+      if (bearer?.startsWith('Bearer ')) setDynamicBearer(bearer);
       return false;
     }
 
