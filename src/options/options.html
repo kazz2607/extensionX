@@ -319,9 +319,9 @@
         </div>
         <select id="opt-img-quality">
           <option value="orig" data-i18n="opt_img_orig">Original (Best)</option>
-          <option value="large">Large (1200px)</option>
-          <option value="medium">Medium (600px)</option>
-          <option value="small">Small (300px)</option>
+          <option value="large" data-i18n="opt_img_large_1200">Large (1200px)</option>
+          <option value="medium" data-i18n="opt_img_medium">Medium (600px)</option>
+          <option value="small" data-i18n="opt_img_small">Small (300px)</option>
         </select>
       </div>
     </div>
@@ -329,12 +329,12 @@
 
   <!-- ── Smart Filters ── -->
   <div class="section">
-    <p class="section-title">🔍 Smart Filters</p>
+    <p class="section-title"><span data-i18n="opt_smart_filters">🔍 Smart Filters</span></p>
     <div class="card">
 
       <div class="option-row">
         <div class="option-label">
-          <strong>Lọc avatar &amp; banner</strong>
+          <strong><span data-i18n="opt_filter_avatar">Lọc avatar &amp; banner</span></strong>
           <span>Bỏ qua ảnh đại diện (<code>/profile_images/</code>) và banner (<code>/profile_banners/</code>) — những ảnh này không phải nội dung tweet.</span>
         </div>
         <label class="toggle">
@@ -346,7 +346,7 @@
 
       <div class="option-row">
         <div class="option-label">
-          <strong>Lọc ảnh preview link (Card)</strong>
+          <strong><span data-i18n="opt_filter_card">Lọc ảnh preview link (Card)</span></strong>
           <span>Bỏ qua thumbnail của link preview (<code>/card_img/</code>) — ảnh nhỏ đính kèm bài viết có chứa URL.</span>
         </div>
         <label class="toggle">
@@ -358,8 +358,8 @@
 
       <div class="option-row">
         <div class="option-label">
-          <strong>Kích thước ảnh tối thiểu (px)</strong>
-          <span>Lọc bỏ ảnh có chiều rộng hoặc chiều cao nhỏ hơn giá trị này. Chỉ áp dụng khi X.com trả về metadata kích thước. Đặt 0 để tắt.</span>
+          <strong><span data-i18n="opt_min_size">Kích thước ảnh tối thiểu (px)</span></strong>
+          <span><span data-i18n="opt_min_size_desc">Lọc bỏ ảnh có chiều rộng hoặc chiều cao nhỏ hơn giá trị này. Chỉ áp dụng khi X.com trả về metadata kích thước. Đặt 0 để tắt.</span></span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
@@ -482,8 +482,8 @@
 
       <div class="option-row">
         <div class="option-label">
-          <strong>🔔 Hiển thị tiến trình trên trang (Snackbar)</strong>
-          <span>Hiện progress bar mini ngay trên trang X.com khi đang tải — không cần mở popup theo dõi.</span>
+          <strong><span data-i18n="opt_snackbar">🔔 Hiển thị tiến trình trên trang (Snackbar)</span></strong>
+          <span><span data-i18n="opt_snackbar_desc">Hiện progress bar mini ngay trên trang X.com khi đang tải — không cần mở popup theo dõi.</span></span>
         </div>
         <label class="toggle">
           <input type="checkbox" id="opt-show-snackbar" checked />
@@ -494,8 +494,8 @@
       
       <div class="option-row">
         <div class="option-label">
-          <strong>🔔 Hiển thị thông báo khi hoàn thành</strong>
-          <span>Hiện thông báo của trình duyệt (Chrome Notification) khi tải xong một tác vụ.</span>
+          <strong><span data-i18n="opt_notification">🔔 Hiển thị thông báo khi hoàn thành</span></strong>
+          <span><span data-i18n="opt_notification_desc">Hiện thông báo của trình duyệt (Chrome Notification) khi tải xong một tác vụ.</span></span>
         </div>
         <label class="toggle">
           <input type="checkbox" id="opt-show-notification" checked />
@@ -527,9 +527,9 @@
           <span data-i18n="opt_theme_desc">Toggle dark / light mode</span>
         </div>
         <select id="opt-theme-select">
-          <option value="system">System (Tự động) 🌓</option>
-          <option value="dark">Dark Mode 🌙</option>
-          <option value="light">Light Mode ☀️</option>
+          <option value="system" data-i18n="opt_theme_system">System (Tự động) 🌓</option>
+          <option value="dark" data-i18n="opt_theme_dark">Dark Mode 🌙</option>
+          <option value="light" data-i18n="opt_theme_light">Light Mode ☀️</option>
         </select>
       </div>
     </div>
@@ -555,32 +555,32 @@
 
   <!-- ── Data & Settings ── -->
   <div class="section">
-    <p class="section-title">⚙️ Data &amp; Settings</p>
+    <p class="section-title"><span data-i18n="section_data">⚙️ Data &amp; Settings</span></p>
     <div class="card">
 
       <div class="option-row">
         <div class="option-label">
           <strong>📤 Export Settings</strong>
-          <span>Xuất toàn bộ cài đặt ra file JSON — dùng để backup hoặc chuyển sang máy khác.</span>
+          <span><span data-i18n="opt_export_desc">Xuất toàn bộ cài đặt ra file JSON — dùng để backup hoặc chuyển sang máy khác.</span></span>
         </div>
-        <button class="btn-data" id="btn-export" onclick="exportSettings()">📤 Export</button>
+        <button class="btn-data" id="btn-export" onclick="exportSettings()" data-i18n="btn_export">📤 Export</button>
       </div>
 
       <div class="option-row">
         <div class="option-label">
           <strong>📥 Import Settings</strong>
-          <span>Nạp file JSON cài đặt đã export trước. Settings hiện tại sẽ bị ghi đè.</span>
+          <span><span data-i18n="opt_import_desc">Nạp file JSON cài đặt đã export trước. Settings hiện tại sẽ bị ghi đè.</span></span>
         </div>
-        <button class="btn-data" id="btn-import" onclick="document.getElementById('import-file-input').click()">📥 Import</button>
+        <button class="btn-data" id="btn-import" onclick="document.getElementById('import-file-input').click()" data-i18n="btn_import">📥 Import</button>
         <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="importSettings(event)" />
       </div>
 
       <div class="option-row">
         <div class="option-label">
           <strong>🔄 Reset to Default</strong>
-          <span>Đặt lại toàn bộ cài đặt về giá trị mặc định. Hành động này không thể hoàn tác.</span>
+          <span><span data-i18n="opt_reset_desc">Đặt lại toàn bộ cài đặt về giá trị mặc định. Hành động này không thể hoàn tác.</span></span>
         </div>
-        <button class="btn-data btn-data--danger" id="btn-reset" onclick="resetSettings()">🔄 Reset</button>
+        <button class="btn-data btn-data--danger" id="btn-reset" onclick="resetSettings()" data-i18n="btn_reset">🔄 Reset</button>
       </div>
 
     </div>
