@@ -11,9 +11,11 @@
  */
 
 import { fetchVideoForTweet } from './tweet-api.js';
+import { saveMediaItems, getMediaItems, clearMediaItems } from './indexeddb.js'; // v4.4.0 IndexedDB
 
 // ─── State ────────────────────────────────────────────────────────────────────
 const mediaStore = new Map();   // Map<username, Map<url, MediaItem>>
+const dirtyMediaStore = new Map(); // Map<username, Map<url, MediaItem>> (v4.4.0: Delta write)
 const tabState   = new Map();   // Map<tabId, CollectState>
 const statsStore = new Map();   // Map<username, {image,video,gif,hls}>
 
@@ -114,6 +116,7 @@ function stopKeepAlive() {
   chrome.alarms.clear(KEEPALIVE_ALARM);
 }
 
+let _lastProgressTime = 0;
 // Đăng ký listener theo dõi từng download
 chrome.downloads.onChanged.addListener((delta) => {
   const tracked = activeDownloads.get(delta.id);
@@ -134,15 +137,33 @@ chrome.downloads.onChanged.addListener((delta) => {
       }
       activeDownloads.delete(delta.id);
     }
-  } else if (delta.bytesReceived) {
-    // Report byte progress to popup
-    chrome.runtime.sendMessage({
-      type: 'MP4_PROGRESS',
-      payload: { 
-        id: delta.id, 
-        bytesReceived: delta.bytesReceived.current 
+  } 
+  
+  // Update progress
+  if (delta.bytesReceived) tracked.bytesReceived = delta.bytesReceived.current;
+  if (delta.totalBytes) tracked.totalBytes = delta.totalBytes.current;
+
+  // v4.4.0: Throttled broadcast (max 2 lần/s)
+  if (Date.now() - _lastProgressTime > 500 && activeDownloads.size > 0) {
+    _lastProgressTime = Date.now();
+    const activeList = Array.from(activeDownloads.values()).map(d => {
+      const elapsed = (Date.now() - d.startTime) / 1000 || 1;
+      return {
+        filename: d.filename,
+        bytesReceived: d.bytesReceived,
+        totalBytes: d.totalBytes,
+        speedBps: d.bytesReceived / elapsed
+      };
+    });
+    // Send info to Popup & Snackbar
+    broadcastToPopup('ACTIVE_DOWNLOADS_UPDATE', activeList);
+    // Snackbar (lấy username từ tab hiện tại bằng cách hack logic hoặc gửi cho tất cả tab)
+    // Tạm thời truyền cho tất cả tab có state đang collecting
+    tabState.forEach((state, tabId) => {
+      if (state.isCollecting) {
+        chrome.tabs.sendMessage(tabId, { type: 'SNACKBAR_UPDATE', payload: { type: 'ACTIVE_DOWNLOADS_UPDATE', activeList } }).catch(() => {});
       }
-    }).catch(() => {});
+    });
   }
 });
 
@@ -467,22 +488,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       (async () => {
         try {
           const key = `session_${username}`;
-          const data = await chrome.storage.local.get(key);
-          const session = data[key];
+          const res = await chrome.storage.local.get(key);
+          const session = res[key];
 
-          if (!session?.mediaItems?.length) {
-            sendResponse({ error: 'No session data' });
+          if (!session) {
+            sendResponse({ error: 'No session found' });
             return;
           }
 
-          // Nạp lại vào memory stores
-          if (!mediaStore.has(username)) mediaStore.set(username, new Map());
-          if (!statsStore.has(username)) statsStore.set(username, { image: 0, video: 0, gif: 0, hls: 0 });
+          // v4.4.0: Load media items from IndexedDB
+          const itemsArray = await getMediaItems(username);
+          if (itemsArray && itemsArray.length > 0) {
+            if (!mediaStore.has(username)) mediaStore.set(username, new Map());
+            const store = mediaStore.get(username);
+            itemsArray.forEach(item => {
+              if (item?.url && !store.has(item.url)) store.set(item.url, item);
+            });
+          }
 
+          if (!mediaStore.has(username)) mediaStore.set(username, new Map());
           const store = mediaStore.get(username);
-          session.mediaItems.forEach(item => {
-            if (item?.url && !store.has(item.url)) store.set(item.url, item);
-          });
 
           if (session.stats) statsStore.set(username, session.stats);
 
@@ -543,7 +568,13 @@ function addMediaItems(username, items) {
     if (store.has(item.url)) return;
     // v4.3.0: Gắn tweetDate từ Snowflake ID
     const tweetDate = tweetDateFromId(item.tweetId);
-    store.set(item.url, { ...item, addedAt: Date.now(), tweetDate });
+    const mediaItem = { ...item, addedAt: Date.now(), tweetDate };
+    store.set(item.url, mediaItem);
+    
+    // v4.4.0: Thêm vào dirty store để persist delta
+    if (!dirtyMediaStore.has(username)) dirtyMediaStore.set(username, new Map());
+    dirtyMediaStore.get(username).set(item.url, mediaItem);
+
     newCount++;
     if (item.type === 'image') stats.image++;
     else if (item.type === 'gif') stats.gif++;
@@ -650,8 +681,19 @@ async function startCollecting(username, tabId) {
   chrome.tabs.sendMessage(tabId, { type: 'COLLECT_STARTED_LOCAL' }).catch(() => {});
 
   const tab = await chrome.tabs.get(tabId).catch(() => null);
-  if (tab && !tab.url?.includes('/media')) {
-    await chrome.tabs.update(tabId, { url: `https://x.com/${username}/media` });
+  let targetUrl = `https://x.com/${username}/media`;
+  if (username === '_bookmarks_') targetUrl = 'https://x.com/i/bookmarks';
+  else if (username.endsWith('_likes')) targetUrl = `https://x.com/${username.replace('_likes', '')}/likes`;
+
+  // Kiểm tra tab hiện tại có đang ở đúng trang thu thập không
+  const isOnRightPage = tab && (
+    (username === '_bookmarks_' && tab.url?.includes('/i/bookmarks')) ||
+    (username.endsWith('_likes') && tab.url?.includes('/likes')) ||
+    (!username.endsWith('_likes') && username !== '_bookmarks_' && tab.url?.includes('/media'))
+  );
+
+  if (tab && !isOnRightPage) {
+    await chrome.tabs.update(tabId, { url: targetUrl });
     await waitForTabLoad(tabId);
     await sleep(3000);
     // Sau navigate, gửi lại vì content script mới reload
@@ -765,6 +807,15 @@ async function persistSession(username) {
     try {
       const store = mediaStore.get(username);
       if (!store?.size) return; // Không có gì để lưu
+      
+      const dirtyStore = dirtyMediaStore.get(username);
+      if (dirtyStore && dirtyStore.size > 0) {
+        const dirtyItems = Array.from(dirtyStore.values());
+        // v4.4.0: Lưu dirty items vào IndexedDB (Delta Write)
+        await saveMediaItems(username, dirtyItems);
+        // Sau khi lưu thành công, clear dirty store của user này
+        dirtyStore.clear();
+      }
 
       // Lấy scrollCount từ tabState
       let scrollCount = 0;
@@ -774,13 +825,17 @@ async function persistSession(username) {
         }
       });
 
+      let profileUrl = `https://x.com/${username}/media`;
+      if (username === '_bookmarks_') profileUrl = 'https://x.com/i/bookmarks';
+      else if (username.endsWith('_likes')) profileUrl = `https://x.com/${username.replace('_likes', '')}/likes`;
+
       const sessionData = {
         username,
-        profileUrl: `https://x.com/${username}/media`,
+        profileUrl,
         mediaCount: store.size,
         scrollCount,
         savedAt: Date.now(),
-        mediaItems: Array.from(store.values()),
+        // v4.4.0: Bỏ mediaItems khỏi sessionData để nhẹ chrome.storage.local
         stats: statsStore.get(username) || {},
       };
 
@@ -802,7 +857,9 @@ async function clearSession(username) {
   try {
     _persistDebounceMap.get(username) && clearTimeout(_persistDebounceMap.get(username));
     _persistDebounceMap.delete(username);
+    dirtyMediaStore.delete(username);
     await chrome.storage.local.remove([`session_${username}`, 'active_session_username']);
+    await clearMediaItems(username); // v4.4.0: Clear từ IndexedDB
     console.debug(`[SW] Session cleared: @${username}`);
   } catch (_) {}
 }
@@ -1306,6 +1363,9 @@ function downloadFile(url, filename) {
           resolve: safeResolve,
           reject: safeReject,
           startTime,
+          filename: filename.split('/').pop(), // v4.4.0
+          bytesReceived: 0,
+          totalBytes: 0,
         });
 
         // BUG-7 FIX: Race condition check — nếu download đã xong trước khi addListener kịp

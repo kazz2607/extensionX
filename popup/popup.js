@@ -841,8 +841,27 @@ function listenToMessages() {
         }
         break;
 
-      case 'MP4_PROGRESS':
-        setStatus('downloading', `Đang tải xuống máy: ${(payload.bytesReceived / 1024 / 1024).toFixed(1)} MB...`);
+      case 'ACTIVE_DOWNLOADS_UPDATE':
+        // payload: Array<{filename, bytesReceived, totalBytes, speedBps}>
+        const listEl = document.getElementById('active-downloads-list');
+        if (!listEl) break;
+        if (payload && payload.length > 0) {
+          listEl.style.display = 'flex';
+          listEl.innerHTML = payload.map(item => {
+            const formatSize = (bytes) => (bytes / 1024 / 1024).toFixed(1) + ' MB';
+            const speed = (item.speedBps / 1024 / 1024).toFixed(1) + ' MB/s';
+            const percent = item.totalBytes ? Math.round((item.bytesReceived / item.totalBytes) * 100) + '%' : formatSize(item.bytesReceived);
+            return `
+              <div class="active-download-item">
+                <span class="active-download-name" title="${item.filename}">${item.filename}</span>
+                <span class="active-download-speed">${percent} • ${speed}</span>
+              </div>
+            `;
+          }).join('');
+        } else {
+          listEl.style.display = 'none';
+          listEl.innerHTML = '';
+        }
         break;
 
       case 'HLS_PROGRESS':

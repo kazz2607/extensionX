@@ -71,12 +71,20 @@ if (document.readyState === 'loading') {
 function getUsernameFromURL(url = location.href) {
   try {
     const u = new URL(url);
-    const match = u.pathname.match(/^\/([A-Za-z0-9_]{1,50})/);
+    const path = u.pathname;
+    
+    // v4.4.0: Hỗ trợ Bookmarks
+    if (path.includes('/i/bookmarks')) return '_bookmarks_';
+    
+    const match = path.match(/^\/([A-Za-z0-9_]{1,50})/);
     if (match) {
       const reserved = ['home', 'explore', 'notifications', 'messages',
         'search', 'settings', 'i', 'login', 'logout', 'compose'];
-      if (!reserved.includes(match[1].toLowerCase())) {
-        return match[1];
+      const username = match[1];
+      if (!reserved.includes(username.toLowerCase())) {
+        // v4.4.0: Hỗ trợ Likes
+        if (path.includes('/likes')) return username + '_likes';
+        return username;
       }
     }
   } catch (_) {}
@@ -84,7 +92,7 @@ function getUsernameFromURL(url = location.href) {
 }
 
 function isMediaPage(url = location.href) {
-  return url.includes('/media') || url.includes('/photos') || url.includes('/videos');
+  return url.includes('/media') || url.includes('/photos') || url.includes('/videos') || url.includes('/likes') || url.includes('/bookmarks');
 }
 
 // ─── S2: Validate media item từ CustomEvent (bảo vệ khỏi XSS injection) ─────
@@ -228,10 +236,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return false;
   }
 
-  // Điều hướng sang /media
+  // Điều hướng sang /media hoặc trang tương ứng
   if (message.type === 'NAVIGATE_TO_MEDIA') {
     const username = message.payload?.username || getUsernameFromURL();
-    if (username) location.href = `https://x.com/${username}/media`;
+    if (username) {
+      if (username === '_bookmarks_') location.href = 'https://x.com/i/bookmarks';
+      else if (username.endsWith('_likes')) location.href = `https://x.com/${username.replace('_likes', '')}/likes`;
+      else location.href = `https://x.com/${username}/media`;
+    }
     return false;
   }
 

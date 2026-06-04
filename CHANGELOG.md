@@ -2,6 +2,17 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [4.4.0] - 2026-06-04
+### Thêm mới (Added)
+- **[Likes & Bookmarks Tab]:** Hỗ trợ thu thập media từ trang Likes (`/username/likes`) và Bookmarks (`/i/bookmarks`). Extension tự động gán profile ảo `_bookmarks_` và `[username]_likes` để phân biệt thư mục lưu trữ.
+- **[P4/P2 Incremental Persist - IndexedDB]:** Chuyển đổi toàn bộ storage engine của `mediaStore` từ `chrome.storage.local` sang IndexedDB. Sử dụng kỹ thuật Delta Write (chỉ ghi dữ liệu mới) giúp giải quyết triệt để lỗi crash/lag khi thu thập trên 50,000 media items, vượt qua giới hạn 5MB của storage local.
+- **[U2 Visual Progress per File]:** Nâng cấp trải nghiệm tải xuống hàng loạt:
+  - Bắt sự kiện `chrome.downloads.onChanged` trực tiếp trong Service Worker để track tiến độ từng byte.
+  - **Popup UI:** Bổ sung danh sách các file đang tải hiển thị ngay dưới thanh tiến trình, bao gồm tên file, % hoàn thành và tốc độ tải (MB/s).
+  - **Snackbar UI:** Mini snackbar ở góc trang web cũng được cập nhật hiển thị tốc độ tải và tên file realtime.
+
+---
+
 ## [4.3.0] - 2026-06-04
 ### Thêm mới (Added)
 - **[Date Range Filter] Lọc media theo khoảng thời gian trước khi tải:** User có thể giới hạn download chỉ các media được đăng trong khoảng ngày nhất định — không cần tải toàn bộ rồi xóa thủ công.
