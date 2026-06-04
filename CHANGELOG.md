@@ -2,6 +2,12 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [4.5.0] - 2026-06-04
+### Thêm mới (Added)
+- **[P1 Adaptive Scroll Speed]:** Tự động điều chỉnh tốc độ cuộn trang dựa trên tốc độ phản hồi của GraphQL API, giúp tối ưu thời gian thu thập cho máy có mạng nhanh và tránh sót file với mạng chậm. Người dùng có thể bật/tắt trong phần Cài đặt.
+
+---
+
 ## [4.4.0] - 2026-06-04
 ### Thêm mới (Added)
 - **[Likes & Bookmarks Tab]:** Hỗ trợ thu thập media từ trang Likes (`/username/likes`) và Bookmarks (`/i/bookmarks`). Extension tự động gán profile ảo `_bookmarks_` và `[username]_likes` để phân biệt thư mục lưu trữ.

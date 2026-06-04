@@ -5,7 +5,7 @@
 
 ---
 
-## 1. Kiến Trúc Hiện Tại (v4.4.0)
+## 1. Kiến Trúc Hiện Tại (v4.5.0)
 
 ```
 extensionX/
@@ -107,13 +107,14 @@ File được lưu vào:
 - **v3.8.0** Smart Filters — lọc avatar/banner/card-preview + kích thước tối thiểu
 - **v3.9.0** FAB Draggable — drag handle trục Y, viewport clamp, persist `localStorage`
 
-### ✅ Phase 4 — UX Nâng Cao (v4.0.0 → v4.3.0)
+### ✅ Phase 4 — UX Nâng Cao (v4.0.0 → v4.5.0)
 - **v4.0.0** Progress Snackbar — snackbar glassmorphism trên trang, realtime, auto-dismiss, toggle trong Options
 - **v4.0.1** Bug Fixes — 7 lỗi sửa (tweetId guard, format=jpg, async, broadcastToTab, FAB i18n...)
 - **v4.1.0** Duplicate Detection, Security S2, Sanitize S4, Notifications U3, System Theme U6
 - **v4.2.0** Multi-Profile Queue, Popup v2 Tab Navigation (Main/Queue/Stats), Donut Chart, Options Export/Import/Reset
 - **v4.3.0** Date Range Filter — Snowflake ID → timestamp, collapsible date picker, 4 presets, preview count realtime
 - **v4.4.0** Likes & Bookmarks Tab, Incremental Persist (IndexedDB Migration), Visual Progress per File
+- **v4.5.0** Adaptive Scroll Speed (Tự động điều chỉnh thời gian chờ dựa trên tốc độ API)
 
 ---
 
@@ -131,6 +132,7 @@ File được lưu vào:
 | v4.2.0 | **Multi-Profile Queue** — Hàng đợi nhiều profile tuần tự, Popup v2 3-tab, Donut Chart, Export/Import/Reset |
 | v4.3.0 | **Date Range Filter** — Lọc media theo khoảng ngày (Snowflake → timestamp), preset, preview count |
 | v4.4.0 | **Likes & Bookmarks Tab** — Tải từ `/likes` và `/i/bookmarks`, **IndexedDB** lưu siêu tốc, **Visual Progress** per file |
+| v4.5.0 | **Adaptive Scroll Speed** — Đo tốc độ GraphQL tự động tinh chỉnh thời gian chờ cuộn trang, tránh sót file |
 
 ---
 
@@ -156,19 +158,7 @@ File được lưu vào:
 
 ---
 
-### 🟡 4.2. Hiệu Năng (Performance)
 
-#### P1 — Adaptive Scroll Speed (Tốc độ scroll thích nghi)
-**Vấn đề:** Tốc độ scroll hiện tại là fixed (1–6s). Nếu mạng nhanh, có thể scroll nhanh hơn; nếu mạng chậm, cần chờ lâu hơn.
-
-**Đề xuất:**
-- Đo `responseTime` trung bình của các GraphQL request gần nhất (rolling average 5 requests)
-- Tự điều chỉnh `scrollDelay` trong khoảng [0.8s, 6s] dựa trên response time
-- Hiển thị "Adaptive speed: 1.2s" trong FAB hoặc Snackbar
-
-**Files cần sửa:** `content.js`, `page-interceptor.js`
-
----
 
 
 
@@ -260,15 +250,10 @@ File được lưu vào:
 
 | Tính năng | Độ khó | Impact | Ưu tiên |
 |---|---|---|---|
-| **v4.4.0** Likes & Bookmarks Tab | ⭐⭐⭐⭐ | 🔥🔥🔥 | 🟡 Trung bình |
-| **v4.5.0** Keyword / Hashtag Filter | ⭐⭐⭐ | 🔥🔥🔥 | 🟡 Trung bình |
-| **P4** Incremental persist (delta write) | ⭐⭐ | 🔥🔥 | 🟡 Trung bình |
-| **U2** Visual Progress per File | ⭐⭐ | 🔥🔥 | 🟡 Trung bình |
+| **v4.6.0** Keyword / Hashtag Filter | ⭐⭐⭐ | 🔥🔥🔥 | 🟡 Trung bình |
 | **S3** API Rate Limiting | ⭐⭐⭐ | 🔥🔥 | 🟡 Trung bình |
 | **S1** CSRF Token Refresh | ⭐⭐⭐ | 🔥🔥 | 🔵 Thấp |
-| **P1** Adaptive Scroll Speed | ⭐⭐ | 🔥 | 🔵 Thấp |
 | **U4** Compact Mode | ⭐⭐ | 🔥 | 🔵 Thấp |
-| **P2** IndexedDB Migration | ⭐⭐⭐⭐ | 🔥🔥🔥 | 🔵 Long-term |
 | **P3** HLS Song Song Per-File | ⭐⭐⭐ | 🔥 | 🔵 Long-term |
 
 ---
@@ -279,9 +264,10 @@ File được lưu vào:
 v4.1.0  ── Duplicate Detection + S2/S4 Security + U3 Notification + U6 System Theme  ✅ DONE
 v4.2.0  ── Multi-Profile Queue + Popup v2 Tab Navigation + Options Export/Import       ✅ DONE
 v4.3.0  ── Date Range Filter + Snowflake ID parser                                     ✅ DONE
-v4.4.0  ── Likes & Bookmarks Tab + P4 Incremental Persist + U2 Visual Progress
-v4.5.0  ── Keyword Filter + S3 Rate Limiting + S1 CSRF Refresh
-v5.0.0  ── Major rewrite: TypeScript migration, P2 IndexedDB, P1 Adaptive Speed, Full MV3
+v4.4.0  ── Likes & Bookmarks Tab + P4 Incremental Persist + U2 Visual Progress         ✅ DONE
+v4.5.0  ── P1 Adaptive Scroll Speed                                                    ✅ DONE
+v4.6.0  ── Keyword Filter + S3 Rate Limiting + S1 CSRF Refresh
+v5.0.0  ── Major rewrite: TypeScript migration, Full MV3
 ```
 
 ---

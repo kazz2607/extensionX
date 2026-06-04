@@ -786,6 +786,13 @@ function listenToMessages() {
         if (payload.stats) { stats = payload.stats; updateStatTabs(); }
         updateMediaCount(payload.mediaCount);
         updateScrollSpeed(payload.mediaCount);
+        
+        // P1: Adaptive Speed
+        if (payload.adaptiveSpeed) {
+          els.statusSpeed.textContent = ` (Adaptive speed: ${(payload.adaptiveSpeed / 1000).toFixed(1)}s)`;
+        } else {
+          els.statusSpeed.textContent = '';
+        }
         break;
 
       case 'COLLECT_STARTED':

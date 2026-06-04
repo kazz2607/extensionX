@@ -184,6 +184,14 @@ window.addEventListener('XMD_TWEET_DOWNLOAD', (event) => {
   });
 });
 
+// ─── 4c. P1: Lắng nghe X_ADAPTIVE_SPEED từ interceptor ────────────────────────
+let adaptiveAvg = 0;
+window.addEventListener('X_ADAPTIVE_SPEED', (event) => {
+  if (event.detail && event.detail.avgResponseTime) {
+    adaptiveAvg = event.detail.avgResponseTime;
+  }
+});
+
 // ─── 5. Lắng nghe lệnh từ service worker ─────────────────────────────────────
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
@@ -218,7 +226,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         done: true,
         reachedEnd: !isHidden && isAtBottom && (newHeight <= prevHeight + 50),
         scrollHeight: newHeight,
-        isHidden: isHidden
+        isHidden: isHidden,
+        adaptiveAvg: adaptiveAvg
       });
     }, message.waitMs || 2000);
 

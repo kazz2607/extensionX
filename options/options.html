@@ -401,6 +401,18 @@
 
       <div class="option-row">
         <div class="option-label">
+          <strong data-i18n="opt_adaptive_scroll">Adaptive scroll speed</strong>
+          <span data-i18n="opt_adaptive_scroll_desc">Dynamically adjust delay based on network speed (GraphQL response time).</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="opt-adaptive-scroll" />
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+
+      <div class="option-row" id="row-scroll-delay">
+        <div class="option-label">
           <strong data-i18n="opt_scroll_delay">Scroll delay (seconds)</strong>
           <span data-i18n="opt_scroll_delay_desc">Time to wait between scrolls. Increase if internet is slow.</span>
         </div>

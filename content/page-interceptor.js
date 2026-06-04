@@ -97,10 +97,24 @@
     }));
   }
 
+  // ─── P1: Adaptive Speed Tracker ───────────────────────────────────────────────
+  const recentDurations = [];
+  function reportResponseTime(duration) {
+    if (duration > 30000) return; // Bỏ qua nếu bất thường (>30s)
+    recentDurations.push(duration);
+    if (recentDurations.length > 5) recentDurations.shift();
+    const sum = recentDurations.reduce((a, b) => a + b, 0);
+    const avg = Math.round(sum / recentDurations.length);
+    window.dispatchEvent(new CustomEvent('X_ADAPTIVE_SPEED', {
+      detail: { avgResponseTime: avg }
+    }));
+  }
+
   // ─── 1. Hook window.fetch ────────────────────────────────────────────────────
   const _originalFetch = window.fetch;
   window.fetch = async function (resource, init) {
     let url = '';
+    const startTime = Date.now();
     try {
       if (typeof resource === 'string') url = resource;
       else if (resource instanceof URL) url = resource.href;
@@ -109,10 +123,12 @@
     } catch (_) {}
     
     const response = await _originalFetch.apply(this, arguments);
+    const duration = Date.now() - startTime;
     
     // Intercept ALL GraphQL JSON responses
     try {
       if (url.includes('/graphql/')) {
+        reportResponseTime(duration);
         const clone = response.clone();
         clone.json().then(data => {
           const mediaItems = [];
@@ -210,10 +226,13 @@
 
   const _originalXhrSend = XMLHttpRequest.prototype.send;
   XMLHttpRequest.prototype.send = function (body) {
+    const startTime = Date.now();
     this.addEventListener('load', function() {
+      const duration = Date.now() - startTime;
       try {
         const url = this._interceptUrl || this.responseURL || '';
         if (url.includes('/graphql/')) {
+          reportResponseTime(duration);
           const text = this.responseText;
           const data = JSON.parse(text);
           const mediaItems = [];

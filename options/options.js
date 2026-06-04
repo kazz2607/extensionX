@@ -7,6 +7,7 @@ const DEFAULT_OPTIONS = {
   mediaTypes: { images: true, videos: true, gifs: true },
   imgQuality: 'orig',
   autoScroll: false,
+  adaptiveScroll: true,
   scrollDelay: 2,
   maxScrolls: 200,
   concurrency: 3,
@@ -35,6 +36,7 @@ async function loadOptions() {
   document.getElementById('opt-gifs').checked        = opts.mediaTypes?.gifs ?? true;
   document.getElementById('opt-img-quality').value   = opts.imgQuality || 'orig';
   document.getElementById('opt-auto-scroll').checked = opts.autoScroll || false;
+  document.getElementById('opt-adaptive-scroll').checked = opts.adaptiveScroll ?? true;
   document.getElementById('opt-scroll-delay').value  = opts.scrollDelay || 2;
   document.getElementById('opt-max-scrolls').value   = opts.maxScrolls || 200;
   document.getElementById('opt-concurrency').value   = opts.concurrency || 3;
@@ -68,6 +70,7 @@ async function saveOptions() {
     },
     imgQuality:  document.getElementById('opt-img-quality').value,
     autoScroll:  document.getElementById('opt-auto-scroll').checked,
+    adaptiveScroll: document.getElementById('opt-adaptive-scroll').checked,
     scrollDelay: parseFloat(document.getElementById('opt-scroll-delay').value) || 2,
     maxScrolls:  parseInt(document.getElementById('opt-max-scrolls').value) || 200,
     concurrency: parseInt(document.getElementById('opt-concurrency').value) || 3,
@@ -142,6 +145,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadOptions();
 
   document.getElementById('btn-save').addEventListener('click', saveOptions);
+
+  const adaptiveToggle = document.getElementById('opt-adaptive-scroll');
+  const delayRow = document.getElementById('row-scroll-delay');
+  const delaySlider = document.getElementById('opt-scroll-delay');
+  
+  const updateDelayRowState = () => {
+    if (adaptiveToggle.checked) {
+      delayRow.style.opacity = '0.5';
+      delaySlider.disabled = true;
+    } else {
+      delayRow.style.opacity = '1';
+      delaySlider.disabled = false;
+    }
+  };
+  
+  adaptiveToggle.addEventListener('change', updateDelayRowState);
+  // initial state
+  updateDelayRowState();
 
   document.getElementById('opt-scroll-delay').addEventListener('input', (e) => {
     updateScrollLabel(e.target.value);

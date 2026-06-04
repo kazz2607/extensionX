@@ -711,7 +711,10 @@ async function scrollLoop(tabId, username) {
   } catch (_) {}
 
   const MAX_SCROLLS = opts.maxScrolls || 200;
-  const DELAY_MS = (opts.scrollDelay || 2) * 1000;
+  let baseDelayMs = (opts.scrollDelay || 2) * 1000;
+  const isAdaptive = opts.adaptiveScroll !== false; // Mặc định bật nếu không có
+  
+  let currentDelayMs = baseDelayMs;
   let noNewCount = 0;
 
   while (true) {
@@ -731,7 +734,7 @@ async function scrollLoop(tabId, username) {
     let scrollResult;
     try {
       scrollResult = await chrome.tabs.sendMessage(tabId, {
-        type: 'SCROLL_DOWN', waitMs: Math.max(DELAY_MS, 2000),
+        type: 'SCROLL_DOWN', waitMs: Math.max(currentDelayMs, 2000),
       });
       if (scrollResult?.error === 'not_media_page') {
         stopCollecting(username);
@@ -742,10 +745,15 @@ async function scrollLoop(tabId, username) {
     state.scrollCount++;
     tabState.set(tabId, state);
 
+    if (isAdaptive && scrollResult?.adaptiveAvg > 0) {
+      currentDelayMs = Math.min(Math.max(Math.round(scrollResult.adaptiveAvg * 1.5 + 800), 1000), 6000);
+    }
+
     const currentCount = mediaStore.get(username)?.size || 0;
     broadcastToPopup('SCROLL_PROGRESS', {
       username, scrollCount: state.scrollCount,
       mediaCount: currentCount, stats: statsStore.get(username) || {},
+      adaptiveSpeed: isAdaptive ? currentDelayMs : null
     });
 
     updateFAB(tabId, username, state.scrollCount);
@@ -774,7 +782,7 @@ async function scrollLoop(tabId, username) {
       noNewCount = 0;
     }
 
-    await sleep(DELAY_MS + Math.random() * (DELAY_MS * 0.4));
+    await sleep(currentDelayMs + Math.random() * (currentDelayMs * 0.4));
   }
 }
 
