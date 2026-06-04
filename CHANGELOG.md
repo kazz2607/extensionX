@@ -2,6 +2,13 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [4.8.0] - 2026-06-04
+### Thêm mới (Added)
+- **[Keyword / Hashtag Filter]:** Giờ đây bạn có thể lọc media theo từ khóa hoặc hashtag! Thêm ô "Keyword / Hashtag" trong phần Date Range. Plugin sẽ trích xuất nội dung text của tweet từ API và chỉ giữ lại những media nằm trong các tweet có chứa từ khóa đó (ví dụ: gõ "cats" sẽ chỉ tải các hình/video trong tweet nói về cats).
+- **[U4 Compact Mode]:** Thêm nút thu gọn ở góc trên cùng bên phải Popup. Bật chế độ này sẽ thu nhỏ Popup lại, ẩn các tính năng như Queue, Stats, History, Filter để làm cho giao diện trở nên gọn gàng, siêu tốc, phù hợp cho những ai chỉ muốn "Click là tải" mà không quan tâm đến các thống kê hay thông số. Cài đặt được lưu lại (`persist`) cho những lần mở sau.
+
+---
+
 ## [4.7.0] - 2026-06-04
 ### Thêm mới (Added)
 - **[S3 API Rate Limiting]:** Implement **Token Bucket** rate limiter trong `tweet-api.js` — tối đa 20 calls/phút (1 token mỗi 3 giây). Áp dụng cho cả 3 layer (User Session, Syndication, Guest API). Tự động throttle thay vì drop request, giúp tránh bị X.com block IP hoặc suspend account.

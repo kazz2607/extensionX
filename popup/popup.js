@@ -16,6 +16,7 @@ let downloadQueue = [];      // v4.2.0: Multi-Profile Queue
 let dateFrom = '';           // v4.3.0: Date Range Filter (YYYY-MM-DD)
 let dateTo   = '';           // v4.3.0: Date Range Filter (YYYY-MM-DD)
 let _dateRangeOpen = false;  // trạng thái mở/đóng collapsible
+let filterKeyword = '';      // v4.8.0: Keyword / Hashtag Filter
 
 // ─── DOM ───────────────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -57,6 +58,7 @@ const els = {
   btnSettings:   $('btn-settings'),
   btnReload:     $('btn-reload'),
   btnTheme:      $('btn-theme'),
+  btnCompact:    $('btn-compact'), // v4.8.0
   historyList:   $('history-list'),
   btnHistClear:  $('btn-history-clear'),
   toast:         $('toast'),
@@ -92,6 +94,7 @@ const els = {
   btnDaterangeClear:   $('btn-daterange-clear'),
   inputDateFrom:       $('filter-date-from'),
   inputDateTo:         $('filter-date-to'),
+  inputKeyword:        $('filter-keyword'), // v4.8.0
   daterangeCountRow:   $('daterange-count-row'),
   daterangeCountText:  $('daterange-count-text'),
 };
@@ -103,6 +106,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.i18n.applyToDOM();
   }
   await applyTheme();
+  await applyCompactMode(); // v4.8.0
   await loadHistory();
   await loadQueue();                // v4.2.0
   await checkSavedSession();
@@ -112,6 +116,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupDateRange();                 // v4.3.0
   listenToMessages();
 });
+
+// ─── Compact Mode (v4.8.0) ──────────────────────────────────────────────────
+async function applyCompactMode() {
+  const stored = await chrome.storage.local.get('compactMode').catch(() => ({}));
+  if (stored.compactMode) {
+    document.body.classList.add('compact-mode');
+  }
+}
+
+function toggleCompactMode() {
+  const isCompact = document.body.classList.toggle('compact-mode');
+  chrome.storage.local.set({ compactMode: isCompact });
+}
 
 // ─── Theme ─────────────────────────────────────────────────────────────────
 async function applyTheme() {
@@ -156,12 +173,14 @@ function setupDateRange() {
     _debounceTimer = setTimeout(() => {
       dateFrom = els.inputDateFrom.value;
       dateTo   = els.inputDateTo.value;
+      filterKeyword = els.inputKeyword ? els.inputKeyword.value.trim() : '';
       updateDateRangeUI();
       updateDateRangeCount();
     }, 300);
   };
   els.inputDateFrom.addEventListener('change', onDateChange);
   els.inputDateTo.addEventListener('change', onDateChange);
+  if (els.inputKeyword) els.inputKeyword.addEventListener('input', onDateChange); // v4.8.0
 
   // Preset buttons
   document.querySelectorAll('.btn-preset').forEach(btn => {
@@ -204,9 +223,10 @@ function setupDateRange() {
 }
 
 function clearDateRange() {
-  dateFrom = ''; dateTo = '';
+  dateFrom = ''; dateTo = ''; filterKeyword = '';
   if (els.inputDateFrom) els.inputDateFrom.value = '';
   if (els.inputDateTo)   els.inputDateTo.value   = '';
+  if (els.inputKeyword)  els.inputKeyword.value  = '';
   document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
   updateDateRangeUI();
   if (els.daterangeCountRow) els.daterangeCountRow.style.display = 'none';
@@ -214,7 +234,7 @@ function clearDateRange() {
 }
 
 function updateDateRangeUI() {
-  const hasFilter = !!dateFrom || !!dateTo;
+  const hasFilter = !!dateFrom || !!dateTo || !!filterKeyword;
 
   if (els.daterangeToggle) els.daterangeToggle.classList.toggle('has-filter', hasFilter);
   if (els.daterangeActiveBadge) els.daterangeActiveBadge.style.display = hasFilter ? 'inline' : 'none';
@@ -229,13 +249,14 @@ async function updateDateRangeCount() {
   if (!currentUsername) return;
   if (!dateFrom && !dateTo) return;
 
-  clearTimeout(_countTimer);
+    clearTimeout(_countTimer);
   _countTimer = setTimeout(async () => {
     const res = await sendBG('GET_MEDIA_COUNT_FILTERED', {
       username: currentUsername,
       filterType: activeFilter,
       dateFrom,
       dateTo,
+      keyword: filterKeyword,
     });
     const count = res?.count ?? 0;
     if (els.daterangeCountRow) els.daterangeCountRow.style.display = 'flex';
@@ -349,6 +370,7 @@ async function addCurrentToQueue() {
     username: currentUsername,
     filterType: activeFilter,
     skipDuplicates,
+    keyword: filterKeyword,
   });
   if (res?.error === 'Already in queue') {
     showToast(`@${currentUsername} đã trong hàng đợi`, 'info');
@@ -675,6 +697,7 @@ function setupListeners() {
         // v4.3.0: Truyền date range vào SW
         dateFrom: dateFrom || undefined,
         dateTo:   dateTo   || undefined,
+        keyword:  filterKeyword || undefined, // v4.8.0
       }
     });
   });
@@ -755,6 +778,11 @@ function setupListeners() {
 
   // Theme toggle
   els.btnTheme.addEventListener('click', toggleTheme);
+
+  // Compact Mode toggle
+  if (els.btnCompact) {
+    els.btnCompact.addEventListener('click', toggleCompactMode);
+  }
 
   // History clear
   els.btnHistClear.addEventListener('click', async () => {

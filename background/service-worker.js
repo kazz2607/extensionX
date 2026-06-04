@@ -440,7 +440,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // v4.3.0: Đếm media theo filter type + date range (cho popup preview)
     case 'GET_MEDIA_COUNT_FILTERED': {
-      const { username, filterType, dateFrom, dateTo } = payload;
+      const { username, filterType, dateFrom, dateTo, keyword } = payload;
       const store = mediaStore.get(username);
       if (!store) { sendResponse({ count: 0 }); return true; }
 
@@ -461,6 +461,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const d = item.tweetDate || 0;
           return d >= from && d <= to;
         });
+      }
+      // v4.8.0: Filter theo keyword
+      if (keyword && keyword.trim()) {
+        const kw = keyword.toLowerCase().trim();
+        items = items.filter(item => (item.tweetText || '').toLowerCase().includes(kw));
       }
 
       sendResponse({ count: items.length });
@@ -1190,6 +1195,15 @@ async function startDownload(username, options = {}) {
     });
     const dateFiltered = beforeDate - items.length;
     if (dateFiltered > 0) console.log(`[SW] Date filter: ${dateFiltered} items ngoài khoảng ngày — bỏ qua`);
+  }
+
+  // v4.8.0: Lọc theo Keyword
+  if (options.keyword && options.keyword.trim()) {
+    const kw = options.keyword.toLowerCase().trim();
+    const beforeKw = items.length;
+    items = items.filter(item => (item.tweetText || '').toLowerCase().includes(kw));
+    const kwFiltered = beforeKw - items.length;
+    if (kwFiltered > 0) console.log(`[SW] Keyword filter: ${kwFiltered} items không chứa keyword — bỏ qua`);
   }
 
   // v4.1.0: Duplicate Detection — load downloaded URLs rồi lọc ra

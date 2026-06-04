@@ -934,3 +934,43 @@ body {
 .active-download-item { display: flex; align-items: center; justify-content: space-between; font-size: 10px; background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); }
 .active-download-name { color: var(--text-sec); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
 .active-download-speed { color: var(--accent); font-weight: 500; font-family: monospace; }
+
+/* v4.8.0: Keyword Filter */
+.keyword-field { margin-top: 6px; margin-bottom: 8px; }
+.keyword-field label { display: block; font-size: 10px; color: var(--text-secondary); margin-bottom: 4px; font-weight: 500; }
+.keyword-input {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 11px;
+  outline: none;
+  transition: all var(--transition);
+}
+.keyword-input:focus { border-color: var(--accent); box-shadow: var(--shadow-glow); }
+
+/* v4.8.0: Compact Mode */
+body.compact-mode {
+  width: 320px; /* Nhỏ hơn chút */
+}
+body.compact-mode .bottom-nav { display: none; }
+body.compact-mode .header { padding: 8px 12px; }
+body.compact-mode .profile-section { padding: 8px 12px; }
+body.compact-mode .actions-section { padding: 8px 12px; }
+body.compact-mode .tabs-section,
+body.compact-mode #section-daterange,
+body.compact-mode #section-folder,
+body.compact-mode .scroll-section,
+body.compact-mode .skip-duplicates-wrap,
+body.compact-mode #btn-queue-add,
+body.compact-mode #btn-csv,
+body.compact-mode #btn-clear {
+  display: none !important;
+}
+body.compact-mode .btn-icon { width: 28px; height: 28px; }
+body.compact-mode .logo { width: 28px; height: 28px; }
+body.compact-mode .app-name { font-size: 13px; }
+body.compact-mode .btn-compact { color: var(--accent); background: var(--accent-glow); border-color: var(--accent); }

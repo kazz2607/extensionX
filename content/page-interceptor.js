@@ -177,7 +177,8 @@
               url: bestMp4.url,
               tweetId,
               mediaKey: media.media_key || media.id_str || tweetId,
-              ext: isHls ? 'm3u8' : 'mp4'
+              ext: isHls ? 'm3u8' : 'mp4',
+              tweetText: obj.full_text || ''
             });
           }
         } else if (type === 'photo') {
@@ -199,6 +200,7 @@
                width:    media.original_info?.width  || 0,
                height:   media.original_info?.height || 0,
                mediaKey: media.media_key || media.id_str || tweetId,
+               tweetText: obj.full_text || '',
              });
            }
         }

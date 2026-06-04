@@ -44,6 +44,12 @@
           <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
         </svg>
       </button>
+      <button class="btn-icon btn-compact" id="btn-compact" title="Thu gọn giao diện">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/>
+          <line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/>
+        </svg>
+      </button>
       <button class="btn-icon" id="btn-settings" title="Cài đặt">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3"/>
@@ -146,6 +152,10 @@
                 <label for="filter-date-to">To</label>
                 <input type="date" id="filter-date-to" class="date-input" />
               </div>
+            </div>
+            <div class="keyword-field">
+              <label for="filter-keyword">Keyword / Hashtag</label>
+              <input type="text" id="filter-keyword" class="keyword-input" placeholder="e.g. #space or cats" />
             </div>
             <div class="daterange-presets">
               <button class="btn-preset" data-preset="7d">7 days</button>
