@@ -27,7 +27,28 @@ function handleContextInvalidated() {
   _contextDead = true;
   try { navObserver?.disconnect(); } catch (_) {}
   // Dùng console.debug thay vì warn — Chrome không log debug vào trang errors
-  console.debug('[XMD] Extension context invalidated — content script disconnected.');
+  console.debug('[X Media Downloader] Extension context invalidated. Page reload required.');
+}
+
+// Hàm gửi message an toàn, tự động bắt lỗi context bị huỷ
+function safeSendMessage(message) {
+  if (_contextDead || !isExtensionValid()) {
+    handleContextInvalidated();
+    return Promise.reject(new Error('Extension context invalidated'));
+  }
+  try {
+    return chrome.runtime.sendMessage(message).catch(err => {
+      if (err?.message?.includes('Extension context invalidated')) {
+        handleContextInvalidated();
+      }
+      throw err;
+    });
+  } catch (err) {
+    if (err?.message?.includes('Extension context invalidated')) {
+      handleContextInvalidated();
+    }
+    return Promise.reject(err);
+  }
 }
 
 // ─── 1. Inject scripts vào page context ──────────────────────────────────────
@@ -60,7 +81,12 @@ async function injectAll() {
   injectScript('content/snackbar.js');
   
   // Đọc lang và gửi cho page (để i18n.js trong page update)
-  const stored = await chrome.storage.local.get('lang').catch(() => ({}));
+  let stored: any = {};
+  try {
+    stored = await chrome.storage.local.get('lang').catch(() => ({}));
+  } catch (err) {
+    console.debug('Failed to load lang', err);
+  }
 // @ts-ignore
   const lang = stored.lang || 'en';
   // Chờ một chút để các script được inject và parse
@@ -127,12 +153,6 @@ window.addEventListener('X_MEDIA_FOUND', (event) => {
   const { mediaItems, sourceUrl } = event.detail;
   if (!mediaItems?.length) return;
 
-  // BUG-3 FIX: Kiểm tra context trước khi sendMessage
-  if (_contextDead || !isExtensionValid()) {
-    handleContextInvalidated();
-    return;
-  }
-
   const username = getUsernameFromURL();
   // Bỏ qua nếu không xác định được username (trang Home, Explore...)
   if (!username) return;
@@ -141,7 +161,7 @@ window.addEventListener('X_MEDIA_FOUND', (event) => {
   const validItems = mediaItems.filter(validateMediaItem);
   if (!validItems.length) return;
 
-  chrome.runtime.sendMessage({
+  safeSendMessage({
     type: 'MEDIA_FOUND',
     payload: {
       username: username || 'unknown',
@@ -149,12 +169,7 @@ window.addEventListener('X_MEDIA_FOUND', (event) => {
       sourceUrl,
       pageUrl: location.href,
     }
-  }).catch((err) => {
-    // Nếu context bị invalidate → cleanup
-    if (err?.message?.includes('Extension context invalidated')) {
-      handleContextInvalidated();
-    }
-  });
+  }).catch(() => {});
 });
 
 
@@ -164,14 +179,13 @@ window.addEventListener('XMD_FAB_ACTION', (event) => {
   const { action } = event.detail || {};
   const username = getUsernameFromURL();
   if (!username) return;
-  if (_contextDead || !isExtensionValid()) { handleContextInvalidated(); return; } // BUG-3 FIX
 
   if (action === 'START_COLLECTING') {
-    chrome.runtime.sendMessage({ type: 'START_COLLECTING', payload: { username } }).catch(() => {});
+    safeSendMessage({ type: 'START_COLLECTING', payload: { username } }).catch(() => {});
   } else if (action === 'STOP_COLLECTING') {
-    chrome.runtime.sendMessage({ type: 'STOP_COLLECTING', payload: { username } }).catch(() => {});
+    safeSendMessage({ type: 'STOP_COLLECTING', payload: { username } }).catch(() => {});
   } else if (action === 'START_DOWNLOAD') {
-    chrome.runtime.sendMessage({ type: 'START_DOWNLOAD', payload: { username, options: {} } }).catch(() => {});
+    safeSendMessage({ type: 'START_DOWNLOAD', payload: { username, options: {} } }).catch(() => {});
   }
 });
 
@@ -181,19 +195,15 @@ window.addEventListener('XMD_TWEET_DOWNLOAD', (event) => {
 // @ts-ignore
   const { tweetId, username } = event.detail || {};
   if (!tweetId) return;
-  if (_contextDead || !isExtensionValid()) { handleContextInvalidated(); return; }
 
-  chrome.runtime.sendMessage({
+  safeSendMessage({
     type: 'DOWNLOAD_TWEET',
     payload: {
       tweetId,
       username: username || getUsernameFromURL() || 'unknown',
+      sourceUrl: location.href
     }
-  }).catch((err) => {
-    if (err?.message?.includes('Extension context invalidated')) {
-      handleContextInvalidated();
-    }
-  });
+  }).catch(() => {});
 });
 
 // ─── 4c. P1: Lắng nghe X_ADAPTIVE_SPEED từ interceptor ────────────────────────
@@ -340,7 +350,7 @@ window.addEventListener('load', () => {
   if (username) {
     const match = document.cookie.match(/(?:^|;\s*)ct0=([^;]*)/);
     const ct0 = match ? match[1] : '';
-    chrome.runtime.sendMessage({
+    safeSendMessage({
       type: 'PAGE_LOADED',
       payload: {
         username,
@@ -364,23 +374,12 @@ const navObserver = new MutationObserver(() => {
     }
     const username = getUsernameFromURL();
     if (username) {
-      try {
-        const match = document.cookie.match(/(?:^|;\s*)ct0=([^;]*)/);
-        const ct0 = match ? match[1] : '';
-        chrome.runtime.sendMessage({
-          type: 'PAGE_LOADED',
-          payload: { username, url: location.href, isMediaPage: isMediaPage(), ct0 }
-        }).catch((err) => {
-          if (err?.message?.includes('Extension context invalidated')) {
-            handleContextInvalidated();
-          }
-        });
-      } catch (err) {
-// @ts-ignore
-        if (err?.message?.includes('Extension context invalidated')) {
-          handleContextInvalidated();
-        }
-      }
+      const match = document.cookie.match(/(?:^|;\s*)ct0=([^;]*)/);
+      const ct0 = match ? match[1] : '';
+      safeSendMessage({
+        type: 'PAGE_LOADED',
+        payload: { username, url: location.href, isMediaPage: isMediaPage(), ct0 }
+      }).catch(() => {});
     }
   }
 });
