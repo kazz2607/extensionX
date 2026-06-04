@@ -266,6 +266,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Call once to init with current state
   setTimeout(updateFolderPreview, 100);
+
+  // Auto-save khi thay đổi bất kỳ setting nào
+  document.querySelectorAll('input').forEach(input => {
+    input.addEventListener('change', saveOptions);
+  });
 });
 
 // ─── Theme ─────────────────────────────────────────────────────────────────
