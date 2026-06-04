@@ -267,8 +267,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Call once to init with current state
   setTimeout(updateFolderPreview, 100);
 
+  // Debounce helper
+  function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+  }
+
+  const debouncedSave = debounce(saveOptions, 500);
+
   // Auto-save khi thay đổi bất kỳ setting nào
   document.querySelectorAll('input').forEach(input => {
+    if (input.type === 'text' || input.type === 'number') {
+      input.addEventListener('input', debouncedSave);
+    }
     input.addEventListener('change', saveOptions);
   });
 });
