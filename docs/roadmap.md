@@ -1,11 +1,11 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-06-04 | Phiên bản hiện tại: **5.0.0**
+> Cập nhật: 2026-06-04 | Phiên bản hiện tại: **5.0.2**
 
 ---
 
-## 1. Kiến Trúc Hiện Tại (v5.0.0)
+## 1. Kiến Trúc Hiện Tại (v5.0.2)
 
 ```text
 extensionX/
@@ -13,7 +13,7 @@ extensionX/
 ├── tsconfig.json                  # Cấu hình TypeScript (strict: true)
 ├── vite.config.ts                 # Cấu hình Vite bundler
 ├── src/
-│   ├── manifest.json              # Chrome Extension Manifest V3 (version 5.0.0)
+│   ├── manifest.json              # Chrome Extension Manifest V3 (version 5.0.2)
 │   ├── background/
 │   │   ├── service-worker.ts      # Service Worker: core logic, queue, date filter
 │   │   ├── tweet-api.ts           # Fallback API & User Session bypass CORS
@@ -151,6 +151,7 @@ File được lưu vào:
 | v4.7.0 | **S3 Rate Limiting + S1 CSRF Auto-Refresh** — Token Bucket 20 calls/phút, tự động refresh ct0 khi 403 |
 | v4.8.0 | **Keyword Filter + Compact Mode** — Lọc media theo text của tweet, Giao diện thu gọn siêu tốc |
 | v5.0.0 | **Major TypeScript Rewrite** — Chuyển đổi 100% codebase sang TypeScript, sử dụng Vite Bundler & ESM |
+| v5.0.2 | **Vite Bundle Fixes** — Fix lỗi không copy resources và scripts động ở chế độ production build |
 
 ---
 
@@ -223,9 +224,9 @@ File được lưu vào:
 
 ```
 [QUÁ KHỨ]
-v4.7.0  ── S3 Rate Limiting (Token Bucket) + S1 CSRF Auto-Refresh                      ✅ DONE
 v4.8.0  ── Keyword / Hashtag Filter + U4 Compact Mode                                  ✅ DONE
 v5.0.0  ── Major rewrite: TypeScript migration, Vite Bundler, Modularization           ✅ DONE
+v5.0.2  ── Vite Bundle Fixes for Production Mode                                       ✅ DONE
 
 [TƯƠNG LAI]
 v6.0.0  ── Full-page Dashboard, Masonry Media Gallery, Bulk Selection

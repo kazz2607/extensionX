@@ -2,6 +2,13 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [5.0.2] - 2026-06-04
+### Bug Fixes
+- **[Vite Build Fix]:** Sửa lỗi nghiêm trọng `page-interceptor` và các scripts inject động không được bundle vào thư mục `dist/`.
+- Cấu hình `vite.config.ts` để build độc lập các `web_accessible_resources`. Di chuyển `rules.json` vào thư mục `src/public` để Vite copy sang `dist/` thành công.
+
+---
+
 ## [5.0.1] - 2026-06-04
 ### Sửa lỗi (Fixed)
 - **[Không get được URL media sau migrate Vite/TypeScript]:** Sửa `web_accessible_resources` trong manifest từ các đường dẫn `.ts` sang `.js` đúng với artifact build. Trước đó `content.js` inject `content/page-interceptor.js`, `dom-scanner.js`, `fab.js`, `tweet-btn.js`, `snackbar.js` và `lib/i18n.js`, nhưng Chrome MV3 không cho page load vì manifest chỉ whitelist file `.ts`; hậu quả là interceptor/DOM scanner không chạy và không bắt được URL ảnh/video như bản 4.8.
