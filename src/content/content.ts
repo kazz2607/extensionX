@@ -198,6 +198,7 @@ window.addEventListener('XMD_TWEET_DOWNLOAD', (event) => {
 
 // ─── 4c. P1: Lắng nghe X_ADAPTIVE_SPEED từ interceptor ────────────────────────
 let adaptiveAvg = 0;
+let contentIsCollecting = false;
 window.addEventListener('X_ADAPTIVE_SPEED', (event) => {
 // @ts-ignore
   if (event.detail && event.detail.avgResponseTime) {
@@ -313,11 +314,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   // Theo dõi trạng thái collecting → kiểm soát relay media
   if (message.type === 'COLLECT_STARTED_LOCAL') {
-    isCollecting = true;
+    contentIsCollecting = true;
     return false;
   }
   if (message.type === 'COLLECT_STOPPED_LOCAL') {
-    isCollecting = false;
+    contentIsCollecting = false;
     return false;
   }
 

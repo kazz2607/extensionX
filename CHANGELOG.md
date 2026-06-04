@@ -2,6 +2,13 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [5.0.1] - 2026-06-04
+### Sửa lỗi (Fixed)
+- **[Không get được URL media sau migrate Vite/TypeScript]:** Sửa `web_accessible_resources` trong manifest từ các đường dẫn `.ts` sang `.js` đúng với artifact build. Trước đó `content.js` inject `content/page-interceptor.js`, `dom-scanner.js`, `fab.js`, `tweet-btn.js`, `snackbar.js` và `lib/i18n.js`, nhưng Chrome MV3 không cho page load vì manifest chỉ whitelist file `.ts`; hậu quả là interceptor/DOM scanner không chạy và không bắt được URL ảnh/video như bản 4.8.
+- **[Content script ReferenceError]:** Khai báo trạng thái collecting riêng trong `content.ts` để tránh lỗi khi Service Worker gửi `COLLECT_STARTED_LOCAL` / `COLLECT_STOPPED_LOCAL`.
+
+---
+
 ## [5.0.0] - 2026-06-04
 ### Major Rewrite (Đại tu kiến trúc)
 - **[Full TypeScript Migration]:** Chuyển đổi toàn bộ 100% source code từ Vanilla JS sang **TypeScript** (`strict: true`). Giúp loại bỏ hoàn toàn các lỗi runtime tiềm ẩn, cải thiện logic, và tăng cường tính ổn định của ứng dụng.

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_appName__",
-  "version": "5.0.0",
+  "version": "5.0.1",
 
   "description": "__MSG_appDesc__",
   "default_locale": "en",
@@ -52,14 +52,14 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "content/page-interceptor.ts",
-        "content/dom-scanner.ts",
-        "content/fab.ts",
-        "content/tweet-btn.ts",
-        "content/snackbar.ts",
-        "lib/utils.ts",
-        "lib/hls-fetcher.ts",
-        "lib/i18n.ts"
+        "content/page-interceptor.js",
+        "content/dom-scanner.js",
+        "content/fab.js",
+        "content/tweet-btn.js",
+        "content/snackbar.js",
+        "lib/utils.js",
+        "lib/hls-fetcher.js",
+        "lib/i18n.js"
       ],
       "matches": ["https://x.com/*", "https://twitter.com/*"]
     }
