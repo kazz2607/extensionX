@@ -142,49 +142,43 @@ File được lưu vào:
 
 ---
 
-## 4. Đề Xuất Phát Triển Tiếp Theo
+## 4. Đề Xuất Phát Triển Tiếp Theo (Phase 5+)
 
-> Độ ưu tiên: 🔴 Cao — 🟡 Trung bình — 🔵 Thấp/Tùy chọn
-
----
-
-### 🔴 4.1. Tính Năng Mới (Features)
-
-
-
-#### v4.5.0 — Keyword / Hashtag Filter
-**Vấn đề:** User muốn chỉ tải media từ các tweet có chứa từ khoá nhất định (ví dụ: tải ảnh từ các tweet về "space" của NASA).
-
-**Đề xuất:**
-- Lưu `tweetText` vào mỗi media item (extract từ GraphQL response)
-- Thêm filter ô "Keyword" trong popup Date Range section
-- SW filter theo `tweetText.includes(keyword)` trước khi download
-
-**Files cần sửa:** `page-interceptor.js`, `service-worker.js`, `popup.html`, `popup.js`
+> Dự án đã hoàn thiện xuất sắc toàn bộ các tính năng cốt lõi ở **Phase 4** (v4.8.0). Dưới đây là lộ trình đề xuất cho các Phase tiếp theo để nâng tầm dự án từ một "tool nhỏ" thành một "Nền tảng Quản lý Media" chuyên nghiệp.
 
 ---
 
+### 🔴 4.1. Phase 5 — Kiến trúc mới & Độ ổn định (v5.0.0)
 
+**Vấn đề:** Codebase hiện tại là Vanilla JS. File `service-worker.js` đã dài hơn 1600 dòng, `popup.js` gần 1000 dòng. Việc bảo trì, thêm tính năng mới hoặc debug sẽ ngày càng khó khăn và dễ gây ra side-effect.
 
-
-
-### 🔴 4.3. Bảo Mật (Security)
-
-### 🟡 4.4. Giao Diện (UI/UX)
-
-
-
-#### U4 — Popup Mini Mode (Compact View)
-**Vấn đề:** Popup hiện khá đầy đủ tính năng nhưng có thể cồng kềnh khi cần thao tác nhanh.
-
-**Đề xuất:**
-- Thêm nút **"Compact"** — ẩn tabs, history, folder info
-- Compact mode: badge count + 2 nút Collect/Download + status line
-- Persist compact preference vào `chrome.storage.local`
-
-**Files cần sửa:** `popup.html`, `popup.css`, `popup.js`
+**Đề xuất (TypeScript & Bundler):**
+- Đập đi xây lại (Rewrite) bằng **TypeScript** để có type-safety, dễ dàng auto-complete và hạn chế lỗi runtime.
+- Chia nhỏ logic thành các ES Modules riêng biệt (VD: `queue.ts`, `api.ts`, `storage.ts`, `hls.ts`).
+- Sử dụng **Vite** hoặc **Webpack** để bundle code cho Chrome Extension.
+- Cập nhật hoàn toàn lên chuẩn **Manifest V3** khắt khe nhất (bỏ các polyfill cũ nếu có).
 
 ---
+
+### 🟡 4.2. Phase 6 — Nâng cấp Trải nghiệm người dùng (v6.0.0)
+
+**Vấn đề:** Popup extension có không gian quá chật hẹp, không thể hiển thị được nhiều thông tin, ảnh preview hay quản lý hàng ngàn file media cùng lúc.
+
+**Đề xuất (Full-page Dashboard & Gallery):**
+- Xây dựng một trang **Dashboard** riêng biệt mở ở tab mới (`chrome-extension://.../dashboard.html`).
+- **Media Gallery View**: Hiển thị ảnh/video dưới dạng lưới (Masonry) *trước khi* tải về. Cho phép người dùng tick chọn (checkbox) từng ảnh/video cụ thể để tải, thay vì phải tải toàn bộ.
+- **Advanced Analytics**: Biểu đồ chi tiết về thói quen tải, profile tải nhiều nhất, phân tích dung lượng.
+- **Search & Filter nâng cao**: Tìm kiếm history, lọc theo ngày, theo loại ngay trên giao diện lớn.
+
+---
+
+### 🔵 4.3. Phase 7 — Cloud & Tự động hoá (v7.0.0+)
+
+**Vấn đề:** Người dùng tải quá nhiều sẽ đầy ổ cứng, và họ phải tự làm thủ công bằng tay mỗi ngày nếu muốn theo dõi một idol/profile.
+
+**Đề xuất (Cloud Sync & Auto-fetch):**
+- **Cloud Integration**: Tích hợp Google Drive API / Dropbox API. Tự động upload file thẳng lên Cloud mà không cần lưu qua ổ cứng máy tính.
+- **Watch/Subscribe Profile**: Đánh dấu "Theo dõi" một profile. Extension sẽ chạy ngầm (Cron job), mỗi ngày tự động gọi API lấy các tweet mới nhất của profile đó và tải media mới về (dựa vào cơ chế Duplicate Detection đã có).
 
 ## 5. Ghi Chú Kỹ Thuật Quan Trọng
 
@@ -214,27 +208,30 @@ File được lưu vào:
 
 ---
 
-## 6. Ma Trận Ưu Tiên (Còn Lại)
+## 6. Ma Trận Ưu Tiên Mới (Phase 5+)
 
-| Tính năng | Độ khó | Impact | Ưu tiên |
+| Tính năng / Mục tiêu | Độ khó | Impact | Ưu tiên |
 |---|---|---|---|
-| **v4.8.0** Keyword / Hashtag Filter | ⭐⭐⭐ | 🔥🔥🔥 | 🟡 Trung bình |
-| **U4** Compact Mode | ⭐⭐ | 🔥 | 🔵 Thấp |
+| **v5.0.0** TypeScript Migration & Refactoring | ⭐⭐⭐⭐ | 🔥🔥🔥 | 🔴 Cao |
+| **v6.0.0** Full-page Dashboard & Gallery View | ⭐⭐⭐ | 🔥🔥🔥 | 🟡 Trung bình |
+| **v6.1.0** Selective Download (Chọn file để tải) | ⭐⭐ | 🔥🔥 | 🟡 Trung bình |
+| **v7.0.0** Auto-fetch (Theo dõi tự động tải) | ⭐⭐⭐⭐⭐ | 🔥🔥🔥🔥 | 🔵 Thấp |
+| **v7.1.0** Cloud Integration (G-Drive/Dropbox) | ⭐⭐⭐⭐ | 🔥🔥 | 🔵 Thấp |
 
 ---
 
 ## 7. Phiên Bản Tiếp Theo — Đề Xuất Lộ Trình
 
 ```
-v4.1.0  ── Duplicate Detection + S2/S4 Security + U3 Notification + U6 System Theme  ✅ DONE
-v4.2.0  ── Multi-Profile Queue + Popup v2 Tab Navigation + Options Export/Import       ✅ DONE
-v4.3.0  ── Date Range Filter + Snowflake ID parser                                     ✅ DONE
-v4.4.0  ── Likes & Bookmarks Tab + P4 Incremental Persist + U2 Visual Progress         ✅ DONE
-v4.5.0  ── P1 Adaptive Scroll Speed                                                    ✅ DONE
+[QUÁ KHỨ]
 v4.6.0  ── P3 HLS Download Song Song Per-File (FIFO queue, 8 segments)                 ✅ DONE
 v4.7.0  ── S3 Rate Limiting (Token Bucket) + S1 CSRF Auto-Refresh                      ✅ DONE
 v4.8.0  ── Keyword / Hashtag Filter + U4 Compact Mode                                  ✅ DONE
-v5.0.0  ── Major rewrite: TypeScript migration, Full MV3
+
+[TƯƠNG LAI]
+v5.0.0  ── Major rewrite: TypeScript migration, Vite Bundler, Modularization
+v6.0.0  ── Full-page Dashboard, Masonry Media Gallery, Bulk Selection
+v7.0.0  ── Automation: Background Cron-job Auto-fetch, Cloud Integration
 ```
 
 ---
