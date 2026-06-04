@@ -186,9 +186,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case 'START_DOWNLOAD': {
       const { username, options } = payload;
-// @ts-ignore
-      if (downloadInProgress) {
-        sendResponse({ error: 'Download in progress' });
+      if (downloadState.inProgress) {
+        sendResponse({ error: 'Download is already running' });
         return false;
       }
       startDownload(username, options);
@@ -221,8 +220,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       broadcastQueueUpdate();
       sendResponse({ ok: true, queue: profileQueue });
       // Nếu không có download đang chạy → start ngay
-// @ts-ignore
-      if (!downloadInProgress) startNextInQueue();
+      if (!downloadState.inProgress) startNextInQueue();
       return true;
     }
 
@@ -250,8 +248,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     case 'START_QUEUE': {
-// @ts-ignore
-      if (!downloadInProgress) startNextInQueue();
+      if (!downloadState.inProgress) startNextInQueue();
       sendResponse({ ok: true });
       return false;
     }
@@ -259,7 +256,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'GET_DOWNLOAD_STATE': {
       // BUG-8 FIX: Popup query trạng thái download khi mở lại
 // @ts-ignore
-      sendResponse({ isDownloading: downloadInProgress });
+      sendResponse({ isDownloading: downloadState.inProgress });
       return true;
     }
 

@@ -245,12 +245,12 @@ async function handleDownloadTweet(tweetId, username, tabId) {
 // @ts-ignore
 async function startDownload(username, options = {}) {
 // @ts-ignore
-  if (downloadInProgress) return;
+  if (downloadState.inProgress) return;
 
   const store = mediaStore.get(username);
   if (!store?.size) return;
 // @ts-ignore
-  downloadInProgress = true;
+  downloadState.inProgress = true;
   activeErrors = [];
 
   // BUG-2 FIX: Bật keep-alive để SW không bị Chrome terminate
@@ -318,7 +318,7 @@ async function startDownload(username, options = {}) {
 
   if (!items.length) {
 // @ts-ignore
-    downloadInProgress = false;
+    downloadState.inProgress = false;
     stopKeepAlive();
     // Thông báo nếu tất cả đã được tải rồi
     if (skipped > 0) {
@@ -441,7 +441,7 @@ async function startDownload(username, options = {}) {
     console.error('[SW] Critical download error:', err);
   } finally {
 // @ts-ignore
-    downloadInProgress = false;
+    downloadState.inProgress = false;
     stopKeepAlive(); // BUG-2 FIX: Tắt keep-alive khi xong
     broadcastToPopup('DOWNLOAD_DONE', { username, success, failed, total, skipped });
     // v4.1.0: Hiện system notification
