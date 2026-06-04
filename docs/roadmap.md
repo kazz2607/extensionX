@@ -7,35 +7,46 @@
 
 ## 1. Kiến Trúc Hiện Tại (v5.0.0)
 
-```
+```text
 extensionX/
-├── manifest.json                  # Chrome Extension Manifest V3 (version 4.3.0)
-├── background/
-│   ├── service-worker.js          # Service Worker: core logic, queue, date filter
-│   ├── tweet-api.js               # Fallback API & User Session bypass CORS
-│   └── indexeddb.js               # Storage layer (IndexedDB) cho mediaStore
-├── content/
-│   ├── content.js                 # Content script chạy trên x.com
-│   ├── dom-scanner.js             # Fallback quét DOM tìm thumbnail
-│   ├── fab.js                     # Floating Action Button trên trang X.com
-│   ├── tweet-btn.js               # Download Mini Button trên từng tweet
-│   ├── snackbar.js                # Progress Snackbar glassmorphism
-│   └── page-interceptor.js        # Hook fetch/XHR/JSON.parse (MAIN world)
-├── popup/
-│   ├── popup.html                 # 3-tab layout: Main / Queue / Stats
-│   ├── popup.js                   # Tab nav, queue, donut chart, date filter
-│   └── popup.css
-├── options/
-│   ├── options.html               # Cài đặt + Export/Import/Reset
-│   └── options.js
-├── offscreen/
-│   ├── offscreen.html
-│   └── offscreen.js               # Xử lý HLS (ghép TS segments)
-├── lib/
-│   ├── hls-fetcher.js             # Parse & tải HLS m3u8
-│   ├── i18n.js                    # Đa ngôn ngữ (EN/VI)
-│   └── utils.js
-├── _locales/                      # i18n: vi, en
+├── package.json                   # Cấu hình npm & build scripts
+├── tsconfig.json                  # Cấu hình TypeScript (strict: true)
+├── vite.config.ts                 # Cấu hình Vite bundler
+├── src/
+│   ├── manifest.json              # Chrome Extension Manifest V3 (version 5.0.0)
+│   ├── background/
+│   │   ├── service-worker.ts      # Service Worker: core logic, queue, date filter
+│   │   ├── tweet-api.ts           # Fallback API & User Session bypass CORS
+│   │   ├── indexeddb.ts           # Storage layer (IndexedDB) cho mediaStore
+│   │   ├── downloader.ts          # Logic tải file trực tiếp
+│   │   ├── scraper.ts             # Logic cào dữ liệu fallback
+│   │   ├── messages.ts            # Xử lý Chrome messaging
+│   │   ├── queue.ts               # Xử lý hàng đợi tải (multi-profile)
+│   │   └── utils.ts               # Tiện ích nội bộ SW
+│   ├── content/
+│   │   ├── content.ts             # Content script chạy trên x.com
+│   │   ├── dom-scanner.ts         # Fallback quét DOM tìm thumbnail
+│   │   ├── fab.ts                 # Floating Action Button trên trang X.com
+│   │   ├── tweet-btn.ts           # Download Mini Button trên từng tweet
+│   │   ├── snackbar.ts            # Progress Snackbar glassmorphism
+│   │   └── page-interceptor.ts    # Hook fetch/XHR/JSON.parse (MAIN world)
+│   ├── popup/
+│   │   ├── popup.html             # 3-tab layout: Main / Queue / Stats
+│   │   ├── popup.ts               # Tab nav, queue, donut chart, date filter
+│   │   └── popup.css
+│   ├── options/
+│   │   ├── options.html           # Cài đặt + Export/Import/Reset
+│   │   └── options.ts
+│   ├── offscreen/
+│   │   ├── offscreen.html
+│   │   └── offscreen.ts           # Xử lý HLS (ghép TS segments)
+│   ├── lib/
+│   │   ├── hls-fetcher.ts         # Parse & tải HLS m3u8
+│   │   ├── i18n.ts                # Đa ngôn ngữ (EN/VI)
+│   │   ├── utils.ts               # Tiện ích dùng chung UI
+│   │   └── jszip.min.ts           # Thư viện tạo file ZIP (nếu dùng)
+│   ├── types.ts                   # Định nghĩa các TypeScript Interfaces (Core Types)
+│   └── _locales/                  # i18n: vi, en
 ├── rules.json                     # declarativeNetRequest rules
 └── docs/
     ├── roadmap.md                 # File này
@@ -49,20 +60,20 @@ extensionX/
 User mở Profile Page (x.com/username/media)
         │
         ▼
-[content.js] Inject page-interceptor.js vào MAIN world (document_start)
+[content.ts] Inject page-interceptor.ts vào MAIN world (document_start)
         │
         ▼
-[page-interceptor.js] Hook window.fetch, XMLHttpRequest, JSON.parse
+[page-interceptor.ts] Hook window.fetch, XMLHttpRequest, JSON.parse
         ├── Bắt GraphQL response (UserMedia, UserTweets, TweetDetail)
         ├── Parse JSON → extract media URLs (depth ≤ 35)
         └── dispatchEvent('X_MEDIA_FOUND', { urls, username })
         │
         ▼
-[content.js] Lắng nghe CustomEvent
+[content.ts] Lắng nghe CustomEvent
         └── chrome.runtime.sendMessage({ type: 'MEDIA_FOUND', ... })
         │
         ▼
-[service-worker.js] Nhận message → addMediaItems()
+[service-worker.ts] Nhận message → addMediaItems()
         ├── tweetDateFromId(tweetId): Snowflake → timestamp ms  ← v4.3.0
         ├── Lưu vào mediaStore (Map in-memory) + persist session
         ├── Keep-alive bằng chrome.alarms (ping mỗi 24s khi đang tải)
@@ -71,7 +82,7 @@ User mở Profile Page (x.com/username/media)
         │
         ▼
 [chrome.downloads.download()] — Video/GIF MP4: tải thẳng
-[offscreen.js] — HLS: fetch TS segments → ghép → trả base64
+[offscreen.ts] — HLS: fetch TS segments → ghép → trả base64
         │
         ▼
 File được lưu vào:
