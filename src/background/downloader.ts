@@ -270,6 +270,9 @@ async function handleDownloadTweet(tweetId, username, tabId) {
 let _lastDownloadUsername = '';
 let _lastDownloadOptions: any = {};
 
+// Bug 2: Stop download flag — workers kiểm tra trước mỗi file
+let _stopRequested = false;
+
 // @ts-ignore
 async function startDownload(username, options = {}) {
 // @ts-ignore
@@ -280,6 +283,7 @@ async function startDownload(username, options = {}) {
 // @ts-ignore
   downloadState.inProgress = true;
   activeErrors = [];
+  _stopRequested = false; // reset khi bắt đầu download mới
   _lastDownloadUsername = username;
   _lastDownloadOptions = options;
 
@@ -445,6 +449,8 @@ async function startDownload(username, options = {}) {
 
     const runWorker = async () => {
       while (queue.length > 0) {
+        // Bug 2: Dừng worker nếu user yêu cầu stop
+        if (_stopRequested) { queue.length = 0; break; }
         const item = queue.shift();
         if (!item) break;
 
@@ -515,8 +521,12 @@ async function startDownload(username, options = {}) {
       }
     }
 
-    // v5.0.3: Chạy profile tiếp theo trong queue
-    setTimeout(() => startNextInQueue(), 500);
+    // v5.0.3: Chạy profile tiếp theo trong queue — CHỈ khi download từ queue
+    // Nếu download thường (bấm Download), KHÔNG tự kéo queue item tiếp theo
+// @ts-ignore
+    if (options._fromQueue) {
+      setTimeout(() => startNextInQueue(), 500);
+    }
   }
 }
 // ─── IDM Conflict Detection ───────────────────────────────────────────────────
@@ -703,4 +713,12 @@ function retryLastDownload(): boolean {
   return true;
 }
 
-export { startDownload, handleDownloadTweet, activeErrors, buildCSV, retryLastDownload };
+// Bug 2: Dừng download đang chạy — workers sẽ thoát sau file hiện tại
+function stopDownload(): boolean {
+  if (!downloadState.inProgress) return false;
+  _stopRequested = true;
+  console.log('[SW] ⏹ stopDownload: yêu cầu dừng sau file hiện tại...');
+  return true;
+}
+
+export { startDownload, handleDownloadTweet, activeErrors, buildCSV, retryLastDownload, stopDownload };

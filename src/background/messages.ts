@@ -1,7 +1,7 @@
 
 import { mediaStore, statsStore, tabState, downloadedStore, downloadState, pendingHlsRequests, setCsrfToken } from './state.ts';
 import { addMediaItems, applyOptionsFilter, checkAutoScroll, startCollecting, stopCollecting, clearSession, fetchVideoForTweetWithRefresh } from './scraper.ts';
-import { startDownload, handleDownloadTweet, buildCSV, retryLastDownload } from './downloader.ts';
+import { startDownload, handleDownloadTweet, buildCSV, retryLastDownload, stopDownload } from './downloader.ts';
 import { profileQueue, setProfileQueue, persistQueue, startNextInQueue, broadcastQueueUpdate } from './queue.ts';
 import { updateBadge, broadcastToPopup, updateFAB } from './utils.ts';
 import { getMediaItems } from './indexeddb.ts';
@@ -209,8 +209,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       persistQueue();
       broadcastQueueUpdate();
       sendResponse({ ok: true, queue: profileQueue });
-      // Nếu không có download đang chạy → start ngay
-      if (!downloadState.inProgress) startNextInQueue();
+      // KHÔNG auto-start — user phải bấm "Start" trong Queue tab để bắt đầu
       return true;
     }
 
@@ -405,6 +404,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const { username } = payload;
       clearSession(username);
       sendResponse({ ok: true });
+      return false;
+    }
+
+    // Bug 2: Dừng download đang chạy
+    case 'STOP_DOWNLOAD': {
+      const stopped = stopDownload();
+      sendResponse({ ok: stopped });
       return false;
     }
 

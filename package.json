@@ -1,6 +1,6 @@
 {
   "name": "extensionx",
-  "version": "5.3.0",
+  "version": "5.3.1",
   "description": "Extension Chrome mạnh mẽ cho phép bạn tải toàn bộ ảnh, video và GIF từ bất kỳ profile nào trên X.com (Twitter) với chất lượng gốc, hoàn toàn tự động và sắp xếp gọn gàng vào thư mục theo tên người dùng.",
   "main": "index.js",
   "directories": {

@@ -86,6 +86,9 @@ const els: any = {
   // UI-04: Onboarding
   onboardingSection: $('onboarding-section'),
 
+  // Bug 2: Stop download
+  btnStopDownload:   $('btn-stop-download'),
+
   // UI-01: Error details
   errorDetails:      $('error-details'),
   errorDetailsCount: $('error-details-count'),
@@ -376,7 +379,9 @@ function renderQueue() {
         <div class="queue-item-meta">${metaText}</div>
       </div>
       <span class="queue-status ${item.status}">${statusLabel}</span>
-      ${canRemove ? `<button class="btn-queue-remove" data-id="${item.id}" title="Xóa khỏi queue">×</button>` : ''}
+      ${canRemove
+        ? `<button class="btn-queue-remove" data-id="${item.id}" title="Xóa khỏi queue">×</button>`
+        : `<button class="btn-queue-stop" data-id="${item.id}" title="Dừng download">⏹</button>`}
     </li>`;
   }).join('');
 
@@ -398,6 +403,17 @@ function renderQueue() {
       const id = btn.dataset.id;
       await sendBG('REMOVE_FROM_QUEUE', { id });
       showToast('Đã xóa khỏi hàng đợi', 'info');
+    });
+  });
+
+  // Bug 2: Stop button cho item đang downloading trong queue
+// @ts-ignore
+  list.querySelectorAll('.btn-queue-stop').forEach(btn => {
+// @ts-ignore
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await sendBG('STOP_DOWNLOAD', {});
+      showToast('⏹ Đang dừng download...', 'info');
     });
   });
 }
@@ -718,6 +734,11 @@ function updateButtons() {
   if (els.btnQueueAdd)    els.btnQueueAdd.disabled    = !hasUser || filteredCount === 0;
   if (els.btnQueueAddBar) els.btnQueueAddBar.disabled = !hasUser;
 
+  // Bug 2: Hiện nút Stop khi đang tải, ẩn khi rảnh
+  if (els.btnStopDownload) {
+    els.btnStopDownload.style.display = isDownloading ? 'inline-flex' : 'none';
+  }
+
   if (isCollecting) {
     els.btnCollect.classList.add('collecting');
     els.btnCollectTxt.textContent = window.i18n ? window.i18n.t('btn_collect_stop') : 'Dừng Thu Thập';
@@ -882,6 +903,14 @@ function setupListeners() {
         chrome.tabs.reload(tab.id);
         window.close();
       }
+    });
+  }
+
+  // Bug 2: Stop download button
+  if (els.btnStopDownload) {
+    els.btnStopDownload.addEventListener('click', async () => {
+      await sendBG('STOP_DOWNLOAD', {});
+      showToast('⏹ Đang dừng — hoàn tất file hiện tại rồi dừng', 'info');
     });
   }
 

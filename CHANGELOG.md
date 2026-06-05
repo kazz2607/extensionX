@@ -2,6 +2,17 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [5.3.1] - 2026-06-04
+### Bug Fixes
+
+- **[Bug 1 — Auto-download sau khi collect]:** Xóa `startNextInQueue()` khỏi handler `ADD_TO_QUEUE` — thêm vào queue không còn tự động bắt đầu download nữa. User phải bấm **Start** trong Queue tab để khởi chạy. Đồng thời fix `finally` block của `startDownload`: chỉ kéo queue item tiếp theo nếu download đến từ queue (`_fromQueue === true`) — direct download (bấm nút Download) không còn trigger queue.
+- **[Bug 2 — Không có nút dừng download]:**
+  - `downloader.ts`: Thêm `_stopRequested` flag + `stopDownload()` function. Mỗi worker kiểm tra flag trước khi lấy file tiếp theo — dừng sạch sau khi hoàn tất file đang tải, không abort giữa chừng.
+  - `messages.ts`: Handler `STOP_DOWNLOAD` → gọi `stopDownload()`.
+  - `popup.html` + `popup.ts`: Nút **⏹ Stop** màu đỏ xuất hiện trong action bar khi download đang chạy, ẩn khi rảnh. Queue tab: item `downloading` hiện nút **⏹** thay vì nút xóa bị disabled.
+
+---
+
 ## [5.3.0] - 2026-06-04
 ### UI Polish
 
