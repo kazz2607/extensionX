@@ -189,6 +189,15 @@ async function checkAutoScroll(tabId, username, isMediaPage) {
 
 // @ts-ignore
 async function startCollecting(username, tabId) {
+  // FEA-01: Block bookmark scanning khi tắt trong options
+  if (username === '_bookmarks_') {
+    const opts = await getCachedOptions();
+    if ((opts as any).enableBookmarks === false) {
+      console.log('[SW] Bookmark scanning disabled by user — skip');
+      return;
+    }
+  }
+
   if (!tabId) {
     const tabs = await chrome.tabs.query({});
     tabId = tabs.find(t => t.url?.includes(username))?.id;

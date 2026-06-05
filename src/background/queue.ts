@@ -2,7 +2,7 @@ import { mediaStore, downloadState } from './state.ts';
 import { getMediaItems } from './indexeddb.ts';
 import { startDownload } from './downloader.ts';
 import { broadcastToPopup } from './utils.ts';
-import { QueueItem } from '../types.ts';
+import { QueueItem, QueueExportData } from '../types.ts';
 
 export let profileQueue: QueueItem[] = [];
 export function setProfileQueue(q: QueueItem[]) { profileQueue = q; }
@@ -85,4 +85,46 @@ loadPersistedQueue().then(() => {
   broadcastQueueUpdate();
 });
 
-export { loadPersistedQueue, persistQueue, broadcastQueueUpdate, startNextInQueue };
+// ─── FEA-02: Queue Export / Import ───────────────────────────────────────────
+
+function exportQueue(): QueueExportData {
+  return {
+    _version: '5.4.0',
+    _exportedAt: new Date().toISOString(),
+    queue: profileQueue,
+  };
+}
+
+function importQueue(items: QueueItem[]): { added: number; skipped: number } {
+  const validStatuses: QueueItem['status'][] = ['waiting', 'downloading', 'done', 'error'];
+  let added = 0;
+  let skipped = 0;
+
+  for (const item of items) {
+    if (!item.id || !item.username || !validStatuses.includes(item.status)) {
+      skipped++;
+      continue;
+    }
+    // Bỏ qua items đã done/error — không cần re-import
+    if (item.status === 'done' || item.status === 'error') {
+      skipped++;
+      continue;
+    }
+    // Không thêm trùng id
+    if (profileQueue.some(q => q.id === item.id)) {
+      skipped++;
+      continue;
+    }
+    // Reset downloading → waiting (SW đã tắt, không còn active)
+    profileQueue.push({ ...item, status: 'waiting' });
+    added++;
+  }
+
+  if (added > 0) {
+    persistQueue();
+    broadcastQueueUpdate();
+  }
+  return { added, skipped };
+}
+
+export { loadPersistedQueue, persistQueue, broadcastQueueUpdate, startNextInQueue, exportQueue, importQueue };

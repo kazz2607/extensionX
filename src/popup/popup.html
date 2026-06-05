@@ -37,6 +37,19 @@
     .btn--stop-dl:hover { background: rgba(239,68,68,.25); }
     .btn-queue-stop { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.25); color: #ef4444; border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer; flex-shrink: 0; }
     .btn-queue-stop:hover { background: rgba(239,68,68,.25); }
+
+    /* ── FEA-02: Queue Export/Import buttons ── */
+    .btn-queue-export, .btn-queue-import-label {
+      font-size: 11px; padding: 3px 8px; border-radius: 6px; cursor: pointer;
+      background: rgba(255,255,255,.05); border: 1px solid var(--border);
+      color: var(--text-sec); display: inline-flex; align-items: center; gap: 4px;
+      transition: background .15s, color .15s;
+    }
+    .btn-queue-export:hover, .btn-queue-import-label:hover { background: rgba(255,255,255,.1); color: var(--text); }
+    #input-queue-import { display: none; }
+
+    /* ── FEA-03: File count per profile ── */
+    .queue-file-count { font-size: 10px; color: var(--accent); font-weight: 500; margin-top: 2px; display: block; }
   </style>
 </head>
 <body>
@@ -52,7 +65,7 @@
         </div>
         <div class="header-text">
           <h1 class="app-name">Media Downloader</h1>
-          <span class="app-version">v5.3.1</span>
+          <span class="app-version">v5.4.0</span>
         </div>
       </div>
       <button class="btn-icon btn-theme" id="btn-theme" title="Đổi giao diện">
@@ -351,6 +364,15 @@
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
               Start
             </button>
+            <button class="btn-queue-export" id="btn-queue-export" title="Xuất queue ra file JSON">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Export
+            </button>
+            <label class="btn-queue-import-label" title="Nhập queue từ file JSON">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Import
+              <input type="file" id="input-queue-import" accept=".json" />
+            </label>
             <button class="btn-text btn-queue-clear" id="btn-queue-clear">Clear</button>
           </div>
         </div>

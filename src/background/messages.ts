@@ -2,7 +2,7 @@
 import { mediaStore, statsStore, tabState, downloadedStore, downloadState, pendingHlsRequests, setCsrfToken } from './state.ts';
 import { addMediaItems, applyOptionsFilter, checkAutoScroll, startCollecting, stopCollecting, clearSession, fetchVideoForTweetWithRefresh } from './scraper.ts';
 import { startDownload, handleDownloadTweet, buildCSV, retryLastDownload, stopDownload } from './downloader.ts';
-import { profileQueue, setProfileQueue, persistQueue, startNextInQueue, broadcastQueueUpdate } from './queue.ts';
+import { profileQueue, setProfileQueue, persistQueue, startNextInQueue, broadcastQueueUpdate, exportQueue, importQueue } from './queue.ts';
 import { updateBadge, broadcastToPopup, updateFAB } from './utils.ts';
 import { getMediaItems } from './indexeddb.ts';
 import { setDynamicBearer } from './tweet-api.ts';
@@ -426,6 +426,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const { bearer } = payload;
       if (bearer?.startsWith('Bearer ')) setDynamicBearer(bearer);
       return false;
+    }
+
+    // FEA-02: Export queue ra JSON để transfer / backup
+    case 'EXPORT_QUEUE': {
+      const data = exportQueue();
+      sendResponse({ ok: true, data });
+      return true;
+    }
+
+    // FEA-02: Import queue từ JSON file
+    case 'IMPORT_QUEUE': {
+      try {
+        const parsed = JSON.parse(payload.data as string) as { queue?: unknown[] };
+        if (!Array.isArray(parsed.queue)) {
+          sendResponse({ error: 'Invalid queue file: missing queue array' });
+          return true;
+        }
+        const result = importQueue(parsed.queue as any[]);
+        sendResponse({ ok: true, ...result });
+      } catch (err: any) {
+        sendResponse({ error: `Parse error: ${err.message}` });
+      }
+      return true;
     }
 
     default:

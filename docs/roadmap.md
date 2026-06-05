@@ -1,7 +1,7 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-06-04 | Phiên bản hiện tại: **5.3.0**
+> Cập nhật: 2026-06-05 | Phiên bản hiện tại: **5.4.0**
 
 ---
 
@@ -140,6 +140,8 @@ File được lưu vào:
 - **v5.1.0** Bug Fixes P0 + Security Hardening P2: activeDownloads fix, options cache, duplicate detection, path traversal, CSRF scoping, URL validation, dynamic bearer token
 - **v5.2.0** Performance Optimization: offscreen cache flag, memory warning 50k, CSV chunked 10k/page pagination, SEC-02 patch CSRF refresh path
 - **v5.3.0** UI Polish: error details + retry, stats donut realtime, auto-save indicator, empty state onboarding, FAB progress %, queue live progress bar
+- **v5.3.1** Bug Fixes: auto-download sau collect, thêm nút Stop download (global + per queue item)
+- **v5.4.0** Queue & Bookmark: toggle bookmark scanning, Queue export/import JSON, file count per profile in Queue tab
 
 ---
 
@@ -164,6 +166,8 @@ File được lưu vào:
 | v5.0.0 | **Major TypeScript Rewrite** — Chuyển đổi 100% codebase sang TypeScript, sử dụng Vite Bundler & ESM |
 | v5.0.2 | **Vite Bundle Fixes** — Fix lỗi không copy resources và scripts động ở chế độ production build |
 | v5.0.3 | **Full UI Localization** — Hoàn thiện hệ thống đa ngôn ngữ (i18n), dịch 100% text giao diện bị gán cứng |
+| v5.4.0 | **Queue & Bookmark** — Toggle bookmark scanning (enableBookmarks option), Queue Export/Import JSON, file count per profile `📥 23/150 files · 15%` trong Queue tab |
+| v5.3.1 | **Bug Fixes** — Auto-download sau collect (bỏ startNextInQueue ở ADD_TO_QUEUE + finally guard _fromQueue), nút Stop download global + per queue item (`_stopRequested` flag) |
 | v5.3.0 | **UI Polish** — error details panel + retry failed downloads, stats donut realtime, auto-save "Saving..." indicator, empty state onboarding card, FAB % progress, queue live progress bar |
 | v5.2.0 | **Performance Optimization** — offscreen cache flag (skip getContexts per HLS), memory warning 50k items, CSV chunked 10k/page with pagination, fix CSRF refresh path SEC-02 patch |
 | v5.1.0 | **Bug Fixes P0 + Security P2** — activeDownloads conflict, options cache (99% I/O reduction), mini-btn duplicate detection, path traversal fix, CSRF token scoping, URL path validation, dynamic bearer token pipeline |
@@ -330,6 +334,128 @@ File được lưu vào:
 
 ---
 
+### ✅ Phase 5.3.1 — Bug Fixes (v5.3.1) — HOÀN THÀNH
+> **Kết quả:** 2 lỗi nghiêm trọng ảnh hưởng flow sử dụng hàng ngày đã được vá.
+
+**Đã hoàn thành:**
+- [x] BUG-05: Auto-download ngay sau collect — xóa `startNextInQueue()` khỏi `ADD_TO_QUEUE`, `finally` block chỉ chain khi `_fromQueue === true`
+- [x] BUG-06: Không có nút dừng — `_stopRequested` flag trong `runWorker`, `stopDownload()` export, `STOP_DOWNLOAD` message handler, nút ⏹ Stop trong popup action bar + per queue item
+
+---
+
+### ✅ Phase 5.4 — Queue & Bookmark Improvements (v5.4.0) — HOÀN THÀNH
+
+> **Mục tiêu:** Tăng khả năng kiểm soát nguồn dữ liệu thu thập và tính di chuyển/bền vững của hàng đợi tải.
+
+---
+
+#### FEA-01: Toggle Bật/Tắt Quét Bookmarks
+
+**Vấn đề hiện tại:**
+- Extension luôn quét `x.com/i/bookmarks` khi user mở trang đó, không có cách tắt riêng tính năng này.
+- Bookmark là dữ liệu nhạy cảm (private) — một số user muốn dùng extension chỉ cho media page của profile công khai.
+
+**Thiết kế kỹ thuật:**
+
+| Hạng mục | Chi tiết |
+|---|---|
+| **Option mới** | `enableBookmarks: boolean` — thêm vào `DEFAULT_OPTIONS` trong `options.ts`, mặc định `true` để backward compat |
+| **UI** | Toggle trong `options.html` section "Nguồn Thu Thập", label: "Quét Bookmarks cá nhân (`x.com/i/bookmarks`)" |
+| **Enforcement** | Trong `messages.ts` — handler `PAGE_LOADED`: khi `url` chứa `/i/bookmarks`, đọc option `enableBookmarks`, nếu `false` → set `isMediaPage = false`, skip collect |
+| **Scraper** | Trong `scraper.ts` — `startScraping()`: kiểm tra thêm `options.enableBookmarks` trước khi bắt đầu scroll trên bookmark page |
+| **Options cache** | `getCachedOptions()` đã có TTL 5s + `storage.onChanged` invalidate — không cần thay đổi gì thêm |
+
+**Files cần sửa:**
+- `src/options/options.ts` — thêm field, load, save
+- `src/options/options.html` — thêm toggle UI
+- `src/background/messages.ts` — check `enableBookmarks` trong `PAGE_LOADED` handler
+- `src/background/scraper.ts` — guard trong `startScraping()` (defense in depth)
+- `src/types.ts` — thêm `enableBookmarks?: boolean` vào `Options` interface
+
+**Edge cases:**
+- Nếu user đang collect bookmarks rồi tắt toggle → collect dừng ngay khi options cache invalidate (tối đa 5s)
+- Toggle mặc định `true` — user cũ không bị ảnh hưởng
+
+---
+
+#### FEA-02: Export / Import Queue
+
+**Vấn đề hiện tại:**
+- Queue hiện chỉ persist trong `chrome.storage.local` của browser đó.
+- Không thể chuyển queue sang máy khác, không thể backup để resume sau khi reset Chrome/extension.
+- Profile queue item hiện có `{ id, username, options, status, addedAt, itemCount }` — đủ để serialize.
+
+**Thiết kế kỹ thuật:**
+
+| Hạng mục | Chi tiết |
+|---|---|
+| **Message mới** | `EXPORT_QUEUE` → SW trả JSON string của toàn bộ `profileQueue` array |
+| **Message mới** | `IMPORT_QUEUE` `{ data: string }` → SW parse + validate + merge vào queue hiện tại |
+| **Format file** | `extensionx_queue_YYYYMMDD.json` — `{ _version, _exportedAt, queue: QueueItem[] }` |
+| **Merge strategy** | Import chỉ thêm item chưa có (so sánh `id`). Items `downloading` trong file import được reset về `pending`. Items `done`/`error` bị bỏ qua. |
+| **Validation** | Kiểm tra `parsed._version`, `Array.isArray(parsed.queue)`, mỗi item có `id`, `username`, `status` hợp lệ |
+| **UI** | Trong Queue tab header: 2 nút `📤 Export` + `📥 Import` (file input ẩn), đặt cạnh nút "Clear done" hiện có |
+| **Download** | Dùng `chrome.downloads.download({ url: dataUrl, filename })` — giống cơ chế export CSV + export settings |
+
+**Files cần sửa:**
+- `src/background/queue.ts` — thêm `exportQueue()` trả `QueueItem[]`, `importQueue(items)` merge logic
+- `src/background/messages.ts` — thêm `EXPORT_QUEUE` và `IMPORT_QUEUE` handlers
+- `src/popup/popup.html` — thêm nút Export/Import trong Queue tab header
+- `src/popup/popup.ts` — click handlers, file input listener, call `sendBG('EXPORT_QUEUE')` + `sendBG('IMPORT_QUEUE', { data })`
+- `src/types.ts` — đảm bảo `QueueItem` interface đã export đầy đủ fields
+
+**Edge cases:**
+- Import file cũ hơn version hiện tại: merge gracefully, bỏ qua field không nhận ra
+- Queue đầy (giới hạn `chrome.storage.local` ~5MB): thông báo lỗi nếu data quá lớn
+- Import khi đang có item `downloading` active: item đó không bị ảnh hưởng, chỉ merge items mới vào sau
+
+---
+
+#### FEA-03: Hiển Thị Số File Đang Tải Của Từng Profile Trong Queue Tab
+
+**Vấn đề hiện tại:**
+- Queue item `downloading` chỉ hiện badge "Đang tải" nhưng không có thông tin cụ thể: đang tải file thứ mấy, tổng bao nhiêu file.
+- `updateQueueItemProgress()` (đã có từ v5.3.0) cập nhật mini progress bar nhưng chỉ hiện `current/total • percent%` dạng nhỏ.
+- Cần thêm số file rõ ràng ngay trên queue item khi `status === 'downloading'`.
+
+**Thiết kế kỹ thuật:**
+
+| Hạng mục | Chi tiết |
+|---|---|
+| **Layout thay đổi** | Queue item `downloading` thêm dòng: `📥 Đang tải: **23 / 150 files** (15%)` ngay dưới tên profile |
+| **Data source** | `DOWNLOAD_PROGRESS` message đã có `{ percent, current, total, username }` — không cần thay đổi SW |
+| **Render** | Tách `updateQueueItemProgress()` ra 2 phần: (1) mini progress bar (giữ nguyên), (2) `file-count-badge` element mới trong DOM |
+| **Per-profile** | `DOWNLOAD_PROGRESS` payload đã có `username` (được set trong `broadcastToTab` → thực ra là broadcastToPopup). Cần verify `username` có trong payload; nếu thiếu thì thêm vào `downloader.ts` khi broadcast |
+| **Các profile pending** | Hiện `itemCount` bên cạnh username — ví dụ "kazz2607 • 320 items queued" |
+| **Format** | `📥 23 / 150 files • 15%` trong `<span class="queue-file-count">` — font-size 11px, màu accent |
+| **Cleanup** | Khi queue item chuyển sang `done` hoặc `error`, xóa `queue-file-count` span |
+
+**Files cần sửa:**
+- `src/popup/popup.ts` — `updateQueueItemProgress()`: thêm file-count element; `renderQueue()`: thêm `queue-file-count` span cho item `downloading`; đảm bảo `DOWNLOAD_PROGRESS` payload có `username`
+- `src/background/downloader.ts` — Kiểm tra `FAB_UPDATE` broadcast có `username` trong payload; nếu thiếu thêm vào
+- `src/popup/popup.html` — Thêm CSS cho `.queue-file-count` (không cần thêm HTML tĩnh vì render động)
+
+**Edge cases:**
+- Nếu popup đóng rồi mở lại khi đang download → `renderQueue()` sẽ render item `downloading` với `queue-file-count` placeholder "đang tải..." cho đến khi nhận `DOWNLOAD_PROGRESS` tiếp theo
+- Nhiều profile `downloading` cùng lúc (về lý thuyết chỉ 1 active, nhưng guard thêm): chỉ update đúng item có `username` khớp
+
+---
+
+**Tổng kết v5.4.0:**
+
+| ID | Tính năng | Files | Độ phức tạp |
+|---|---|---|---|
+| FEA-01 | Toggle Bookmark Scanning | options.ts, options.html, messages.ts, scraper.ts, types.ts | ⭐ Thấp |
+| FEA-02 | Queue Export / Import | queue.ts, messages.ts, popup.html, popup.ts, types.ts | ⭐⭐ Trung bình |
+| FEA-03 | File Count per Profile in Queue | popup.ts, downloader.ts, popup.html | ⭐ Thấp |
+
+**Đã hoàn thành:**
+- [x] FEA-01: `enableBookmarks` option — toggle trong Settings, enforce trong `startCollecting()` qua `getCachedOptions()`
+- [x] FEA-02: `exportQueue()` / `importQueue()` trong `queue.ts`, `EXPORT_QUEUE` + `IMPORT_QUEUE` handlers trong `messages.ts`, nút Export/Import trong Queue tab header
+- [x] FEA-03: `queue-file-count` span trong queue item `downloading`, `updateQueueItemProgress()` update song song mini progress bar + file count badge
+
+---
+
 ### 🟡 Phase 6 — Full-page Dashboard & Gallery (v6.0.0)
 
 **Vấn đề:** Popup chỉ có chiều rộng 380px — không thể xem preview, không chọn từng file, không có advanced search.
@@ -398,6 +524,9 @@ File được lưu vào:
 | **UI-02** Stats donut realtime | 🔥 UX | ⭐ | 🟡 Trung bình |
 | **SEC-04** Dynamic bearer token | 🔥🔥🔥 Stability | ⭐⭐⭐ | 🔵 Thấp |
 | **PERF-03** Memory warning 50k | 🔥 UX | ⭐ | 🔵 Thấp |
+| **FEA-01** Toggle Bookmark scan | 🔥🔥 Privacy/Control | ⭐ | 🟡 v5.4.0 |
+| **FEA-02** Queue Export/Import | 🔥🔥🔥 Portability | ⭐⭐ | 🟡 v5.4.0 |
+| **FEA-03** File count per profile| 🔥🔥 UX clarity | ⭐ | 🟡 v5.4.0 |
 | **v6.0.0** Dashboard + Gallery | 🔥🔥🔥 Feature | ⭐⭐⭐ | 🔵 Thấp |
 | **v7.0.0** Cloud + Auto-fetch | 🔥🔥🔥🔥 Feature | ⭐⭐⭐⭐⭐ | 🔵 Thấp |
 
@@ -407,10 +536,12 @@ File được lưu vào:
 
 ```
 [ĐÃ XONG]
-v5.0.5  ── Queue Engine fix, Options Auto-save debounce                             ✅ DONE
-v5.1.0  ── Bug Fixes P0 + Security Hardening P2 (9 issues fixed, build clean)      ✅ DONE
-v5.2.0  ── Performance: Offscreen cache, memory warning 50k, CSV chunked pagination ✅ DONE
-v5.3.0  ── UI Polish: error details+retry, donut realtime, FAB%, queue progress     ✅ DONE
+v5.0.5  ── Queue Engine fix, Options Auto-save debounce                               ✅ DONE
+v5.1.0  ── Bug Fixes P0 + Security Hardening P2 (9 issues fixed, build clean)        ✅ DONE
+v5.2.0  ── Performance: Offscreen cache, memory warning 50k, CSV chunked pagination   ✅ DONE
+v5.3.0  ── UI Polish: error details+retry, donut realtime, FAB%, queue progress       ✅ DONE
+v5.3.1  ── Bug Fixes: auto-download sau collect, nút Stop global + per queue item     ✅ DONE
+v5.4.0  ── Queue & Bookmark: toggle bookmarks, Queue export/import, file count/profile ✅ DONE
 
 [TIẾP THEO]
 v6.0.0  ── Full-page Dashboard, Masonry Media Gallery, Bulk Selection

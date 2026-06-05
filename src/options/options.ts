@@ -1,6 +1,6 @@
 
 /**
- * options.js — Logic trang Cài đặt (v5.3.1)
+ * options.js — Logic trang Cài đặt (v5.4.0)
  */
 
 const DEFAULT_OPTIONS = {
@@ -24,6 +24,7 @@ const DEFAULT_OPTIONS = {
   },
   showSnackbar: true,                          // Progress Snackbar trên trang X.com (v4.0.0)
   showNotification: true,                      // System notification khi tải xong (v4.1.0)
+  enableBookmarks: true,                       // Cho phép quét trang Bookmarks (v5.4.0)
 };
 
 // ─── Load ─────────────────────────────────────────────────────────────────────
@@ -74,6 +75,8 @@ async function loadOptions() {
   document.getElementById('opt-show-snackbar').checked     = opts.showSnackbar   ?? true;
 // @ts-ignore
   document.getElementById('opt-show-notification').checked = opts.showNotification ?? true;
+// @ts-ignore
+  document.getElementById('opt-enable-bookmarks').checked = opts.enableBookmarks ?? true;
 
   updateScrollLabel(opts.scrollDelay || 2);
   updateConcurrencyLabel(opts.concurrency || 3);
@@ -128,6 +131,8 @@ async function saveOptions() {
     showSnackbar: document.getElementById('opt-show-snackbar').checked,
 // @ts-ignore
     showNotification: document.getElementById('opt-show-notification').checked,
+// @ts-ignore
+    enableBookmarks:  document.getElementById('opt-enable-bookmarks').checked,
   };
 
   await chrome.storage.sync.set({ options: opts });

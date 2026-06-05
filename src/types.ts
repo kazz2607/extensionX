@@ -67,11 +67,14 @@ export interface Options {
   flatUsername?: boolean;
   showSnackbar?: boolean;
   showNotification?: boolean;
-  autoScroll?: boolean; isMediaPage?: boolean;
+  autoScroll?: boolean;
+  isMediaPage?: boolean;
   maxScrolls?: number;
   scrollDelay?: number;
   adaptiveScroll?: boolean;
-  maxMedia?: number; mediaTypes?: {
+  maxMedia?: number;
+  enableBookmarks?: boolean;
+  mediaTypes?: {
     images?: boolean;
     videos?: boolean;
     gifs?: boolean;
@@ -82,6 +85,12 @@ export interface Options {
     minImageWidth?: number;
     minImageHeight?: number;
   };
+}
+
+export interface QueueExportData {
+  _version: string;
+  _exportedAt: string;
+  queue: QueueItem[];
 }
 
 declare global {

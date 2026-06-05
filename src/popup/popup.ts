@@ -75,13 +75,16 @@ const els: any = {
   downloadedBadge: $('downloaded-count-badge'),
 
   // v5.0.3 Queue Panel
-  queueList:       $('queue-list'),
-  queueCountBadge: $('queue-count-badge'),
-  btnQueueStart:   $('btn-queue-start'),
-  btnQueueClear:   $('btn-queue-clear'),
-  btnQueueAddBar:  $('btn-queue-add-bar'),
-  queueAddHint:    $('queue-add-hint'),
-  navQueueBadge:   $('nav-queue-badge'),
+  queueList:        $('queue-list'),
+  queueCountBadge:  $('queue-count-badge'),
+  btnQueueStart:    $('btn-queue-start'),
+  btnQueueClear:    $('btn-queue-clear'),
+  btnQueueAddBar:   $('btn-queue-add-bar'),
+  queueAddHint:     $('queue-add-hint'),
+  navQueueBadge:    $('nav-queue-badge'),
+  // FEA-02: Queue Export/Import
+  btnQueueExport:   $('btn-queue-export'),
+  inputQueueImport: $('input-queue-import'),
 
   // UI-04: Onboarding
   onboardingSection: $('onboarding-section'),
@@ -372,11 +375,17 @@ function renderQueue() {
       : `${item.mediaCount} media · ${icon} ${item.filterType || 'all'}`;
     const canRemove = item.status !== 'downloading';
 
+    // FEA-03: File count span — chỉ render cho item đang downloading
+    const fileCountSpan = item.status === 'downloading'
+      ? `<span class="queue-file-count" id="qfc-${item.id}">📥 đang tải...</span>`
+      : '';
+
     return `<li class="queue-item status-${item.status}" data-id="${item.id}">
       <div class="queue-item-avatar">${item.username.slice(0, 2).toUpperCase()}</div>
       <div class="queue-item-info">
         <div class="queue-item-name">@${item.username}</div>
         <div class="queue-item-meta">${metaText}</div>
+        ${fileCountSpan}
       </div>
       <span class="queue-status ${item.status}">${statusLabel}</span>
       ${canRemove
@@ -418,17 +427,26 @@ function renderQueue() {
   });
 }
 
-// UI-06: Cập nhật progress bar live của queue item đang downloading
+// UI-06 + FEA-03: Cập nhật progress bar + file count live của queue item đang downloading
 function updateQueueItemProgress(payload: any) {
   const active = (downloadQueue as any[]).find(q => q.status === 'downloading');
   if (!active) return;
+
+  // UI-06: mini progress bar trong queue-item-meta
   const metaEl = document.querySelector<HTMLElement>(`.queue-item[data-id="${active.id}"] .queue-item-meta`);
-  if (!metaEl) return;
-  const progressHTML = `
-    <div class="queue-mini-progress"><div class="queue-mini-bar" style="width:${payload.percent}%"></div></div>
-    <span style="font-size:10px">${payload.current}/${payload.total} • ${payload.percent}%</span>`;
-  metaEl.innerHTML = progressHTML;
-  metaEl.dataset.progress = progressHTML; // cache để renderQueue có thể restore
+  if (metaEl) {
+    const progressHTML = `
+      <div class="queue-mini-progress"><div class="queue-mini-bar" style="width:${payload.percent}%"></div></div>
+      <span style="font-size:10px">${payload.current}/${payload.total} • ${payload.percent}%</span>`;
+    metaEl.innerHTML = progressHTML;
+    metaEl.dataset.progress = progressHTML;
+  }
+
+  // FEA-03: file count badge rõ ràng hơn
+  const fileCountEl = document.querySelector<HTMLElement>(`#qfc-${active.id}`);
+  if (fileCountEl) {
+    fileCountEl.textContent = `📥 ${payload.current} / ${payload.total} files · ${payload.percent}%`;
+  }
 }
 
 async function addCurrentToQueue() {
@@ -841,6 +859,39 @@ function setupListeners() {
       if (!confirm('Xóa toàn bộ hàng đợi (không xóa item đang tải)?')) return;
       await sendBG('CLEAR_QUEUE', {});
       showToast('Đã xóa hàng đợi', 'info');
+    });
+  }
+
+  // FEA-02: Queue Export
+  if (els.btnQueueExport) {
+    els.btnQueueExport.addEventListener('click', async () => {
+      const res: any = await sendBG('EXPORT_QUEUE', {});
+      if (!res?.ok || !res.data) { showToast('Không có dữ liệu để xuất', 'error'); return; }
+      const json = JSON.stringify(res.data, null, 2);
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const dataUrl = 'data:application/json;charset=utf-8,' + encodeURIComponent(json);
+      chrome.downloads.download({ url: dataUrl, filename: `extensionx_queue_${dateStr}.json`, saveAs: false });
+      showToast(`✓ Đã xuất ${res.data.queue?.length || 0} profile(s)`, 'success');
+    });
+  }
+
+  // FEA-02: Queue Import
+  if (els.inputQueueImport) {
+    els.inputQueueImport.addEventListener('change', async (e: Event) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      (e.target as HTMLInputElement).value = '';
+      try {
+        const text = await file.text();
+        const res: any = await sendBG('IMPORT_QUEUE', { data: text });
+        if (res?.error) {
+          showToast(`Import lỗi: ${res.error}`, 'error');
+        } else {
+          showToast(`✓ Đã import ${res.added} profile(s) (bỏ qua ${res.skipped})`, 'success');
+        }
+      } catch (err: any) {
+        showToast(`Import thất bại: ${err.message}`, 'error');
+      }
     });
   }
 

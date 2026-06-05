@@ -2,6 +2,17 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [5.4.0] - 2026-06-05
+### Queue & Bookmark Improvements
+
+- **[FEA-01 — Toggle Bookmark Scanning]:** Thêm option **"Quét Bookmarks cá nhân"** trong Settings (bật mặc định). Khi tắt, extension bỏ qua hoàn toàn trang `x.com/i/bookmarks` — `startCollecting()` trong `scraper.ts` kiểm tra `getCachedOptions().enableBookmarks` trước khi bắt đầu scroll. Dùng options cache TTL 5s sẵn có — 0 overhead. (`types.ts`, `options.ts`, `options.html`, `scraper.ts`)
+
+- **[FEA-02 — Queue Export / Import]:** Xuất toàn bộ queue ra file `extensionx_queue_YYYYMMDD.json` (nút **Export** trong Queue tab header). Import từ file JSON ở máy khác hoặc lần sau (nút **Import** — file input ẩn). Logic merge: chỉ thêm items chưa có (so sánh `id`); item `downloading` được reset về `waiting`; item `done`/`error` bị bỏ qua. SW handlers: `EXPORT_QUEUE` + `IMPORT_QUEUE` với validation đầy đủ. (`queue.ts`, `messages.ts`, `popup.html`, `popup.ts`, `types.ts`)
+
+- **[FEA-03 — File Count per Profile in Queue]:** Queue item đang `downloading` giờ hiển thị rõ số file: `📥 23 / 150 files · 15%` bên dưới tên profile (class `queue-file-count`, font xanh accent). `updateQueueItemProgress()` đồng thời cập nhật cả mini progress bar (UI-06) và file count badge — không re-render toàn bộ list. (`popup.ts`, `popup.html`)
+
+---
+
 ## [5.3.1] - 2026-06-04
 ### Bug Fixes
 
