@@ -114,12 +114,16 @@
 
     // Skip nếu có text đang được selected
     const selection = window.getSelection();
-    if (selection && selection.toString().trim().length > 0) return;
+    if (selection && selection.toString().trim().length > 0) {
+      console.warn('[XMD] Bỏ qua vì đang có text được select:', selection.toString());
+      return;
+    }
 
     // Match từng shortcut
     if (matchShortcut(e, config.copyLink)) {
       e.preventDefault();
       e.stopPropagation();
+      console.log('[XMD] Trigger copyLink');
       actionCopyLink(hoveredImg);
       return;
     }
@@ -340,18 +344,31 @@
 
   // ─── Clipboard ────────────────────────────────────────────────────────────────
   function copyToClipboard(text: string) {
-    navigator.clipboard.writeText(text).catch(() => {
-      // Fallback cho trường hợp Permissions API không cho phép hoặc Document not focused
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0';
-      document.body.appendChild(ta);
-      ta.select();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).catch((err) => {
+        console.warn('[XMD] Clipboard API failed, using fallback:', err);
+        fallbackCopyTextToClipboard(text);
+      });
+    } else {
+      fallbackCopyTextToClipboard(text);
+    }
+  }
+
+  function fallbackCopyTextToClipboard(text: string) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try {
       document.execCommand('copy');
-      ta.remove();
-      // FIX (BUG-06): Xóa selection do textarea tạo ra để không bị kẹt điều kiện check ở lần nhấn phím sau
-      window.getSelection()?.removeAllRanges();
-    });
+    } catch (err) {
+      console.error('[XMD] Fallback copy failed:', err);
+    }
+    ta.remove();
+    // Xóa selection do textarea tạo ra để không bị kẹt điều kiện check ở lần nhấn phím sau
+    window.getSelection()?.removeAllRanges();
   }
 
   // ─── Toast Notification ───────────────────────────────────────────────────────
