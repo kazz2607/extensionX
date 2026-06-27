@@ -2,6 +2,12 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [5.5.4] - 2026-06-27
+### Bug Fixes
+- **[BUG-06 — Keyboard Focus Fix]:** Sửa lỗi phím tắt chỉ hoạt động ở lần đầu tiên. Nguyên nhân do Clipboard Fallback sử dụng thẻ `textarea` tạm thời và để lại selection, cũng như vấn đề Window Focus. Đã viết lại cơ chế copy fallback an toàn hơn bằng `ta.blur()`, xóa selection và bổ sung hệ thống debug log chi tiết cho `handleKeydown` trong `shortcuts.ts`.
+
+---
+
 ## [5.5.1] - 2026-06-27
 ### Bug Fixes
 - **[BUG-05 — Hover Detection Fix]:** Cải thiện nhận diện ảnh hover trong script `shortcuts.ts`. Thay vì dùng sự kiện `mouseover` (dễ bị chặn bởi thẻ `<div>` overlay hoặc thẻ `<a>`), chuyển sang bắt tọa độ chuột bằng `mousemove` và dùng hàm `document.elementsFromPoint(x, y)` trong event `keydown` để xuyên qua mọi lớp overlay và lấy chính xác thẻ `<img>` đang nằm bên dưới. Giúp phím tắt hoạt động 100% trên các trang web có cấu trúc DOM phức tạp (như Instagram, X.com, Pinterest).

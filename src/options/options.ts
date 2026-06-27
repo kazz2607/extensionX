@@ -1,6 +1,6 @@
 
 /**
- * options.js — Logic trang Cài đặt (v5.5.1)
+ * options.js — Logic trang Cài đặt (v5.5.4)
  */
 
 const DEFAULT_OPTIONS = {
