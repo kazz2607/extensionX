@@ -1,7 +1,7 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-06-05 | Phiên bản hiện tại: **5.4.0**
+> Cập nhật: 2026-06-27 | Phiên bản hiện tại: **5.5.0**
 
 ---
 
@@ -142,6 +142,7 @@ File được lưu vào:
 - **v5.3.0** UI Polish: error details + retry, stats donut realtime, auto-save indicator, empty state onboarding, FAB progress %, queue live progress bar
 - **v5.3.1** Bug Fixes: auto-download sau collect, thêm nút Stop download (global + per queue item)
 - **v5.4.0** Queue & Bookmark: toggle bookmark scanning, Queue export/import JSON, file count per profile in Queue tab
+- **v5.5.0** Global Keyboard Shortcuts: 5 phím tắt tiện ích hoạt động trên mọi trang web (`Ctrl+C`, `Ctrl+S`, v.v.), settings UI, tự trích xuất permalink tweet trên X.com
 
 ---
 
@@ -166,6 +167,7 @@ File được lưu vào:
 | v5.0.0 | **Major TypeScript Rewrite** — Chuyển đổi 100% codebase sang TypeScript, sử dụng Vite Bundler & ESM |
 | v5.0.2 | **Vite Bundle Fixes** — Fix lỗi không copy resources và scripts động ở chế độ production build |
 | v5.0.3 | **Full UI Localization** — Hoàn thiện hệ thống đa ngôn ngữ (i18n), dịch 100% text giao diện bị gán cứng |
+| v5.5.0 | **Global Keyboard Shortcuts** — Content script `shortcuts.ts` hoạt động độc lập trên mọi website (`<all_urls>`). 5 phím tắt tiện ích khi hover ảnh: `Ctrl+C` copy liên kết, `Ctrl+S` tải ngay. Có Settings UI và Inline Toast notification. |
 | v5.4.0 | **Queue & Bookmark** — Toggle bookmark scanning (enableBookmarks option), Queue Export/Import JSON, file count per profile `📥 23/150 files · 15%` trong Queue tab |
 | v5.3.1 | **Bug Fixes** — Auto-download sau collect (bỏ startNextInQueue ở ADD_TO_QUEUE + finally guard _fromQueue), nút Stop download global + per queue item (`_stopRequested` flag) |
 | v5.3.0 | **UI Polish** — error details panel + retry failed downloads, stats donut realtime, auto-save "Saving..." indicator, empty state onboarding card, FAB % progress, queue live progress bar |
@@ -542,6 +544,7 @@ v5.2.0  ── Performance: Offscreen cache, memory warning 50k, CSV chunked pag
 v5.3.0  ── UI Polish: error details+retry, donut realtime, FAB%, queue progress       ✅ DONE
 v5.3.1  ── Bug Fixes: auto-download sau collect, nút Stop global + per queue item     ✅ DONE
 v5.4.0  ── Queue & Bookmark: toggle bookmarks, Queue export/import, file count/profile ✅ DONE
+v5.5.0  ── Global Keyboard Shortcuts (mọi trang web)                                  ✅ DONE
 
 [TIẾP THEO]
 v6.0.0  ── Full-page Dashboard, Masonry Media Gallery, Bulk Selection

@@ -547,6 +547,107 @@
     </div>
   </div>
 
+  <!-- ── Keyboard Shortcuts (v5.5.0) ── -->
+  <div class="section">
+    <p class="section-title">⌨️ Keyboard Shortcuts (Global)</p>
+    <div class="card">
+
+      <div class="option-row">
+        <div class="option-label">
+          <strong>Bật phím tắt trên mọi trang web</strong>
+          <span>Kích hoạt phím tắt khi hover chuột vào ảnh trên bất kỳ trang web nào. Mặc định tắt.</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="opt-shortcuts-enabled" />
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+
+      <div id="shortcuts-detail" style="opacity:0.5; pointer-events:none;">
+
+        <div class="option-row">
+          <div class="option-label">
+            <strong>🔗 Copy liên kết ảnh</strong>
+            <span>Hover ảnh + <code>Ctrl+C</code> → copy URL liên kết (<code>&lt;a&gt;</code> href) mà ảnh trỏ tới. Trên X.com sẽ copy link tweet.</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="opt-sc-copy-link" checked />
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
+
+        <div class="option-row">
+          <div class="option-label">
+            <strong>⬇️ Tải ảnh đang hover</strong>
+            <span>Hover ảnh + <code>Ctrl+S</code> → tải ảnh trực tiếp về máy.</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="opt-sc-download" checked />
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
+
+        <div class="option-row">
+          <div class="option-label">
+            <strong>📋 Copy URL file ảnh gốc</strong>
+            <span>Hover ảnh + <code>Ctrl+Shift+C</code> → copy URL trực tiếp của file ảnh (src).</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="opt-sc-copy-img-url" checked />
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
+
+        <div class="option-row">
+          <div class="option-label">
+            <strong>🌐 Mở ảnh gốc trong tab mới</strong>
+            <span>Hover ảnh + <code>Ctrl+Shift+O</code> → mở ảnh chất lượng gốc trong tab trình duyệt mới.</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="opt-sc-open-original" checked />
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
+
+        <div class="option-row">
+          <div class="option-label">
+            <strong>🔍 Tìm kiếm ảnh (Google Lens)</strong>
+            <span>Hover ảnh + <code>Ctrl+Shift+G</code> → mở Google Lens để tìm kiếm ngược hình ảnh.</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="opt-sc-reverse-search" checked />
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
+
+        <div class="option-row">
+          <div class="option-label">
+            <strong>🔔 Hiện thông báo toast</strong>
+            <span>Hiện thông báo nhỏ trên trang khi thực hiện phím tắt (VD: "✓ Copied link").</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="opt-sc-show-toast" checked />
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
+
+      </div>
+
+      <div class="info-box" style="margin:10px 14px 14px;">
+        <span class="info-box-icon">💡</span>
+        <p>Shortcuts chỉ hoạt động khi hover chuột vào ảnh. Nếu đang select text, <code>Ctrl+C</code> sẽ copy text bình thường. Đang nhập liệu trong ô input cũng không bị ảnh hưởng.</p>
+      </div>
+
+    </div>
+  </div>
+
   <!-- ── Security ── -->
   <div class="section">
     <p class="section-title" data-i18n="section_security">🔒 Security</p>
@@ -603,7 +704,7 @@
     <span class="save-status" id="save-status" data-i18n="save_success">✓ Saved successfully</span>
   </div>
 
-  <p class="version-tag">X Media Downloader v5.0.3</p>
+  <p class="version-tag">X Media Downloader v5.5.0</p>
 
   <script type="module" src="../lib/i18n.ts"></script>
   <script type="module" src="options.ts"></script>

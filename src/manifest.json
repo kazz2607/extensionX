@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_appName__",
-  "version": "5.4.0",
+  "version": "5.5.0",
 
   "description": "__MSG_appDesc__",
   "default_locale": "en",
@@ -28,6 +28,12 @@
       "matches": ["https://x.com/*", "https://twitter.com/*"],
       "js": ["content/content.ts"],
       "run_at": "document_start"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/shortcuts.ts"],
+      "run_at": "document_end",
+      "all_frames": false
     }
   ],
 

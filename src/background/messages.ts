@@ -451,6 +451,36 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
 
+    // v5.5.0: Shortcut download — tải ảnh từ bất kỳ trang web nào
+    case 'SHORTCUT_DOWNLOAD': {
+      const { url } = payload || {};
+      if (!url || typeof url !== 'string') {
+        sendResponse({ error: 'Missing URL' });
+        return true;
+      }
+      try {
+        // Extract filename từ URL
+        const urlObj = new URL(url);
+        const pathParts = urlObj.pathname.split('/').filter(Boolean);
+        const filename = pathParts[pathParts.length - 1] || 'image';
+
+        chrome.downloads.download({
+          url: url,
+          filename: filename,
+          saveAs: false,
+        }, (downloadId) => {
+          if (chrome.runtime.lastError) {
+            sendResponse({ error: chrome.runtime.lastError.message });
+          } else {
+            sendResponse({ ok: true, downloadId });
+          }
+        });
+      } catch (err: any) {
+        sendResponse({ error: err.message });
+      }
+      return true;
+    }
+
     default:
       return false;
   }

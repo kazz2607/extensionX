@@ -1,6 +1,6 @@
 
 /**
- * options.js — Logic trang Cài đặt (v5.4.0)
+ * options.js — Logic trang Cài đặt (v5.5.0)
  */
 
 const DEFAULT_OPTIONS = {
@@ -25,6 +25,15 @@ const DEFAULT_OPTIONS = {
   showSnackbar: true,                          // Progress Snackbar trên trang X.com (v4.0.0)
   showNotification: true,                      // System notification khi tải xong (v4.1.0)
   enableBookmarks: true,                       // Cho phép quét trang Bookmarks (v5.4.0)
+  shortcuts: {                                   // Keyboard Shortcuts (v5.5.0)
+    enabled: false,                              // Mặc định TẮT — user phải bật chủ động
+    showToast: true,
+    copyLink:      { enabled: true, modifiers: 'ctrl', key: 'c' },
+    downloadMedia: { enabled: true, modifiers: 'ctrl', key: 's' },
+    copyImageUrl:  { enabled: true, modifiers: 'ctrl+shift', key: 'c' },
+    openOriginal:  { enabled: true, modifiers: 'ctrl+shift', key: 'o' },
+    reverseSearch: { enabled: true, modifiers: 'ctrl+shift', key: 'g' },
+  },
 };
 
 // ─── Load ─────────────────────────────────────────────────────────────────────
@@ -77,6 +86,24 @@ async function loadOptions() {
   document.getElementById('opt-show-notification').checked = opts.showNotification ?? true;
 // @ts-ignore
   document.getElementById('opt-enable-bookmarks').checked = opts.enableBookmarks ?? true;
+
+  // Keyboard Shortcuts (v5.5.0)
+  const sc = opts.shortcuts || DEFAULT_OPTIONS.shortcuts;
+// @ts-ignore
+  document.getElementById('opt-shortcuts-enabled').checked = sc.enabled ?? false;
+// @ts-ignore
+  document.getElementById('opt-sc-copy-link').checked      = sc.copyLink?.enabled ?? true;
+// @ts-ignore
+  document.getElementById('opt-sc-download').checked       = sc.downloadMedia?.enabled ?? true;
+// @ts-ignore
+  document.getElementById('opt-sc-copy-img-url').checked   = sc.copyImageUrl?.enabled ?? true;
+// @ts-ignore
+  document.getElementById('opt-sc-open-original').checked  = sc.openOriginal?.enabled ?? true;
+// @ts-ignore
+  document.getElementById('opt-sc-reverse-search').checked = sc.reverseSearch?.enabled ?? true;
+// @ts-ignore
+  document.getElementById('opt-sc-show-toast').checked     = sc.showToast ?? true;
+  updateShortcutsDetailState();
 
   updateScrollLabel(opts.scrollDelay || 2);
   updateConcurrencyLabel(opts.concurrency || 3);
@@ -133,6 +160,17 @@ async function saveOptions() {
     showNotification: document.getElementById('opt-show-notification').checked,
 // @ts-ignore
     enableBookmarks:  document.getElementById('opt-enable-bookmarks').checked,
+    shortcuts: {
+// @ts-ignore
+      enabled:       document.getElementById('opt-shortcuts-enabled').checked,
+// @ts-ignore
+      showToast:     document.getElementById('opt-sc-show-toast').checked,
+      copyLink:      { enabled: (document.getElementById('opt-sc-copy-link') as HTMLInputElement)?.checked ?? true,      modifiers: 'ctrl', key: 'c' },
+      downloadMedia: { enabled: (document.getElementById('opt-sc-download') as HTMLInputElement)?.checked ?? true,       modifiers: 'ctrl', key: 's' },
+      copyImageUrl:  { enabled: (document.getElementById('opt-sc-copy-img-url') as HTMLInputElement)?.checked ?? true,   modifiers: 'ctrl+shift', key: 'c' },
+      openOriginal:  { enabled: (document.getElementById('opt-sc-open-original') as HTMLInputElement)?.checked ?? true,  modifiers: 'ctrl+shift', key: 'o' },
+      reverseSearch: { enabled: (document.getElementById('opt-sc-reverse-search') as HTMLInputElement)?.checked ?? true, modifiers: 'ctrl+shift', key: 'g' },
+    },
   };
 
   await chrome.storage.sync.set({ options: opts });
@@ -165,6 +203,21 @@ function sanitizeFolder(str) {
     .replace(/[<>:"|?*\\]/g, '_')
     .replace(/^\/+|\/+$/g, '')
     .trim();
+}
+
+// v5.5.0: Toggle shortcuts detail panel (dim khi master toggle tắt)
+function updateShortcutsDetailState() {
+  const masterToggle = document.getElementById('opt-shortcuts-enabled') as HTMLInputElement | null;
+  const detailPanel = document.getElementById('shortcuts-detail');
+  if (!masterToggle || !detailPanel) return;
+
+  if (masterToggle.checked) {
+    detailPanel.style.opacity = '1';
+    detailPanel.style.pointerEvents = 'auto';
+  } else {
+    detailPanel.style.opacity = '0.5';
+    detailPanel.style.pointerEvents = 'none';
+  }
 }
 
 function updateFolderPreview() {
@@ -273,6 +326,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Call once to init with current state
   setTimeout(updateFolderPreview, 100);
+
+  // Keyboard Shortcuts: master toggle dims/enables sub-options
+  const scMasterToggle = document.getElementById('opt-shortcuts-enabled');
+  if (scMasterToggle) {
+    scMasterToggle.addEventListener('change', updateShortcutsDetailState);
+  }
 
   // Debounce helper
   function debounce(func: (...args: any[]) => void, wait: number) {

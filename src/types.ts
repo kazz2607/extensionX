@@ -60,6 +60,22 @@ export interface ActiveDownload {
   totalBytes: number;
 }
 
+export interface ShortcutAction {
+  enabled: boolean;
+  modifiers: string;   // 'ctrl', 'ctrl+shift', 'alt+shift'
+  key: string;         // 'c', 's', 'o', 'g'...
+}
+
+export interface ShortcutsOptions {
+  enabled: boolean;                   // Master toggle bật/tắt toàn bộ shortcuts
+  showToast: boolean;                 // Hiện toast notification sau mỗi action
+  copyLink: ShortcutAction;          // S1: Copy liên kết (href <a>) mà ảnh trỏ tới
+  downloadMedia: ShortcutAction;     // S2: Tải ảnh đang hover
+  copyImageUrl: ShortcutAction;      // S3: Copy URL file ảnh (src)
+  openOriginal: ShortcutAction;      // S4: Mở ảnh trong tab mới
+  reverseSearch: ShortcutAction;     // S5: Google Lens reverse image search
+}
+
 export interface Options {
   saveFolder?: string;
   concurrency?: number;
@@ -85,6 +101,7 @@ export interface Options {
     minImageWidth?: number;
     minImageHeight?: number;
   };
+  shortcuts?: ShortcutsOptions;      // Keyboard Shortcuts (v5.5.0)
 }
 
 export interface QueueExportData {

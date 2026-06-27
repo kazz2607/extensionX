@@ -2,6 +2,16 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [5.5.0] - 2026-06-27
+### Global Keyboard Shortcuts & Power Features
+
+- **[FEA-04 — Global Shortcuts]:** Thêm content script độc lập `shortcuts.ts` chạy trên mọi trang web (`<all_urls>`). Hỗ trợ 5 phím tắt tiện ích khi hover chuột vào hình ảnh: `Ctrl+C` (Copy liên kết mà ảnh trỏ tới), `Ctrl+S` (Tải ảnh trực tiếp), `Ctrl+Shift+C` (Copy URL file ảnh), `Ctrl+Shift+O` (Mở ảnh tab mới), `Ctrl+Shift+G` (Tìm kiếm ngược Google Lens). Đặc biệt trên X.com, `Ctrl+C` sẽ tự động trích xuất permalink của tweet chứa ảnh đó. Tính năng được thiết kế an toàn: không ghi đè nếu đang select text hoặc nhập liệu. Mặc định TẮT.
+- **[UI-07 — Shortcuts Settings]:** Thêm section "Keyboard Shortcuts (Global)" trong trang Options. Bao gồm master toggle để bật/tắt toàn bộ, và các toggle con cho từng phím tắt riêng biệt. Giao diện tự động làm mờ các option con khi master toggle tắt. Cấu hình được đồng bộ qua `chrome.storage.sync`.
+- **[Core — Shortcut Download]:** Thêm `SHORTCUT_DOWNLOAD` message handler vào Service Worker để nhận yêu cầu từ `shortcuts.ts` và sử dụng `chrome.downloads.download` API tải ảnh trực tiếp, vượt qua hạn chế CORS của trình duyệt.
+- **[UI-08 — Inline Toast]:** `shortcuts.ts` triển khai hệ thống notification (toast) độc lập, tự chứa inline CSS để hiển thị feedback ngay lập tức (VD: "✓ Copied link") trên mọi website mà không cần phụ thuộc vào stylesheet bên ngoài hay bị chặn bởi CSP.
+
+---
+
 ## [5.4.0] - 2026-06-05
 ### Queue & Bookmark Improvements
 
