@@ -1,7 +1,7 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-06-27 | Phiên bản hiện tại: **5.5.0**
+> Cập nhật: 2026-06-27 | Phiên bản hiện tại: **5.5.1**
 
 ---
 
@@ -143,6 +143,7 @@ File được lưu vào:
 - **v5.3.1** Bug Fixes: auto-download sau collect, thêm nút Stop download (global + per queue item)
 - **v5.4.0** Queue & Bookmark: toggle bookmark scanning, Queue export/import JSON, file count per profile in Queue tab
 - **v5.5.0** Global Keyboard Shortcuts: 5 phím tắt tiện ích hoạt động trên mọi trang web (`Ctrl+C`, `Ctrl+S`, v.v.), settings UI, tự trích xuất permalink tweet trên X.com
+- **v5.5.1** Bug Fixes: Cải thiện logic bắt sự kiện hover vào ảnh bằng cách theo dõi tọa độ `mousemove` và `document.elementsFromPoint(x, y)`, giúp hoạt động hoàn hảo trên mọi web có DOM layer phức tạp.
 
 ---
 
@@ -167,6 +168,7 @@ File được lưu vào:
 | v5.0.0 | **Major TypeScript Rewrite** — Chuyển đổi 100% codebase sang TypeScript, sử dụng Vite Bundler & ESM |
 | v5.0.2 | **Vite Bundle Fixes** — Fix lỗi không copy resources và scripts động ở chế độ production build |
 | v5.0.3 | **Full UI Localization** — Hoàn thiện hệ thống đa ngôn ngữ (i18n), dịch 100% text giao diện bị gán cứng |
+| v5.5.1 | **Bug Fixes** — Cải thiện nhận diện ảnh hover trong script `shortcuts.ts` (sử dụng `mousemove` và `document.elementsFromPoint(x, y)`) thay vì `mouseover` để vượt qua các lớp màng overlay trong suốt trên một số trang web. |
 | v5.5.0 | **Global Keyboard Shortcuts** — Content script `shortcuts.ts` hoạt động độc lập trên mọi website (`<all_urls>`). 5 phím tắt tiện ích khi hover ảnh: `Ctrl+C` copy liên kết, `Ctrl+S` tải ngay. Có Settings UI và Inline Toast notification. |
 | v5.4.0 | **Queue & Bookmark** — Toggle bookmark scanning (enableBookmarks option), Queue Export/Import JSON, file count per profile `📥 23/150 files · 15%` trong Queue tab |
 | v5.3.1 | **Bug Fixes** — Auto-download sau collect (bỏ startNextInQueue ở ADD_TO_QUEUE + finally guard _fromQueue), nút Stop download global + per queue item (`_stopRequested` flag) |
@@ -545,6 +547,7 @@ v5.3.0  ── UI Polish: error details+retry, donut realtime, FAB%, queue progr
 v5.3.1  ── Bug Fixes: auto-download sau collect, nút Stop global + per queue item     ✅ DONE
 v5.4.0  ── Queue & Bookmark: toggle bookmarks, Queue export/import, file count/profile ✅ DONE
 v5.5.0  ── Global Keyboard Shortcuts (mọi trang web)                                  ✅ DONE
+v5.5.1  ── Bug Fixes: Cải thiện logic hover ảnh trong Global Shortcuts                  ✅ DONE
 
 [TIẾP THEO]
 v6.0.0  ── Full-page Dashboard, Masonry Media Gallery, Bulk Selection

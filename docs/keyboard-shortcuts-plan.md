@@ -210,7 +210,8 @@ const DEFAULT_SHORTCUTS: ShortcutsOptions = {
 ```typescript
 // Pseudo-code logic chính
 (() => {
-  let hoveredImg: HTMLImageElement | null = null;
+  let mouseX = 0;
+  let mouseY = 0;
   let config: ShortcutsOptions | null = null;
 
   // 1. Load config
@@ -221,19 +222,23 @@ const DEFAULT_SHORTCUTS: ShortcutsOptions = {
   });
 
   function init() {
-    // 2. Track hovered image
-    document.addEventListener('mouseover', (e) => {
-      const target = e.target as HTMLElement;
-      hoveredImg = target.tagName === 'IMG' ? target as HTMLImageElement : null;
-    });
+    // 2. Track tọa độ chuột liên tục
+    document.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    }, { capture: true, passive: true });
 
     // 3. Listen keyboard
     document.addEventListener('keydown', handleKeydown, true); // capture phase
   }
 
   function handleKeydown(e: KeyboardEvent) {
-    if (!hoveredImg) return;
     if (!config?.enabled) return;
+
+    // Tìm ảnh ngay dưới con trỏ chuột (xuyên qua overlay)
+    const elements = document.elementsFromPoint(mouseX, mouseY);
+    const hoveredImg = elements.find(el => el.tagName === 'IMG') as HTMLImageElement;
+    if (!hoveredImg) return;
 
     // Skip nếu đang trong input/textarea/contenteditable
     const active = document.activeElement;

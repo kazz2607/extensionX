@@ -1,5 +1,5 @@
 /**
- * shortcuts.ts — Global Keyboard Shortcuts (v5.5.0)
+ * shortcuts.ts — Global Keyboard Shortcuts (v5.5.1)
  * Chạy trên MỌI trang web (inject qua manifest content_scripts <all_urls>)
  *
  * Tính năng:
@@ -38,7 +38,8 @@
 
   // ─── State ────────────────────────────────────────────────────────────────────
   let config = { ...DEFAULT_SHORTCUTS };
-  let hoveredImg: HTMLImageElement | null = null;
+  let mouseX = 0;
+  let mouseY = 0;
   let initialized = false;
 
   // ─── Load Config ──────────────────────────────────────────────────────────────
@@ -83,20 +84,11 @@
     if (initialized) return;
     initialized = true;
 
-    // Track ảnh đang hover
-    document.addEventListener('mouseover', (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'IMG') {
-        hoveredImg = target as HTMLImageElement;
-      }
-    }, true);
-
-    document.addEventListener('mouseout', (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (target === hoveredImg) {
-        hoveredImg = null;
-      }
-    }, true);
+    // Track tọa độ chuột (để xử lý các trang có overlay che mất ảnh)
+    document.addEventListener('mousemove', (e: MouseEvent) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    }, { capture: true, passive: true });
 
     // Lắng nghe phím tắt — capture phase để chạy trước website handlers
     document.addEventListener('keydown', handleKeydown, true);
@@ -105,6 +97,11 @@
   // ─── Keydown Handler ──────────────────────────────────────────────────────────
   function handleKeydown(e: KeyboardEvent) {
     if (!config.enabled) return;
+    
+    // Tìm ảnh dưới con trỏ chuột bằng tọa độ (chống overlay)
+    const elements = document.elementsFromPoint(mouseX, mouseY);
+    const hoveredImg = elements.find(el => el.tagName === 'IMG') as HTMLImageElement | undefined;
+    
     if (!hoveredImg) return;
 
     // Skip nếu đang focus input/textarea/contenteditable
