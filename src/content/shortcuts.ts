@@ -97,11 +97,40 @@
   // ─── Keydown Handler ──────────────────────────────────────────────────────────
   function handleKeydown(e: KeyboardEvent) {
     if (!config.enabled) return;
-    
+
     // Tìm ảnh dưới con trỏ chuột bằng tọa độ (chống overlay)
     const elements = document.elementsFromPoint(mouseX, mouseY);
     const hoveredImg = elements.find(el => el.tagName === 'IMG') as HTMLImageElement | undefined;
     
+    // VERBOSE DEBUG LOGGING
+    const keyCombo = (e.ctrlKey ? 'Ctrl+' : '') + (e.shiftKey ? 'Shift+' : '') + e.key;
+    if (keyCombo.toLowerCase() === 'ctrl+c' || keyCombo.toLowerCase() === 'ctrl+s') {
+       console.log(`[XMD Debug] Keydown: ${keyCombo} at (${mouseX}, ${mouseY})`);
+       console.log(`[XMD Debug] elementsFromPoint:`, elements);
+       
+       if (!hoveredImg) {
+         console.warn(`[XMD Debug] Bỏ qua vì không tìm thấy IMG. Có thể tọa độ bị sai hoặc ảnh không phải là thẻ <img>.`);
+         return;
+       } else {
+         console.log(`[XMD Debug] Found IMG:`, hoveredImg);
+       }
+
+       const active = document.activeElement;
+       if (active) {
+         const tag = active.tagName;
+         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (active as HTMLElement).isContentEditable) {
+           console.warn(`[XMD Debug] Bỏ qua vì đang focus nhập liệu:`, active);
+           return;
+         }
+       }
+
+       const selection = window.getSelection();
+       if (selection && selection.toString().trim().length > 0) {
+         console.warn('[XMD Debug] Bỏ qua vì đang có text được select:', selection.toString());
+         return;
+       }
+    }
+
     if (!hoveredImg) return;
 
     // Skip nếu đang focus input/textarea/contenteditable
@@ -114,16 +143,13 @@
 
     // Skip nếu có text đang được selected
     const selection = window.getSelection();
-    if (selection && selection.toString().trim().length > 0) {
-      console.warn('[XMD] Bỏ qua vì đang có text được select:', selection.toString());
-      return;
-    }
+    if (selection && selection.toString().trim().length > 0) return;
 
     // Match từng shortcut
     if (matchShortcut(e, config.copyLink)) {
       e.preventDefault();
       e.stopPropagation();
-      console.log('[XMD] Trigger copyLink');
+      console.log('[XMD] Trigger copyLink on:', hoveredImg);
       actionCopyLink(hoveredImg);
       return;
     }
@@ -131,6 +157,7 @@
     if (matchShortcut(e, config.downloadMedia)) {
       e.preventDefault();
       e.stopPropagation();
+      console.log('[XMD] Trigger downloadMedia on:', hoveredImg);
       actionDownloadMedia(hoveredImg);
       return;
     }
@@ -138,6 +165,7 @@
     if (matchShortcut(e, config.copyImageUrl)) {
       e.preventDefault();
       e.stopPropagation();
+      console.log('[XMD] Trigger copyImageUrl on:', hoveredImg);
       actionCopyImageUrl(hoveredImg);
       return;
     }
