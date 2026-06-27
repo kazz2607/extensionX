@@ -341,7 +341,7 @@
   // ─── Clipboard ────────────────────────────────────────────────────────────────
   function copyToClipboard(text: string) {
     navigator.clipboard.writeText(text).catch(() => {
-      // Fallback cho trường hợp Permissions API không cho phép
+      // Fallback cho trường hợp Permissions API không cho phép hoặc Document not focused
       const ta = document.createElement('textarea');
       ta.value = text;
       ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0';
@@ -349,6 +349,8 @@
       ta.select();
       document.execCommand('copy');
       ta.remove();
+      // FIX (BUG-06): Xóa selection do textarea tạo ra để không bị kẹt điều kiện check ở lần nhấn phím sau
+      window.getSelection()?.removeAllRanges();
     });
   }
 
