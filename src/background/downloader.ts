@@ -50,9 +50,11 @@ chrome.downloads.onChanged.addListener((delta) => {
     }
   } 
   
-  // Update progress
-  if (delta.bytesReceived && delta.bytesReceived.current !== undefined) tracked.bytesReceived = delta.bytesReceived.current;
-  if (delta.totalBytes && delta.totalBytes.current !== undefined) tracked.totalBytes = delta.totalBytes.current;
+  // Update progress — cast sang any vì chrome.downloads.DownloadDelta type def không khai báo bytesReceived/totalBytes
+  // nhưng Chrome runtime thực tế cung cấp 2 field này khi download đang chạy
+  const d = delta as any;
+  if (d.bytesReceived && d.bytesReceived.current !== undefined) tracked.bytesReceived = d.bytesReceived.current;
+  if (d.totalBytes && d.totalBytes.current !== undefined) tracked.totalBytes = d.totalBytes.current;
 
   // v4.4.0: Throttled broadcast (max 2 lần/s)
   if (Date.now() - _lastProgressTime > 500 && activeDownloads.size > 0) {
@@ -206,8 +208,9 @@ async function handleDownloadTweet(tweetId: string, username: string | undefined
       try {
         const videoItem = await fetchVideoForTweetWithRefresh(tweetId, tabId);
         if (videoItem) {
-          (videoItem as MediaItem & { username?: string }).username = username;
-          mediaItems = [videoItem];
+          // Cast sang any để gắn username runtime field (API trả về object partial)
+          (videoItem as any).username = username;
+          mediaItems = [videoItem as unknown as MediaItem];
         }
       } catch (_) {}
     }

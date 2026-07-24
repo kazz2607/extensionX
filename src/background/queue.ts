@@ -59,7 +59,7 @@ async function startNextInQueue() {
   if (!store?.size) {
     // Không có media → đánh dấu error và chuyển tiếp
     next.status = 'error';
-    next.result = { error: 'No media found' };
+    next.result = { success: 0, failed: 0, total: 0, skipped: 0, error: 'No media found' };
     persistQueue();
     broadcastQueueUpdate();
     startNextInQueue();
@@ -74,7 +74,7 @@ async function startNextInQueue() {
 
   // startDownload sẽ tự gọi startNextInQueue() trong finally
   startDownload(next.username, {
-    filterType: next.filterType || 'all',
+    filterType: (next.filterType || 'all') as 'all' | 'images' | 'videos' | 'gifs',
     skipDuplicates: next.skipDuplicates !== false,
     _fromQueue: true,
     _queueId: next.id,
