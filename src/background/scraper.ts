@@ -305,8 +305,9 @@ async function scrollLoop(tabId, username) {
 
     if (scrollResult?.isHidden) {
       // Tab đang bị ẩn/minimized, X.com ngừng tải.
-      // Reset lỗi và đợi lâu hơn một chút
+      // BUG-L4 FIX: Reset delay về base khi tab visible lại — tránh delay cao từ lần trước
       noNewCount = 0;
+      currentDelayMs = baseDelayMs;
     } else if (scrollResult?.reachedEnd) {
       noNewCount++;
       if (noNewCount >= 3) {

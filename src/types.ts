@@ -28,8 +28,36 @@ export interface QueueItem {
   addedAt: number;
   status: 'waiting' | 'downloading' | 'done' | 'error';
   mediaCount: number;
-  result?: any;
+  // TS-03: Typed result thay vì any
+  result?: {
+    success: number;
+    failed: number;
+    total: number;
+    skipped: number;
+    error?: string;
+  } | null;
 }
+
+// TS-01: DownloadOptions interface — dùng trong downloader.ts startDownload() và downloadSingleItem()
+export interface DownloadOptions {
+  filterType?: 'all' | 'images' | 'videos' | 'gifs';
+  skipDuplicates?: boolean;
+  dateFrom?: string;
+  dateTo?: string;
+  keyword?: string;
+  // Filename options
+  flatUsername?: boolean;
+  filenameUsername?: boolean;
+  saveFolder?: string;
+  // Performance options
+  concurrency?: number;
+  // UI options
+  showSnackbar?: boolean;
+  // Internal queue tracking
+  _fromQueue?: boolean;
+  _queueId?: string;
+}
+
 
 export interface CollectState {
   username?: string;

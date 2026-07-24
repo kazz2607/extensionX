@@ -67,6 +67,8 @@ async function startNextInQueue() {
   }
 
   next.status = 'downloading';
+  // BUG-L6 FIX: Cập nhật mediaCount thực tế từ store — tránh hiển thị số cũ khi user scroll thêm sau khi add vào queue
+  next.mediaCount = store.size;
   persistQueue();
   broadcastQueueUpdate();
 

@@ -51,6 +51,9 @@ export async function startFollowingScroll(targetUrl: string): Promise<void> {
 
   broadcastToPopup('FOLLOWING_SCROLL_STARTED', { targetUrl });
 
+  // BUG-L7: Track xem có tự tạo tab mới không để đóng sau khi xong
+  let createdNewTab = false;
+
   try {
     // Tìm tab đang mở x.com để dùng, hoặc dùng tab active
     const tabs = await chrome.tabs.query({ url: ['https://x.com/*', 'https://twitter.com/*'] });
@@ -64,6 +67,7 @@ export async function startFollowingScroll(targetUrl: string): Promise<void> {
       // Không có tab x.com — tạo tab mới
       const newTab = await chrome.tabs.create({ url: targetUrl, active: true });
       tabId = newTab.id;
+      createdNewTab = true; // BUG-L7: Đánh dấu để đóng sau
     }
 
     if (!tabId) {
@@ -169,5 +173,15 @@ export async function startFollowingScroll(targetUrl: string): Promise<void> {
     console.error('[following-scroll] Lỗi:', err.message);
     _scrollState.isScrolling = false;
     broadcastToPopup('FOLLOWING_SCROLL_ERROR', { error: err.message });
+  } finally {
+    // BUG-L7 FIX: Đóng tab nếu extension tự tạo — tránh rác tab sau khi scroll xong
+    if (createdNewTab) {
+      const tabs = await chrome.tabs.query({ url: ['https://x.com/*', 'https://twitter.com/*'] });
+      const newTab = tabs.find(t => t.url?.includes('/following'));
+      if (newTab?.id) {
+        chrome.tabs.remove(newTab.id).catch(() => {});
+        console.debug('[following-scroll] BUG-L7: Đã đóng tab tự tạo');
+      }
+    }
   }
 }
