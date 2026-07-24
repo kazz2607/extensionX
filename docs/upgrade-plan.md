@@ -1,7 +1,7 @@
 # ExtensionX — Kế Hoạch Nâng Cấp Toàn Diện v5.7.0+
 
-> **Phiên bản hiện tại:** 5.6.0  
-> **Ngày phân tích:** 2026-07-24  
+> **Phiên bản hiện tại:** 5.7.0  
+> **Ngày phân tích:** 2026-07-24 | **Cập nhật:** 2026-07-24  
 > **Phạm vi:** Performance · Security · UI/UX Bug Fixes · Logic Fixes · New Features  
 
 ---
@@ -22,31 +22,34 @@
 ## 1. Tổng Quan Kiến Trúc
 
 ```
-ExtensionX v5.6.0
+ExtensionX v5.7.0
 ├── background/
 │   ├── service-worker.ts     — Entry point (chỉ import)
-│   ├── messages.ts           — 516 lines, Message hub
-│   ├── downloader.ts         — 725 lines, Download engine ⚠️ nhiều @ts-ignore
-│   ├── scraper.ts            — 519 lines, Scroll + API scraping
+│   ├── messages.ts           — 531 lines, Message hub
+│   ├── downloader.ts         — 687 lines ✅ typed (0 @ts-ignore)
+│   ├── scraper.ts            — 532 lines ✅ Smart Auto-Stop + EMA delay
 │   ├── tweet-api.ts          — 384 lines, Multi-layer API fetch
-│   ├── queue.ts              — 131 lines, Queue manager
-│   ├── following-scroll.ts   — 174 lines, Feature 0
+│   ├── queue.ts              — 134 lines ✅ typed + mediaCount sync
+│   ├── following-scroll.ts   — 183 lines ✅ auto tab cleanup
 │   ├── indexeddb.ts          — IndexedDB persistence layer
 │   ├── state.ts              — 13 lines, Shared state
-│   └── utils.ts              — Utilities
+│   └── utils.ts              — ✅ PERF-02 tab visibility check
 ├── content/
 │   ├── content.ts            — 459 lines, Script injector + relay
 │   ├── page-interceptor.ts   — Hook fetch/XHR để bắt media URL
 │   ├── dom-scanner.ts        — DOM fallback scanner
 │   ├── fab.ts                — 672 lines, Floating Action Button
-│   ├── shortcuts.ts          — 468 lines, Keyboard shortcuts
+│   ├── shortcuts.ts          — 468 lines ✅ BUG-L1: input guard + scope fix
 │   ├── tweet-btn.ts          — Mini download button per tweet
 │   └── snackbar.ts           — In-page notifications
 ├── popup/
-│   ├── popup.ts              — 1509 lines ⚠️ Quá lớn, cần refactor
-│   ├── popup.html            — 34KB
-│   └── popup.css             — 36KB
-└── types.ts                  — Type definitions
+│   ├── popup.ts              — 1588 lines ⚠️ Quá lớn, cần refactor (Sprint 4)
+│   ├── popup.html            — ✅ custom modal, XSS sanitized
+│   └── popup.css             — ✅ UI-02 daterange smooth animation
+├── options/
+│   ├── options.html          — ✅ FEAT-08 Smart Auto-Stop UI
+│   └── options.ts            — ✅ live folder preview + autoStop load/save
+└── types.ts                  — ✅ DownloadOptions + QueueItem typed
 ```
 
 ---
@@ -636,47 +639,47 @@ result?: {
 
 ## 8. Roadmap Thực Thi
 
-### Sprint 1 — Critical Fixes (~1-2 ngày)
+### Sprint 1 — Critical Fixes ✅ DONE (2026-07-24)
 
-| ID | Task | File | Effort |
+| ID | Task | File | Status |
 |----|------|------|--------|
-| BUG-L1 | Fix shortcuts.ts inject scope | manifest.json + shortcuts.ts | 30min |
-| BUG-L5 | Thêm timeout cho sendBG() | popup.ts | 20min |
-| BUG-L3 | Fix clearSession() race condition | scraper.ts | 30min |
-| SEC-02 | Validate URL scheme SHORTCUT_DOWNLOAD | messages.ts | 30min |
-| SEC-03 | XSS sanitization renderQueue() | popup.ts | 1h |
-| SEC-05 | Fix chrome.tabs.query bảo mật | scraper.ts | 15min |
-| UI-03 | Toast queue system | popup.ts | 1h |
-| UI-08 | Custom confirm modal | popup.html + popup.ts | 2h |
+| BUG-L1 | Fix shortcuts.ts inject scope | manifest.json + shortcuts.ts | ✅ Done |
+| BUG-L5 | Thêm timeout cho sendBG() | popup.ts | ✅ Done |
+| BUG-L3 | Fix clearSession() race condition | scraper.ts | ✅ Done |
+| SEC-02 | Validate URL scheme SHORTCUT_DOWNLOAD | messages.ts | ✅ Done |
+| SEC-03 | XSS sanitization renderQueue() | popup.ts | ✅ Done |
+| SEC-05 | Fix chrome.tabs.query bảo mật | scraper.ts | ✅ Done |
+| UI-03 | Toast queue system | popup.ts | ✅ Done |
+| UI-08 | Custom confirm modal | popup.html + popup.ts | ✅ Done |
 
 ---
 
-### Sprint 2 — TypeScript & Logic (~2-3 ngày)
+### Sprint 2 — TypeScript & Logic ✅ DONE (2026-07-24)
 
-| ID | Task | File | Effort |
+| ID | Task | File | Status |
 |----|------|------|--------|
-| TS-01 | Tạo DownloadOptions interface | types.ts + downloader.ts | 4h |
-| BUG-L2 | Type toàn bộ downloader.ts | downloader.ts | 3h |
-| TS-02 | Bật strict mode | tsconfig.json | 2h |
-| TS-03 | Type QueueItem.result | types.ts | 30min |
-| BUG-L4 | Fix scroll delay reset | scraper.ts | 30min |
-| BUG-L6 | Update mediaCount trong queue | messages.ts | 1h |
-| BUG-L7 | Cleanup created tab | following-scroll.ts | 30min |
+| TS-01 | Tạo DownloadOptions interface | types.ts + downloader.ts | ✅ Done |
+| BUG-L2 | Type toàn bộ downloader.ts | downloader.ts | ✅ Done |
+| TS-02 | Bật strict mode | tsconfig.json | ✅ Đã có sẵn |
+| TS-03 | Type QueueItem.result | types.ts | ✅ Done |
+| BUG-L4 | Fix scroll delay reset | scraper.ts | ✅ Done |
+| BUG-L6 | Update mediaCount trong queue | queue.ts | ✅ Done |
+| BUG-L7 | Cleanup created tab | following-scroll.ts | ✅ Done |
 
 ---
 
-### Sprint 3 — Performance & UI (~2-3 ngày)
+### Sprint 3 — Performance & UI ✅ DONE (2026-07-24)
 
-| ID | Task | File | Effort |
+| ID | Task | File | Status |
 |----|------|------|--------|
-| PERF-02 | Fix broadcastToTab target | downloader.ts | 30min |
-| PERF-03 | Tăng options cache TTL | scraper.ts | 10min |
-| PERF-05 | EMA smoothing adaptive delay | scraper.ts | 30min |
-| SEC-04 | Thêm CSP vào manifest | manifest.json | 30min |
-| UI-01 | Fix cleanup panel reset | popup.ts | 30min |
-| UI-02 | Animate daterange panel | popup.css + popup.ts | 45min |
-| UI-07 | Live folder preview Options | options.ts + options.html | 2h |
-| FEAT-08 | Smart Auto-Stop | scraper.ts + options | 2h |
+| PERF-02 | Fix broadcastToTab — skip discarded tab | utils.ts | ✅ Done |
+| PERF-03 | Tăng options cache TTL 5s→30s | scraper.ts | ✅ Done |
+| PERF-05 | EMA smoothing adaptive delay | scraper.ts | ✅ Done |
+| SEC-04 | Thêm CSP vào manifest | manifest.json | ✅ Done |
+| UI-01 | Fix COLLECT_DONE reset + auto_stop reason | popup.ts | ✅ Done |
+| UI-02 | Animate daterange panel (max-height) | popup.css + popup.ts | ✅ Done |
+| UI-07 | Live folder preview + filenameUsername trigger | options.ts + options.html | ✅ Done |
+| FEAT-08 | Smart Auto-Stop (EMA counter + options UI) | scraper.ts + options | ✅ Done |
 
 ---
 
@@ -698,15 +701,15 @@ result?: {
 
 ## Phụ Lục: File Cần Chú Ý
 
-| File | Vấn đề chính | Độ ưu tiên |
-|------|-------------|------------|
-| `downloader.ts` | 60+ @ts-ignore, untyped params | 🔴 Cao |
-| `popup.ts` | 1509 lines, cần tách module | 🟡 Medium |
-| `manifest.json` | shortcuts inject `<all_urls>` | 🔴 Cao |
-| `messages.ts` | QueueItem status type mismatch, XSS | 🔴 Cao |
-| `scraper.ts` | clearSession race condition, cache TTL | 🟡 Medium |
-| `tweet-api.ts` | Hardcoded bearer token | 🟢 Low |
+| File | Vấn đề chính | Độ ưu tiên | Trạng thái |
+|------|-------------|------------|------------|
+| `downloader.ts` | 60+ @ts-ignore, untyped params | 🔴 Cao | ✅ Fixed Sprint 2 |
+| `popup.ts` | 1588 lines, cần tách module | 🟡 Medium | ⏳ Sprint 4 |
+| `manifest.json` | shortcuts inject `<all_urls>` | 🔴 Cao | ✅ Fixed Sprint 1 |
+| `messages.ts` | QueueItem status type mismatch, XSS | 🔴 Cao | ✅ Fixed Sprint 1 |
+| `scraper.ts` | clearSession race condition, cache TTL | 🟡 Medium | ✅ Fixed Sprint 1+3 |
+| `tweet-api.ts` | Hardcoded bearer token | 🟢 Low | ⏳ Sprint 4 |
 
 ---
 
-*Tài liệu phân tích codebase ngày 2026-07-24. Version đề xuất: **v5.7.0** (Sprint 1+2) và **v5.8.0** (Sprint 3+4)*
+*Cập nhật: 2026-07-24. Version hiện tại: **v5.7.0** (Sprint 1+2+3 hoàn thành). Sprint 4 tiếp theo.*

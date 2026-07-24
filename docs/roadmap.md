@@ -1,7 +1,7 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-06-27 | Phiên bản hiện tại: **5.5.4**
+> Cập nhật: 2026-07-24 | Phiên bản hiện tại: **5.7.0**
 
 ---
 

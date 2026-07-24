@@ -2,6 +2,56 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+---
+
+## [5.7.0] — 2026-07-24 *(Sprint 3: Performance & UI)*
+
+### ✨ Tính Năng Mới
+- **FEAT-08: Smart Auto-Stop** — Tự động dừng scroll khi không có media mới sau N scroll liên tiếp. Cấu hình trong Options (bật/tắt + số lần scroll, mặc định 10). Tab ẩn không bị đếm vào counter.
+
+### ⚡ Hiệu Năng
+- **PERF-02:** `broadcastToTab()` kiểm tra `tab.discarded` trước khi gửi message — bỏ qua tab không active
+- **PERF-03:** Options cache TTL tăng từ 5s → 30s — giảm số lần đọc `chrome.storage.sync` trong lúc scroll
+- **PERF-05:** EMA smoothing (α=0.3) cho adaptive scroll delay — tránh delay tăng/giảm đột ngột
+
+### 🔒 Bảo Mật
+- **SEC-04:** Thêm Content Security Policy vào `manifest.json`: `script-src 'self'; object-src 'none'; base-uri 'none'`
+
+### 🎨 Giao Diện
+- **UI-01:** Reset scrollCount → 0, xóa scrollNew text sau khi COLLECT_DONE; thêm message cho `reason: auto_stop`
+- **UI-02:** Daterange collapsible panel dùng `max-height` CSS transition — mượt 0.28s thay vì `display:none` đột ngột
+- **UI-07:** Live folder preview cập nhật khi đổi `filenameUsername` toggle (ngoài saveFolder và flatUsername)
+- **Options:** Smart Auto-Stop controls với toggle tự dim/enable input số scroll
+
+---
+
+## [5.6.1] — 2026-07-24 *(Sprint 1 + Sprint 2: Critical Fixes & TypeScript)*
+
+### 🐛 Bug Fixes
+- **BUG-L1:** `shortcuts.ts` — giới hạn inject scope, thêm `exclude_matches` cho Google Docs/Gmail/Notion; guard input focus
+- **BUG-L2:** `downloader.ts` — xóa 60+ `@ts-ignore`, type đầy đủ với `DownloadOptions` và `MediaItem` interfaces
+- **BUG-L3:** `scraper.ts` — fix race condition trong `clearSession()` khi stop + start nhanh
+- **BUG-L4:** `scraper.ts` — reset scroll delay về `baseDelayMs` khi tab visible lại (tránh delay cao từ lần ẩn)
+- **BUG-L5:** `popup.ts` — timeout 8s cho `sendBG()` — tránh UI hang vô thời hạn
+- **BUG-L6:** `queue.ts` — cập nhật `mediaCount` từ store thực tế trước khi download (tránh số cũ khi user scroll thêm)
+- **BUG-L7:** `following-scroll.ts` — đóng tab tự tạo trong `finally` block — tránh rác tab
+
+### 🔒 Bảo Mật
+- **SEC-02:** Validate URL scheme (`https:` only) + sanitize filename trong `messages.ts`
+- **SEC-03:** `escapeHtml()` + XSS sanitization cho `renderQueue()` và `renderHistory()` trong `popup.ts`
+- **SEC-05:** Giới hạn `chrome.tabs.query()` chỉ query `x.com` và `twitter.com`
+
+### 🛠️ TypeScript
+- **TS-01:** Thêm `DownloadOptions` interface + `QueueItem.result` typed vào `types.ts`
+- **TS-02:** `strict: true` đã có sẵn trong `tsconfig.json` ✅
+- **TS-03:** `QueueItem.result` typed `{ success, failed, total, skipped, error? }` thay vì `any`
+
+### 🎨 Giao Diện
+- **UI-03:** FIFO toast queue — tránh toast chồng chất khi nhiều event liên tiếp
+- **UI-08:** Custom confirm modal với animation thay thế `window.confirm()` native
+
+---
+
 ## [5.6.0] - 2026-07-24
 ### Feature 0: Following Cleanup Page
 - **[Cleanup Panel]:** Tích hợp tab Cleanup trực tiếp vào Popup giúp thao tác nhanh chóng và tiện lợi mà không cần rời khỏi màn hình extension hiện tại.
@@ -10,6 +60,7 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 - **[Refactor]:** Dọn dẹp logic khỏi `popup.ts`, tối ưu hóa navigation popup.
 
 ---
+
 
 ## [5.5.4] - 2026-06-27
 ### Bug Fixes
