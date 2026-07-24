@@ -2,14 +2,15 @@
 
 > **Version**: v6.0.0 (planned)  
 > **Created**: 2026-07-24  
+> **Updated**: 2026-07-24 (thêm Feature 0 — Auto-Scroll Following Page)  
 > **Status**: Pending approval
 
 ## Tổng quan
 
 Thêm tính năng **Following Scanner** vào extensionX — cho phép người dùng:
-1. **Quét toàn bộ danh sách Following** của tài khoản X đang đăng nhập
-2. **Phân tích mức độ hoạt động** của từng tài khoản (dựa trên ngày tweet cuối cùng, số lượng tweet, v.v.)
-3. **Unfollow hàng loạt** các tài khoản không còn hoạt động (với preview và xác nhận trước)
+1. **[Feature 0]** Auto-scroll trang `/following` xuống cuối để lộ các tài khoản **following cũ nhất**
+2. **[Feature 1]** Quét toàn bộ danh sách Following qua API để phân tích mức độ hoạt động
+3. **[Feature 1]** Unfollow hàng loạt các tài khoản không còn hoạt động (với preview và xác nhận trước)
 
 ---
 
@@ -39,12 +40,153 @@ Thêm tính năng **Following Scanner** vào extensionX — cho phép người d
 ### Architecture Overview
 
 ```
-Following List API ──→ Background SW ──→ User Activity Analysis
-                                    ──→ Popup (Cleanup Tab)
-                                    ──→ Unfollow API (with throttle)
+[Feature 0] Auto-Scroll /following page
+        │ Collect usernames from DOM (no API needed)
+        ▼
+[Feature 1] Following List API ──→ Background SW ──→ User Activity Analysis
+                                               ──→ Popup (Cleanup Tab)
+                                               ──→ Unfollow API (with throttle)
 ```
 
 ---
+
+## Feature 0 — Auto-Scroll Following Page (Ưu tiên cao)
+
+> **Mục tiêu**: Scroll tự động trang `x.com/<username>/following` xuống tận cuối để lộ ra các tài khoản **following cũ nhất** (X.com load theo thứ tự mới → cũ từ trên xuống dưới).  
+> **Ví dụ target**: `https://x.com/henryphan69/following`
+
+### Vấn đề hiện tại
+
+Hàm `SCROLL_DOWN` trong `content.ts` hiện có guard kiểm tra `isMediaPage()` — sẽ trả về `{ error: 'not_media_page' }` nếu không phải trang `/media`, `/photos`, `/videos`, `/likes`, `/bookmarks`. Trang `/following` bị block bởi guard này.
+
+### Giải pháp
+
+**Tái dùng toàn bộ scroll engine hiện có** — chỉ cần mở rộng minimal:
+
+#### [MODIFY] `src/content/content.ts`
+
+1. Thêm hàm `isFollowingPage()`:
+   ```typescript
+   function isFollowingPage(url = location.href) {
+     return /\/[A-Za-z0-9_]+\/following(\/|$)/.test(new URL(url).pathname);
+   }
+   ```
+
+2. Mở rộng handler `SCROLL_DOWN` — chấp nhận `/following` khi có flag `allowFollowingPage`:
+   ```typescript
+   if (message.type === 'SCROLL_DOWN') {
+     const isAllowed = isMediaPage()
+       || (message.allowFollowingPage && isFollowingPage());
+     if (!isAllowed) {
+       sendResponse({ error: 'not_media_page' });
+       return false;
+     }
+     // ... scroll logic giữ nguyên không đổi
+   }
+   ```
+
+3. Thêm hàm `extractFollowingUsers()` — quét DOM trang `/following` để lấy username/displayName:
+   ```typescript
+   function extractFollowingUsers() {
+     const cells = document.querySelectorAll('[data-testid="UserCell"]');
+     return Array.from(cells).map(cell => ({
+       username: cell.querySelector('a[role="link"]')
+                   ?.getAttribute('href')?.replace('/', '') || '',
+       displayName: cell.querySelector('[data-testid="User-Name"] span')
+                       ?.textContent?.trim() || '',
+     })).filter(u => u.username);
+   }
+   ```
+
+4. Thêm handler `SCROLL_FOLLOWING_PAGE`:
+   ```typescript
+   if (message.type === 'SCROLL_FOLLOWING_PAGE') {
+     // Scroll + extract DOM users
+     window.scrollTo(0, document.documentElement.scrollHeight);
+     setTimeout(() => {
+       const users = extractFollowingUsers();
+       sendResponse({
+         done: true,
+         users,
+         reachedEnd: /* same logic as SCROLL_DOWN */,
+         isHidden: document.hidden,
+       });
+     }, message.waitMs || 2000);
+     return true;
+   }
+   ```
+
+#### [NEW] `src/background/following-scroll.ts`
+
+Module điều phối quá trình scroll trang following:
+
+```typescript
+export async function scrollFollowingToEnd(
+  targetUrl: string,
+  tabId: number,
+  maxScrolls = 500
+): Promise<{ username: string; displayName: string; order: number }[]>
+```
+
+**Flow bên trong:**
+```
+scrollFollowingToEnd(url, tabId)
+  ├── chrome.tabs.update(tabId, { url })     // navigate đến /following
+  ├── waitForTabLoad(tabId)                  // hàm có sẵn trong utils.ts
+  ├── sleep(3000)                            // chờ X.com render
+  ├── allUsers = new Map()                   // dedup theo username
+  ├── while (!reachedEnd && scroll < max):
+  │     ├── sendMessage(SCROLL_FOLLOWING_PAGE, { waitMs, allowFollowingPage: true })
+  │     ├── merge users vào allUsers (giữ order đầu tiên gặp)
+  │     ├── broadcastToPopup(FOLLOWING_SCROLL_PROGRESS, { count, scrollCount })
+  │     └── sleep(delay + jitter)
+  └── broadcastToPopup(FOLLOWING_SCROLL_DONE, { users: [...allUsers].reverse(), total })
+      // reverse để cũ nhất lên đầu
+```
+
+#### [MODIFY] `src/background/messages.ts`
+
+Thêm handlers:
+
+| Message Type | Payload | Mô tả |
+|---|---|---|
+| `START_FOLLOWING_SCROLL` | `{ targetUrl, username }` | Bắt đầu scroll trang /following |
+| `STOP_FOLLOWING_SCROLL` | — | Dừng scroll |
+| `GET_FOLLOWING_SCROLL_STATE` | — | Lấy trạng thái scroll hiện tại |
+
+#### [MODIFY] `src/popup/popup.html` + `popup.ts`
+
+Thêm nút **"Scroll to Oldest"** trong Cleanup panel:
+
+```
+┌──────────────────────────────────────────┐
+│  📜 Scroll to Oldest Following           │
+│  ────────────────────────────────────── │
+│  Target URL:                             │
+│  [x.com/henryphan69/following        ]   │
+│                                          │
+│  [▶ Start Scroll]          [■ Stop]      │
+│                                          │
+│  ████████████░░░░  312 users found       │
+│  Scrolled: 48 times                      │
+│                                          │
+│  ✅ Done! Oldest followers:              │
+│  1. @oldest_user  (followed first)       │
+│  2. @second_user                         │
+│  ...                                     │
+│                                          │
+│  [📋 Copy Usernames]  [⬇ Export CSV]     │
+└──────────────────────────────────────────┘
+```
+
+**Output sau khi scroll xong:**
+- Danh sách toàn bộ usernames following, **reverse order** (cũ nhất lên đầu)
+- **"Copy to Clipboard"** — copy list `@username` ngăn cách bởi newline
+- **"Export CSV"** — xuất file `following_<username>_oldest.csv`
+
+---
+
+## Feature 1 — Following Scanner via API
 
 ### 1. Background — Following API Layer
 
@@ -63,8 +205,6 @@ GET  https://x.com/i/api/graphql/.../UserTweets
 POST https://x.com/i/api/1.1/friendships/destroy.json
 ```
 
----
-
 ### 2. Background — Message Handlers
 
 #### [MODIFY] `src/background/messages.ts`
@@ -78,8 +218,6 @@ Thêm các message handlers mới:
 | `FETCH_ACTIVITY_BATCH` | `{ userIds[], ct0 }` | Lấy activity info cho batch users |
 | `START_UNFOLLOW_BATCH` | `{ userIds[], ct0 }` | Bắt đầu unfollow hàng loạt |
 | `STOP_UNFOLLOW_BATCH` | — | Dừng unfollow |
-
----
 
 ### 3. Types
 
@@ -117,6 +255,16 @@ export interface UnfollowBatchState {
   failed: number;
   current?: string;       // username đang xử lý
 }
+
+// Feature 0
+export interface FollowingScrollState {
+  isScrolling: boolean;
+  targetUrl: string;
+  scrollCount: number;
+  usersFound: number;
+  reachedEnd: boolean;
+  users: { username: string; displayName: string; order: number }[];
+}
 ```
 
 ---
@@ -124,33 +272,8 @@ export interface UnfollowBatchState {
 ### 4. Popup — Cleanup Tab (Panel mới)
 
 #### [MODIFY] `src/popup/popup.html`
-- Thêm tab **"Cleanup"** vào bottom nav (icon: broom/sweep)
-- Thêm `panel-cleanup` với layout đầy đủ
-
-**Layout của Cleanup Panel:**
-```
-┌─────────────────────────────────┐
-│ 🧹 Following Scanner            │
-│ ─────────────────────────────── │
-│ [Scan Following List]  ▶ Start  │
-│                                 │
-│ 📊 Kết quả scan:                │
-│  ● 523 accounts scanned         │
-│  ● 87 inactive (>6 months)      │
-│  ● 12 unknown                   │
-│                                 │
-│ Filter: [All ▾] [Sort ▾]        │
-│ [☑ Select All]  [Unfollow X]    │
-│ ─────────────────────────────── │
-│ ☐ @user1  Last: 2 years ago     │
-│ ☑ @user2  Last: 1 year ago      │
-│ ☑ @user3  Never tweeted         │
-│ ☐ @user4  Last: 3 days ago  ✓   │
-│    ...                          │
-│                                 │
-│ [⚠ Unfollow 2 selected]         │
-└─────────────────────────────────┘
-```
+- Thêm tab **"Cleanup"** vào bottom nav (icon: broom)
+- Thêm `panel-cleanup` với 2 sub-section: **Scroll to Oldest** + **API Scanner**
 
 #### [MODIFY] `src/popup/popup.css`
 Thêm styles cho Cleanup panel.
@@ -158,54 +281,67 @@ Thêm styles cho Cleanup panel.
 #### [MODIFY] `src/popup/popup.ts`
 Thêm logic UI cho Cleanup panel:
 - `initCleanupPanel()`: Khởi tạo panel
+- `startFollowingScroll(targetUrl)`: Gửi `START_FOLLOWING_SCROLL`
 - `renderFollowingList()`: Render danh sách user với virtual scroll
 - `updateScanProgress()`: Cập nhật progress bar real-time
 - `confirmAndUnfollow()`: Dialog xác nhận trước khi unfollow
+- `exportFollowingCSV(users)`: Export ra file CSV
 
 ---
 
-### 5. Content Script
+## Content Script
 
 #### [MODIFY] `src/content/content.ts`
 Đã có sẵn cơ chế lấy `ct0` CSRF token — sẽ tái dùng. Extension sẽ yêu cầu user mở tab X.com để lấy token trước khi scan.
 
 ---
 
-## UI/UX Flow
+## UI/UX Flow — Feature 0 (Scroll to Oldest)
 
 ```
-User click "Cleanup" tab
+User mở popup → tab "Cleanup" → section "Scroll to Oldest"
+        │
+        ├── Extension tự detect URL tab hiện tại
+        │   Nếu đang ở /following → điền sẵn target URL
+        │   Nếu không → để user nhập username
+        ▼
+[▶ Start Scroll]
+        │
+        ▼
+Background SW navigate tab đến x.com/<username>/following
+Content script scroll loop:
+  - Scroll xuống + extract UserCell từ DOM
+  - Dedup theo username (giữ order xuất hiện đầu tiên)
+  - Broadcast FOLLOWING_SCROLL_PROGRESS → popup update counter
+        │
+        ▼
+[reachedEnd = true] → Scroll xong!
+Danh sách users được REVERSE (cũ nhất → index 1)
+        │
+        ▼
+[📋 Copy Usernames] hoặc [⬇ Export CSV]
+User biết được ai là following cũ nhất / lâu nhất
+```
+
+## UI/UX Flow — Feature 1 (API Scan + Unfollow)
+
+```
+User click "Cleanup" tab → section "API Scan"
         │
         ▼
 [Check: đã có ct0?]──No──→ Hiện banner "Vui lòng mở X.com trước"
         │Yes
         ▼
-[Btn: Scan Following List]
-        │
-        ▼
-Background SW gọi Following API (có phân trang)
+[Btn: Scan Following List] → Background SW gọi Following GraphQL API
 Broadcast progress → popup cập nhật real-time
         │
         ▼
-[Scan done: X accounts found]
-Hiện danh sách có filter/sort:
-  - Filter: All / Inactive / Active / Unknown
-  - Sort: Last activity / Name / Followers
+Hiện danh sách với filter: All / Inactive / Active / Unknown
+Sort: Last activity / Name / Followers
         │
         ▼
-User tick checkbox để chọn accounts cần unfollow
-        │
-        ▼
-[Btn: Unfollow X selected]
-        │
-        ▼
-Confirmation dialog: "Unfollow 5 accounts?" [Confirm] [Cancel]
-        │ Confirm
-        ▼
-Background SW unfollow từng user (throttled ~5/phút)
-Progress bar + live update trong popup
-        │
-        ▼
+User tick checkbox → [⚠ Unfollow X selected]
+Confirmation dialog → Background SW unfollow (throttled ~5/phút)
 Done! Toast: "Unfollowed 5 accounts ✓"
 ```
 
@@ -218,17 +354,6 @@ Done! Toast: "Unfollowed 5 accounts ✓"
 npm run build
 ```
 
-### Manual Verification Steps
-1. Load extension vào Chrome (Developer mode)
-2. Đăng nhập X.com
-3. Click popup → tab "Cleanup"
-4. Click "Scan Following List" → xác nhận progress bar hoạt động
-5. Xem danh sách → filter "Inactive" → thấy accounts không hoạt động
-6. Tick 1-2 account → Click Unfollow → xác nhận dialog → xác nhận unfollow thành công
-7. Kiểm tra rate limit warning khi chọn nhiều accounts
-
-### Rate Limit Tests
-- Thử unfollow > 10 accounts → xác nhận throttle hoạt động (delay giữa các request)
 - Kiểm tra warning message khi unfollow nhiều
 
 ---
