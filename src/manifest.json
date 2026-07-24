@@ -30,7 +30,16 @@
       "run_at": "document_start"
     },
     {
-      "matches": ["<all_urls>"],
+      "matches": ["https://x.com/*", "https://twitter.com/*", "https://*.x.com/*", "https://*.twitter.com/*"],
+      "exclude_matches": [
+        "https://mail.google.com/*",
+        "https://docs.google.com/*",
+        "https://sheets.google.com/*",
+        "https://slides.google.com/*",
+        "https://notion.so/*",
+        "https://*.notion.so/*",
+        "https://www.notion.so/*"
+      ],
       "js": ["content/shortcuts.ts"],
       "run_at": "document_end",
       "all_frames": false

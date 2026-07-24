@@ -199,7 +199,8 @@ async function startCollecting(username, tabId) {
   }
 
   if (!tabId) {
-    const tabs = await chrome.tabs.query({});
+    // SEC-05 FIX: Chỉ query tab x.com/twitter.com — không đọc URL mọi tab của user
+    const tabs = await chrome.tabs.query({ url: ['https://x.com/*', 'https://twitter.com/*', 'https://*.x.com/*', 'https://*.twitter.com/*'] });
     tabId = tabs.find(t => t.url?.includes(username))?.id;
   }
   if (!tabId) return;
@@ -408,7 +409,14 @@ async function clearSession(username: string) {
     _persistDebounceMap.get(username) && clearTimeout(_persistDebounceMap.get(username));
     _persistDebounceMap.delete(username);
     dirtyMediaStore.delete(username);
-    await chrome.storage.local.remove([`session_${username}`, 'active_session_username']);
+    // BUG-L3 FIX: Xóa riêng session key — không xóa active_session_username cùng lúc
+    await chrome.storage.local.remove(`session_${username}`);
+    // Chỉ xóa active_session_username nếu đang trỏ đúng username này
+    // Tránh race condition khi user khác đang collecting và ta xóa nhầm session của họ
+    const current = await chrome.storage.local.get('active_session_username');
+    if (current.active_session_username === username) {
+      await chrome.storage.local.remove('active_session_username');
+    }
     await clearMediaItems(username); // v4.4.0: Clear từ IndexedDB
     console.debug(`[SW] Session cleared: @${username}`);
   } catch (_) {}

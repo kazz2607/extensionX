@@ -1,5 +1,7 @@
 /**
- * popup.js — Logic Popup (v4.3.0 — Date Range Filter + Multi-Profile Queue + Tab Navigation)
+ * popup.ts — Logic Popup
+ * Sprint 1 fixes: BUG-L5 (sendBG timeout), SEC-03 (XSS escapeHtml),
+ * UI-03 (toast queue), UI-08 (custom confirm modal)
  */
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -361,36 +363,38 @@ function renderQueue() {
     return;
   }
 
-  const statusLabels = { waiting: 'Chờ', downloading: 'Đang tải', done: 'Xong', error: 'Lỗi' };
-  const filterIcons  = { all: '📦', images: '🖼️', videos: '🎬', gifs: '🎞️' };
+  const statusLabels: Record<string, string> = { waiting: 'Chờ', downloading: 'Đang tải', done: 'Xong', error: 'Lỗi' };
+  const filterIcons: Record<string, string>  = { all: '📦', images: '🖼️', videos: '🎬', gifs: '🎞️' };
 
 // @ts-ignore
-  list.innerHTML = downloadQueue.map(item => {
-// @ts-ignore
+  list.innerHTML = (downloadQueue as any[]).map(item => {
     const icon = filterIcons[item.filterType || 'all'] || '📦';
-// @ts-ignore
-    const statusLabel = statusLabels[item.status] || item.status;
+    const statusLabel = statusLabels[item.status] || escapeHtml(item.status);
+    // SEC-03: escape metaText — có thể chứa dữ liệu từ file JSON import
     const metaText = item.result
-      ? (item.result.error ? item.result.error : `${item.result.success}/${item.result.total} files`)
-      : `${item.mediaCount} media · ${icon} ${item.filterType || 'all'}`;
+      ? (item.result.error ? escapeHtml(String(item.result.error)) : `${Number(item.result.success)||0}/${Number(item.result.total)||0} files`)
+      : `${Number(item.mediaCount)||0} media · ${icon} ${escapeHtml(item.filterType || 'all')}`;
     const canRemove = item.status !== 'downloading';
+    // SEC-03: escape id và username vì có thể từ file import
+    const safeId = escapeHtml(String(item.id));
+    const safeUsername = escapeHtml(String(item.username));
 
     // FEA-03: File count span — chỉ render cho item đang downloading
     const fileCountSpan = item.status === 'downloading'
-      ? `<span class="queue-file-count" id="qfc-${item.id}">📥 đang tải...</span>`
+      ? `<span class="queue-file-count" id="qfc-${safeId}">📥 đang tải...</span>`
       : '';
 
-    return `<li class="queue-item status-${item.status}" data-id="${item.id}">
-      <div class="queue-item-avatar">${item.username.slice(0, 2).toUpperCase()}</div>
+    return `<li class="queue-item status-${escapeHtml(item.status)}" data-id="${safeId}">
+      <div class="queue-item-avatar">${safeUsername.slice(0, 2).toUpperCase()}</div>
       <div class="queue-item-info">
-        <div class="queue-item-name">@${item.username}</div>
+        <div class="queue-item-name">@${safeUsername}</div>
         <div class="queue-item-meta">${metaText}</div>
         ${fileCountSpan}
       </div>
-      <span class="queue-status ${item.status}">${statusLabel}</span>
+      <span class="queue-status ${escapeHtml(item.status)}">${statusLabel}</span>
       ${canRemove
-        ? `<button class="btn-queue-remove" data-id="${item.id}" title="Xóa khỏi queue">×</button>`
-        : `<button class="btn-queue-stop" data-id="${item.id}" title="Dừng download">⏹</button>`}
+        ? `<button class="btn-queue-remove" data-id="${safeId}" title="Xóa khỏi queue">×</button>`
+        : `<button class="btn-queue-stop" data-id="${safeId}" title="Dừng download">⏹</button>`}
     </li>`;
   }).join('');
 
@@ -929,11 +933,12 @@ function setupListeners() {
     }
   });
 
-  // Clear
+  // Clear — UI-08: dùng custom modal thay vì window.confirm()
   els.btnClear.addEventListener('click', async () => {
 // @ts-ignore
     if (!currentUsername) return;
-    if (!confirm(`Xóa toàn bộ media đã thu thập của @${currentUsername}?`)) return;
+    const confirmed = await showConfirmModal(`Xóa toàn bộ media đã thu thập của @${currentUsername}?`);
+    if (!confirmed) return;
 
     await sendBG('CLEAR_MEDIA', { username: currentUsername });
     stats = { image: 0, video: 0, gif: 0, hls: 0 };
@@ -1246,17 +1251,29 @@ function showProgress(show) {
   if (!show) { els.progressFill.style.width = '0%'; els.progressLbl.textContent = '0 / 0'; }
 }
 
-// ─── Toast ────────────────────────────────────────────────────────────────────
-// @ts-ignore
-let toastTimer;
-// @ts-ignore
-function showToast(msg, type = '') {
-// @ts-ignore
-  clearTimeout(toastTimer);
+// ─── Toast Queue (UI-03) ─────────────────────────────────────────────────────
+// Tránh nhiều toast override nhau — xếp hàng FIFO
+const _toastQueue: Array<{ msg: string; type: string; duration: number }> = [];
+let _toastActive = false;
+let _toastTimer: ReturnType<typeof setTimeout> | null = null;
+
+function showToast(msg: string, type = '', duration?: number) {
+  const dur = duration ?? (type === 'warning' ? 7000 : 3000);
+  _toastQueue.push({ msg, type, duration: dur });
+  if (!_toastActive) _drainToastQueue();
+}
+
+function _drainToastQueue() {
+  if (_toastQueue.length === 0) { _toastActive = false; return; }
+  _toastActive = true;
+  const { msg, type, duration } = _toastQueue.shift()!;
   els.toast.textContent = msg;
   els.toast.className = 'toast show ' + type;
-  const duration = type === 'warning' ? 7000 : 3000;
-  toastTimer = setTimeout(() => { els.toast.className = 'toast'; }, duration);
+  _toastTimer = setTimeout(() => {
+    els.toast.className = 'toast';
+    // Đợi animation fade out (0.3s) rồi show toast tiếp
+    setTimeout(_drainToastQueue, 350);
+  }, duration);
 }
 
 // ─── History ──────────────────────────────────────────────────────────────────
@@ -1276,31 +1293,43 @@ function addToHistory(entry) {
   renderHistory();
 }
 
+// ─── SEC-03: escapeHtml helper ───────────────────────────────────────────────
+// Dùng cho mọi dynamic content được đưa vào innerHTML để tránh XSS
+function escapeHtml(s: string): string {
+  if (!s) return '';
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function renderHistory() {
   if (!downloadHistory.length) {
     const emptyTxt = window.i18n ? window.i18n.t('history_empty') : 'No download history';
-    els.historyList.innerHTML = `<li class="history-empty">${emptyTxt}</li>`;
+    els.historyList.innerHTML = `<li class="history-empty">${escapeHtml(emptyTxt)}</li>`;
     return;
   }
 
-  const filterIcons = { all: '📦', images: '🖼️', videos: '🎬', gifs: '🎞️' };
+  const filterIcons: Record<string, string> = { all: '📦', images: '🖼️', videos: '🎬', gifs: '🎞️' };
 
 // @ts-ignore
-  els.historyList.innerHTML = downloadHistory.map(item => {
+  els.historyList.innerHTML = (downloadHistory as any[]).map(item => {
     const d = new Date(item.date);
     const ds = `${d.getDate()}/${d.getMonth()+1} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
-// @ts-ignore
     const icon = filterIcons[item.filter || 'all'] || '📦';
-    return `<li class="history-item" data-username="${item.username}">
+    // SEC-03: escape username và date để tránh XSS
+    return `<li class="history-item" data-username="${escapeHtml(item.username)}">
       <span class="history-item-icon">${icon}</span>
-      <span class="history-item-name">@${item.username}</span>
-      <span class="history-item-count">${item.count}</span>
-      <span class="history-item-date">${ds}</span>
+      <span class="history-item-name">@${escapeHtml(item.username)}</span>
+      <span class="history-item-count">${Number(item.count) || 0}</span>
+      <span class="history-item-date">${escapeHtml(ds)}</span>
     </li>`;
   }).join('');
 
 // @ts-ignore
-  els.historyList.querySelectorAll('.history-item').forEach(el => {
+  els.historyList.querySelectorAll('.history-item').forEach((el: any) => {
     el.addEventListener('click', () => setCurrentUser(el.dataset.username));
   });
 }
@@ -1325,16 +1354,66 @@ async function updateFolderDisplay(username) {
 }
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
-// @ts-ignore
-function sendBG(type, payload) {
-  return new Promise(resolve => {
-    chrome.runtime.sendMessage({ type, payload }, res => {
-      if (chrome.runtime.lastError) resolve(null);
-      else resolve(res);
-    });
+// BUG-L5 FIX: Thêm timeout 8s — tránh UI treo khi Service Worker bị Chrome terminate
+function sendBG(type: string, payload: any, timeoutMs = 8000): Promise<any> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      console.warn(`[popup] sendBG timeout (${timeoutMs}ms): ${type}`);
+      resolve(null);
+    }, timeoutMs);
+
+    try {
+      chrome.runtime.sendMessage({ type, payload }, (res) => {
+        clearTimeout(timer);
+        if (chrome.runtime.lastError) resolve(null);
+        else resolve(res);
+      });
+    } catch (err) {
+      clearTimeout(timer);
+      console.warn(`[popup] sendBG error: ${type}`, err);
+      resolve(null);
+    }
   });
-// @ts-ignore
-// @ts-ignore
+}
+
+// ─── Custom Confirm Modal (UI-08) ─────────────────────────────────────────────
+// Thay thế window.confirm() blocking bằng modal async non-blocking
+function showConfirmModal(message: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('confirm-modal');
+    const msgEl = document.getElementById('confirm-message');
+    const btnOk = document.getElementById('confirm-ok');
+    const btnCancel = document.getElementById('confirm-cancel');
+
+    if (!modal || !msgEl || !btnOk || !btnCancel) {
+      // Fallback nếu modal chưa có trong HTML
+      resolve(window.confirm(message));
+      return;
+    }
+
+    msgEl.textContent = message;
+    modal.classList.add('show');
+    modal.removeAttribute('hidden');
+
+    const cleanup = () => {
+      modal.classList.remove('show');
+      setTimeout(() => modal.setAttribute('hidden', ''), 200);
+      btnOk.removeEventListener('click', onOk);
+      btnCancel.removeEventListener('click', onCancel);
+    };
+
+    const onOk = () => { cleanup(); resolve(true); };
+    const onCancel = () => { cleanup(); resolve(false); };
+
+    btnOk.addEventListener('click', onOk, { once: true });
+    btnCancel.addEventListener('click', onCancel, { once: true });
+
+    // Đóng khi click backdrop
+    const onBackdrop = (e: Event) => {
+      if (e.target === modal) { cleanup(); resolve(false); }
+    };
+    modal.addEventListener('click', onBackdrop, { once: true });
+  });
 }
 
 // ─── Feature 0: Cleanup Panel ─────────────────────────────────────────────────

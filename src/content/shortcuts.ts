@@ -98,7 +98,18 @@
   function handleKeydown(e: KeyboardEvent) {
     if (!config.enabled) return;
 
-    // Tìm ảnh dưới con trỏ chuột bằng tọa độ (chống overlay)
+    // BUG-L1: Skip khi đang focus input/textarea/contenteditable (bất kể tọa độ chuột)
+    const target = e.target as HTMLElement;
+    if (
+      target.tagName === 'INPUT' ||
+      target.tagName === 'TEXTAREA' ||
+      target.tagName === 'SELECT' ||
+      target.isContentEditable ||
+      target.closest('[contenteditable="true"]') ||
+      target.closest('[role="textbox"]') ||
+      target.closest('[role="searchbox"]')
+    ) return;
+
     const elements = document.elementsFromPoint(mouseX, mouseY);
     const hoveredImg = elements.find(el => el.tagName === 'IMG') as HTMLImageElement | undefined;
     

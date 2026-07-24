@@ -459,10 +459,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
       }
       try {
-        // Extract filename từ URL
+        // SEC-02 FIX: Validate URL scheme — chỉ cho phép các scheme an toàn
         const urlObj = new URL(url);
+        const allowedSchemes = ['https:', 'http:', 'blob:', 'data:'];
+        if (!allowedSchemes.includes(urlObj.protocol)) {
+          console.warn(`[SW] SHORTCUT_DOWNLOAD blocked: URL scheme not allowed: ${urlObj.protocol}`);
+          sendResponse({ error: `URL scheme not allowed: ${urlObj.protocol}` });
+          return true;
+        }
+        // Giới hạn data: URL tối đa 50MB để tránh DoS
+        if (urlObj.protocol === 'data:' && url.length > 50_000_000) {
+          sendResponse({ error: 'data: URL too large (max 50MB)' });
+          return true;
+        }
+
+        // Extract filename từ URL
         const pathParts = urlObj.pathname.split('/').filter(Boolean);
-        const filename = pathParts[pathParts.length - 1] || 'image';
+        const rawFilename = pathParts[pathParts.length - 1] || 'image';
+        // Sanitize filename — loại bỏ ký tự không hợp lệ
+        const filename = rawFilename.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 200) || 'image';
 
         chrome.downloads.download({
           url: url,
