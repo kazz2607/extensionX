@@ -8,7 +8,7 @@ import { MediaItem, Options, CollectState } from '../types.ts';
 // ─── BUG-03 FIX: Options Cache — tránh gọi storage.sync N lần per session ────
 let _optionsCache: Options | null = null;
 let _optionsCacheTime = 0;
-const OPTIONS_CACHE_TTL = 5000; // 5 giây
+const OPTIONS_CACHE_TTL = 30_000; // PERF-03: Tăng lên 30s (từ 5s) — options ít khi thay đổi trong lúc scroll
 
 async function getCachedOptions(): Promise<Options> {
   const now = Date.now();
@@ -248,16 +248,21 @@ async function startCollecting(username, tabId) {
   scrollLoop(tabId, username);
 }
 
-// @ts-ignore
-async function scrollLoop(tabId, username) {
+async function scrollLoop(tabId: number, username: string) {
   const opts = await getCachedOptions();
 
   const MAX_SCROLLS = opts.maxScrolls || 200;
   let baseDelayMs = (opts.scrollDelay || 2) * 1000;
-  const isAdaptive = opts.adaptiveScroll !== false; // Mặc định bật nếu không có
-  
+  const isAdaptive = opts.adaptiveScroll !== false;
+  // FEAT-08: Smart Auto-Stop config
+  const autoStopEnabled = opts.autoStop === true;
+  const autoStopAfter = Math.max(opts.autoStopAfter || 10, 3); // min 3 để tránh dừng nhầm
+
   let currentDelayMs = baseDelayMs;
   let noNewCount = 0;
+  // FEAT-08: Track số scroll liên tiếp không có media mới
+  let noNewMediaCount = 0;
+  let lastMediaCount = mediaStore.get(username)?.size || 0;
 
   while (true) {
     const state = tabState.get(tabId);
@@ -288,7 +293,10 @@ async function scrollLoop(tabId, username) {
     tabState.set(tabId, state);
 
     if (isAdaptive && scrollResult?.adaptiveAvg > 0) {
-      currentDelayMs = Math.min(Math.max(Math.round(scrollResult.adaptiveAvg * 1.5 + 800), 1000), 6000);
+      // PERF-05: EMA smoothing — tránh delay tăng/giảm đột ngột gây scroll bất ổn định
+      const EMA_ALPHA = 0.3;
+      const rawDelay = Math.min(Math.max(Math.round(scrollResult.adaptiveAvg * 1.5 + 800), 1000), 6000);
+      currentDelayMs = Math.round(EMA_ALPHA * rawDelay + (1 - EMA_ALPHA) * currentDelayMs);
     }
 
     const currentCount = mediaStore.get(username)?.size || 0;
@@ -304,9 +312,9 @@ async function scrollLoop(tabId, username) {
     if (state.scrollCount % 5 === 0) persistSession(username);
 
     if (scrollResult?.isHidden) {
-      // Tab đang bị ẩn/minimized, X.com ngừng tải.
-      // BUG-L4 FIX: Reset delay về base khi tab visible lại — tránh delay cao từ lần trước
+      // Tab đang bị ẩn — BUG-L4 FIX: Reset delay và noNewMedia count
       noNewCount = 0;
+      noNewMediaCount = 0; // FEAT-08: không đếm khi tab ẩn (X.com không load)
       currentDelayMs = baseDelayMs;
     } else if (scrollResult?.reachedEnd) {
       noNewCount++;
@@ -323,6 +331,28 @@ async function scrollLoop(tabId, username) {
       }
     } else {
       noNewCount = 0;
+    }
+
+    // FEAT-08: Smart Auto-Stop — đếm scroll không có media mới
+    if (autoStopEnabled && !scrollResult?.isHidden) {
+      if (currentCount > lastMediaCount) {
+        noNewMediaCount = 0; // có media mới → reset counter
+        lastMediaCount = currentCount;
+      } else {
+        noNewMediaCount++;
+        if (noNewMediaCount >= autoStopAfter) {
+          state.isCollecting = false;
+          tabState.set(tabId, state);
+          chrome.tabs.sendMessage(tabId, { type: 'COLLECT_STOPPED_LOCAL' }).catch(() => {});
+          broadcastToPopup('COLLECT_DONE', {
+            username, mediaCount: currentCount, reachedEnd: false, reason: 'auto_stop',
+            autoStopAfter,
+          });
+          broadcastFABState(tabId, 'COLLECT_DONE');
+          console.log(`[SW] FEAT-08: Auto-Stop sau ${noNewMediaCount} scroll không có media mới`);
+          break;
+        }
+      }
     }
 
     await sleep(currentDelayMs + Math.random() * (currentDelayMs * 0.4));

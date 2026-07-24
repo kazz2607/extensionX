@@ -184,10 +184,10 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', asy
 function setupDateRange() {
   if (!els.daterangeToggle) return;
 
-  // Toggle mở/đóng panel
+  // UI-02: Toggle có animation — dùng max-height thay vì display:block/none
   els.daterangeToggle.addEventListener('click', () => {
     _dateRangeOpen = !_dateRangeOpen;
-    els.daterangePanel.style.display = _dateRangeOpen ? 'block' : 'none';
+    els.daterangePanel.classList.toggle('open', _dateRangeOpen);
     els.daterangeChevron.classList.toggle('open', _dateRangeOpen);
   });
 
@@ -1060,15 +1060,22 @@ function listenToMessages() {
 // @ts-ignore
         if (payload.username !== currentUsername) break;
         isCollecting = false;
+        // UI-01: Reset scroll display về trạng thái ban đầu
         els.scrollSec.style.display = 'none';
         els.statusSpeed.textContent = '';
-        const reasonMsg = payload.reachedEnd
-          ? `✓ Hoàn tất! ${payload.mediaCount} media`
-          : payload.reason === 'max_scrolls'
-            ? `Đạt giới hạn scroll — ${payload.mediaCount} media`
-            : `Đã dừng — ${payload.mediaCount} media`;
-        setStatus('done', reasonMsg);
-        showToast(reasonMsg, 'success');
+        if (els.scrollCount) els.scrollCount.textContent = '0';
+        if (els.scrollNew)   els.scrollNew.textContent   = '';
+        {
+          const reasonMsg = payload.reachedEnd
+            ? `✓ Hoàn tất! ${payload.mediaCount} media`
+            : payload.reason === 'max_scrolls'
+              ? `Đạt giới hạn scroll — ${payload.mediaCount} media`
+              : payload.reason === 'auto_stop'
+                ? `⏹ Auto-Stop sau ${payload.autoStopAfter ?? 10} scroll không có mới — ${payload.mediaCount} media`
+                : `Đã dừng — ${payload.mediaCount} media`;
+          setStatus('done', reasonMsg);
+          showToast(reasonMsg, payload.reason === 'auto_stop' ? 'info' : 'success');
+        }
         updateButtons();
         break;
 

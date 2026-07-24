@@ -107,7 +107,12 @@ async function loadOptions() {
 
   updateScrollLabel(opts.scrollDelay || 2);
   updateConcurrencyLabel(opts.concurrency || 3);
-// @ts-ignore
+
+  // FEAT-08: Smart Auto-Stop
+  (document.getElementById('opt-auto-stop') as HTMLInputElement).checked = opts.autoStop ?? false;
+  (document.getElementById('opt-auto-stop-after') as HTMLInputElement).value = String(opts.autoStopAfter ?? 10);
+  updateAutoStopRowState();
+
   updateFolderPreview();
 }
 
@@ -160,6 +165,9 @@ async function saveOptions() {
     showNotification: document.getElementById('opt-show-notification').checked,
 // @ts-ignore
     enableBookmarks:  document.getElementById('opt-enable-bookmarks').checked,
+    // FEAT-08: Smart Auto-Stop
+    autoStop: (document.getElementById('opt-auto-stop') as HTMLInputElement)?.checked ?? false,
+    autoStopAfter: parseInt((document.getElementById('opt-auto-stop-after') as HTMLInputElement)?.value) || 10,
     shortcuts: {
 // @ts-ignore
       enabled:       document.getElementById('opt-shortcuts-enabled').checked,
@@ -205,7 +213,16 @@ function sanitizeFolder(str) {
     .trim();
 }
 
-// v5.5.0: Toggle shortcuts detail panel (dim khi master toggle tắt)
+// FEAT-08: Toggle auto-stop-after row state
+function updateAutoStopRowState() {
+  const toggle = document.getElementById('opt-auto-stop') as HTMLInputElement | null;
+  const row = document.getElementById('row-auto-stop-after') as HTMLElement | null;
+  if (!toggle || !row) return;
+  row.style.opacity = toggle.checked ? '1' : '0.5';
+  const input = row.querySelector('input') as HTMLInputElement | null;
+  if (input) input.disabled = !toggle.checked;
+}
+
 function updateShortcutsDetailState() {
   const masterToggle = document.getElementById('opt-shortcuts-enabled') as HTMLInputElement | null;
   const detailPanel = document.getElementById('shortcuts-detail');
@@ -296,11 +313,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateConcurrencyLabel(e.target.value);
   });
 
-  // Live preview khi gõ tên folder hoặc toggle flat username
-// @ts-ignore
-  document.getElementById('opt-save-folder').addEventListener('input', updateFolderPreview);
-// @ts-ignore
-  document.getElementById('opt-flat-username').addEventListener('change', updateFolderPreview);
+  // Live preview khi gõ tên folder hoặc toggle flat/filenameUsername
+  document.getElementById('opt-save-folder')?.addEventListener('input', updateFolderPreview);
+  document.getElementById('opt-flat-username')?.addEventListener('change', updateFolderPreview);
+  document.getElementById('opt-filename-username')?.addEventListener('change', updateFolderPreview);
+
+  // FEAT-08: Auto-Stop toggle → dim/enable row-auto-stop-after
+  document.getElementById('opt-auto-stop')?.addEventListener('change', updateAutoStopRowState);
+  updateAutoStopRowState();
   
   // Appearance
   const langSelect = document.getElementById('opt-language');

@@ -53,7 +53,12 @@ function broadcastToTab(username: string, type: string, payload: any) {
     });
   }
   if (targetTabId) {
-    chrome.tabs.sendMessage(targetTabId, { type, payload }).catch(() => {});
+    // PERF-02: Kiểm tra tab còn active/visible trước khi gửi — tránh queue message vô ích
+    chrome.tabs.get(targetTabId).then(tab => {
+      if (tab && !tab.discarded) {
+        chrome.tabs.sendMessage(targetTabId!, { type, payload }).catch(() => {});
+      }
+    }).catch(() => {});
   }
 }
 

@@ -130,6 +130,9 @@ export interface Options {
     minImageHeight?: number;
   };
   shortcuts?: ShortcutsOptions;      // Keyboard Shortcuts (v5.5.0)
+  // FEAT-08: Smart Auto-Stop — tự dừng khi không có media mới sau N scroll
+  autoStop?: boolean;                 // Bật/tắt tính năng (mặc định: false)
+  autoStopAfter?: number;             // Số scroll không có media mới thì dừng (mặc định: 10)
 }
 
 export interface QueueExportData {

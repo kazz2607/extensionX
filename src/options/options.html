@@ -441,6 +441,26 @@
         </div>
         <input type="number" id="opt-max-scrolls" value="200" min="0" max="2000" />
       </div>
+
+      <!-- FEAT-08: Smart Auto-Stop -->
+      <div class="option-row">
+        <div class="option-label">
+          <strong>Smart Auto-Stop ✨</strong>
+          <span>Tự động dừng khi không có media mới sau N lần scroll liên tiếp.</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="opt-auto-stop" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="option-row" id="row-auto-stop-after">
+        <div class="option-label">
+          <strong>Dừng sau N scroll không có media mới</strong>
+          <span>Mặc định: 10 scroll. Tối thiểu: 3.</span>
+        </div>
+        <input type="number" id="opt-auto-stop-after" value="10" min="3" max="100" />
+      </div>
     </div>
   </div>
 
