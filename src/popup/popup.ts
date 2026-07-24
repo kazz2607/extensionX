@@ -304,6 +304,10 @@ function setupBottomNav() {
   const navTabs = document.querySelectorAll('.nav-tab');
   navTabs.forEach(tab => {
     tab.addEventListener('click', () => {
+      if (tab.id === 'nav-cleanup') {
+        chrome.tabs.create({ url: chrome.runtime.getURL('cleanup/cleanup.html') });
+        return;
+      }
 // @ts-ignore
       const panelId = tab.dataset.panel;
       // Deactivate all
