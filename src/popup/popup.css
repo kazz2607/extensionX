@@ -1001,9 +1001,8 @@ body.compact-mode .app-name { font-size: 13px; }
 body.compact-mode .btn-compact { color: var(--accent); background: var(--accent-glow); border-color: var(--accent); }
 
 /* ─── Following Scanner Panel ─────────────────────────────────────────────── */
-#panel-cleanup {
+#panel-cleanup.active {
   padding: 0;
-  display: flex;
   flex-direction: column;
   gap: 0;
   overflow-y: auto;
