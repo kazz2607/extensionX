@@ -11,7 +11,6 @@ export default defineConfig({
     webExtension({
       manifest: "manifest.json",
       additionalInputs: [
-        "cleanup/cleanup.html",
         "offscreen/offscreen.html",
         "content/page-interceptor.ts",
         "content/dom-scanner.ts",
