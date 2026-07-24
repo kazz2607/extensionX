@@ -129,6 +129,31 @@ function isMediaPage(url = location.href) {
   return url.includes('/media') || url.includes('/photos') || url.includes('/videos') || url.includes('/likes') || url.includes('/bookmarks');
 }
 
+// ─── Feature 0: Following Page Detection ─────────────────────────────────────
+function isFollowingPage(url = location.href) {
+  try {
+    return /\/[A-Za-z0-9_]+\/following(\/|$)/.test(new URL(url).pathname);
+  } catch (_) { return false; }
+}
+
+// Quét DOM trang /following để lấy danh sách username từ các UserCell card
+function extractFollowingUsers(): { username: string; displayName: string }[] {
+  const cells = document.querySelectorAll('[data-testid="UserCell"]');
+  const results: { username: string; displayName: string }[] = [];
+  cells.forEach(cell => {
+    // Link profile: href="/username"
+    const link = cell.querySelector('a[href^="/"][role="link"]') as HTMLAnchorElement | null;
+    const username = link?.getAttribute('href')?.replace(/^\//, '').split('/')[0] || '';
+    // Display name: first span bên trong User-Name
+    const nameEl = cell.querySelector('[data-testid="User-Name"] span span') as HTMLElement | null;
+    const displayName = nameEl?.textContent?.trim() || username;
+    if (username && !username.startsWith('i/') && username.length > 0) {
+      results.push({ username, displayName });
+    }
+  });
+  return results;
+}
+
 // ─── S2: Validate media item từ CustomEvent (bảo vệ khỏi XSS injection) ─────
 const VALID_ITEM_TYPES = ['image', 'video', 'gif', 'hls', 'video_placeholder'];
 const VALID_HOSTS      = ['pbs.twimg.com', 'video.twimg.com'];
@@ -253,7 +278,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return false;
   }
 
-  // Scroll xuống cuối trang
+  // Scroll xuống cuối trang (media pages)
   if (message.type === 'SCROLL_DOWN') {
     if (!isMediaPage()) {
       sendResponse({ error: 'not_media_page' });
@@ -287,6 +312,36 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         scrollHeight: newHeight,
         isHidden: isHidden,
         adaptiveAvg: adaptiveAvg
+      });
+    }, message.waitMs || 2000);
+
+    return true;
+  }
+
+  // ─── Feature 0: Scroll trang /following + extract users từ DOM ───────────────
+  if (message.type === 'SCROLL_FOLLOWING_PAGE') {
+    if (!isFollowingPage()) {
+      sendResponse({ error: 'not_following_page' });
+      return false;
+    }
+    const prevHeight = document.documentElement.scrollHeight;
+
+    window.scrollTo(0, prevHeight);
+    setTimeout(() => window.scrollBy(0, -100), 100);
+    setTimeout(() => window.scrollTo(0, document.documentElement.scrollHeight), 300);
+
+    setTimeout(() => {
+      const newHeight = document.documentElement.scrollHeight;
+      const isAtBottom = (window.scrollY + window.innerHeight) >= (newHeight - 200);
+      const isHidden = document.hidden;
+      const users = extractFollowingUsers();
+
+      sendResponse({
+        done: true,
+        users,
+        reachedEnd: !isHidden && isAtBottom && (newHeight <= prevHeight + 50),
+        scrollHeight: newHeight,
+        isHidden,
       });
     }, message.waitMs || 2000);
 

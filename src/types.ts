@@ -115,3 +115,20 @@ declare global {
     i18n?: any;
   }
 }
+
+// ─── Feature 0: Following Scroll ────────────────────────────────────────────
+export interface FollowingUserEntry {
+  username: string;
+  displayName: string;
+  order: number; // 0 = newest following, high = oldest following
+}
+
+export interface FollowingScrollState {
+  isScrolling: boolean;
+  targetUrl: string;
+  scrollCount: number;
+  usersFound: number;
+  reachedEnd: boolean;
+  users: FollowingUserEntry[];
+}
+

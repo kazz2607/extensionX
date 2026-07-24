@@ -1,4 +1,3 @@
-
 import { mediaStore, statsStore, tabState, downloadedStore, downloadState, pendingHlsRequests, setCsrfToken } from './state.ts';
 import { addMediaItems, applyOptionsFilter, checkAutoScroll, startCollecting, stopCollecting, clearSession, fetchVideoForTweetWithRefresh } from './scraper.ts';
 import { startDownload, handleDownloadTweet, buildCSV, retryLastDownload, stopDownload } from './downloader.ts';
@@ -6,6 +5,7 @@ import { profileQueue, setProfileQueue, persistQueue, startNextInQueue, broadcas
 import { updateBadge, broadcastToPopup, updateFAB } from './utils.ts';
 import { getMediaItems } from './indexeddb.ts';
 import { setDynamicBearer } from './tweet-api.ts';
+import { startFollowingScroll, stopFollowingScroll, getFollowingScrollState } from './following-scroll.ts';
 
 // ─── Message Handler ──────────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -481,7 +481,35 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
 
+
+    // ─── Feature 0: Following Scroll ─────────────────────────────────────────
+    case 'START_FOLLOWING_SCROLL': {
+      const { targetUrl } = payload || {};
+      if (!targetUrl || typeof targetUrl !== 'string') {
+        sendResponse({ error: 'Missing targetUrl' });
+        return true;
+      }
+      // Chạy async — không block message channel
+      startFollowingScroll(targetUrl).catch((err: any) => {
+        console.error('[SW] startFollowingScroll error:', err.message);
+      });
+      sendResponse({ ok: true });
+      return true;
+    }
+
+    case 'STOP_FOLLOWING_SCROLL': {
+      stopFollowingScroll();
+      sendResponse({ ok: true });
+      return false;
+    }
+
+    case 'GET_FOLLOWING_SCROLL_STATE': {
+      sendResponse({ state: getFollowingScrollState() });
+      return true;
+    }
+
     default:
       return false;
   }
 });
+
