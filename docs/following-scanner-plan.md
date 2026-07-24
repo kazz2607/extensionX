@@ -1,9 +1,9 @@
-﻿# Following Scanner & Inactive Unfollow - Implementation Plan
+# Following Scanner & Inactive Unfollow - Implementation Plan
 
 > **Version**: v6.0.0 (planned)
 > **Created**: 2026-07-24
-> **Updated**: 2026-07-24 (them Feature 0 - Auto-Scroll Following Page)
-> **Status**: Pending approval
+> **Updated**: 2026-07-24 (Feature 0 hoàn thành - Tách thành Standalone Tab)
+> **Status**: Feature 0 (Auto-Scroll) DONE. Feature 1 (API Scanner) Pending.
 
 ## Tong quan
 
@@ -158,7 +158,7 @@ Them cac handlers moi:
 | STOP_FOLLOWING_SCROLL      | --                   | Dung scroll                    |
 | GET_FOLLOWING_SCROLL_STATE | --                   | Lay trang thai scroll          |
 
-#### UI trong Cleanup Panel - "Scroll to Oldest" section
+#### UI (Standalone Cleanup Tab - `src/cleanup/cleanup.html`)
 
 ```
 +------------------------------------------+

@@ -2,6 +2,15 @@
 
 Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader** sẽ được ghi chép tại file này.
 
+## [5.6.0] - 2026-07-24
+### Feature 0: Following Cleanup Page
+- **[Standalone Cleanup Tab]:** Tách tính năng tìm danh sách Following cũ nhất ra khỏi popup thành một trang giao diện riêng (`cleanup/cleanup.html`), không gian hiển thị rộng rãi, dễ theo dõi tiến trình và tìm kiếm.
+- **[Background Engine]:** Khai báo hệ thống scroll ngầm tự động trong Service Worker (`following-scroll.ts`) giúp load danh sách following mà không cần mở trực tiếp tab, có thể chạy ngầm (tab inactive) nhờ offscreen heartbeat.
+- **[Search & Export]:** Hỗ trợ tìm kiếm realtime theo tên, copy username hoặc export toàn bộ danh sách Following ra định dạng CSV để dễ dàng quản lý.
+- **[Refactor]:** Dọn dẹp logic khỏi `popup.ts`, tối ưu hóa navigation popup.
+
+---
+
 ## [5.5.4] - 2026-06-27
 ### Bug Fixes
 - **[BUG-06 — Keyboard Focus Fix]:** Sửa lỗi phím tắt chỉ hoạt động ở lần đầu tiên. Nguyên nhân do Clipboard Fallback sử dụng thẻ `textarea` tạm thời và để lại selection, cũng như vấn đề Window Focus. Đã viết lại cơ chế copy fallback an toàn hơn bằng `ta.blur()`, xóa selection và bổ sung hệ thống debug log chi tiết cho `handleKeydown` trong `shortcuts.ts`.
