@@ -1,4 +1,4 @@
-# ExtensionX — Kế Hoạch Nâng Cấp Toàn Diện v5.7.0+
+# ExtensionX — Kế Hoạch Nâng Cấp Toàn Diện v5.7.1+
 
 > **Phiên bản hiện tại:** 5.7.0  
 > **Ngày phân tích:** 2026-07-24 | **Cập nhật:** 2026-07-24  
@@ -22,7 +22,7 @@
 ## 1. Tổng Quan Kiến Trúc
 
 ```
-ExtensionX v5.7.0
+ExtensionX v5.7.1
 ├── background/
 │   ├── service-worker.ts     — Entry point (chỉ import)
 │   ├── messages.ts           — 531 lines, Message hub
@@ -43,7 +43,8 @@ ExtensionX v5.7.0
 │   ├── tweet-btn.ts          — Mini download button per tweet
 │   └── snackbar.ts           — In-page notifications
 ├── popup/
-│   ├── popup.ts              — 1588 lines ⚠️ Quá lớn, cần refactor (Sprint 4)
+│   ├── popup.ts              — 1425 lines ✅ -170 lines sau refactor
+│   ├── following-panel.ts    — [NEW] ✅ Following Scanner module riêng
 │   ├── popup.html            — ✅ custom modal, XSS sanitized
 │   └── popup.css             — ✅ UI-02 daterange smooth animation
 ├── options/
@@ -704,7 +705,7 @@ result?: {
 | File | Vấn đề chính | Độ ưu tiên | Trạng thái |
 |------|-------------|------------|------------|
 | `downloader.ts` | 60+ @ts-ignore, untyped params | 🔴 Cao | ✅ Fixed Sprint 2 |
-| `popup.ts` | 1588 lines, cần tách module | 🟡 Medium | ⏳ Sprint 4 |
+| `popup.ts` | 1588 lines, cần tách module | 🟡 Medium | ⏳ Sprint 4 (-170 lines refactored Following) |
 | `manifest.json` | shortcuts inject `<all_urls>` | 🔴 Cao | ✅ Fixed Sprint 1 |
 | `messages.ts` | QueueItem status type mismatch, XSS | 🔴 Cao | ✅ Fixed Sprint 1 |
 | `scraper.ts` | clearSession race condition, cache TTL | 🟡 Medium | ✅ Fixed Sprint 1+3 |
@@ -712,4 +713,4 @@ result?: {
 
 ---
 
-*Cập nhật: 2026-07-24. Version hiện tại: **v5.7.0** (Sprint 1+2+3 hoàn thành). Sprint 4 tiếp theo.*
+*Cập nhật: 2026-07-24. Version hiện tại: **v5.7.1** (Sprint 1+2+3 + Following UI refactor hoàn thành). Sprint 4 tiếp theo.*

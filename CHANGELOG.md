@@ -4,6 +4,28 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [5.7.1] — 2026-07-24 *(UI Fixes & Refactor)*
+
+### 🐛 Bug Fixes
+- **CSS Specificity:** `#panel-cleanup { display:flex }` (ID selector) luôn override `.panel { display:none }` → Following Scanner luôn hiển thị đè lên tab Main. **Fix:** đổi sang `#panel-cleanup.active` để chỉ flex khi panel active.
+
+### ♻️ Refactor
+- **following-panel.ts [NEW]:** Tách toàn bộ Following Scanner ra module riêng:
+  - `getHTML()` — HTML template string (không còn HTML tĩnh trong popup.html)
+  - `followingSetScrolling/Status/RenderResults()` — UI helpers
+  - `initFollowingPanel(deps)` — inject HTML + attach event listeners
+  - `handleFollowingMessage(type, payload, deps)` — xử lý 4 SW broadcasts
+- **popup.html:** Xóa ~100 lines HTML tĩnh của panel-cleanup, chỉ còn `<div class="panel" id="panel-cleanup"></div>`
+- **popup.ts:** Xóa ~170 lines code cleanup, thay bằng 2 import calls
+
+### 🎨 Giao Diện
+- Nav tab "Cleanup" (🗑️ trash icon) → **"Following"** (👥 users icon)
+- Panel redesign: gradient hero header, info card, input card có border
+- Button text "Start Scroll" → "Start Scan"
+- Popup header version badge: `v5.5.4` → `v5.7.1`
+
+---
+
 ## [5.7.0] — 2026-07-24 *(Sprint 3: Performance & UI)*
 
 ### ✨ Tính Năng Mới
