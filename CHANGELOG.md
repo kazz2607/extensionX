@@ -4,7 +4,7 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ## [5.6.0] - 2026-07-24
 ### Feature 0: Following Cleanup Page
-- **[Standalone Cleanup Tab]:** Tách tính năng tìm danh sách Following cũ nhất ra khỏi popup thành một trang giao diện riêng (`cleanup/cleanup.html`), không gian hiển thị rộng rãi, dễ theo dõi tiến trình và tìm kiếm.
+- **[Cleanup Panel]:** Tích hợp tab Cleanup trực tiếp vào Popup giúp thao tác nhanh chóng và tiện lợi mà không cần rời khỏi màn hình extension hiện tại.
 - **[Background Engine]:** Khai báo hệ thống scroll ngầm tự động trong Service Worker (`following-scroll.ts`) giúp load danh sách following mà không cần mở trực tiếp tab, có thể chạy ngầm (tab inactive) nhờ offscreen heartbeat.
 - **[Search & Export]:** Hỗ trợ tìm kiếm realtime theo tên, copy username hoặc export toàn bộ danh sách Following ra định dạng CSV để dễ dàng quản lý.
 - **[Refactor]:** Dọn dẹp logic khỏi `popup.ts`, tối ưu hóa navigation popup.

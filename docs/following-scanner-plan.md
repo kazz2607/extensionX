@@ -158,7 +158,7 @@ Them cac handlers moi:
 | STOP_FOLLOWING_SCROLL      | --                   | Dung scroll                    |
 | GET_FOLLOWING_SCROLL_STATE | --                   | Lay trang thai scroll          |
 
-#### UI (Standalone Cleanup Tab - `src/cleanup/cleanup.html`)
+#### UI trong Cleanup Panel - "Scroll to Oldest" section
 
 ```
 +------------------------------------------+
