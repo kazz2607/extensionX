@@ -5,18 +5,18 @@
 
 // ─── State ────────────────────────────────────────────────────────────────────
 // @ts-ignore
-let currentUsername = null;
+let currentUsername: string | null = null;
 let isCollecting = false;
 let isDownloading = false;
 let activeFilter = 'all';
 let stats = { image: 0, video: 0, gif: 0, hls: 0 };
 // @ts-ignore
-let downloadHistory = [];
+let downloadHistory: any[] = [];
 let lastScrollCount = 0;
 let lastScrollTime = Date.now();
 let currentSaveFolder = '';  // đọc từ options
 // @ts-ignore
-let downloadQueue = [];      // v5.0.3: Multi-Profile Queue
+let downloadQueue: any[] = [];      // v5.0.3: Multi-Profile Queue
 let dateFrom = '';           // v4.3.0: Date Range Filter (YYYY-MM-DD)
 let dateTo   = '';           // v4.3.0: Date Range Filter (YYYY-MM-DD)
 let _dateRangeOpen = false;  // trạng thái mở/đóng collapsible
@@ -397,7 +397,7 @@ function renderQueue() {
   // Restore live progress bar nếu có item đang downloading
   const activeItem = (downloadQueue as any[]).find(q => q.status === 'downloading');
   if (activeItem) {
-    const metaEl = list.querySelector<HTMLElement>(`.queue-item[data-id="${activeItem.id}"] .queue-item-meta`);
+    const metaEl = list.querySelector(`.queue-item[data-id="${activeItem.id}"] .queue-item-meta`) as HTMLElement | null;
     if (metaEl && metaEl.dataset.progress) {
       metaEl.innerHTML = metaEl.dataset.progress;
     }

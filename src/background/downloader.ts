@@ -51,8 +51,8 @@ chrome.downloads.onChanged.addListener((delta) => {
   
   // Update progress
 // @ts-ignore
-  if (delta.bytesReceived) tracked.bytesReceived = delta.bytesReceived.current;
-  if (delta.totalBytes) tracked.totalBytes = delta.totalBytes.current;
+  if (delta.bytesReceived && delta.bytesReceived.current !== undefined) tracked.bytesReceived = delta.bytesReceived.current;
+  if (delta.totalBytes && delta.totalBytes.current !== undefined) tracked.totalBytes = delta.totalBytes.current;
 
   // v4.4.0: Throttled broadcast (max 2 lần/s)
   if (Date.now() - _lastProgressTime > 500 && activeDownloads.size > 0) {
@@ -79,7 +79,7 @@ chrome.downloads.onChanged.addListener((delta) => {
 });
 // ─── Download — từng file, không ZIP ─────────────────────────────────────────
 // @ts-ignore
-let activeErrors = []; // Mảng chứa chi tiết lỗi
+let activeErrors: string[] = []; // Mảng chứa chi tiết lỗi
 
 // ─── PERF-02: Offscreen Document cache ───────────────────────────────────────
 // Tránh gọi chrome.runtime.getContexts() (async I/O) mỗi file HLS.

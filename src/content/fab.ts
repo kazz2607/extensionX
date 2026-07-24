@@ -452,7 +452,7 @@
   // ─── Update từ messages ──────────────────────────────────────────────────────
   window.addEventListener('XMD_FAB_UPDATE', (e) => {
 // @ts-ignore
-    const { count, scrollCount, state } = e.detail || {};
+    const { count, scrollCount, state } = (e as CustomEvent).detail || {};
 
     if (count !== undefined) {
       mediaCount = count;
@@ -483,10 +483,10 @@
     }
 
     // UI-05: FAB mini progress — hiện % khi đang download
-    if (state === 'DOWNLOAD_PROGRESS' && e.detail.percent !== undefined) {
-      const pct = e.detail.percent;
+    if (state === 'DOWNLOAD_PROGRESS' && (e as CustomEvent).detail.percent !== undefined) {
+      const pct = (e as CustomEvent).detail.percent;
 // @ts-ignore
-      setPanelButtonText(downloadBtn, `⏳ ${pct}% (${e.detail.current}/${e.detail.total})`);
+      setPanelButtonText(downloadBtn, `⏳ ${pct}% (${(e as CustomEvent).detail.current}/${(e as CustomEvent).detail.total})`);
     }
 
     if (state === 'DOWNLOAD_DONE') {

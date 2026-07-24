@@ -3,6 +3,9 @@
  * Trang riêng để scroll /following và lấy danh sách following cũ nhất.
  */
 
+export {};
+
+
 // ─── State ────────────────────────────────────────────────────────────────────
 let _allUsers: { username: string; displayName: string; order: number }[] = [];
 let _filteredUsers: { username: string; displayName: string; order: number }[] = [];
@@ -52,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // ─── Theme ────────────────────────────────────────────────────────────────────
 function applyTheme() {
   chrome.storage.local.get('theme', (stored) => {
-    let theme = stored.theme || 'dark';
+    let theme = (stored.theme as string) || 'dark';
     if (theme === 'system') {
       theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
