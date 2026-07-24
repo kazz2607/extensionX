@@ -462,93 +462,6 @@
 
       </div><!-- /panel-stats -->
 
-      <!-- ══ PANEL: CLEANUP ══ -->
-      <div class="panel" id="panel-cleanup">
-
-        <!-- Header -->
-        <div class="cleanup-header">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 6h18"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-            <path d="M10 11v6"/><path d="M14 11v6"/>
-            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-          </svg>
-          <span class="cleanup-title">Scroll to Oldest Following</span>
-        </div>
-
-        <!-- Description -->
-        <p class="cleanup-desc">Tự động scroll trang /following xuống cuối để lộ ra các tài khoản <strong>following cũ nhất</strong>.</p>
-
-        <!-- URL Input -->
-        <div class="cleanup-url-row">
-          <label for="cleanup-url-input" class="cleanup-url-label">Target URL</label>
-          <div class="cleanup-url-wrap">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-            <input type="text" id="cleanup-url-input" class="cleanup-url-input"
-              placeholder="x.com/username/following" />
-          </div>
-        </div>
-
-        <!-- Action Buttons -->
-        <div class="cleanup-actions">
-          <button class="btn btn--collect" id="btn-cleanup-start">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="5 3 19 12 5 21 5 3"/>
-            </svg>
-            <span id="btn-cleanup-start-text">Start Scroll</span>
-          </button>
-          <button class="btn btn--stop-dl" id="btn-cleanup-stop" style="display:none">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="18" height="18" rx="2"/>
-            </svg>
-            Stop
-          </button>
-        </div>
-
-        <!-- Progress -->
-        <div class="cleanup-progress" id="cleanup-progress" style="display:none">
-          <div class="cleanup-progress-bar-wrap">
-            <div class="cleanup-progress-bar" id="cleanup-progress-bar" style="width:0%"></div>
-          </div>
-          <div class="cleanup-progress-info">
-            <span id="cleanup-users-count">0 users found</span>
-            <span id="cleanup-scroll-count">Scroll: 0</span>
-          </div>
-        </div>
-
-        <!-- Status badge -->
-        <div class="cleanup-status" id="cleanup-status" style="display:none">
-          <span class="cleanup-status-dot" id="cleanup-status-dot"></span>
-          <span id="cleanup-status-text">Scanning...</span>
-        </div>
-
-        <!-- Results -->
-        <div class="cleanup-results" id="cleanup-results" style="display:none">
-          <div class="cleanup-results-header">
-            <span id="cleanup-results-title">Oldest Following</span>
-            <div class="cleanup-export-btns">
-              <button class="btn-queue-export" id="btn-cleanup-copy" title="Copy usernames">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="9" y="9" width="13" height="13" rx="2"/>
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                </svg>
-                Copy
-              </button>
-              <button class="btn-queue-export" id="btn-cleanup-csv" title="Export CSV">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                </svg>
-                CSV
-              </button>
-            </div>
-          </div>
-          <ul class="cleanup-user-list" id="cleanup-user-list"></ul>
-        </div>
-
-      </div><!-- /panel-cleanup -->
-
     </div><!-- /tab-panels -->
 
     <!-- ─── Bottom Navigation ─────────────────────────────────── -->
@@ -579,7 +492,7 @@
         </svg>
         <span>Stats</span>
       </button>
-      <button class="nav-tab" id="nav-cleanup" data-panel="panel-cleanup" title="Cleanup">
+      <button class="nav-tab" id="nav-cleanup" title="Cleanup">
         <div class="nav-tab-icon-wrap">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 6h18"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
