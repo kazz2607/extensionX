@@ -1006,6 +1006,7 @@ body.compact-mode .btn-compact { color: var(--accent); background: var(--accent-
   flex-direction: column;
   gap: 0;
   overflow-y: auto;
+  min-height: 0;
 }
 
 /* Hero header */
@@ -1193,8 +1194,6 @@ body.compact-mode .btn-compact { color: var(--accent); background: var(--accent-
   display: flex;
   flex-direction: column;
   gap: 2px;
-  max-height: 220px;
-  overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 4px;
@@ -1230,10 +1229,13 @@ body.compact-mode .btn-compact { color: var(--accent); background: var(--accent-
   color: var(--text-secondary);
 }
 .cleanup-user-link {
-  font-size: 10px;
+  font-size: 13px;
   color: var(--accent);
-  opacity: 0;
+  opacity: 0.55;
   transition: opacity var(--transition);
   flex-shrink: 0;
+  text-decoration: none;
+  padding: 2px 4px;
+  border-radius: 4px;
 }
 .cleanup-user-item:hover .cleanup-user-link { opacity: 1; }
