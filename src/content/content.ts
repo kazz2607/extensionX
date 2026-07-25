@@ -136,10 +136,10 @@ function isFollowingPage(url = location.href) {
   } catch (_) { return false; }
 }
 
-// Quét DOM trang /following để lấy danh sách username từ các UserCell card
-function extractFollowingUsers(): { username: string; displayName: string }[] {
+// Quét DOM trang /following để lấy danh sách username + bio từ các UserCell card
+function extractFollowingUsers(): { username: string; displayName: string; bio: string }[] {
   const cells = document.querySelectorAll('[data-testid="UserCell"]');
-  const results: { username: string; displayName: string }[] = [];
+  const results: { username: string; displayName: string; bio: string }[] = [];
   cells.forEach(cell => {
     // Link profile: href="/username"
     const link = cell.querySelector('a[href^="/"][role="link"]') as HTMLAnchorElement | null;
@@ -147,8 +147,15 @@ function extractFollowingUsers(): { username: string; displayName: string }[] {
     // Display name: first span bên trong User-Name
     const nameEl = cell.querySelector('[data-testid="User-Name"] span span') as HTMLElement | null;
     const displayName = nameEl?.textContent?.trim() || username;
+    // Bio: div[dir="auto"] nằm trong cell nhưng NGOÀI User-Name block
+    const userNameBlock = cell.querySelector('[data-testid="User-Name"]');
+    const allDirDivs = Array.from(cell.querySelectorAll<HTMLElement>('div[dir="auto"], div[dir="ltr"]'));
+    const bio = allDirDivs
+      .filter(el => userNameBlock ? !userNameBlock.contains(el) : true)
+      .map(el => el.textContent?.trim() || '')
+      .find(t => t.length > 0) || '';
     if (username && !username.startsWith('i/') && username.length > 0) {
-      results.push({ username, displayName });
+      results.push({ username, displayName, bio });
     }
   });
   return results;

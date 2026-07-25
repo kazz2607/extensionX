@@ -8,7 +8,7 @@
  */
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-export type FollowingUser = { username: string; displayName: string; order: number };
+export type FollowingUser = { username: string; displayName: string; bio: string; order: number };
 export type ShowToastFn   = (msg: string, type?: string) => void;
 export type SendBGFn      = (type: string, payload?: Record<string, unknown>) => Promise<unknown>;
 
@@ -178,16 +178,22 @@ export function followingRenderResults(
   if (titleEl) { titleEl.textContent = `Oldest Following (${total})`; }
 
   const shown = users.slice(0, 50);
-  listEl.innerHTML = shown.map((u, i) => `
-    <li class="cleanup-user-item">
+  listEl.innerHTML = shown.map((u, i) => {
+    const isParody = u.bio?.includes('Tài khoản giễu nhại');
+    return `
+    <li class="cleanup-user-item${isParody ? ' is-parody' : ''}">
       <span class="cleanup-user-rank${i < 3 ? ' top3' : ''}">#${i + 1}</span>
       <div class="cleanup-user-info">
-        <div class="cleanup-user-name">${u.displayName || u.username}</div>
+        <div class="cleanup-user-name">
+          ${u.displayName || u.username}
+          ${isParody ? '<span class="parody-badge">🎭 Giễu nhại</span>' : ''}
+        </div>
         <div class="cleanup-user-handle">@${u.username}</div>
+        ${u.bio ? `<div class="cleanup-user-bio">${u.bio.slice(0, 80)}${u.bio.length > 80 ? '…' : ''}</div>` : ''}
       </div>
       <a class="cleanup-user-link" href="https://x.com/${u.username}" target="_blank" title="Open profile">↗</a>
     </li>
-  `).join('');
+  `}).join('');
 
   if (total > 50) {
     listEl.innerHTML += `<li class="cleanup-user-item" style="justify-content:center;color:var(--text-muted);font-size:11px">
@@ -258,13 +264,19 @@ export function initFollowingPanel(deps: FollowingPanelDeps): void {
     const urlRaw = urlInput.value.replace(/^https?:\/\//, '');
     const match = urlRaw.match(/\/([A-Za-z0-9_]+)\/following/);
     const targetUser = match?.[1] || 'unknown';
-    const header = 'rank,username,displayName,profileUrl\n';
-    const rows = _users.map((u, i) =>
-      `${i + 1},"${u.username}","${u.displayName.replace(/"/g, '""')}","https://x.com/${u.username}"`
-    ).join('\n');
+
+    // UTF-8 BOM để Excel nhận diện đúng tiếng Việt
+    const BOM = '\uFEFF';
+    const header = 'rank,username,displayName,bio,isParody,profileUrl\n';
+    const rows = _users.map((u, i) => {
+      const isParody = u.bio?.includes('Tài khoản giễu nhại') ? 'TRUE' : 'FALSE';
+      const bio = (u.bio || '').replace(/"/g, '""').replace(/\n/g, ' ');
+      return `${i + 1},"${u.username}","${u.displayName.replace(/"/g, '""')}","${bio}",${isParody},"https://x.com/${u.username}"`;
+    }).join('\n');
+
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     chrome.downloads.download({
-      url: 'data:text/csv;charset=utf-8,' + encodeURIComponent(header + rows),
+      url: 'data:text/csv;charset=utf-8,' + encodeURIComponent(BOM + header + rows),
       filename: `following_${targetUser}_oldest_${dateStr}.csv`,
       saveAs: false,
     });

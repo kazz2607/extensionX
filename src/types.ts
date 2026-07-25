@@ -151,6 +151,7 @@ declare global {
 export interface FollowingUserEntry {
   username: string;
   displayName: string;
+  bio: string;   // mô tả profile (có thể chứa “Tài khoản giễu nhại”)
   order: number; // 0 = newest following, high = oldest following
 }
 

@@ -110,13 +110,14 @@ export async function startFollowingScroll(targetUrl: string): Promise<void> {
       }
 
       // Merge users mới vào map (giữ order đầu tiên gặp = order xuất hiện trên DOM)
-      const newUsers: { username: string; displayName: string }[] = scrollResult?.users || [];
+      const newUsers: { username: string; displayName: string; bio: string }[] = scrollResult?.users || [];
       let newCount = 0;
       for (const u of newUsers) {
         if (!allUsers.has(u.username)) {
           allUsers.set(u.username, {
             username: u.username,
             displayName: u.displayName,
+            bio: u.bio || '',
             order: orderCounter++,
           });
           newCount++;
