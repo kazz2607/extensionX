@@ -4,6 +4,29 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [5.7.2] — 2026-07-25 *(Following Scanner Polish)*
+
+### 🐛 Bug Fixes
+- **Flex Scroll Chain:** `.tab-panels` và `.panel` thiếu `min-height: 0` → `flex: 1` + `overflow-y: auto` không hoạt động đúng trong flexbox. Fix cho tất cả panels (không chỉ Following).
+- **Following List Clipping:** `max-height: 220px` trên `.cleanup-user-list` cắt danh sách ở item thứ 6. Đã xóa — panel scroll toàn bộ thay vì chỉ list.
+- **Independent List Scroll:** Refactor layout Following panel: top sections (`flex-shrink: 0`) cố định, chỉ `.cleanup-results` + `.cleanup-user-list` scroll riêng biệt — hỗ trợ 7000+ following.
+- **Link ↗ luôn ẩn:** `.cleanup-user-link { opacity: 0 }` → `opacity: 0.55` luôn visible.
+
+### ✨ Tính Năng Mới
+- **Following Scanner Toggle:** Thêm vào Settings section **⚡ Features** toggle bật/tắt tab "Following" trong popup.
+  - Bật (default): tab Following hiển thị bình thường
+  - Tắt: tab ẩn hoàn toàn, tự redirect về Main nếu đang active
+  - Setting lưu vào `chrome.storage.sync` (sync across devices)
+- **Bookmarks Toggle:** Move toggle "Bookmarks Scraper" lên section ⚡ Features (cùng nhóm feature toggles).
+
+### 🌐 I18n
+- Thêm `opt_enable_bookmarks` + `opt_enable_bookmarks_desc` vào cả **EN** và **VI** trong `i18n.ts`.
+
+### 🎨 Code Quality
+- `popup.css`: Expand toàn bộ shorthand CSS rules sang multi-line format cho dễ maintain.
+
+---
+
 ## [5.7.1] — 2026-07-24 *(UI Fixes & Refactor)*
 
 ### 🐛 Bug Fixes

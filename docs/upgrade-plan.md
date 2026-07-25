@@ -1,4 +1,4 @@
-# ExtensionX — Kế Hoạch Nâng Cấp Toàn Diện v5.7.1+
+# ExtensionX — Kế Hoạch Nâng Cấp Toàn Diện v5.7.2+
 
 > **Phiên bản hiện tại:** 5.7.0  
 > **Ngày phân tích:** 2026-07-24 | **Cập nhật:** 2026-07-24  
@@ -22,7 +22,7 @@
 ## 1. Tổng Quan Kiến Trúc
 
 ```
-ExtensionX v5.7.1
+ExtensionX v5.7.2
 ├── background/
 │   ├── service-worker.ts     — Entry point (chỉ import)
 │   ├── messages.ts           — 531 lines, Message hub
@@ -705,7 +705,7 @@ result?: {
 | File | Vấn đề chính | Độ ưu tiên | Trạng thái |
 |------|-------------|------------|------------|
 | `downloader.ts` | 60+ @ts-ignore, untyped params | 🔴 Cao | ✅ Fixed Sprint 2 |
-| `popup.ts` | 1588 lines, cần tách module | 🟡 Medium | ⏳ Sprint 4 (-170 lines refactored Following) |
+| `popup.ts` | 1588 lines, cần tách module | 🟡 Medium | ⏳ Sprint 4 (-170 lines refactored, +Following Settings toggle) |
 | `manifest.json` | shortcuts inject `<all_urls>` | 🔴 Cao | ✅ Fixed Sprint 1 |
 | `messages.ts` | QueueItem status type mismatch, XSS | 🔴 Cao | ✅ Fixed Sprint 1 |
 | `scraper.ts` | clearSession race condition, cache TTL | 🟡 Medium | ✅ Fixed Sprint 1+3 |
@@ -713,4 +713,4 @@ result?: {
 
 ---
 
-*Cập nhật: 2026-07-24. Version hiện tại: **v5.7.1** (Sprint 1+2+3 + Following UI refactor hoàn thành). Sprint 4 tiếp theo.*
+*Cập nhật: 2026-07-24. Version hiện tại: **v5.7.2** (Sprint 1+2+3 + Following Scanner hoàn thành). Sprint 4 tiếp theo.*
