@@ -139,8 +139,33 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupBottomNav();                 // v5.0.3
   setupDateRange();                 // v4.3.0
   listenToMessages();
+  await applyFollowingScannerSetting(); // v5.7.1 — hide tab if disabled in settings
   initFollowingPanel({ showToast, sendBG }); // Feature 0 — injected from following-panel.ts
 });
+
+// ─── v5.7.1: Following Scanner Feature Toggle ───────────────────────────────
+async function applyFollowingScannerSetting(): Promise<void> {
+  const stored: any = await chrome.storage.sync.get('options').catch(() => ({}));
+  const enabled: boolean = stored?.options?.enableFollowingScanner ?? true;
+
+  const navTab = document.querySelector<HTMLElement>('.nav-tab[data-panel="panel-cleanup"]');
+  const panel  = document.getElementById('panel-cleanup');
+
+  if (!enabled) {
+    if (navTab) navTab.style.display = 'none';
+    if (panel)  panel.style.display  = 'none';
+    // Nếu đang ở tab Following, chuyển về Main
+    if (navTab?.classList.contains('active')) {
+      document.querySelectorAll<HTMLElement>('.nav-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll<HTMLElement>('.panel').forEach(p => p.classList.remove('active'));
+      document.querySelector<HTMLElement>('.nav-tab[data-panel="panel-main"]')?.classList.add('active');
+      document.getElementById('panel-main')?.classList.add('active');
+    }
+  } else {
+    if (navTab) navTab.style.display = '';
+    if (panel)  panel.style.display  = '';
+  }
+}
 
 // ─── Compact Mode (v4.8.0) ──────────────────────────────────────────────────
 async function applyCompactMode() {

@@ -25,6 +25,7 @@ const DEFAULT_OPTIONS = {
   showSnackbar: true,                          // Progress Snackbar trên trang X.com (v4.0.0)
   showNotification: true,                      // System notification khi tải xong (v4.1.0)
   enableBookmarks: true,                       // Cho phép quét trang Bookmarks (v5.4.0)
+  enableFollowingScanner: true,                // Following Scanner tab (v5.7.1)
   shortcuts: {                                   // Keyboard Shortcuts (v5.5.0)
     enabled: false,                              // Mặc định TẮT — user phải bật chủ động
     showToast: true,
@@ -86,6 +87,8 @@ async function loadOptions() {
   document.getElementById('opt-show-notification').checked = opts.showNotification ?? true;
 // @ts-ignore
   document.getElementById('opt-enable-bookmarks').checked = opts.enableBookmarks ?? true;
+// @ts-ignore
+  (document.getElementById('opt-enable-following-scanner') as HTMLInputElement).checked = opts.enableFollowingScanner ?? true;
 
   // Keyboard Shortcuts (v5.5.0)
   const sc = opts.shortcuts || DEFAULT_OPTIONS.shortcuts;
@@ -165,6 +168,7 @@ async function saveOptions() {
     showNotification: document.getElementById('opt-show-notification').checked,
 // @ts-ignore
     enableBookmarks:  document.getElementById('opt-enable-bookmarks').checked,
+    enableFollowingScanner: (document.getElementById('opt-enable-following-scanner') as HTMLInputElement)?.checked ?? true,
     // FEAT-08: Smart Auto-Stop
     autoStop: (document.getElementById('opt-auto-stop') as HTMLInputElement)?.checked ?? false,
     autoStopAfter: parseInt((document.getElementById('opt-auto-stop-after') as HTMLInputElement)?.value) || 10,
