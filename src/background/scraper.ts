@@ -38,28 +38,32 @@ chrome.storage.onChanged.addListener((changes, area) => {
 async function requestCsrfRefresh(tabId: number) {
   return new Promise(resolve => {
     const timeout = setTimeout(() => resolve(null), 3000);
-    chrome.tabs.sendMessage(tabId, { type: 'REQUEST_CSRF_REFRESH' }, (res) => {
+    try {
+      chrome.tabs.sendMessage(tabId, { type: 'REQUEST_CSRF_REFRESH' }, (res) => {
+        // Consume runtime.lastError to prevent unchecked runtime error in extension page
+        const _ = chrome.runtime.lastError;
+        clearTimeout(timeout);
+        resolve((res as any)?.ct0 || null);
+      });
+    } catch (_) {
       clearTimeout(timeout);
-      resolve((res as any)?.ct0 || null);
-    });
+      resolve(null);
+    }
   });
 }
 
 async function fetchVideoForTweetWithRefresh(tweetId: string, tabId?: number) {
   try {
-    // SEC-02 FIX: Dùng userCsrfToken từ state.ts thay vì self.userCsrfToken
     return await fetchVideoForTweet(tweetId, userCsrfToken);
   } catch (err: any) {
-    if ((err as Error).message === 'CSRF_STALE' && tabId) {
-      console.warn('[SW] S1: ct0 stale, đang refresh...');
+    if (tabId) {
       const newToken = await requestCsrfRefresh(tabId);
       if (newToken) {
-        setCsrfToken(newToken as string); // SEC-02 FIX: dùng setCsrfToken thay vì self.*
-        console.log('[SW] S1: ct0 được refresh thành công, retry...');
+        setCsrfToken(newToken as string);
         return await fetchVideoForTweet(tweetId, newToken as string);
       }
     }
-    throw err;
+    return null;
   }
 }
 // ─── v4.3.0: Snowflake ID → Timestamp ────────────────────────────────────────

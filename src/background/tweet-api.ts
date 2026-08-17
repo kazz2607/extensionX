@@ -97,19 +97,28 @@ function getSyndicationToken(tweetId) {
 async function fetchVideoViaSyndication(tweetId) {
   await acquireRateToken(); // S3: Rate limit
   const token = getSyndicationToken(tweetId);
-  const url = `https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&lang=en&token=${token}&features=tfw_timeline_list%3A%3Btfw_follower_count_sunset%3Atrue`;
+  const urls = [
+    `https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&lang=en&token=${token}&features=tfw_timeline_list%3A%3Btfw_follower_count_sunset%3Atrue`,
+    `https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&lang=en&token=${token}`,
+    `https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&lang=en`,
+  ];
 
-  const res = await fetch(url, {
-    headers: {
-      'Accept': 'application/json, text/plain, */*',
-      'Cache-Control': 'no-cache',
-      'Pragma': 'no-cache',
-    },
-  });
-
-  if (!res.ok) throw new Error(`Syndication API HTTP ${res.status}`);
-
-  const data = await res.json();
+  let data: any = null;
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          'Accept': 'application/json, text/plain, */*',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+        },
+      });
+      if (res.ok) {
+        data = await res.json();
+        if (data && Object.keys(data).length > 0) break;
+      }
+    } catch (_) {}
+  }
 
   // Response trống hoặc tweet bị xoá
   if (!data || Object.keys(data).length === 0) {
@@ -344,12 +353,26 @@ function parseTweetResultMedia(tweetResult: any, tweetId: any) {
 }
 
 // ─── Shared GraphQL variables/features ───────────────────────────────────────
-const GQL_VARIABLES = (tweetId: string) => ({
-  tweetId,
-  withCommunity: false,
-  includePromotedContent: false,
-  withVoice: false,
-});
+function getGqlVariables(opName: string, tweetId: string) {
+  if (opName === 'TweetDetail' || opName === 'TweetDetailOriginal') {
+    return {
+      focalTweetId: tweetId,
+      with_rux_injections: false,
+      includePromotedContent: false,
+      withCommunity: false,
+      withQuickPromoteEligibilityTweetFields: false,
+      withBirdwatchNotes: false,
+      withVoice: false,
+      withV2Timeline: true,
+    };
+  }
+  return {
+    tweetId,
+    withCommunity: false,
+    includePromotedContent: false,
+    withVoice: false,
+  };
+}
 
 const GQL_FEATURES = {
   creator_subscriptions_tweet_preview_api_enabled: true,
@@ -377,7 +400,6 @@ const GQL_FEATURES = {
 export async function fetchVideoForTweet(tweetId: string, userCsrfToken = '') {
   // Layer 0: User Session API (nếu có ct0) — dùng dynamic query ID
   if (userCsrfToken) {
-    // Thử các operation names theo thứ tự: TweetResultByRestId, TweetDetail
     const sessionOps = ['TweetResultByRestId', 'TweetDetail'];
     for (const opName of sessionOps) {
       const qId = getQueryId(opName);
@@ -385,7 +407,7 @@ export async function fetchVideoForTweet(tweetId: string, userCsrfToken = '') {
       try {
         await acquireRateToken();
         const url = new URL(`https://x.com/i/api/graphql/${qId}/${opName}`);
-        url.searchParams.set('variables', JSON.stringify(GQL_VARIABLES(tweetId)));
+        url.searchParams.set('variables', JSON.stringify(getGqlVariables(opName, tweetId)));
         url.searchParams.set('features', JSON.stringify(GQL_FEATURES));
 
         const res = await fetch(url.toString(), {
@@ -402,7 +424,6 @@ export async function fetchVideoForTweet(tweetId: string, userCsrfToken = '') {
 
         if (res.ok) {
           const data = await res.json();
-          // Hỗ trợ nhiều cấu trúc response
           const tweetResult = data?.data?.tweetResult?.result
             || data?.data?.tweet_result?.result
             || data?.data?.tweetResults?.result;
@@ -411,10 +432,7 @@ export async function fetchVideoForTweet(tweetId: string, userCsrfToken = '') {
             console.log(`[tweet-api] ✓ Layer 0 (${opName}) thành công cho tweet ${tweetId}`);
             return parsed;
           }
-        } else if (res.status === 403) {
-          throw new Error('CSRF_STALE');
         } else if (res.status === 404) {
-          // Hash này đã hết hạn → xóa dynamic cache để tránh dùng lại
           if (_dynamicQueryIds[opName]) {
             delete _dynamicQueryIds[opName];
             console.warn(`[tweet-api] ⚠ Query ID ${opName} expired (404), cleared dynamic cache`);
@@ -424,13 +442,12 @@ export async function fetchVideoForTweet(tweetId: string, userCsrfToken = '') {
           console.warn(`[tweet-api] ⚠ Layer 0 ${opName} HTTP ${res.status}`);
         }
       } catch (e: any) {
-        if (e.message === 'CSRF_STALE') throw e; // relay lên để scraper.ts refresh token
         console.warn(`[tweet-api] ⚠ Layer 0 ${opName} lỗi: ${e.message}`);
       }
     }
   }
 
-  // Layer 1: Syndication API (không cần auth, ổn định hơn)
+  // Layer 1: Syndication API (không cần auth, ổn định nhất khi xem video)
   try {
     const result = await fetchVideoViaSyndication(tweetId);
     if (result) {
