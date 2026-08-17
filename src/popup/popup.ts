@@ -996,7 +996,11 @@ function setupListeners() {
   if (els.btnStopDownload) {
     els.btnStopDownload.addEventListener('click', async () => {
       await sendBG('STOP_DOWNLOAD', {});
-      showToast('⏹ Đang dừng — hoàn tất file hiện tại rồi dừng', 'info');
+      isDownloading = false;
+      showProgress(false);
+      setStatus('ready', 'Đã dừng tải');
+      updateButtons();
+      showToast('⏹ Đã dừng tải xuống', 'info');
     });
   }
 

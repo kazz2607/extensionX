@@ -683,11 +683,31 @@ function retryLastDownload(): boolean {
   return true;
 }
 
-// Bug 2: Dừng download đang chạy — workers sẽ thoát sau file hiện tại
+// Bug 2: Dừng download đang chạy — hủy ngay và giải phóng downloadState
 function stopDownload(): boolean {
-  if (!downloadState.inProgress) return false;
   _stopRequested = true;
-  console.log('[SW] ⏹ stopDownload: yêu cầu dừng sau file hiện tại...');
+  console.log('[SW] ⏹ stopDownload: yêu cầu dừng ngay lập tức');
+
+  // Hủy các downloads đang chạy dở trong Chrome
+  activeDownloads.forEach((tracked, downloadId) => {
+    chrome.downloads.cancel(downloadId, () => {
+      const _ = chrome.runtime.lastError;
+    });
+  });
+  activeDownloads.clear();
+
+  downloadState.inProgress = false;
+  stopKeepAlive();
+
+  broadcastToPopup('DOWNLOAD_DONE', {
+    username: _lastDownloadUsername,
+    success: 0,
+    failed: 0,
+    total: 0,
+    skipped: 0,
+    stopped: true,
+  });
+
   return true;
 }
 

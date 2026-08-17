@@ -399,16 +399,23 @@ async function scrollLoop(tabId: number, username: string) {
 // @ts-ignore
 function stopCollecting(username) {
   tabState.forEach((state, tabId) => {
-    if (state.username === username) {
+    if (!username || !state.username || state.username.toLowerCase() === String(username).toLowerCase()) {
       state.isCollecting = false;
       tabState.set(tabId, state);
       // Tắt flag isCollecting trong content.js của tab
       chrome.tabs.sendMessage(tabId, { type: 'COLLECT_STOPPED_LOCAL' }).catch(() => {});
+      broadcastFABState(tabId, 'COLLECT_DONE');
     }
   });
-  broadcastToPopup('COLLECT_STOPPED', { username });
+  broadcastToPopup('COLLECT_STOPPED', { username: username || '' });
+  broadcastToPopup('COLLECT_DONE', {
+    username: username || '',
+    mediaCount: username ? (mediaStore.get(username)?.size || 0) : 0,
+    reachedEnd: false,
+    reason: 'user_stopped'
+  });
   // Session Restore: lưu clean session khi dừng chủ động
-  persistSession(username);
+  if (username) persistSession(username);
 }
 
 // ─── Session Restore — Persist & Clear ───────────────────────────────────────
