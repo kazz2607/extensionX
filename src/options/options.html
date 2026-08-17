@@ -720,7 +720,7 @@
           <strong>📤 Export Settings</strong>
           <span><span data-i18n="opt_export_desc">Xuất toàn bộ cài đặt ra file JSON — dùng để backup hoặc chuyển sang máy khác.</span></span>
         </div>
-        <button class="btn-data" id="btn-export" onclick="exportSettings()" data-i18n="btn_export">📤 Export</button>
+        <button class="btn-data" id="btn-export" data-i18n="btn_export">📤 Export</button>
       </div>
 
       <div class="option-row">
@@ -728,8 +728,8 @@
           <strong>📥 Import Settings</strong>
           <span><span data-i18n="opt_import_desc">Nạp file JSON cài đặt đã export trước. Settings hiện tại sẽ bị ghi đè.</span></span>
         </div>
-        <button class="btn-data" id="btn-import" onclick="document.getElementById('import-file-input').click()" data-i18n="btn_import">📥 Import</button>
-        <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="importSettings(event)" />
+        <button class="btn-data" id="btn-import" data-i18n="btn_import">📥 Import</button>
+        <input type="file" id="import-file-input" accept=".json" style="display:none" />
       </div>
 
       <div class="option-row">
@@ -737,7 +737,7 @@
           <strong>🔄 Reset to Default</strong>
           <span><span data-i18n="opt_reset_desc">Đặt lại toàn bộ cài đặt về giá trị mặc định. Hành động này không thể hoàn tác.</span></span>
         </div>
-        <button class="btn-data btn-data--danger" id="btn-reset" onclick="resetSettings()" data-i18n="btn_reset">🔄 Reset</button>
+        <button class="btn-data btn-data--danger" id="btn-reset" data-i18n="btn_reset">🔄 Reset</button>
       </div>
 
       <div class="option-row">
@@ -745,7 +745,7 @@
           <strong>🗑️ Xóa lịch sử tải (Duplicate History)</strong>
           <span>Xóa toàn bộ lịch sử các file đã tải của tất cả profile để có thể tải lại toàn bộ từ đầu.</span>
         </div>
-        <button class="btn-data btn-data--danger" id="btn-clear-all-downloaded" onclick="clearAllDownloadedHistory()">🗑️ Xóa toàn bộ lịch sử</button>
+        <button class="btn-data btn-data--danger" id="btn-clear-all-downloaded">🗑️ Xóa toàn bộ lịch sử</button>
       </div>
 
     </div>

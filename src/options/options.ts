@@ -383,6 +383,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     input.addEventListener('change', saveOptions);
   });
+
+  // Data section buttons (Export, Import, Reset, Clear Downloaded)
+  document.getElementById('btn-export')?.addEventListener('click', exportSettings);
+  document.getElementById('btn-import')?.addEventListener('click', () => {
+    document.getElementById('import-file-input')?.click();
+  });
+  document.getElementById('import-file-input')?.addEventListener('change', importSettings);
+  document.getElementById('btn-reset')?.addEventListener('click', resetSettings);
+  document.getElementById('btn-clear-all-downloaded')?.addEventListener('click', clearAllDownloadedHistory);
 });
 
 // ─── Theme ─────────────────────────────────────────────────────────────────
@@ -521,6 +530,7 @@ async function clearAllDownloadedHistory() {
   try {
     await chrome.runtime.sendMessage({ type: 'CLEAR_ALL_DOWNLOADED' });
     showSaveStatus('✓ Đã xóa toàn bộ lịch sử tải!');
+    alert('✓ Đã xóa thành công toàn bộ lịch sử tải của tất cả profile! Bạn có thể tải lại bất kỳ file nào.');
   } catch (err: any) {
     console.error('[Options] clearAllDownloadedHistory error:', err);
     alert('Lỗi: ' + err.message);
