@@ -1,6 +1,6 @@
 # Đề xuất tính năng mới cho ExtensionX
 
-Dựa trên phiên bản hiện tại (v5.7.2) đã hoạt động rất ổn định với các tính năng cơ bản và phím tắt thông minh, dưới đây là một số ý tưởng tính năng mở rộng nâng cao mà chúng ta có thể cân nhắc phát triển tiếp theo để biến ExtensionX thành một công cụ siêu mạnh mẽ:
+Dựa trên phiên bản hiện tại (v5.7.3) đã hoạt động rất ổn định với các tính năng cơ bản và phím tắt thông minh, dưới đây là một số ý tưởng tính năng mở rộng nâng cao mà chúng ta có thể cân nhắc phát triển tiếp theo để biến ExtensionX thành một công cụ siêu mạnh mẽ:
 
 ## 1. Bulk Download (Tải hàng loạt thông minh)
 - **Mô tả:** Thêm một nút trên giao diện Popup cho phép "Quét toàn bộ ảnh trên trang web hiện tại".

@@ -1,7 +1,7 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-08-17 | Phiên bản hiện tại: **5.7.2**
+> Cập nhật: 2026-08-17 | Phiên bản hiện tại: **5.7.3**
 
 ---
 
@@ -552,7 +552,8 @@ v5.6.0  ── Feature 0: Following Scanner tab, Following Scroll Engine        
 v5.6.1  ── Sprint 1+2: Critical Fixes & TypeScript (7 bugs, 3 security, 2 TS)        ✅ DONE
 v5.7.0  ── Sprint 3: Smart Auto-Stop, Performance (EMA, cache TTL, discarded tab)     ✅ DONE
 v5.7.1  ── UI Fixes: Following panel refactor, CSS specificity, nav redesign          ✅ DONE
-v5.7.2  ── Hotfix: Dynamic Query ID — tự học hash mới từ X.com khi API thay đổi      ✅ DONE
+v5.7.2  ── Following Scanner Polish (flex scroll chain, 7000+ list, feature toggles)   ✅ DONE
+v5.7.3  ── Hotfix: CSP MAIN World Bypass, Cold SW State Recovery & Dynamic Query ID    ✅ DONE
 
 [TIẾP THEO]
 v5.8.0  ── Stability: IndexedDB health check, better error recovery, SW reload guard

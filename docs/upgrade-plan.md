@@ -1,6 +1,6 @@
-# ExtensionX — Kế Hoạch Nâng Cấp Toàn Diện v5.7.2+
+# ExtensionX — Kế Hoạch Nâng Cấp Toàn Diện v5.7.3+
 
-> **Phiên bản hiện tại:** 5.7.2  
+> **Phiên bản hiện tại:** 5.7.3  
 > **Ngày phân tích:** 2026-07-24 | **Cập nhật:** 2026-08-17  
 > **Phạm vi:** Performance · Security · UI/UX Bug Fixes · Logic Fixes · New Features  
 
