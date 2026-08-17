@@ -1,7 +1,7 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-08-17 | Phiên bản hiện tại: **5.7.4**
+> Cập nhật: 2026-08-17 | Phiên bản hiện tại: **5.7.5**
 
 ---
 
@@ -555,6 +555,7 @@ v5.7.1  ── UI Fixes: Following panel refactor, CSS specificity, nav redesign
 v5.7.2  ── Following Scanner Polish (flex scroll chain, 7000+ list, feature toggles)   ✅ DONE
 v5.7.3  ── Hotfix: CSP MAIN World Bypass, Cold SW State Recovery & Dynamic Query ID    ✅ DONE
 v5.7.4  ── Instant Stop Controls, TweetDetail GraphQL Schema & Syndication Triple-Fallbacks ✅ DONE
+v5.7.5  ── Duplicate Detection & History Fixes, UI Controls & TypeScript Hardening       ✅ DONE
 
 [TIẾP THEO]
 v5.8.0  ── Stability: IndexedDB health check, better error recovery, SW reload guard

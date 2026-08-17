@@ -2,7 +2,7 @@
 
 > Extension Chrome cho phép tải toàn bộ ảnh, video và GIF từ profile bất kỳ trên X.com (Twitter) về máy tính, tự động lưu vào thư mục `{Downloads}/{username}/` (phân loại theo `images/`, `videos/`, `gifs/`).
 
-> **Phiên bản hiện tại:** 5.7.4 | Cập nhật: 2026-08-17
+> **Phiên bản hiện tại:** 5.7.5 | Cập nhật: 2026-08-17
 
 ---
 
@@ -118,7 +118,7 @@ Sau khi load, extension sẽ xuất hiện trong danh sách:
 
 ```
 ┌──────────────────────────────────────────┐
-│  ⬇ X Media Downloader          v5.7.4   │
+│  ⬇ X Media Downloader          v5.7.5   │
 │  Tải toàn bộ ảnh & video từ X.com...    │
 │                                          │
 │  [Details]  [Remove]           ● Enabled │
@@ -150,7 +150,7 @@ Click icon **⬇** trên toolbar Chrome. Popup sẽ hiển thị:
 
 ```
 ┌───────────────────────────────────────────┐
-│ ⬇ X Media Downloader        v5.7.4 ⚙☀🔄 │
+│ ⬇ X Media Downloader        v5.7.5 ⚙☀🔄 │
 ├───────────────────────────────────────────┤
 │ 👤 @NASA                             [47]│
 │    Profile đang được xem                 │

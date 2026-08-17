@@ -4,6 +4,22 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [5.7.5] — 2026-08-17 *(Duplicate Detection & Download History Fixes, UI Controls & TypeScript Hardening)*
+
+### 🐛 Bug Fixes & Architecture Hardening
+- **[CRITICAL] Hoàn thiện `CLEAR_MEDIA` & `CLEAR_DOWNLOADED` trong Service Worker:**
+  - Bổ sung handler `CLEAR_MEDIA` giải phóng toàn diện: xóa media khỏi RAM (`mediaStore`, `statsStore`, `dirtyMediaStore`), xóa IndexedDB và xóa triệt để bộ nhớ chống tải trùng (`downloaded_username` trong `chrome.storage.local`).
+  - Thêm `CLEAR_DOWNLOADED` và `CLEAR_ALL_DOWNLOADED` cho phép xóa lịch sử tải của từng profile hoặc tất cả profile cùng lúc.
+- **[CRITICAL] Khắc phục Cold SW Desync trong `GET_DOWNLOADED_COUNT`:** Nạp bất đồng bộ `loadDownloadedUrls()` trước khi đọc `downloadedStore` từ RAM, ngăn ngừa tình trạng ẩn nhầm ô checkbox "Bỏ qua file đã tải" khi Service Worker vừa thức dậy.
+- **Cải tiến Giao diện Popup (Duplicate Controls):**
+  - Khung checkbox **"Bỏ qua file đã tải"** luôn luôn hiển thị trực quan.
+  - Tự động lưu trạng thái bật/tắt của checkbox vào `chrome.storage.local` (`pref_skip_duplicates`), giữ nguyên lựa chọn của người dùng qua các phiên làm việc.
+  - Thêm nút gạch chân **`Xóa lịch sử`** nằm ngay cạnh huy hiệu số file đã tải để xóa lịch sử trong 1 cú nhấp chuột và tải lại toàn bộ.
+- **Nút "Xóa toàn bộ lịch sử tải" trong Settings (Options):** Thêm nút đỏ tại mục **Data & Settings** cho phép reset bộ nhớ chống trùng của tất cả profile.
+- **TypeScript Type Safety:** Chuẩn hóa kiểu trả về `Promise<MediaItem[]>` cho `getMediaItems()` trong `indexeddb.ts` và bổ sung `Array.isArray()` an toàn trong `scraper.ts`.
+
+---
+
 ## [5.7.4] — 2026-08-17 *(Instant Stop Controls, TweetDetail GraphQL Fix & Multi-tier Fallbacks)*
 
 ### 🐛 Bug Fixes & UX Optimization
