@@ -1,7 +1,7 @@
 # ExtensionX — Kế Hoạch Nâng Cấp Toàn Diện v5.7.2+
 
-> **Phiên bản hiện tại:** 5.7.0  
-> **Ngày phân tích:** 2026-07-24 | **Cập nhật:** 2026-07-24  
+> **Phiên bản hiện tại:** 5.7.2  
+> **Ngày phân tích:** 2026-07-24 | **Cập nhật:** 2026-08-17  
 > **Phạm vi:** Performance · Security · UI/UX Bug Fixes · Logic Fixes · New Features  
 
 ---
@@ -25,25 +25,25 @@
 ExtensionX v5.7.2
 ├── background/
 │   ├── service-worker.ts     — Entry point (chỉ import)
-│   ├── messages.ts           — 531 lines, Message hub
+│   ├── messages.ts           — 531 lines, Message hub + UPDATE_QUERY_ID handler
 │   ├── downloader.ts         — 687 lines ✅ typed (0 @ts-ignore)
 │   ├── scraper.ts            — 532 lines ✅ Smart Auto-Stop + EMA delay
-│   ├── tweet-api.ts          — 384 lines, Multi-layer API fetch
+│   ├── tweet-api.ts          — 400+ lines ✅ Dynamic Query ID + Multi-layer API
 │   ├── queue.ts              — 134 lines ✅ typed + mediaCount sync
 │   ├── following-scroll.ts   — 183 lines ✅ auto tab cleanup
 │   ├── indexeddb.ts          — IndexedDB persistence layer
 │   ├── state.ts              — 13 lines, Shared state
 │   └── utils.ts              — ✅ PERF-02 tab visibility check
 ├── content/
-│   ├── content.ts            — 459 lines, Script injector + relay
-│   ├── page-interceptor.ts   — Hook fetch/XHR để bắt media URL
+│   ├── content.ts            — 470 lines, Script injector + relay + XMD_QUERY_ID
+│   ├── page-interceptor.ts   — Hook fetch/XHR + captureQueryId() ✅
 │   ├── dom-scanner.ts        — DOM fallback scanner
 │   ├── fab.ts                — 672 lines, Floating Action Button
 │   ├── shortcuts.ts          — 468 lines ✅ BUG-L1: input guard + scope fix
 │   ├── tweet-btn.ts          — Mini download button per tweet
 │   └── snackbar.ts           — In-page notifications
 ├── popup/
-│   ├── popup.ts              — 1425 lines ✅ -170 lines sau refactor
+│   ├── popup.ts              — 1402 lines ✅ -170 lines sau refactor
 │   ├── following-panel.ts    — [NEW] ✅ Following Scanner module riêng
 │   ├── popup.html            — ✅ custom modal, XSS sanitized
 │   └── popup.css             — ✅ UI-02 daterange smooth animation
@@ -709,8 +709,8 @@ result?: {
 | `manifest.json` | shortcuts inject `<all_urls>` | 🔴 Cao | ✅ Fixed Sprint 1 |
 | `messages.ts` | QueueItem status type mismatch, XSS | 🔴 Cao | ✅ Fixed Sprint 1 |
 | `scraper.ts` | clearSession race condition, cache TTL | 🟡 Medium | ✅ Fixed Sprint 1+3 |
-| `tweet-api.ts` | Hardcoded bearer token | 🟢 Low | ⏳ Sprint 4 |
+| `tweet-api.ts` | Hardcoded bearer token, hardcoded query hash | 🟢 Low | ✅ Fixed v5.7.2 (dynamic query ID) |
 
 ---
 
-*Cập nhật: 2026-07-24. Version hiện tại: **v5.7.2** (Sprint 1+2+3 + Following Scanner hoàn thành). Sprint 4 tiếp theo.*
+*Cập nhật: 2026-08-17. Version hiện tại: **v5.7.3** (CSP MAIN World Bypass + Cold SW State Recovery + Dynamic Query ID). Sprint 4 tiếp theo.*

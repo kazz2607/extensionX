@@ -1,9 +1,9 @@
 # Following Scanner & Inactive Unfollow - Implementation Plan
 
-> **Version**: v6.0.0 (planned)
+> **Version**: Feature 0 ✅ DONE (v5.6.0+) | Feature 1 🟡 Planned (v5.8.0)
 > **Created**: 2026-07-24
-> **Updated**: 2026-07-24 (Feature 0 hoàn thành - Tách thành Standalone Tab)
-> **Status**: Feature 0 (Auto-Scroll) DONE. Feature 1 (API Scanner) Pending.
+> **Updated**: 2026-08-17
+> **Status**: Feature 0 (Auto-Scroll + Following Panel) DONE. Feature 1 (API Scanner + Unfollow) Pending.
 
 ## Tong quan
 

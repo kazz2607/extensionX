@@ -4,6 +4,17 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [5.7.3] — 2026-08-17 *(Hotfix: CSP Bypass in MAIN World, Cold SW State Recovery & Dynamic Query ID)*
+
+### 🐛 Bug Fixes & Architecture Hardening
+- **[CRITICAL] MAIN World Script Injection (Bypass CSP):** Khai báo trực tiếp `page-interceptor.js`, `dom-scanner.js`, `fab.js`, `tweet-btn.js`, `snackbar.js` chạy trong `"world": "MAIN"` tại `manifest.json`. Khắc phục triệt để việc trang X.com áp dụng CSP chặn `<script src="chrome-extension://...">` động.
+- **[CRITICAL] Cold Service Worker State Recovery:** Khi Service Worker chuyển sang trạng thái sleep/inactive và được đánh thức khi user mở Popup hoặc click Download, `mediaStore` và `statsStore` trong RAM bị rỗng. Đã thêm `ensureMediaStoreLoaded()` tự động phục hồi media items từ IndexedDB vào RAM trong tất cả message handlers (`START_DOWNLOAD`, `GET_MEDIA_COUNT`, `GET_STATS`, `GET_MEDIA_COUNT_FILTERED`, `EXPORT_CSV`).
+- **[CRITICAL] Dynamic Query ID Auto-Learning:** Hook vào fetch và XHR của X.com để bắt dynamic GraphQL query ID (`TweetResultByRestId`, `TweetDetail`...) khi X.com xoay vòng query hash, tự động cập nhật vào Service Worker Layer 0.
+- **`getFilteredCount()` UI Fallback:** Tránh trường hợp `stats` desync làm nút Download bị disable nhầm dù đang có media trong store.
+- **GraphQL Photo Tweet ID:** Sửa lỗi gán sai `media.id_str` thành `tweetId` thay vì dùng `obj.id_str` (status id).
+
+---
+
 ## [5.7.2] — 2026-07-25 *(Following Scanner Polish)*
 
 ### 🐛 Bug Fixes
@@ -25,9 +36,11 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 ### 🎨 Code Quality
 - `popup.css`: Expand toàn bộ shorthand CSS rules sang multi-line format cho dễ maintain.
 
+
 ---
 
 ## [5.7.1] — 2026-07-24 *(UI Fixes & Refactor)*
+
 
 ### 🐛 Bug Fixes
 - **CSS Specificity:** `#panel-cleanup { display:flex }` (ID selector) luôn override `.panel { display:none }` → Following Scanner luôn hiển thị đè lên tab Main. **Fix:** đổi sang `#panel-cleanup.active` để chỉ flex khi panel active.

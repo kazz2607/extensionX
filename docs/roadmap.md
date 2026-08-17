@@ -1,7 +1,7 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-07-24 | Phiên bản hiện tại: **5.7.0**
+> Cập nhật: 2026-08-17 | Phiên bản hiện tại: **5.7.2**
 
 ---
 
@@ -547,10 +547,15 @@ v5.3.0  ── UI Polish: error details+retry, donut realtime, FAB%, queue progr
 v5.3.1  ── Bug Fixes: auto-download sau collect, nút Stop global + per queue item     ✅ DONE
 v5.4.0  ── Queue & Bookmark: toggle bookmarks, Queue export/import, file count/profile ✅ DONE
 v5.5.0  ── Global Keyboard Shortcuts (mọi trang web)                                  ✅ DONE
-v5.5.1  ── Bug Fixes: Cải thiện logic hover ảnh trong Global Shortcuts                  ✅ DONE
+v5.5.1  ── Bug Fixes: Cải thiện logic hover ảnh trong Global Shortcuts                ✅ DONE
+v5.6.0  ── Feature 0: Following Scanner tab, Following Scroll Engine                  ✅ DONE
+v5.6.1  ── Sprint 1+2: Critical Fixes & TypeScript (7 bugs, 3 security, 2 TS)        ✅ DONE
+v5.7.0  ── Sprint 3: Smart Auto-Stop, Performance (EMA, cache TTL, discarded tab)     ✅ DONE
+v5.7.1  ── UI Fixes: Following panel refactor, CSS specificity, nav redesign          ✅ DONE
+v5.7.2  ── Hotfix: Dynamic Query ID — tự học hash mới từ X.com khi API thay đổi      ✅ DONE
 
 [TIẾP THEO]
-v6.0.0  ── Full-page Dashboard, Masonry Media Gallery, Bulk Selection
+v5.8.0  ── Stability: IndexedDB health check, better error recovery, SW reload guard
 
 [TƯƠNG LAI]
 v6.0.0  ── Full-page Dashboard, Masonry Media Gallery, Bulk Selection

@@ -2,13 +2,15 @@
 
 Tài liệu này hướng dẫn chi tiết các bước để chuẩn bị, đóng gói mã nguồn và đưa tiện ích **X Media Downloader** lên chợ ứng dụng Chrome Web Store (CWS).
 
+> Phiên bản hiện tại: **5.7.2** | Cập nhật: 2026-08-17
+
 ---
 
 ## 1. Chuẩn Bị (Làm Sạch Mã Nguồn)
 
 Trước khi đóng gói, bạn cần loại bỏ các thư mục và tập tin không cần thiết để file nén (ZIP) nhẹ nhất có thể và tránh bị Google từ chối do mã nguồn rác.
 
-**Những thành phần CẦN giữ lại:**
+**Những thành phần CẦN giữ lại (trong thư mục `dist/` sau khi build):**
 - `_locales/`
 - `background/`
 - `content/`
@@ -19,25 +21,37 @@ Trước khi đóng gói, bạn cần loại bỏ các thư mục và tập tin 
 - `popup/`
 - `manifest.json`
 - `rules.json`
+- `popup.css`
+- `i18n.js`
 
 **Những thành phần CẦN loại bỏ (Không đưa vào file ZIP):**
 - Thư mục `.git/` (dữ liệu quản lý phiên bản)
-- Thư mục `docs/` (chứa tài liệu nội bộ, kế hoạch)
+- Thư mục `src/`, `node_modules/`, `docs/` (mã nguồn gốc + tài liệu nội bộ)
 - Thư mục `scratch/` (code nháp)
 - `README.md`, `CHANGELOG.md` (nếu không cần thiết)
-- Các file test như `test-api.js`, `test-synd.js`
+- `package.json`, `vite.config.ts`, `tsconfig.json`, `ts_errors.log`
+
+> [!TIP]
+> Chỉ cần ZIP nội dung bên trong thư mục `dist/` — đây là output build đã được Vite bundle sẵn.
 
 ---
 
 ## 2. Đóng Gói Tiện Ích (Tạo File ZIP)
 
-1. Mở thư mục gốc của dự án (`extensionX`).
-2. Chọn tất cả các file/thư mục thuộc danh sách "CẦN giữ lại" ở trên.
-3. Click chuột phải, chọn **Compress to ZIP file** (trên Windows 11) hoặc **Send to > Compressed (zipped) folder** (Windows 10).
-4. Đặt tên file ZIP rõ ràng, ví dụ: `x-media-downloader-v4.8.0.zip`.
+```bash
+# Build production bundle trước
+npm run build
+
+# Sau đó ZIP thư mục dist/
+```
+
+1. Mở thư mục `dist/` (output sau khi chạy `npm run build`).
+2. Chọn **tất cả** nội dung bên trong `dist/`.
+3. Click chuột phải, chọn **Compress to ZIP file** (Windows 11) hoặc **Send to > Compressed (zipped) folder** (Windows 10).
+4. Đặt tên file ZIP rõ ràng: `x-media-downloader-v5.7.2.zip`
 
 > [!WARNING]
-> Đảm bảo file `manifest.json` nằm ở **thư mục gốc** bên trong file ZIP. Nếu giải nén file ZIP ra mà thấy một thư mục cha bọc ngoài (ví dụ `extensionX/manifest.json`), Google sẽ báo lỗi không hợp lệ.
+> Đảm bảo file `manifest.json` nằm ở **thư mục gốc** bên trong file ZIP. Nếu giải nén file ZIP ra mà thấy một thư mục cha bọc ngoài (ví dụ `dist/manifest.json`), Google sẽ báo lỗi không hợp lệ.
 
 ---
 
@@ -54,7 +68,7 @@ Nếu bạn chưa có tài khoản Chrome Web Store Developer:
 ## 4. Tải Tiện Ích Lên (Upload)
 
 1. Tại Dashboard, nhấn nút **+ New Item** (Thêm mục mới).
-2. Kéo thả file `x-media-downloader-v4.8.0.zip` của bạn vào ô tải lên.
+2. Kéo thả file `x-media-downloader-v5.7.2.zip` của bạn vào ô tải lên.
 3. Chờ Google quét virus sơ bộ. Nếu hợp lệ, bạn sẽ được chuyển sang trang điền thông tin chi tiết (Store Listing).
 
 ---
@@ -66,7 +80,7 @@ Mục này rất quan trọng để thu hút người dùng và vượt qua vòn
 ### 5.1. Mô Tả Chi Tiết (Description)
 Viết mô tả rõ ràng tính năng của tiện ích. Không sử dụng từ ngữ vi phạm bản quyền hay lừa đảo.
 *Ví dụ:*
-> "X Media Downloader là công cụ tối ưu giúp bạn tải xuống hình ảnh, video và GIF từ bất kỳ hồ sơ X.com (Twitter) nào. Hỗ trợ tự động nhận diện chất lượng video tốt nhất, bỏ qua lỗi phân trang, phân loại folder gọn gàng và không giới hạn số lượng tải."
+> "X Media Downloader là công cụ tối ưu giúp bạn tải xuống hình ảnh, video và GIF từ bất kỳ hồ sơ X.com (Twitter) nào. Hỗ trợ tự động nhận diện chất lượng video tốt nhất, bỏ qua lỗi phân trang, phân loại folder gọn gàng và không giới hạn số lượng tải. Hỗ trợ Bookmarks, Likes, Multi-profile Queue, Keyboard Shortcuts và Following Scanner."
 
 ### 5.2. Hình Ảnh (Graphic Assets)
 - **Store icon:** 128x128 pixel (Dùng file `icons/icon128.png`).
@@ -80,9 +94,13 @@ Viết mô tả rõ ràng tính năng của tiện ích. Không sử dụng từ
 Google kiểm duyệt rất gắt gao các quyền (permissions) mà extension yêu cầu trong `manifest.json`. Bạn phải giải thích lý do cụ thể tại sao lại cần từng quyền:
 
 - `downloads`: Dùng để lưu file ảnh/video thông qua API `chrome.downloads` vào máy tính người dùng.
-- `storage`: Dùng để lưu cài đặt cấu hình (thư mục gốc, tuỳ chọn flat directory).
+- `storage`: Dùng để lưu cài đặt cấu hình (thư mục gốc, tuỳ chọn flat directory), lịch sử đã tải, session restore.
 - `scripting` & `activeTab`: Dùng để tiêm mã đọc giao diện (DOM scanner) vào trang X.com khi người dùng nhấn nút kích hoạt trên popup.
 - `declarativeNetRequest`: Dùng để sửa đổi header CORS hỗ trợ fetch video.
+- `tabs`: Dùng để theo dõi URL tab hiện tại và điều hướng sang trang `/media` khi bắt đầu collect.
+- `alarms`: Dùng để duy trì Service Worker sống trong quá trình download dài.
+- `notifications`: Dùng để hiển thị thông báo hệ thống khi download hoàn thành.
+- `offscreen`: Dùng để xử lý HLS stream (ghép TS segments) trong document ngầm.
 
 **Single Purpose (Mục đích duy nhất):**
 Khẳng định tiện ích chỉ phục vụ một mục đích duy nhất: "Giúp người dùng sao lưu, tải xuống media từ mạng xã hội X.com."
@@ -101,8 +119,12 @@ Khẳng định tiện ích chỉ phục vụ một mục đích duy nhất: "Gi
 ### Chờ Đợi Kết Quả
 - Tiện ích mới có thể mất từ **vài giờ đến 2-3 ngày** (thậm chí 1 tuần) để đội ngũ Google review tự động và thủ công.
 - Trạng thái sẽ hiện là *Pending review*. Khi thành công sẽ đổi thành *Published*.
-- Nếu bị từ chối, Google sẽ gửi email giải thích lý do cụ thể. Đa phần là do thiếu giải thích về Permissions hoặc file ZIP chứa code mã hoá (minified/obfuscated) không hợp lệ (nhưng dự án của ta code hoàn toàn nguyên bản Vanilla JS nên sẽ không gặp lỗi này).
+- Nếu bị từ chối, Google sẽ gửi email giải thích lý do cụ thể. Đa phần là do thiếu giải thích về Permissions hoặc file ZIP chứa code mã hoá (minified/obfuscated) không hợp lệ.
+
+> [!NOTE]
+> Extension dùng Vite để bundle — output trong `dist/` là JavaScript thuần (không obfuscated), Google sẽ không từ chối vì lý do này.
 
 ---
 
-🎉 **Chúc bạn phát hành X Media Downloader thành công!**
+🎉 **Chúc bạn phát hành X Media Downloader v5.7.2 thành công!**
+

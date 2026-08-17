@@ -1,7 +1,7 @@
 
 import { mediaStore, downloadedStore, tabState, downloadState, pendingHlsRequests, activeDownloads } from './state.ts';
 import { broadcastToPopup, broadcastToTab, sanitizeFolder, broadcastFABState } from './utils.ts';
-import { showDownloadNotification, fetchVideoForTweetWithRefresh, loadDownloadedUrls, isAlreadyDownloaded, markDownloaded } from './scraper.ts';
+import { showDownloadNotification, fetchVideoForTweetWithRefresh, loadDownloadedUrls, isAlreadyDownloaded, markDownloaded, ensureMediaStoreLoaded } from './scraper.ts';
 import { startNextInQueue, profileQueue, persistQueue, broadcastQueueUpdate } from './queue.ts';
 import { DownloadOptions, MediaItem } from '../types.ts';
 
@@ -201,6 +201,7 @@ async function handleDownloadTweet(tweetId: string, username: string | undefined
     if (skipDuplicates) await loadDownloadedUrls(usernameForDedup);
 
     // 1. Tìm trong mediaStore trước (nhanh, không cần API)
+    await ensureMediaStoreLoaded(username || 'unknown');
     let mediaItems = findTweetMediaInStore(tweetId, username);
 
     // 2. Không có trong store → thử API (video/GIF)
@@ -270,8 +271,12 @@ let _stopRequested = false;
 async function startDownload(username: string, options: DownloadOptions = {}) {
   if (downloadState.inProgress) return;
 
-  const store = mediaStore.get(username);
-  if (!store?.size) return;
+  const store = await ensureMediaStoreLoaded(username);
+  if (!store?.size) {
+    console.warn(`[SW] startDownload: Không tìm thấy media nào cho @${username}`);
+    broadcastToPopup('DOWNLOAD_DONE', { username, success: 0, failed: 0, total: 0, skipped: 0, errors: ['Không tìm thấy media nào trong bộ nhớ để tải'] });
+    return;
+  }
   downloadState.inProgress = true;
   activeErrors = [];
   _stopRequested = false; // reset khi bắt đầu download mới

@@ -136,6 +136,41 @@
     } catch (_) {}
   }
 
+  // ─── Dynamic Query ID Capture ─────────────────────────────────────────────
+  // X.com tự gọi GraphQL với hash đúng → ta capture từ URL của chính họ.
+  // Các operation names thường chứa video info: TweetResultByRestId, TweetDetail,
+  // TweetDetailOriginal, UserTweets, HomeTimeline...
+  const GRAPHQL_OPS_WITH_MEDIA = [
+    'TweetResultByRestId',
+    'TweetDetail',
+    'TweetDetailOriginal',
+    'UserMedia',
+    'UserTweets',
+    'UserTweetsAndReplies',
+    'HomeTimeline',
+    'HomeLatestTimeline',
+    'Likes',
+    'Bookmarks',
+  ];
+
+  const _capturedQueryIds: Record<string, string> = {};
+
+  function captureQueryId(url: string) {
+    // URL pattern: /graphql/{queryId}/{OperationName}
+    try {
+      const m = url.match(/\/graphql\/([A-Za-z0-9_-]{20,})\/([\w]+)/);
+      if (!m) return;
+      const queryId = m[1];
+      const opName  = m[2];
+      if (GRAPHQL_OPS_WITH_MEDIA.includes(opName) && _capturedQueryIds[opName] !== queryId) {
+        _capturedQueryIds[opName] = queryId;
+        window.dispatchEvent(new CustomEvent('XMD_QUERY_ID', {
+          detail: { queryId, opName }
+        }));
+      }
+    } catch (_) {}
+  }
+
   // ─── 1. Hook window.fetch ────────────────────────────────────────────────────
   const _originalFetch = window.fetch;
   window.fetch = async function (resource, init) {
@@ -147,6 +182,7 @@
       else if (resource instanceof Request) url = resource.url;
       notifyVideoUrl(url);
       captureBearer(url, init); // SEC-04
+      captureQueryId(url);      // Dynamic query ID
     } catch (_) {}
     
 // @ts-ignore
@@ -188,11 +224,15 @@
   function extractMediaFromResponse(obj, results, depth = 0) {
     if (depth > 35 || !obj || typeof obj !== 'object') return;
 
-    if (obj.extended_entities && Array.isArray(obj.extended_entities.media)) {
+    const mediaList = (obj.extended_entities && Array.isArray(obj.extended_entities.media))
+      ? obj.extended_entities.media
+      : ((obj.entities && Array.isArray(obj.entities.media)) ? obj.entities.media : null);
+
+    if (mediaList && Array.isArray(mediaList)) {
 // @ts-ignore
-      obj.extended_entities.media.forEach(media => {
+      mediaList.forEach(media => {
         const type = media.type;
-        const tweetId = media.source_status_id_str || media.id_str || '';
+        const tweetId = media.source_status_id_str || obj.id_str || media.id_str || '';
         if (type === 'video' || type === 'animated_gif') {
           const variants = media.video_info?.variants || [];
           let bestMp4 = variants
@@ -259,7 +299,8 @@
       const urlStr = String(url || '');
 // @ts-ignore
       this._interceptUrl = urlStr;
-      notifyVideoUrl(urlStr); 
+      notifyVideoUrl(urlStr);
+      captureQueryId(urlStr); // Dynamic query ID
     } catch (_) {}
 // @ts-ignore
     return _originalXhrOpen.apply(this, arguments);
@@ -346,7 +387,13 @@
   JSON.parse = function(text, reviver) {
     const result = _originalParse(text, reviver);
     try {
-      if (typeof text === 'string' && text.includes('extended_entities')) {
+      if (typeof text === 'string' && (
+        text.includes('extended_entities') ||
+        text.includes('video_info') ||
+        text.includes('media_url_https') ||
+        text.includes('media_url') ||
+        text.includes('pbs.twimg.com')
+      )) {
 // @ts-ignore
         const mediaItems = [];
 // @ts-ignore

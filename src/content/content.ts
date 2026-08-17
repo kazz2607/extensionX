@@ -238,6 +238,16 @@ window.addEventListener('XMD_BEARER_TOKEN', (event: any) => {
   }
 });
 
+// ─── Dynamic Query ID: relay từ page-interceptor lên SW ─────────────────────
+const _relayedQueryIds: Record<string, string> = {};
+window.addEventListener('XMD_QUERY_ID', (event: any) => {
+  const { queryId, opName } = event.detail || {};
+  if (!queryId || !opName) return;
+  if (_relayedQueryIds[opName] === queryId) return; // dedup
+  _relayedQueryIds[opName] = queryId;
+  safeSendMessage({ type: 'UPDATE_QUERY_ID', payload: { queryId, opName } }).catch(() => {});
+});
+
 // ─── 4b. Relay XMD_TWEET_DOWNLOAD → service worker ───────────────────────────
 // Khi user bấm nút mini download trên tweet, tweet-btn.js dispatch event này
 window.addEventListener('XMD_TWEET_DOWNLOAD', (event) => {

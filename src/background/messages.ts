@@ -1,10 +1,10 @@
 import { mediaStore, statsStore, tabState, downloadedStore, downloadState, pendingHlsRequests, setCsrfToken } from './state.ts';
-import { addMediaItems, applyOptionsFilter, checkAutoScroll, startCollecting, stopCollecting, clearSession, fetchVideoForTweetWithRefresh } from './scraper.ts';
+import { addMediaItems, ensureMediaStoreLoaded, applyOptionsFilter, checkAutoScroll, startCollecting, stopCollecting, clearSession, fetchVideoForTweetWithRefresh } from './scraper.ts';
 import { startDownload, handleDownloadTweet, buildCSV, retryLastDownload, stopDownload } from './downloader.ts';
 import { profileQueue, setProfileQueue, persistQueue, startNextInQueue, broadcastQueueUpdate, exportQueue, importQueue } from './queue.ts';
 import { updateBadge, broadcastToPopup, updateFAB } from './utils.ts';
 import { getMediaItems } from './indexeddb.ts';
-import { setDynamicBearer } from './tweet-api.ts';
+import { setDynamicBearer, setDynamicQueryId } from './tweet-api.ts';
 import { startFollowingScroll, stopFollowingScroll, getFollowingScrollState } from './following-scroll.ts';
 
 // ─── Message Handler ──────────────────────────────────────────────────────────
@@ -121,12 +121,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     case 'GET_MEDIA_COUNT': {
-      sendResponse({ count: mediaStore.get(payload.username)?.size || 0 });
+      (async () => {
+        const store = await ensureMediaStoreLoaded(payload.username);
+        sendResponse({ count: store?.size || 0 });
+      })();
       return true;
     }
 
     case 'GET_STATS': {
-      sendResponse({ stats: statsStore.get(payload.username) || { image: 0, video: 0, gif: 0, hls: 0 } });
+      (async () => {
+        await ensureMediaStoreLoaded(payload.username);
+        sendResponse({ stats: statsStore.get(payload.username) || { image: 0, video: 0, gif: 0, hls: 0 } });
+      })();
       return true;
     }
 
@@ -251,35 +257,37 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // v4.3.0: Đếm media theo filter type + date range (cho popup preview)
     case 'GET_MEDIA_COUNT_FILTERED': {
-      const { username, filterType, dateFrom, dateTo, keyword } = payload;
-      const store = mediaStore.get(username);
-      if (!store) { sendResponse({ count: 0 }); return true; }
+      (async () => {
+        const { username, filterType, dateFrom, dateTo, keyword } = payload;
+        const store = await ensureMediaStoreLoaded(username);
+        if (!store) { sendResponse({ count: 0 }); return; }
 
-      let items = Array.from(store.values());
+        let items = Array.from(store.values());
 
-      // Filter theo type
-      if (filterType && filterType !== 'all') {
-        if (filterType === 'images') items = items.filter(i => i.type === 'image');
-        else if (filterType === 'videos') items = items.filter(i => i.type === 'video' || i.type === 'hls');
-        else if (filterType === 'gifs') items = items.filter(i => i.type === 'gif');
-      }
+        // Filter theo type
+        if (filterType && filterType !== 'all') {
+          if (filterType === 'images') items = items.filter(i => i.type === 'image');
+          else if (filterType === 'videos') items = items.filter(i => i.type === 'video' || i.type === 'hls');
+          else if (filterType === 'gifs') items = items.filter(i => i.type === 'gif');
+        }
 
-      // Filter theo date range
-      if (dateFrom || dateTo) {
-        const from = dateFrom ? new Date(dateFrom).getTime() : 0;
-        const to   = dateTo  ? new Date(dateTo + 'T23:59:59Z').getTime() : Infinity;
-        items = items.filter(item => {
-          const d = item.tweetDate || 0;
-          return d >= from && d <= to;
-        });
-      }
-      // v4.8.0: Filter theo keyword
-      if (keyword && keyword.trim()) {
-        const kw = keyword.toLowerCase().trim();
-        items = items.filter(item => (item.tweetText || '').toLowerCase().includes(kw));
-      }
+        // Filter theo date range
+        if (dateFrom || dateTo) {
+          const from = dateFrom ? new Date(dateFrom).getTime() : 0;
+          const to   = dateTo  ? new Date(dateTo + 'T23:59:59Z').getTime() : Infinity;
+          items = items.filter(item => {
+            const d = item.tweetDate || 0;
+            return d >= from && d <= to;
+          });
+        }
+        // v4.8.0: Filter theo keyword
+        if (keyword && keyword.trim()) {
+          const kw = keyword.toLowerCase().trim();
+          items = items.filter(item => (item.tweetText || '').toLowerCase().includes(kw));
+        }
 
-      sendResponse({ count: items.length });
+        sendResponse({ count: items.length });
+      })();
       return true;
     }
 
@@ -299,9 +307,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     case 'EXPORT_CSV': {
-      // PERF-04: buildCSV trả { csv, total, exported, truncated, nextOffset }
-      const result = buildCSV(payload.username, payload.filterType, payload.offset || 0);
-      sendResponse(result);
+      (async () => {
+        await ensureMediaStoreLoaded(payload.username);
+        // PERF-04: buildCSV trả { csv, total, exported, truncated, nextOffset }
+        const result = buildCSV(payload.username, payload.filterType, payload.offset || 0);
+        sendResponse(result);
+      })();
       return true;
     }
 
@@ -425,6 +436,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'UPDATE_BEARER': {
       const { bearer } = payload;
       if (bearer?.startsWith('Bearer ')) setDynamicBearer(bearer);
+      return false;
+    }
+
+    // Dynamic Query ID: nhận query hash mới nhất từ page-interceptor
+    case 'UPDATE_QUERY_ID': {
+      const { queryId, opName } = payload;
+      if (queryId && opName) setDynamicQueryId(queryId, opName);
       return false;
     }
 

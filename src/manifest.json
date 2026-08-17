@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_appName__",
-  "version": "5.7.2",
+  "version": "5.7.3",
 
   "description": "__MSG_appDesc__",
   "default_locale": "en",
@@ -24,6 +24,19 @@
     "type": "module"
   },
   "content_scripts": [
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "js": [
+        "lib/i18n.ts",
+        "content/page-interceptor.ts",
+        "content/dom-scanner.ts",
+        "content/fab.ts",
+        "content/tweet-btn.ts",
+        "content/snackbar.ts"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
     {
       "matches": ["https://x.com/*", "https://twitter.com/*"],
       "js": ["content/content.ts"],

@@ -2,6 +2,8 @@
 
 > Extension Chrome cho phép tải toàn bộ ảnh, video và GIF từ profile bất kỳ trên X.com (Twitter) về máy tính, tự động lưu vào thư mục `{Downloads}/{username}/` (phân loại theo `images/`, `videos/`, `gifs/`).
 
+> **Phiên bản hiện tại:** 5.7.2 | Cập nhật: 2026-08-17
+
 ---
 
 ## 📋 Yêu Cầu
@@ -22,38 +24,58 @@
 Đảm bảo bạn đã có thư mục `extensionX` với cấu trúc đầy đủ:
 
 ```
-extensionX/
+dist/                          ← Thư mục build (dùng thư mục này để load)
 ├── manifest.json
+├── rules.json
+├── popup.css
+├── i18n.js
+├── modulepreload-polyfill.js
 ├── background/
-│   ├── service-worker.js
-│   └── tweet-api.js
+│   └── service-worker.js
 ├── content/
 │   ├── content.js
 │   ├── page-interceptor.js
 │   ├── dom-scanner.js
 │   ├── fab.js
-│   └── tweet-btn.js
+│   ├── tweet-btn.js
+│   ├── shortcuts.js
+│   └── snackbar.js
 ├── offscreen/
 │   ├── offscreen.html
 │   └── offscreen.js
 ├── popup/
 │   ├── popup.html
-│   ├── popup.css
 │   └── popup.js
 ├── options/
 │   ├── options.html
 │   └── options.js
 ├── lib/
 │   ├── hls-fetcher.js
-│   ├── i18n.js
-│   └── utils.js
+│   ├── utils.js
+│   └── i18n.js
+├── _locales/
+│   ├── en/messages.json
+│   └── vi/messages.json
 └── icons/
     ├── icon16.png
     ├── icon48.png
     └── icon128.png
 ```
 
-### Bước 2 — Mở trang Quản lý Extension
+> [!TIP]
+> Sau khi clone/tải source code, chạy `npm install` rồi `npm run build` để tạo thư mục `dist/`.
+> Sau đó load **thư mục `dist/`** (không phải `src/`) vào Chrome.
+
+### Bước 2 — Build extension
+
+```bash
+npm install
+npm run build
+```
+
+Vite sẽ tạo thư mục `dist/` chứa toàn bộ file đã được bundle.
+
+### Bước 3 — Mở trang Quản lý Extension
 
 1. Mở **Google Chrome**
 2. Trên thanh địa chỉ, gõ:
@@ -96,7 +118,7 @@ Sau khi load, extension sẽ xuất hiện trong danh sách:
 
 ```
 ┌──────────────────────────────────────────┐
-│  ⬇ X Media Downloader          v4.8.0   │
+│  ⬇ X Media Downloader          v5.7.2   │
 │  Tải toàn bộ ảnh & video từ X.com...    │
 │                                          │
 │  [Details]  [Remove]           ● Enabled │
@@ -128,7 +150,7 @@ Click icon **⬇** trên toolbar Chrome. Popup sẽ hiển thị:
 
 ```
 ┌───────────────────────────────────────────┐
-│ ⬇ X Media Downloader        v4.8.0 ⚙☀🔄 │
+│ ⬇ X Media Downloader        v5.7.2 ⚙☀🔄 │
 ├───────────────────────────────────────────┤
 │ 👤 @NASA                             [47]│
 │    Profile đang được xem                 │
@@ -142,7 +164,7 @@ Click icon **⬇** trên toolbar Chrome. Popup sẽ hiển thị:
 │ [ 🔍 Bắt đầu Thu Thập                   ]│
 │ [ ↓ Download (47) ][ + Queue ][ CSV ][ 🗑]│
 ├───────────────────────────────────────────┤
-│ [ Main ]        [ Queue ]       [ Stats ]│  ← Tab bar
+│ [ Main ]     [ Queue ]  [ Stats ][ 👥 ]│  ← Tab bar
 └───────────────────────────────────────────┘
 ```
 

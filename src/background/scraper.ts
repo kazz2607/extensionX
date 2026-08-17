@@ -78,6 +78,39 @@ function tweetDateFromId(tweetId: string | number | undefined) {
 const MEMORY_WARN_THRESHOLD = 50_000;
 const _warnedUsers = new Set<string>(); // tránh spam warning mỗi item
 
+// Đảm bảo mediaStore và statsStore được nạp từ IndexedDB nếu SW vừa restart
+async function ensureMediaStoreLoaded(username: string): Promise<Map<string, MediaItem>> {
+  if (!username) return new Map();
+  if (mediaStore.has(username) && mediaStore.get(username)!.size > 0) {
+    return mediaStore.get(username)!;
+  }
+  // Thử nạp từ IndexedDB
+  try {
+    const items = await getMediaItems(username);
+    if (items && items.length > 0) {
+      if (!mediaStore.has(username)) mediaStore.set(username, new Map());
+      if (!statsStore.has(username)) statsStore.set(username, { image: 0, video: 0, gif: 0, hls: 0 });
+      const store = mediaStore.get(username)!;
+      const stats = statsStore.get(username)!;
+      items.forEach((item: MediaItem) => {
+        if (!store.has(item.url)) {
+          store.set(item.url, item);
+          if (item.type === 'image') stats.image++;
+          else if (item.type === 'gif') stats.gif++;
+          else if (item.type === 'hls') stats.hls++;
+          else stats.video++;
+        }
+      });
+      return store;
+    }
+  } catch (err: any) {
+    console.debug('[SW] ensureMediaStoreLoaded error:', err?.message);
+  }
+  if (!mediaStore.has(username)) mediaStore.set(username, new Map());
+  if (!statsStore.has(username)) statsStore.set(username, { image: 0, video: 0, gif: 0, hls: 0 });
+  return mediaStore.get(username)!;
+}
+
 function addMediaItems(username: string, items: MediaItem[]) {
   if (!mediaStore.has(username)) mediaStore.set(username, new Map());
   if (!statsStore.has(username)) statsStore.set(username, { image: 0, video: 0, gif: 0, hls: 0 });
@@ -550,7 +583,7 @@ async function showDownloadNotification(username: string, success: number, faile
 
 export {
   requestCsrfRefresh, fetchVideoForTweetWithRefresh,
-  addMediaItems, applyOptionsFilter, tweetDateFromId,
+  addMediaItems, ensureMediaStoreLoaded, applyOptionsFilter, tweetDateFromId,
   checkAutoScroll, startCollecting, stopCollecting, scrollLoop,
   persistSession, clearSession,
   loadDownloadedUrls, isAlreadyDownloaded, markDownloaded, showDownloadNotification

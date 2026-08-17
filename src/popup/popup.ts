@@ -733,8 +733,12 @@ function updateMediaCount(count) {
 }
 
 function getFilteredCount() {
-  if (activeFilter === 'all')    return (stats.image || 0) + (stats.video || 0) + (stats.gif || 0) + (stats.hls || 0);
-  if (activeFilter === 'images') return stats.image || 0;
+  const badgeCount = parseInt(els.badge?.textContent) || 0;
+  if (activeFilter === 'all') {
+    const sum = (stats.image || 0) + (stats.video || 0) + (stats.gif || 0) + (stats.hls || 0);
+    return sum > 0 ? sum : badgeCount;
+  }
+  if (activeFilter === 'images') return (stats.image || 0) || (badgeCount > 0 ? badgeCount : 0);
   if (activeFilter === 'videos') return (stats.video || 0) + (stats.hls || 0);
   if (activeFilter === 'gifs')   return stats.gif || 0;
   return 0;
