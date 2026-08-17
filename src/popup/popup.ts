@@ -72,9 +72,10 @@ const els: any = {
   toast:         $('toast'),
 
   // v4.1.0 Duplicate Detection
-  skipWrap:        $('skip-duplicates-wrap'),
-  skipCheckbox:    $('opt-skip-duplicates'),
-  downloadedBadge: $('downloaded-count-badge'),
+  skipWrap:           $('skip-duplicates-wrap'),
+  skipCheckbox:       $('opt-skip-duplicates'),
+  downloadedBadge:    $('downloaded-count-badge'),
+  btnClearDownloaded: $('btn-clear-downloaded'),
 
   // v5.0.3 Queue Panel
   queueList:        $('queue-list'),
@@ -675,15 +676,26 @@ async function setCurrentUser(username) {
   }
 
   // v4.1.0: Duplicate Detection UI
-// @ts-ignore
-  if (downloadedRes?.count > 0 && els.skipWrap) {
-    els.skipWrap.style.display = 'flex';
-    els.downloadedBadge.style.display = 'inline-block';
-    const doneTxt = window.i18n ? window.i18n.t('status_done') : 'downloaded';
-    els.downloadedBadge.textContent = `${(downloadedRes as any).count} ${doneTxt}`;
-  } else if (els.skipWrap) {
-    els.skipWrap.style.display = 'none';
+  const dlCount = (downloadedRes as any)?.count || 0;
+  if (els.downloadedBadge) {
+    if (dlCount > 0) {
+      els.downloadedBadge.style.display = 'inline-block';
+      const doneTxt = window.i18n ? window.i18n.t('status_done') : 'đã tải';
+      els.downloadedBadge.textContent = `${dlCount} ${doneTxt}`;
+      if (els.btnClearDownloaded) els.btnClearDownloaded.style.display = 'inline-block';
+    } else {
+      els.downloadedBadge.style.display = 'none';
+      if (els.btnClearDownloaded) els.btnClearDownloaded.style.display = 'none';
+    }
   }
+
+  // Khôi phục preference skip duplicates từ storage
+  try {
+    const pref = await chrome.storage.local.get('pref_skip_duplicates');
+    if (els.skipCheckbox && pref.pref_skip_duplicates !== undefined) {
+      els.skipCheckbox.checked = pref.pref_skip_duplicates;
+    }
+  } catch (_) {}
 
   // BUG-8 FIX: Restore download state
 // @ts-ignore
@@ -963,19 +975,45 @@ function setupListeners() {
     }
   });
 
+  // Duplicate Skip checkbox change listener
+  if (els.skipCheckbox) {
+    els.skipCheckbox.addEventListener('change', () => {
+      chrome.storage.local.set({ pref_skip_duplicates: els.skipCheckbox.checked }).catch(() => {});
+      showToast(
+        els.skipCheckbox.checked
+          ? '✓ Sẽ bỏ qua các file đã tải trước đó'
+          : '⚠ Sẽ tải lại tất cả file (kể cả file đã tải)',
+        'info'
+      );
+    });
+  }
+
+  // Clear Downloaded History button listener
+  if (els.btnClearDownloaded) {
+    els.btnClearDownloaded.addEventListener('click', async () => {
+      if (!currentUsername) return;
+      await sendBG('CLEAR_DOWNLOADED', { username: currentUsername });
+      if (els.downloadedBadge) els.downloadedBadge.style.display = 'none';
+      els.btnClearDownloaded.style.display = 'none';
+      showToast(`✓ Đã xóa lịch sử tải của @${currentUsername}! Bạn có thể tải lại toàn bộ file.`, 'success');
+    });
+  }
+
   // Clear — UI-08: dùng custom modal thay vì window.confirm()
   els.btnClear.addEventListener('click', async () => {
 // @ts-ignore
     if (!currentUsername) return;
-    const confirmed = await showConfirmModal(`Xóa toàn bộ media đã thu thập của @${currentUsername}?`);
+    const confirmed = await showConfirmModal(`Xóa toàn bộ media và lịch sử tải của @${currentUsername}?`);
     if (!confirmed) return;
 
     await sendBG('CLEAR_MEDIA', { username: currentUsername });
     stats = { image: 0, video: 0, gif: 0, hls: 0 };
     updateStatTabs();
     updateMediaCount(0);
+    if (els.downloadedBadge) els.downloadedBadge.style.display = 'none';
+    if (els.btnClearDownloaded) els.btnClearDownloaded.style.display = 'none';
     setStatus('ready', 'Đã xóa');
-    showToast('Đã xóa danh sách media', 'info');
+    showToast('Đã xóa danh sách media & lịch sử tải', 'info');
   });
 
   // Settings

@@ -494,10 +494,9 @@ async function resetSettings() {
     await chrome.storage.sync.set({ options: DEFAULT_OPTIONS });
     showSaveStatus('✓ Reset! Reloading...');
     setTimeout(() => location.reload(), 600);
-  } catch (err) {
+  } catch (err: any) {
     console.error('[Options] resetSettings error:', err);
-// @ts-ignore
-    alert('Reset thất bại: ' + err.message);
+    alert('Reset thất bại: ' + err?.message);
   }
 }
 
@@ -512,3 +511,27 @@ function showSaveStatus(msg = '✓ Saved successfully') {
     el.textContent = prev;
   }, 2500);
 }
+
+async function clearAllDownloadedHistory() {
+  const confirmed = confirm(
+    'Xóa toàn bộ lịch sử các file đã tải của TẤT CẢ profile?\n\nSau khi xóa, bạn có thể tải lại bất kỳ file nào mà không bị tính năng chống trùng bỏ qua.'
+  );
+  if (!confirmed) return;
+
+  try {
+    await chrome.runtime.sendMessage({ type: 'CLEAR_ALL_DOWNLOADED' });
+    showSaveStatus('✓ Đã xóa toàn bộ lịch sử tải!');
+  } catch (err: any) {
+    console.error('[Options] clearAllDownloadedHistory error:', err);
+    alert('Lỗi: ' + err.message);
+  }
+}
+
+// @ts-ignore
+window.exportSettings = exportSettings;
+// @ts-ignore
+window.importSettings = importSettings;
+// @ts-ignore
+window.resetSettings = resetSettings;
+// @ts-ignore
+window.clearAllDownloadedHistory = clearAllDownloadedHistory;

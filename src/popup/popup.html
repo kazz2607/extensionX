@@ -309,12 +309,15 @@
             <span id="btn-collect-text" data-i18n="btn_collect_start">Start Collecting</span>
           </button>
 
-          <div class="skip-duplicates-wrap" id="skip-duplicates-wrap" style="display:none; align-items:center; justify-content:space-between; margin-bottom:12px;">
+          <div class="skip-duplicates-wrap" id="skip-duplicates-wrap" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; padding: 2px 0;">
             <label for="opt-skip-duplicates" style="font-size:12px; color:var(--text-sec); display:flex; align-items:center; gap:6px; cursor:pointer;">
               <input type="checkbox" id="opt-skip-duplicates" checked style="accent-color:var(--accent); cursor:pointer;">
-              <span data-i18n="opt_skip_duplicates">Skip downloaded</span>
+              <span data-i18n="opt_skip_duplicates">Bỏ qua file đã tải</span>
             </label>
-            <span id="downloaded-count-badge" style="font-size:11px; background:rgba(29,155,240,0.1); color:var(--accent); padding:2px 6px; border-radius:10px; display:none;">0 downloaded</span>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span id="downloaded-count-badge" style="font-size:11px; background:rgba(29,155,240,0.1); color:var(--accent); padding:2px 6px; border-radius:10px; display:none;">0 đã tải</span>
+              <button class="btn-clear-downloaded" id="btn-clear-downloaded" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:11px; padding:2px 4px; text-decoration:underline; display:none;" title="Xóa lịch sử đã tải để tải lại toàn bộ file">Xóa lịch sử</button>
+            </div>
           </div>
 
           <div class="btn-row">

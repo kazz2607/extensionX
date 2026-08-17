@@ -1,5 +1,5 @@
-import { mediaStore, statsStore, tabState, downloadedStore, downloadState, pendingHlsRequests, setCsrfToken } from './state.ts';
-import { addMediaItems, ensureMediaStoreLoaded, applyOptionsFilter, checkAutoScroll, startCollecting, stopCollecting, clearSession, fetchVideoForTweetWithRefresh } from './scraper.ts';
+import { mediaStore, statsStore, tabState, downloadedStore, downloadState, pendingHlsRequests, setCsrfToken, dirtyMediaStore } from './state.ts';
+import { addMediaItems, ensureMediaStoreLoaded, applyOptionsFilter, checkAutoScroll, startCollecting, stopCollecting, clearSession, fetchVideoForTweetWithRefresh, loadDownloadedUrls } from './scraper.ts';
 import { startDownload, handleDownloadTweet, buildCSV, retryLastDownload, stopDownload } from './downloader.ts';
 import { profileQueue, setProfileQueue, persistQueue, startNextInQueue, broadcastQueueUpdate, exportQueue, importQueue } from './queue.ts';
 import { updateBadge, broadcastToPopup, updateFAB } from './utils.ts';
@@ -291,10 +291,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
 
-    // v4.1.0: Lấy danh sách đã tải của một username
+    // v4.1.0: Lấy số lượng file đã tải của username (gọi loadDownloadedUrls trước để chống cold SW)
     case 'GET_DOWNLOADED_COUNT': {
-      const set = downloadedStore.get(payload.username);
-      sendResponse({ count: set?.size || 0 });
+      (async () => {
+        await loadDownloadedUrls(payload.username);
+        const set = downloadedStore.get(payload.username);
+        sendResponse({ count: set?.size || 0 });
+      })();
       return true;
     }
 
@@ -302,6 +305,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'CLEAR_DOWNLOADED': {
       downloadedStore.delete(payload.username);
       chrome.storage.local.remove(`downloaded_${payload.username}`).catch(() => {});
+      sendResponse({ ok: true, count: 0 });
+      return false;
+    }
+
+    // Xóa toàn bộ lịch sử đã tải của TẤT CẢ username
+    case 'CLEAR_ALL_DOWNLOADED': {
+      downloadedStore.clear();
+      chrome.storage.local.get(null, (allData) => {
+        const keysToRemove = Object.keys(allData || {}).filter(k => k.startsWith('downloaded_'));
+        if (keysToRemove.length > 0) {
+          chrome.storage.local.remove(keysToRemove).catch(() => {});
+        }
+      });
+      sendResponse({ ok: true });
+      return false;
+    }
+
+    // Xóa toàn bộ media đã thu thập và lịch sử tải của username
+    case 'CLEAR_MEDIA': {
+      const u = payload.username;
+      if (u) {
+        mediaStore.delete(u);
+        statsStore.delete(u);
+        dirtyMediaStore.delete(u);
+        clearSession(u).catch(() => {});
+        downloadedStore.delete(u);
+        chrome.storage.local.remove(`downloaded_${u}`).catch(() => {});
+      }
       sendResponse({ ok: true });
       return false;
     }
