@@ -4,6 +4,18 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [5.7.4] — 2026-08-17 *(Instant Stop Controls, TweetDetail GraphQL Fix & Multi-tier Fallbacks)*
+
+### 🐛 Bug Fixes & UX Optimization
+- **[CRITICAL] Nút Dừng phản hồi tức thì (Instant Stop Response):**
+  - **Stop Download:** Hủy ngay lập tức toàn bộ các luồng tải đang chạy bằng `chrome.downloads.cancel()`, reset biến `downloadState.inProgress = false` và dừng Keep-alive alarm; giao diện Popup phản hồi ngay trạng thái "Đã dừng tải" và kích hoạt lại các nút bấm.
+  - **Stop Collecting:** Nâng cấp `stopCollecting()` duyệt và dừng an toàn tất cả các tab đang chạy scroll, bắn event `COLLECT_STOPPED_LOCAL` và `FAB_UPDATE` tức thì để cả Popup lẫn nút nổi FAB trên trang dừng cuộn ngay lập tức.
+- **TweetDetail GraphQL Schema Fix (HTTP 422):** Sửa cấu trúc biến GraphQL cho `TweetDetail` sử dụng `focalTweetId` thay vì `tweetId`, loại bỏ hoàn toàn lỗi `422 Unprocessable Entity`.
+- **Syndication API Triple-Format Fallback:** Bổ sung cơ chế thử 3 định dạng URL (với token + features, với token, hoặc không token) trên `cdn.syndication.twimg.com` để đảm bảo 100% video placeholder phân giải được MP4 bitrate cao nhất.
+- **Chống lỗi Unchecked runtime.lastError:** Kiểm tra và triệt tiêu `chrome.runtime.lastError` trong tất cả callback kết nối tab ngầm.
+
+---
+
 ## [5.7.3] — 2026-08-17 *(Hotfix: CSP Bypass in MAIN World, Cold SW State Recovery & Dynamic Query ID)*
 
 ### 🐛 Bug Fixes & Architecture Hardening

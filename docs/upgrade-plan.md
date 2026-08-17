@@ -1,6 +1,6 @@
-# ExtensionX — Kế Hoạch Nâng Cấp Toàn Diện v5.7.3+
+# ExtensionX — Kế Hoạch Nâng Cấp Toàn Diện v5.7.4+
 
-> **Phiên bản hiện tại:** 5.7.3  
+> **Phiên bản hiện tại:** 5.7.4  
 > **Ngày phân tích:** 2026-07-24 | **Cập nhật:** 2026-08-17  
 > **Phạm vi:** Performance · Security · UI/UX Bug Fixes · Logic Fixes · New Features  
 
@@ -22,7 +22,7 @@
 ## 1. Tổng Quan Kiến Trúc
 
 ```
-ExtensionX v5.7.2
+ExtensionX v5.7.4
 ├── background/
 │   ├── service-worker.ts     — Entry point (chỉ import)
 │   ├── messages.ts           — 531 lines, Message hub + UPDATE_QUERY_ID handler
@@ -713,4 +713,4 @@ result?: {
 
 ---
 
-*Cập nhật: 2026-08-17. Version hiện tại: **v5.7.3** (CSP MAIN World Bypass + Cold SW State Recovery + Dynamic Query ID). Sprint 4 tiếp theo.*
+*Cập nhật: 2026-08-17. Version hiện tại: **v5.7.4** (Instant Stop Controls + TweetDetail GQL Fix + Multi-tier Fallbacks). Sprint 4 tiếp theo.*
