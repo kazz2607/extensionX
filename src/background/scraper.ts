@@ -91,7 +91,7 @@ async function ensureMediaStoreLoaded(username: string): Promise<Map<string, Med
   // Thử nạp từ IndexedDB
   try {
     const items = await getMediaItems(username);
-    if (items && items.length > 0) {
+    if (Array.isArray(items) && items.length > 0) {
       if (!mediaStore.has(username)) mediaStore.set(username, new Map());
       if (!statsStore.has(username)) statsStore.set(username, { image: 0, video: 0, gif: 0, hls: 0 });
       const store = mediaStore.get(username)!;

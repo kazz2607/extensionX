@@ -1,14 +1,10 @@
-/**
- * indexeddb.js — Wrapper for IndexedDB (v4.4.0 P4/P2)
- * Handles storage of media items, bypassing the 5MB limits of chrome.storage.local
- */
+import { MediaItem } from '../types.ts';
 
 const DB_NAME = 'XMediaDownloaderDB';
 const DB_VERSION = 1;
 const STORE_NAME = 'media_items';
 
-// @ts-ignore
-let dbPromise = null;
+let dbPromise: Promise<IDBDatabase> | null = null;
 
 export function initDB() {
 // @ts-ignore
@@ -59,8 +55,7 @@ export async function saveMediaItems(username, items) {
 }
 
 // ─── Get All Media Items for a Username ────────────────────────────────────────
-// @ts-ignore
-export async function getMediaItems(username) {
+export async function getMediaItems(username: string): Promise<MediaItem[]> {
   const db = await initDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readonly');
@@ -70,10 +65,9 @@ export async function getMediaItems(username) {
 
     request.onsuccess = () => {
       // Remove the internal 'id' property before returning to service-worker
-// @ts-ignore
-      const items = request.result.map(item => {
+      const items: MediaItem[] = request.result.map((item: any) => {
         const { id, ...rest } = item;
-        return rest;
+        return rest as MediaItem;
       });
       resolve(items);
     };
