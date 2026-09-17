@@ -1,6 +1,6 @@
 # Quality gate và baseline Pha 0
 
-> Áp dụng cho phiên bản **6.1.7** | Cập nhật: 2026-09-17
+> Áp dụng cho phiên bản **6.1.8** | Cập nhật: 2026-09-17
 
 ## Lệnh bắt buộc
 

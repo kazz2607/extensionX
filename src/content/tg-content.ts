@@ -128,16 +128,34 @@ function attachButtonToMedia(container: HTMLElement, mediaElement: HTMLElement, 
 function visibleMediaArea(element: HTMLElement): number {
   const rect = element.getBoundingClientRect();
   if (rect.width < 120 || rect.height < 120) return 0;
+  
+  // Check if element is completely off-screen (e.g. inactive carousel slides)
+  if (rect.right < 0 || rect.left > window.innerWidth) return 0;
+  if (rect.bottom < 0 || rect.top > window.innerHeight) return 0;
+
   const style = getComputedStyle(element);
   if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return 0;
   return rect.width * rect.height;
 }
 
 function findViewerMedia(viewer: HTMLElement): HTMLElement | null {
-  const media = Array.from(viewer.querySelectorAll<HTMLElement>('video, img, canvas'))
-    .filter((element) => !element.closest('.ext-x-tg-download-btn'))
-    .sort((left, right) => visibleMediaArea(right) - visibleMediaArea(left));
-  if (media.length > 0 && visibleMediaArea(media[0]) > 0) return media[0];
+  const mediaList = Array.from(viewer.querySelectorAll<HTMLElement>('video, img, canvas'))
+    .filter((element) => !element.closest('.ext-x-tg-download-btn'));
+
+  const visibleMedia = mediaList
+    .map(element => ({ element, area: visibleMediaArea(element) }))
+    .filter(m => m.area > 0)
+    .sort((a, b) => {
+      // If areas are similar (within 10%), prioritize video over image/canvas
+      if (Math.abs(a.area - b.area) < Math.max(a.area, b.area) * 0.1) {
+        const isAVideo = a.element instanceof HTMLVideoElement ? 1 : 0;
+        const isBVideo = b.element instanceof HTMLVideoElement ? 1 : 0;
+        if (isAVideo !== isBVideo) return isBVideo - isAVideo;
+      }
+      return b.area - a.area;
+    });
+
+  if (visibleMedia.length > 0) return visibleMedia[0].element;
 
   // Web K may render the current photo on a div with background-image.
   const backgrounds = [viewer, ...Array.from(viewer.querySelectorAll<HTMLElement>('div'))]

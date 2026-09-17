@@ -4,6 +4,14 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [6.1.8] — 2026-09-17 *(Viewer Media Detection Fix)*
+
+### 🐛 Sửa lỗi
+- Khắc phục lỗi "Bấm tải video nhưng lại tải ảnh" khi xem ở chế độ toàn màn hình (Media Viewer) trên Telegram Web K.
+- Lỗi này xảy ra do ảnh bìa (thumbnail) hoặc các slide ảnh bị ẩn nằm cùng một khung hình và có diện tích lớn hơn video. Thuật toán mới đã được cập nhật để loại bỏ các slide nằm ngoài màn hình và luôn ưu tiên chọn thẻ `<video>` nếu chúng đang hiển thị.
+
+---
+
 ## [6.1.7] — 2026-09-17 *(React Router Interception Fix)*
 
 ### 🐛 Sửa lỗi
