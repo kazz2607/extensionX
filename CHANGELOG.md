@@ -4,6 +4,14 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [6.1.2] — 2026-09-17 *(Telegram Video Download Fix)*
+
+### 🐛 Sửa lỗi
+- Khắc phục triệt để lỗi không tải được video trên Telegram Web (chuẩn MSE/stream) bằng cách tự động kích hoạt nút Tải xuống gốc (Native Download) của Telegram nếu có.
+- Trì hoãn việc hủy (remove) thẻ `<a download>` trên giao diện (delay 1000ms) để các luồng URL `blob:` từ Service Worker có đủ thời gian được trình duyệt xử lý, chống hiện tượng tải file rỗng/lỗi mạng.
+
+---
+
 ## [6.1.1] — 2026-09-17 *(Telegram Media Download Reliability)*
 
 ### 🐛 Sửa lỗi
