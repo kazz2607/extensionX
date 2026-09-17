@@ -6,7 +6,7 @@ import { updateBadge, broadcastToPopup, updateFAB } from './utils.ts';
 import { getMediaItems, clearDownloadedUrls, clearAllDownloadedUrls } from './indexeddb.ts';
 import { setDynamicBearer, setDynamicQueryId } from './tweet-api.ts';
 import { startFollowingScroll, stopFollowingScroll, getFollowingScrollState } from './following-scroll.ts';
-import { isValidDownloadOptions, isValidMediaItem, isValidUsername, isXProfileUrlForUsername, isXUrl } from '../shared/validation.ts';
+import { isValidDownloadOptions, isValidMediaItem, isValidUsername, isXProfileUrlForUsername, isXUrl, normalizeMediaUrlToOrig } from '../shared/validation.ts';
 import { parseExtensionMessage } from '../shared/messages.ts';
 import { clearLocalDiagnostics, exportLocalDiagnostics, recordDiagnostic } from './diagnostics.ts';
 import { isTelegramWebUrl } from '../shared/telegram-media.ts';
@@ -101,7 +101,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             const videoItem = await fetchVideoForTweetWithRefresh(item.tweetId, tabId);
 
             if (videoItem) {
-              videoItem.url = videoItem.url.replace(/name=\w+/, 'name=orig');
+              videoItem.url = normalizeMediaUrlToOrig(videoItem.url);
               (videoItem as any).username = username;
               const added = addMediaItems(username, [videoItem as any]);
               if (added > 0) updateFAB(tabId, username);

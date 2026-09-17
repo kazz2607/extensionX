@@ -21,6 +21,26 @@ export function isTrustedMediaUrl(value: unknown): value is string {
   }
 }
 
+// Chuẩn hóa URL media X để so trùng (dedup): xóa query param biến đổi như ?t=
+// nhưng giữ lại name/format vì chúng ảnh hưởng tới độ phân giải/định dạng file thật.
+export function normalizeUrlForDedup(url: string): string {
+  try {
+    const u = new URL(url);
+    const name = u.searchParams.get('name') || '';
+    const format = u.searchParams.get('format') || '';
+    const base = u.origin + u.pathname;
+    if (name || format) return `${base}?name=${name}&format=${format}`;
+    return base;
+  } catch {
+    return url.split('?')[0];
+  }
+}
+
+// Ép URL media video về chất lượng gốc (name=orig) trước khi lưu/tải.
+export function normalizeMediaUrlToOrig(url: string): string {
+  return url.replace(/name=\w+/, 'name=orig');
+}
+
 export function isXUrl(value: unknown): value is string {
   if (typeof value !== 'string' || value.length > 2_048) return false;
   try {

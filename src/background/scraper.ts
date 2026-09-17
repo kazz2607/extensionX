@@ -7,6 +7,7 @@ import { MediaItem, Options, CollectState } from '../types.ts';
 import { filterMediaItems } from '../shared/media-filter.ts';
 import { recordDiagnostic } from './diagnostics.ts';
 import { canTransitionCollectPhase, type CollectPhase } from '../shared/collect-state.ts';
+import { normalizeUrlForDedup } from '../shared/validation.ts';
 
 // ─── BUG-03 FIX: Options Cache — tránh gọi storage.sync N lần per session ────
 let _optionsCache: Options | null = null;
@@ -488,23 +489,6 @@ async function clearSession(username: string) {
     await clearMediaItems(username); // v4.4.0: Clear từ IndexedDB
     console.debug(`[SW] Session cleared: @${username}`);
   } catch (_) {}
-}
-
-// ─── v4.1.0: Duplicate Detection ────────────────────────────────────────────────
-// Normalize URL: xóa query params biến đổi như ?t= nhưng giữ name=orig
-// @ts-ignore
-function normalizeUrlForDedup(url) {
-  try {
-    const u = new URL(url);
-    // Chỉ giữ path + format + name params (nếu có)
-    const name   = u.searchParams.get('name')   || '';
-    const format = u.searchParams.get('format') || '';
-    const base = u.origin + u.pathname;
-    if (name || format) return `${base}?name=${name}&format=${format}`;
-    return base;
-  } catch {
-    return url.split('?')[0]; // fallback: chỉ lấy path
-  }
 }
 
 // Load downloaded URLs từ storage vào memory

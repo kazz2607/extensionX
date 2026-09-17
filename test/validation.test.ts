@@ -6,6 +6,8 @@ import {
   isXProfileUrlForUsername,
   isValidMediaItem,
   isValidUsername,
+  normalizeMediaUrlToOrig,
+  normalizeUrlForDedup,
   parseQueueItems,
   sanitizeFilename,
   sanitizeFolderPath,
@@ -102,6 +104,23 @@ test('queue recovery resets interrupted work but rejects invalid terminal transi
   const item = { id: 'NASA_1', username: 'NASA', filterType: 'all', skipDuplicates: true, addedAt: 1, status: 'downloading' as const, mediaCount: 1 };
   assert.equal(recoverQueueItemAfterRestart(item).status, 'waiting');
   assert.equal(transitionQueueItem({ ...item, status: 'done' }, 'waiting'), null);
+});
+
+test('normalizes media URLs for dedup and forces video URLs to original quality', () => {
+  assert.equal(
+    normalizeUrlForDedup('https://pbs.twimg.com/media/a.jpg?name=orig&t=12345'),
+    'https://pbs.twimg.com/media/a.jpg?name=orig&format=',
+  );
+  assert.equal(
+    normalizeUrlForDedup('https://pbs.twimg.com/media/a.jpg?format=jpg&t=99'),
+    'https://pbs.twimg.com/media/a.jpg?name=&format=jpg',
+  );
+  assert.equal(normalizeUrlForDedup('https://video.twimg.com/a.mp4?t=1'), 'https://video.twimg.com/a.mp4');
+  assert.equal(normalizeUrlForDedup('not a url?foo=bar'), 'not a url');
+
+  assert.equal(normalizeMediaUrlToOrig('https://video.twimg.com/a.mp4?name=small'), 'https://video.twimg.com/a.mp4?name=orig');
+  assert.equal(normalizeMediaUrlToOrig('https://video.twimg.com/a.mp4?name=orig'), 'https://video.twimg.com/a.mp4?name=orig');
+  assert.equal(normalizeMediaUrlToOrig('https://video.twimg.com/a.mp4'), 'https://video.twimg.com/a.mp4');
 });
 
 test('validates Telegram senders and preserves known media extensions', () => {

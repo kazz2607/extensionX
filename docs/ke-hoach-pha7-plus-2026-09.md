@@ -39,11 +39,11 @@ Các nhánh đã verify kỹ và **đúng 100%** với code: message schema 256K
 
 ## Phần 3 — Roadmap các pha tiếp theo
 
-### Pha 7 — Đóng lỗ hổng test coverage (làm trước, rẻ, không rủi ro)
-- Thêm test trong `test/validation.test.ts`:
-  - Case cho URL normalization (`name=orig` rewrite logic trong `messages.ts:104`).
-  - Case cho `normalizeUrlForDedup` (`scraper.ts:496`).
-- Deliverable: `npm run check` xanh, 2 test case mới, không đổi hành vi.
+### Pha 7 — Đóng lỗ hổng test coverage ✅ HOÀN TẤT
+- Tách 2 hàm pure (`normalizeUrlForDedup`, `normalizeMediaUrlToOrig`) từ `scraper.ts`/`messages.ts` (nơi chúng inline/không export, không test được vì phụ thuộc IndexedDB/chrome.* tại module scope) ra `src/shared/validation.ts` — không đổi logic, chỉ thêm type và export.
+- `scraper.ts`/`messages.ts` giờ import lại 2 hàm này từ shared thay vì định nghĩa/inline riêng.
+- Thêm test case mới trong `test/validation.test.ts` (`'normalizes media URLs for dedup and forces video URLs to original quality'`).
+- Kết quả: `npm run check` xanh (16/16 unit test, 2/2 e2e, typecheck/lint/build sạch).
 
 ### Pha 8 — Refactor `popup.ts` & `fab.ts` (làm trước tính năng mới, theo lựa chọn của người dùng)
 Tách theo pattern `following-panel.ts` (module nhận `deps` object, không import global của popup):
