@@ -25,6 +25,9 @@ let _dateRangeOpen = false;  // trạng thái mở/đóng collapsible
 let filterKeyword = '';      // v4.8.0: Keyword / Hashtag Filter
 let _csvOffset = 0;          // PERF-04: CSV pagination offset (reset khi đổi profile/filter)
 const queueProgressById = new Map<string, { current: number; total: number; percent: number }>();
+let _downloadedCount = 0;    // P4: Duplicate detection count for preview
+let _concurrency = 3;        // P4: Concurrency level for warning
+let _lastErrors: string[] = []; // P4: Stored error strings for copy log button
 
 // ─── DOM ───────────────────────────────────────────────────────────────────────
 // @ts-ignore
@@ -102,6 +105,15 @@ const els: any = {
   errorList:         $('error-list'),
   btnRetry:          $('btn-retry'),
   btnErrorClose:     $('btn-error-close'),
+  btnCopyErrors:     $('btn-copy-errors'),
+
+  // P4-3: Download preview
+  downloadPreview:    $('download-preview'),
+  previewCount:       $('preview-count'),
+  previewSkipRow:     $('preview-skip-row'),
+  previewSkipped:     $('preview-skipped'),
+  previewWarning:     $('preview-warning'),
+  previewWarningText: $('preview-warning-text'),
 
   // v5.0.3 Stats / Donut
   donutArcs:     $('donut-arcs'),
@@ -136,6 +148,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadHistory();
   await loadQueue();                // v5.0.3
   await checkSavedSession();
+  try {
+    const stored: any = await chrome.storage.sync.get('options');
+    if (stored?.options?.concurrency) _concurrency = Number(stored.options.concurrency) || 3;
+  } catch {}
   await detectCurrentTab();
   setupListeners();
   setupBottomNav();                 // v5.0.3
@@ -213,10 +229,18 @@ function setupDateRange() {
   if (!els.daterangeToggle) return;
 
   // UI-02: Toggle có animation — dùng max-height thay vì display:block/none
-  els.daterangeToggle.addEventListener('click', () => {
+  const toggleDateRange = () => {
     _dateRangeOpen = !_dateRangeOpen;
+    els.daterangeToggle.setAttribute('aria-expanded', String(_dateRangeOpen));
     els.daterangePanel.classList.toggle('open', _dateRangeOpen);
     els.daterangeChevron.classList.toggle('open', _dateRangeOpen);
+  };
+  els.daterangeToggle.addEventListener('click', toggleDateRange);
+  els.daterangeToggle.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      toggleDateRange();
+    }
   });
 
   // Date inputs — debounce để không query SW quá nhiều
@@ -694,7 +718,7 @@ async function detectCurrentTab() {
 
   const url = tab.url;
   if (!url.includes('x.com') && !url.includes('twitter.com')) {
-    setStatus('idle', window.i18n ? window.i18n.t('profile_hint_default') : 'Mở X.com để bắt đầu');
+    setStatus('idle', window.i18n ? window.i18n.t('profile_hint_default') : 'Mở X.com để bắt đầu', '⏳');
     updateOnboardingState(); // UI-04: không phải X.com → hiện onboarding
     return;
   }
@@ -752,6 +776,7 @@ async function setCurrentUser(username) {
 
   // v4.1.0: Duplicate Detection UI
   const dlCount = (downloadedRes as any)?.count || 0;
+  _downloadedCount = dlCount;
   if (els.downloadedBadge) {
     if (dlCount > 0) {
       els.downloadedBadge.style.display = 'inline-block';
@@ -778,7 +803,7 @@ async function setCurrentUser(username) {
     isDownloading = true;
     showProgress(true);
     const downloadingTxt = window.i18n ? window.i18n.t('status_downloading') : 'Đang tải...';
-    setStatus('downloading', downloadingTxt);
+    setStatus('downloading', downloadingTxt, '⬇️');
   }
 
 // @ts-ignore
@@ -788,13 +813,13 @@ async function setCurrentUser(username) {
 // @ts-ignore
     els.scrollCount.textContent = stateRes.scrollCount || 0;
     const collectingTxt = window.i18n ? window.i18n.t('status_collecting') : 'Đang thu thập media...';
-    setStatus('collecting', collectingTxt);
+    setStatus('collecting', collectingTxt, '🔍');
 // @ts-ignore
   } else if (!dlStateRes?.isDownloading) {
     isCollecting = false;
     els.scrollSec.style.display = 'none';
     const readyTxt = window.i18n ? window.i18n.t('status_ready') : 'Sẵn sàng';
-    setStatus('ready', `${readyTxt} — @${username}`);
+    setStatus('ready', `${readyTxt} — @${username}`, '●');
   }
 
   updateButtons();
@@ -885,6 +910,53 @@ function updateButtons() {
     els.btnCollect.classList.remove('collecting');
     els.btnCollectTxt.textContent = window.i18n ? window.i18n.t('btn_collect_start') : 'Bắt đầu Thu Thập';
   }
+
+  // P4-3: Preview trước download
+  updateDownloadPreview();
+}
+
+// ─── P4-3: Download Preview Panel ─────────────────────────────────────────────
+function updateDownloadPreview() {
+  if (!els.downloadPreview) return;
+  const filteredCount = getFilteredCount();
+// @ts-ignore
+  const hasUser = !!currentUsername;
+
+  if (!hasUser || filteredCount === 0 || isDownloading || isCollecting) {
+    els.downloadPreview.style.display = 'none';
+    return;
+  }
+
+  const skipDup = els.skipCheckbox ? els.skipCheckbox.checked : true;
+  const skipped = (skipDup && _downloadedCount > 0) ? Math.min(_downloadedCount, filteredCount) : 0;
+  const toDownload = Math.max(0, filteredCount - skipped);
+
+  if (els.previewCount) {
+    els.previewCount.textContent = `${toDownload} file`;
+  }
+
+  if (els.previewSkipRow && els.previewSkipped) {
+    if (skipped > 0) {
+      els.previewSkipRow.style.display = 'flex';
+      els.previewSkipped.textContent = `${skipped} file`;
+    } else {
+      els.previewSkipRow.style.display = 'none';
+    }
+  }
+
+  if (els.previewWarning && els.previewWarningText) {
+    if (_concurrency >= 4) {
+      els.previewWarning.style.display = 'flex';
+      els.previewWarningText.textContent = `Concurrency=${_concurrency}: tải nhiều luồng song song có thể tăng tải mạng.`;
+    } else if (stats.hls > 0 || (stats.video > 0 && activeFilter === 'videos')) {
+      els.previewWarning.style.display = 'flex';
+      els.previewWarningText.textContent = 'Một số video X.com sử dụng HLS stream (mất vài giây ghép file).';
+    } else {
+      els.previewWarning.style.display = 'none';
+    }
+  }
+
+  els.downloadPreview.style.display = 'flex';
 }
 
 // ─── Scroll Speed ─────────────────────────────────────────────────────────────
@@ -916,7 +988,7 @@ function setupListeners() {
       isCollecting = false;
       await sendBG('STOP_COLLECTING', { username: currentUsername });
       const stoppedTxt = window.i18n ? window.i18n.t('status_stopped') : 'Đã dừng';
-      setStatus('ready', `${stoppedTxt} — @${currentUsername}`);
+      setStatus('ready', `${stoppedTxt} — @${currentUsername}`, '●');
       els.statusSpeed.textContent = '';
     } else {
       isCollecting = true;
@@ -924,7 +996,7 @@ function setupListeners() {
       lastScrollTime = Date.now();
       await sendBG('START_COLLECTING', { username: currentUsername });
       const collectingTxt = window.i18n ? window.i18n.t('status_collecting') : 'Đang thu thập media...';
-      setStatus('collecting', collectingTxt);
+      setStatus('collecting', collectingTxt, '🔍');
       els.scrollSec.style.display = 'block';
     }
     updateButtons();
@@ -940,7 +1012,7 @@ function setupListeners() {
     isDownloading = true;
     updateButtons();
     const preparingTxt = window.i18n ? window.i18n.t('status_downloading') : 'Chuẩn bị download...';
-    setStatus('downloading', preparingTxt);
+    setStatus('downloading', preparingTxt, '📦');
     showProgress(true);
 
     await sendBG('START_DOWNLOAD', {
@@ -1054,6 +1126,7 @@ function setupListeners() {
   if (els.skipCheckbox) {
     els.skipCheckbox.addEventListener('change', () => {
       chrome.storage.local.set({ pref_skip_duplicates: els.skipCheckbox.checked }).catch(() => {});
+      updateDownloadPreview();
       showToast(
         els.skipCheckbox.checked
           ? '✓ Sẽ bỏ qua các file đã tải trước đó'
@@ -1068,8 +1141,10 @@ function setupListeners() {
     els.btnClearDownloaded.addEventListener('click', async () => {
       if (!currentUsername) return;
       await sendBG('CLEAR_DOWNLOADED', { username: currentUsername });
+      _downloadedCount = 0;
       if (els.downloadedBadge) els.downloadedBadge.style.display = 'none';
       els.btnClearDownloaded.style.display = 'none';
+      updateDownloadPreview();
       showToast(`✓ Đã xóa lịch sử tải của @${currentUsername}! Bạn có thể tải lại toàn bộ file.`, 'success');
     });
   }
@@ -1083,6 +1158,7 @@ function setupListeners() {
 
     await sendBG('CLEAR_MEDIA', { username: currentUsername });
     stats = { image: 0, video: 0, gif: 0, hls: 0 };
+    _downloadedCount = 0;
     updateStatTabs();
     updateMediaCount(0);
     if (els.downloadedBadge) els.downloadedBadge.style.display = 'none';
@@ -1117,7 +1193,22 @@ function setupListeners() {
     });
   }
 
-  // UI-01: Error details — Retry và Close
+  // UI-01 & P4-4: Error details — Copy log, Retry và Close
+  if (els.btnCopyErrors) {
+    els.btnCopyErrors.addEventListener('click', async () => {
+      if (!_lastErrors.length) {
+        showToast('Không có lỗi để copy', 'info');
+        return;
+      }
+      const text = `[ExtensionX Error Log - ${new Date().toISOString()}]\n` + _lastErrors.join('\n');
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast('✓ Đã copy log lỗi vào clipboard', 'success');
+      } catch {
+        showToast('Không thể copy vào clipboard', 'error');
+      }
+    });
+  }
   if (els.btnRetry) {
     els.btnRetry.addEventListener('click', async () => {
       els.errorDetails.style.display = 'none';
@@ -1220,7 +1311,7 @@ function listenToMessages() {
               : payload.reason === 'auto_stop'
                 ? `⏹ Auto-Stop sau ${payload.autoStopAfter ?? 10} scroll không có mới — ${payload.mediaCount} media`
                 : `Đã dừng — ${payload.mediaCount} media`;
-          setStatus('done', reasonMsg);
+          setStatus('done', reasonMsg, '✓');
           showToast(reasonMsg, payload.reason === 'auto_stop' ? 'info' : 'success');
         }
         updateButtons();
@@ -1237,7 +1328,7 @@ function listenToMessages() {
 // @ts-ignore
         if (payload.username === currentUsername) {
           const label = activeFilter !== 'all' ? ` (${activeFilter})` : '';
-          setStatus('downloading', `Đang tải ${payload.total} files${label}...`);
+          setStatus('downloading', `Đang tải ${payload.total} files${label}...`, '⬇️');
         }
         break;
 
@@ -1250,12 +1341,12 @@ function listenToMessages() {
         if (payload.done) {
           if (payload.failed > 0) {
             const errDetails = (payload.errors || []).join(' | ');
-            setStatus('error', `Hoàn tất ${payload.success}/${payload.total} (Lỗi: ${errDetails})`);
+            setStatus('error', `Hoàn tất ${payload.success}/${payload.total} (Lỗi: ${errDetails})`, '⚠️');
           } else {
-            setStatus('success', `✓ Hoàn tất ${payload.success}/${payload.total} files`);
+            setStatus('success', `✓ Hoàn tất ${payload.success}/${payload.total} files`, '✓');
           }
         } else {
-          setStatus('downloading', `Đang tải: ${payload.currentFile || ''} (${payload.success}/${payload.total})`);
+          setStatus('downloading', `Đang tải: ${payload.currentFile || ''} (${payload.success}/${payload.total})`, '⬇️');
         }
         updateQueueItemProgress(payload); // UI-06: live progress trong Queue tab
         break;
@@ -1294,13 +1385,13 @@ function listenToMessages() {
       case 'HLS_PROGRESS':
 // @ts-ignore
         if (payload.username === currentUsername) {
-          setStatus('downloading', `HLS: ${payload.fetched}/${payload.total} segments`);
+          setStatus('downloading', `HLS: ${payload.fetched}/${payload.total} segments`, '🎞️');
         }
         break;
 
       case 'IDM_DETECTED':
         showToast('⚠️ IDM đang chiếm quyền download! File sẽ không vào thư mục username. Hãy tắt IDM Integration Module.', 'warning');
-        setStatus('error', '⚠️ IDM detected — file không vào đúng thư mục');
+        setStatus('error', '⚠️ IDM detected — file không vào đúng thư mục', '⚠️');
         break;
 
       case 'DOWNLOAD_DONE': {
@@ -1310,12 +1401,15 @@ function listenToMessages() {
         const doneTxt = window.i18n ? window.i18n.t('status_done') : 'Done';
         const skipTxt = skipped > 0 ? ` (skipped ${skipped})` : '';
         const doneMsg = `✓ ${doneTxt} ${success}/${total} files${failed > 0 ? ` (${failed} error)` : ''}${skipTxt}`;
-        setStatus('done', doneMsg);
+        setStatus('done', doneMsg, '✓');
         showToast(doneMsg, success > 0 ? 'success' : 'error');
         updateButtons();
 
-        // UI-01: Hiện error details panel khi có lỗi
+        // UI-01 & P4-4: Hiện error details panel khi có lỗi và lưu lại để copy
         if (failed > 0 && els.errorDetails) {
+          _lastErrors = (Array.isArray(payload.errors) && payload.errors.length > 0)
+            ? payload.errors.map((e: unknown) => String(e))
+            : [`${failed} file tải thất bại`];
           els.errorDetailsCount.textContent = `${failed} file lỗi`;
           const errors = document.createDocumentFragment();
           (Array.isArray(payload.errors) ? payload.errors : []).slice(0, 10).forEach((error: unknown) => {
@@ -1328,6 +1422,7 @@ function listenToMessages() {
           els.errorList.replaceChildren(errors);
           els.errorDetails.style.display = 'block';
         } else if (els.errorDetails) {
+          _lastErrors = [];
           els.errorDetails.style.display = 'none';
         }
         addToHistory({
@@ -1344,6 +1439,8 @@ function listenToMessages() {
           sendBG('GET_DOWNLOADED_COUNT', { username: currentUsername }).then(res => {
 // @ts-ignore
             if (res?.count > 0 && els.skipWrap) {
+              _downloadedCount = (res as any).count;
+              updateDownloadPreview();
               els.skipWrap.style.display = 'flex';
               els.downloadedBadge.style.display = 'inline-block';
               const dTxt = window.i18n ? window.i18n.t('status_done') : 'downloaded';
@@ -1381,9 +1478,21 @@ function listenToMessages() {
 
 // ─── Status ───────────────────────────────────────────────────────────────────
 // @ts-ignore
-function setStatus(state, text) {
-  els.statusText.textContent = text;
-  els.statusDot.className = 'status-dot ' + (state || '');
+function setStatus(state: string, text: string, phaseIcon?: string) {
+  if (els.statusText) {
+    els.statusText.replaceChildren();
+    if (phaseIcon) {
+      const iconSpan = document.createElement('span');
+      iconSpan.className = 'status-phase-icon';
+      iconSpan.textContent = phaseIcon;
+      els.statusText.append(iconSpan);
+    }
+    els.statusText.append(document.createTextNode(text));
+  }
+  if (els.statusDot) {
+    els.statusDot.className = 'status-dot ' + (state || '');
+    els.statusDot.setAttribute('aria-label', `Trạng thái: ${state || 'idle'}`);
+  }
 }
 
 // @ts-ignore
