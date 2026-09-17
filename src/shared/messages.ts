@@ -8,7 +8,7 @@ export type MessageType =
   | 'GET_DOWNLOADED_COUNT' | 'CLEAR_DOWNLOADED' | 'CLEAR_ALL_DOWNLOADED' | 'EXPORT_CSV' | 'DOWNLOAD_TWEET'
   | 'GET_SAVED_SESSION' | 'RESTORE_SESSION' | 'RESTORE_SESSION_CANCEL' | 'STOP_DOWNLOAD' | 'RETRY_FAILED'
   | 'UPDATE_BEARER' | 'UPDATE_QUERY_ID' | 'EXPORT_QUEUE' | 'IMPORT_QUEUE' | 'SHORTCUT_DOWNLOAD'
-  | 'START_FOLLOWING_SCROLL' | 'STOP_FOLLOWING_SCROLL' | 'GET_FOLLOWING_SCROLL_STATE' | 'HLS_DONE';
+  | 'START_FOLLOWING_SCROLL' | 'STOP_FOLLOWING_SCROLL' | 'GET_FOLLOWING_SCROLL_STATE' | 'HLS_DONE' | 'TG_DOWNLOAD_MEDIA';
 
 export type ExtensionMessage =
   | { type: 'MEDIA_FOUND'; payload: { username: string; mediaItems: MediaItem[] } }
@@ -18,7 +18,8 @@ export type ExtensionMessage =
   | { type: 'UPDATE_BEARER'; payload: { bearer: string } }
   | { type: 'UPDATE_QUERY_ID'; payload: { queryId: string; opName: string } }
   | { type: 'DIAGNOSTIC_METRIC'; payload: { name: string; value: number } }
-  | { type: Exclude<MessageType, 'MEDIA_FOUND' | 'PAGE_LOADED' | 'START_COLLECTING' | 'STOP_COLLECTING' | 'START_DOWNLOAD' | 'DOWNLOAD_TWEET' | 'UPDATE_BEARER' | 'UPDATE_QUERY_ID' | 'DIAGNOSTIC_METRIC'>; payload?: Record<string, unknown>; [key: string]: unknown };
+  | { type: 'TG_DOWNLOAD_MEDIA'; payload: { url: string; filename: string; isVideo: boolean } }
+  | { type: Exclude<MessageType, 'MEDIA_FOUND' | 'PAGE_LOADED' | 'START_COLLECTING' | 'STOP_COLLECTING' | 'START_DOWNLOAD' | 'DOWNLOAD_TWEET' | 'UPDATE_BEARER' | 'UPDATE_QUERY_ID' | 'DIAGNOSTIC_METRIC' | 'TG_DOWNLOAD_MEDIA'>; payload?: Record<string, unknown>; [key: string]: unknown };
 
 /** Compatibility envelope while message handlers migrate to the union above. */
 export interface ParsedRuntimeMessage {
@@ -36,7 +37,7 @@ const MESSAGE_TYPES: ReadonlySet<string> = new Set<MessageType>([
   'GET_DOWNLOADED_COUNT', 'CLEAR_DOWNLOADED', 'CLEAR_ALL_DOWNLOADED', 'EXPORT_CSV', 'DOWNLOAD_TWEET',
   'GET_SAVED_SESSION', 'RESTORE_SESSION', 'RESTORE_SESSION_CANCEL', 'STOP_DOWNLOAD', 'RETRY_FAILED',
   'UPDATE_BEARER', 'UPDATE_QUERY_ID', 'EXPORT_QUEUE', 'IMPORT_QUEUE', 'SHORTCUT_DOWNLOAD',
-  'START_FOLLOWING_SCROLL', 'STOP_FOLLOWING_SCROLL', 'GET_FOLLOWING_SCROLL_STATE', 'HLS_DONE',
+  'START_FOLLOWING_SCROLL', 'STOP_FOLLOWING_SCROLL', 'GET_FOLLOWING_SCROLL_STATE', 'HLS_DONE', 'TG_DOWNLOAD_MEDIA',
 ]);
 
 /** Cheap boundary check before command-specific validation in the service worker. */

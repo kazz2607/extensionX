@@ -1,0 +1,162 @@
+{
+  "project": {
+    "enabled": true,
+    "lastGenerated": "2026-06-05T07:29:21.047Z",
+    "observationCount": 768,
+    "skillCount": 0,
+    "domain": "project",
+    "triggerGlobs": [
+      "**/*"
+    ],
+    "description": "Project for extensionX. 57 gotchas, 565 conventions, 35 fixes."
+  },
+  "config": {
+    "enabled": true,
+    "lastGenerated": "2026-06-05T07:29:21.046Z",
+    "observationCount": 255,
+    "skillCount": 0,
+    "domain": "config",
+    "triggerGlobs": [
+      "**/*.yaml",
+      "**/*.yml",
+      "**/*.json",
+      "**/*.toml"
+    ],
+    "description": "Config for extensionX. 6 gotchas, 35 conventions, 23 fixes."
+  },
+  "python": {
+    "enabled": true,
+    "lastGenerated": "2026-06-05T07:29:21.049Z",
+    "observationCount": 5,
+    "skillCount": 0,
+    "domain": "python",
+    "triggerGlobs": [
+      "**/*.py"
+    ],
+    "description": "Python for extensionX. 5 conventions."
+  },
+  "vue": {
+    "enabled": true,
+    "lastGenerated": "2026-06-05T07:29:21.049Z",
+    "observationCount": 29,
+    "skillCount": 0,
+    "domain": "vue",
+    "triggerGlobs": [
+      "**/*.vue"
+    ],
+    "description": "Vue for extensionX. 13 conventions."
+  },
+  "php": {
+    "enabled": true,
+    "lastGenerated": "2026-06-05T07:29:21.048Z",
+    "observationCount": 10,
+    "skillCount": 0,
+    "domain": "php",
+    "triggerGlobs": [
+      "**/*.php"
+    ],
+    "description": "Php for extensionX. 5 conventions."
+  },
+  "typescript": {
+    "enabled": true,
+    "lastGenerated": "2026-06-05T07:29:21.048Z",
+    "observationCount": 105,
+    "skillCount": 0,
+    "domain": "typescript",
+    "triggerGlobs": [
+      "**/*.ts",
+      "**/*.tsx"
+    ],
+    "description": "Typescript for extensionX. 6 gotchas, 21 conventions, 52 fixes."
+  },
+  "rust": {
+    "enabled": true,
+    "lastGenerated": "2026-06-05T07:29:21.049Z",
+    "observationCount": 6,
+    "skillCount": 0,
+    "domain": "rust",
+    "triggerGlobs": [
+      "**/*.rs"
+    ],
+    "description": "Rust for extensionX. 6 conventions."
+  },
+  "javascript": {
+    "enabled": true,
+    "lastGenerated": "2026-06-05T07:29:21.048Z",
+    "observationCount": 5,
+    "skillCount": 0,
+    "domain": "javascript",
+    "triggerGlobs": [
+      "**/*.js",
+      "**/*.jsx"
+    ],
+    "description": "Javascript for extensionX. 1 gotchas, 1 fixes."
+  },
+  "css": {
+    "enabled": true,
+    "lastGenerated": "2026-06-05T07:29:21.048Z",
+    "observationCount": 2,
+    "skillCount": 0,
+    "domain": "css",
+    "triggerGlobs": [
+      "**/*.css",
+      "**/*.scss"
+    ],
+    "description": "Css for extensionX. ."
+  },
+  "convention": {
+    "enabled": true,
+    "lastGenerated": "2026-06-05T07:29:21.050Z",
+    "observationCount": 0,
+    "skillCount": 7,
+    "domain": "convention",
+    "triggerGlobs": [
+      "**/*"
+    ],
+    "description": "Convention for extensionX. ."
+  },
+  "html": {
+    "enabled": true,
+    "lastGenerated": "2026-06-05T07:29:21.048Z",
+    "observationCount": 11,
+    "skillCount": 0,
+    "domain": "html",
+    "triggerGlobs": [
+      "**/*.html"
+    ],
+    "description": "Html for extensionX. 7 conventions, 1 error→fix pairs."
+  },
+  "decision": {
+    "enabled": true,
+    "lastGenerated": "2026-06-05T07:29:21.049Z",
+    "observationCount": 0,
+    "skillCount": 1,
+    "domain": "decision",
+    "triggerGlobs": [
+      "**/*"
+    ],
+    "description": "Decision for extensionX. ."
+  },
+  "gotcha": {
+    "enabled": true,
+    "lastGenerated": "2026-06-05T07:29:21.050Z",
+    "observationCount": 0,
+    "skillCount": 7,
+    "domain": "gotcha",
+    "triggerGlobs": [
+      "**/*"
+    ],
+    "description": "Gotcha for extensionX. 1 error→fix pairs."
+  },
+  "problem-fix": {
+    "enabled": true,
+    "lastGenerated": "2026-06-05T07:29:21.049Z",
+    "observationCount": 0,
+    "skillCount": 1,
+    "domain": "problem-fix",
+    "triggerGlobs": [
+      "**/*"
+    ],
+    "description": "Problem Fix for extensionX. 11 error→fix pairs."
+  }
+}

@@ -717,6 +717,19 @@ async function detectCurrentTab() {
   if (!tab?.url) { updateOnboardingState(); return; }
 
   const url = tab.url;
+  
+  if (url.includes('web.telegram.org')) {
+    els.username.textContent = 'Telegram Web';
+    els.hint.textContent = 'Sử dụng nút tải xuống trên ảnh/video';
+    els.profileCard.classList.add('active');
+    els.avatar.textContent = 'TG';
+    if (els.btnCollect) els.btnCollect.disabled = true;
+    if (els.btnDownload) els.btnDownload.disabled = true;
+    setStatus('idle', 'Đang ở Telegram Web', '✓');
+    updateOnboardingState();
+    return;
+  }
+  
   if (!url.includes('x.com') && !url.includes('twitter.com')) {
     setStatus('idle', window.i18n ? window.i18n.t('profile_hint_default') : 'Mở X.com để bắt đầu', '⏳');
     updateOnboardingState(); // UI-04: không phải X.com → hiện onboarding

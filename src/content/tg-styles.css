@@ -1,0 +1,49 @@
+/* Telegram Web Download Button Styles */
+
+.ext-x-tg-download-btn {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  z-index: 1000;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  backdrop-filter: blur(4px);
+  padding: 0;
+  opacity: 0.8;
+}
+
+.ext-x-tg-download-btn:hover {
+  background-color: rgba(29, 155, 240, 0.9);
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+.ext-x-tg-download-btn:active {
+  transform: scale(0.95);
+}
+
+.ext-x-tg-download-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+/* For images */
+.media-photo-container {
+  position: relative;
+}
+
+/* We need to ensure the container of the media is position relative so our absolute button stays inside */
+.ext-x-tg-media-wrapper {
+  position: relative !important;
+  display: inline-block;
+}

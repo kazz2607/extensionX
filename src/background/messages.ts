@@ -654,6 +654,43 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
 
+    // Pha 6: Telegram Web Download
+    case 'TG_DOWNLOAD_MEDIA': {
+      const { url, filename } = payload || {};
+      if (typeof url !== 'string' || typeof filename !== 'string') {
+        sendResponse({ error: 'Missing url or filename' });
+        return true;
+      }
+      
+      // Check allowed scheme
+      try {
+        const urlObj = new URL(url);
+        const allowedSchemes = ['https:', 'http:', 'blob:', 'data:'];
+        if (!allowedSchemes.includes(urlObj.protocol)) {
+          console.warn(`[SW] TG_DOWNLOAD_MEDIA blocked: scheme not allowed: ${urlObj.protocol}`);
+          sendResponse({ error: `Scheme not allowed: ${urlObj.protocol}` });
+          return true;
+        }
+      } catch(e) {
+        sendResponse({ error: 'Invalid URL' });
+        return true;
+      }
+
+      chrome.downloads.download({
+        url: url,
+        filename: filename,
+        saveAs: false,
+      }, (downloadId) => {
+        if (chrome.runtime.lastError) {
+           console.error('[SW] TG Download error:', chrome.runtime.lastError);
+           sendResponse({ error: chrome.runtime.lastError.message });
+        } else {
+           sendResponse({ ok: true, downloadId });
+        }
+      });
+      return true;
+    }
+
     default:
       return false;
   }

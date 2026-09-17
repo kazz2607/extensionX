@@ -18,6 +18,7 @@ Tính đến ngày **17-09-2026**, toàn bộ 5 pha kỹ thuật cốt lõi (Pha
 | **Pha 2** | Sửa logic & Độ bền MV3 (State machine, IndexedDB dedup, HLS abort & timeout recovery) | P0/P1 | ✅ **Hoàn tất** | `3d908d1`, `b19c10b` |
 | **Pha 3** | Hiệu năng (Observer debounce, batch rAF, per-op progress throttle, diff render) | P1 | ✅ **Hoàn tất** | `9c1f823`, `4b9c5b7` |
 | **Pha 4** | UI/UX & Accessibility (Design tokens, phase status bar, preview panel, error diagnostics) | P1 | ✅ **Hoàn tất** | `d19b4dd`, `62d7d12` |
+| **Pha 6** | Hỗ trợ Telegram Web (DOM Scanner, inject nút tải xuống, bypass restrictions) | P1 | ✅ **Hoàn tất** | |
 
 **Trạng thái kiểm thử hiện hành (`npm run check`):**
 - ✅ `14/14 unit tests` pass
@@ -141,7 +142,23 @@ Tính đến ngày **17-09-2026**, toàn bộ 5 pha kỹ thuật cốt lõi (Pha
 
 ---
 
-## 9. Đề xuất tính năng mới (Phase 5+)
+## 9. Pha 6 — Hỗ trợ Telegram Web (P1) ✅ HOÀN TẤT
+
+1. **Permissions & Manifest**:
+   - Bổ sung `https://web.telegram.org/*` vào `host_permissions` và `content_scripts`.
+2. **DOM Injection (tg-content.ts)**:
+   - Dùng `MutationObserver` lắng nghe DOM của Telegram Web.
+   - Thêm nút Download (SVG icon, class `.ext-x-tg-download-btn`) trực tiếp vào thẻ ảnh/video trên giao diện Telegram (bản K/A).
+3. **Download Bridge**:
+   - Bắt sự kiện click tải xuống trên Telegram Web. Trích xuất URL gốc (`src` hoặc `blob:`) hoặc dùng `canvas.toDataURL()` nếu Telegram render ảnh trên canvas.
+   - Truyền dữ liệu qua message type `TG_DOWNLOAD_MEDIA` đến Background Script để gọi `chrome.downloads.download`.
+4. **Popup UI Detection**:
+   - Mở rộng logic `detectCurrentTab()` để nhận diện Telegram Web.
+   - Khóa các nút chức năng của X.com khi đang ở Telegram, chỉ hiện thông báo hướng dẫn người dùng bấm nút tải trực tiếp trên trình duyệt.
+
+---
+
+## 10. Đề xuất tính năng mới (Phase 5+)
 
 | Ưu tiên | Tính năng | Giá trị người dùng | Điều kiện kỹ thuật |
 | --- | --- | --- | --- |
@@ -162,11 +179,12 @@ Tính đến ngày **17-09-2026**, toàn bộ 5 pha kỹ thuật cốt lõi (Pha
 | **v5.8.0** (Stabilization) | Pha 0 + Pha 1 | CI/CD pipeline bắt buộc, runtime message schema, validation URL/path/import, triệt tiêu XSS. | ✅ **Đã hoàn thành** |
 | **v5.9.0** (Reliability) | Pha 2 | State machine cho collector & queue, operationId, IndexedDB dedup, HLS abort & timeout recovery. | ✅ **Đã hoàn thành** |
 | **v6.0.0** (Performance & UI) | Pha 3 + Pha 4 | Giảm 50% observer overhead, rAF batching, phân trang history, design tokens, phase status bar, preview panel. | ✅ **Sẵn sàng phát hành** |
-| **v6.1.0+** (Product Features) | Phase 5+ | Download picker (chọn từng ảnh/video), resume session sau crash, queue reordering. | 📋 Đang lập kế hoạch |
+| **v6.1.0** (Telegram Integration) | Pha 6 | Hỗ trợ tải trực tiếp ảnh/video từ Telegram Web (K & A versions). | ✅ **Đã hoàn thành** |
+| **v6.2.0+** (Product Features) | Phase 5+ | Download picker (chọn từng ảnh/video), resume session sau crash, queue reordering. | 📋 Đang lập kế hoạch |
 
 ---
 
-## 11. Backlog kỹ thuật và bảo trì định kỳ
+## 12. Backlog kỹ thuật và bảo trì định kỳ
 
 1. **Refactor cấu trúc module `popup.ts`**:
    - Hiện tại `popup.ts` (~1.700 dòng). Đề xuất chia nhỏ thành các submodules chuyên trách:

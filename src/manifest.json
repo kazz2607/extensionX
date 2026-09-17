@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_appName__",
-  "version": "5.7.5",
+  "version": "6.1.0",
 
   "description": "__MSG_appDesc__",
   "default_locale": "en",
@@ -56,6 +56,12 @@
       "js": ["content/shortcuts.ts"],
       "run_at": "document_end",
       "all_frames": false
+    },
+    {
+      "matches": ["https://web.telegram.org/*"],
+      "js": ["content/tg-content.ts"],
+      "css": ["content/tg-styles.css"],
+      "run_at": "document_idle"
     }
   ],
 
@@ -75,7 +81,8 @@
     "https://*.twitter.com/*",
     "https://pbs.twimg.com/*",
     "https://video.twimg.com/*",
-    "https://cdn.syndication.twimg.com/*"
+    "https://cdn.syndication.twimg.com/*",
+    "https://web.telegram.org/*"
   ],
   "web_accessible_resources": [
     {

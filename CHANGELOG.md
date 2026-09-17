@@ -4,6 +4,18 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [6.1.0] — 2026-09-17 *(Telegram Web Integration)*
+
+### ✨ Tính Năng Mới
+- **[Pha 6] Hỗ trợ tải trực tiếp ảnh/video từ Telegram Web (K & A versions)**:
+  - Tự động nhận diện giao diện Telegram Web và chèn nút tải (Download) tinh tế trực tiếp lên ảnh/video.
+  - Hỗ trợ bắt URL `blob:` gốc và `canvas` data (đối với bản WebA).
+  - Kết nối với Background Service Worker qua tin nhắn `TG_DOWNLOAD_MEDIA` để tải file an toàn và bỏ qua hạn chế click chuột phải.
+  - Tích hợp nhận diện trang Telegram Web vào Popup UI, thông báo rõ ràng cho người dùng.
+- Cập nhật tài liệu roadmap và sửa lỗi tương thích.
+
+---
+
 ## [5.7.5] — 2026-08-17 *(Duplicate Detection & Download History Fixes, UI Controls & TypeScript Hardening)*
 
 ### 🐛 Bug Fixes & Architecture Hardening
