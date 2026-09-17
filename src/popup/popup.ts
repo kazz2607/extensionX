@@ -4,6 +4,12 @@
  * UI-03 (toast queue), UI-08 (custom confirm modal)
  */
 import { initFollowingPanel, handleFollowingMessage } from './following-panel.js';
+import { setStatus, showProgress } from './status-bar.ts';
+import { showToast } from './toast.ts';
+import { renderDonutChart } from './donut-chart.ts';
+import { initHistoryPanel, loadHistory, addToHistory, clearHistory } from './history-panel.ts';
+import { initDateRange, getDateRange } from './date-range.ts';
+import { initQueuePanel, loadQueue, addCurrentToQueue as queueAddCurrent, updateQueueItemProgress, setQueueFromUpdate } from './queue-panel.ts';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 // @ts-ignore
@@ -12,19 +18,10 @@ let isCollecting = false;
 let isDownloading = false;
 let activeFilter = 'all';
 let stats = { image: 0, video: 0, gif: 0, hls: 0 };
-// @ts-ignore
-let downloadHistory: any[] = [];
 let lastScrollCount = 0;
 let lastScrollTime = Date.now();
 let currentSaveFolder = '';  // đọc từ options
-// @ts-ignore
-let downloadQueue: any[] = [];      // v5.0.3: Multi-Profile Queue
-let dateFrom = '';           // v4.3.0: Date Range Filter (YYYY-MM-DD)
-let dateTo   = '';           // v4.3.0: Date Range Filter (YYYY-MM-DD)
-let _dateRangeOpen = false;  // trạng thái mở/đóng collapsible
-let filterKeyword = '';      // v4.8.0: Keyword / Hashtag Filter
 let _csvOffset = 0;          // PERF-04: CSV pagination offset (reset khi đổi profile/filter)
-const queueProgressById = new Map<string, { current: number; total: number; percent: number }>();
 let _downloadedCount = 0;    // P4: Duplicate detection count for preview
 let _concurrency = 3;        // P4: Concurrency level for warning
 let _lastErrors: string[] = []; // P4: Stored error strings for copy log button
@@ -49,10 +46,7 @@ const els: any = {
   tabCountVids: $('tab-count-videos'),
   tabCountGifs: $('tab-count-gifs'),
 
-  statusDot:    $('status-dot'),
-  statusText:   $('status-text'),
   statusSpeed:  $('status-speed'),
-  progressWrap: $('progress-wrap'),
   progressFill: $('progress-fill'),
   progressLbl:  $('progress-label'),
   scrollSec:    $('section-scroll'),
@@ -71,9 +65,7 @@ const els: any = {
   btnReload:     $('btn-reload'),
   btnTheme:      $('btn-theme'),
   btnCompact:    $('btn-compact'), // v4.8.0
-  historyList:   $('history-list'),
   btnHistClear:  $('btn-history-clear'),
-  toast:         $('toast'),
 
   // v4.1.0 Duplicate Detection
   skipWrap:           $('skip-duplicates-wrap'),
@@ -82,13 +74,10 @@ const els: any = {
   btnClearDownloaded: $('btn-clear-downloaded'),
 
   // v5.0.3 Queue Panel
-  queueList:        $('queue-list'),
-  queueCountBadge:  $('queue-count-badge'),
   btnQueueStart:    $('btn-queue-start'),
   btnQueueClear:    $('btn-queue-clear'),
   btnQueueAddBar:   $('btn-queue-add-bar'),
   queueAddHint:     $('queue-add-hint'),
-  navQueueBadge:    $('nav-queue-badge'),
   // FEA-02: Queue Export/Import
   btnQueueExport:   $('btn-queue-export'),
   inputQueueImport: $('input-queue-import'),
@@ -115,26 +104,8 @@ const els: any = {
   previewWarning:     $('preview-warning'),
   previewWarningText: $('preview-warning-text'),
 
-  // v5.0.3 Stats / Donut
-  donutArcs:     $('donut-arcs'),
-  donutTotalNum: $('donut-total-num'),
-  legendImages:  $('legend-images'),
-  legendVideos:  $('legend-videos'),
-  legendGifs:    $('legend-gifs'),
-  legendHls:     $('legend-hls'),
-
   // v4.3.0 Date Range Filter
   sectionDaterange:    $('section-daterange'),
-  daterangeToggle:     $('daterange-toggle'),
-  daterangeChevron:    $('daterange-chevron'),
-  daterangePanel:      $('daterange-panel'),
-  daterangeActiveBadge:$('daterange-active-badge'),
-  btnDaterangeClear:   $('btn-daterange-clear'),
-  inputDateFrom:       $('filter-date-from'),
-  inputDateTo:         $('filter-date-to'),
-  inputKeyword:        $('filter-keyword'), // v4.8.0
-  daterangeCountRow:   $('daterange-count-row'),
-  daterangeCountText:  $('daterange-count-text'),
 };
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
@@ -145,6 +116,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   await applyTheme();
   await applyCompactMode(); // v4.8.0
+  initHistoryPanel({ onSelectUsername: setCurrentUser });
+  initQueuePanel({ sendBG, showToast });
   await loadHistory();
   await loadQueue();                // v5.0.3
   await checkSavedSession();
@@ -155,7 +128,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   await detectCurrentTab();
   setupListeners();
   setupBottomNav();                 // v5.0.3
-  setupDateRange();                 // v4.3.0
+  initDateRange({                   // v4.3.0
+    getUsername: () => currentUsername,
+    getActiveFilter: () => activeFilter,
+    sendBG,
+    onChange: updateButtons,
+  });
   listenToMessages();
   await applyFollowingScannerSetting(); // v5.7.1 — hide tab if disabled in settings
   initFollowingPanel({ showToast, sendBG }); // Feature 0 — injected from following-panel.ts
@@ -224,135 +202,6 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', asy
   }
 });
 
-// ─── v4.3.0: Date Range Filter ─────────────────────────────────────────────────────────────────
-function setupDateRange() {
-  if (!els.daterangeToggle) return;
-
-  // UI-02: Toggle có animation — dùng max-height thay vì display:block/none
-  const toggleDateRange = () => {
-    _dateRangeOpen = !_dateRangeOpen;
-    els.daterangeToggle.setAttribute('aria-expanded', String(_dateRangeOpen));
-    els.daterangePanel.classList.toggle('open', _dateRangeOpen);
-    els.daterangeChevron.classList.toggle('open', _dateRangeOpen);
-  };
-  els.daterangeToggle.addEventListener('click', toggleDateRange);
-  els.daterangeToggle.addEventListener('keydown', (e: KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      toggleDateRange();
-    }
-  });
-
-  // Date inputs — debounce để không query SW quá nhiều
-// @ts-ignore
-  let _debounceTimer;
-  const onDateChange = () => {
-// @ts-ignore
-    clearTimeout(_debounceTimer);
-    _debounceTimer = setTimeout(() => {
-      dateFrom = els.inputDateFrom.value;
-      dateTo   = els.inputDateTo.value;
-      filterKeyword = els.inputKeyword ? els.inputKeyword.value.trim() : '';
-      updateDateRangeUI();
-      updateDateRangeCount();
-    }, 300);
-  };
-  els.inputDateFrom.addEventListener('change', onDateChange);
-  els.inputDateTo.addEventListener('change', onDateChange);
-  if (els.inputKeyword) els.inputKeyword.addEventListener('input', onDateChange); // v4.8.0
-
-  // Preset buttons
-  document.querySelectorAll('.btn-preset').forEach(btn => {
-    btn.addEventListener('click', () => {
-// @ts-ignore
-      const preset = btn.dataset.preset;
-      const now = new Date();
-      const toDate = now.toISOString().slice(0, 10);
-      let fromDate = '';
-
-      if (preset === '7d') {
-// @ts-ignore
-        fromDate = new Date(now - 7 * 86400000).toISOString().slice(0, 10);
-      } else if (preset === '30d') {
-// @ts-ignore
-        fromDate = new Date(now - 30 * 86400000).toISOString().slice(0, 10);
-      } else if (preset === '90d') {
-// @ts-ignore
-        fromDate = new Date(now - 90 * 86400000).toISOString().slice(0, 10);
-      } else if (preset === '1y') {
-        fromDate = `${now.getFullYear()}-01-01`;
-      }
-
-      els.inputDateFrom.value = fromDate;
-      els.inputDateTo.value   = toDate;
-      dateFrom = fromDate;
-      dateTo   = toDate;
-
-      // Update active state
-      document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-
-      updateDateRangeUI();
-      updateDateRangeCount();
-    });
-  });
-
-  // Clear button
-  if (els.btnDaterangeClear) {
-    els.btnDaterangeClear.addEventListener('click', () => {
-      clearDateRange();
-    });
-  }
-}
-
-function clearDateRange() {
-  dateFrom = ''; dateTo = ''; filterKeyword = '';
-  if (els.inputDateFrom) els.inputDateFrom.value = '';
-  if (els.inputDateTo)   els.inputDateTo.value   = '';
-  if (els.inputKeyword)  els.inputKeyword.value  = '';
-  document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
-  updateDateRangeUI();
-  if (els.daterangeCountRow) els.daterangeCountRow.style.display = 'none';
-  updateButtons();
-}
-
-function updateDateRangeUI() {
-  const hasFilter = !!dateFrom || !!dateTo || !!filterKeyword;
-
-  if (els.daterangeToggle) els.daterangeToggle.classList.toggle('has-filter', hasFilter);
-  if (els.daterangeActiveBadge) els.daterangeActiveBadge.style.display = hasFilter ? 'inline' : 'none';
-  if (els.btnDaterangeClear)    els.btnDaterangeClear.style.display    = hasFilter ? 'flex'   : 'none';
-
-  // Update download button badge
-  updateButtons();
-}
-
-// @ts-ignore
-let _countTimer;
-async function updateDateRangeCount() {
-// @ts-ignore
-  if (!currentUsername) return;
-  if (!dateFrom && !dateTo) return;
-
-// @ts-ignore
-    clearTimeout(_countTimer);
-  _countTimer = setTimeout(async () => {
-    const res: any = await sendBG('GET_MEDIA_COUNT_FILTERED', {
-// @ts-ignore
-      username: currentUsername,
-      filterType: activeFilter,
-      dateFrom,
-      dateTo,
-      keyword: filterKeyword,
-    });
-    const count = res?.count ?? 0;
-    if (els.daterangeCountRow) els.daterangeCountRow.style.display = 'flex';
-    if (els.daterangeCountText) {
-      els.daterangeCountText.textContent = `${count} item${count !== 1 ? 's' : ''} match filter`;
-    }
-  }, 200);
-}
-
 // ─── v5.0.3: Bottom Nav ───────────────────────────────────────────────────────
 function setupBottomNav() {
   const navTabs = Array.from(document.querySelectorAll<HTMLElement>('.nav-tab'));
@@ -368,7 +217,7 @@ function setupBottomNav() {
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     const panel = document.getElementById(panelId);
     if (panel) panel.classList.add('active');
-    if (panelId === 'panel-stats') renderDonutChart();
+    if (panelId === 'panel-stats') renderDonutChart(stats);
   };
   navTabs.forEach(tab => {
     tab.addEventListener('click', () => activate(tab));
@@ -385,275 +234,20 @@ function setupBottomNav() {
 }
 
 // ─── v5.0.3: Queue ────────────────────────────────────────────────────────────
-async function loadQueue() {
-  const res: any = await sendBG('GET_QUEUE', {});
-  downloadQueue = res?.queue || [];
-  renderQueue();
-}
-
-// P3: Cache chữ ký queue — tránh rebuild toàn bộ DOM nếu chỉ progress thay đổi
-let _lastQueueSignature = '';
-
-function getQueueSignature(queue: any[]): string {
-  // Signature = id+status của từng item; không bao gồm progress để progress update không trigger rebuild
-  return queue.map((q: any) => `${q.id}:${q.status}`).join('|');
-}
-
-function renderQueue() {
-  const list = els.queueList;
-  if (!list) return;
-  const activeQueueIds = new Set(downloadQueue.map((item: any) => item.id));
-  for (const id of queueProgressById.keys()) {
-    if (!activeQueueIds.has(id)) queueProgressById.delete(id);
-  }
-
-  // Update badges
-// @ts-ignore
-  const waitingCount = downloadQueue.filter(q => q.status === 'waiting').length;
-// @ts-ignore
-  const totalActive = downloadQueue.filter(q => q.status !== 'done' && q.status !== 'error').length;
-
-  if (els.queueCountBadge) {
-    els.queueCountBadge.textContent = totalActive;
-    els.queueCountBadge.style.display = totalActive > 0 ? 'inline' : 'none';
-  }
-  if (els.navQueueBadge) {
-    els.navQueueBadge.textContent = waitingCount;
-    els.navQueueBadge.style.display = waitingCount > 0 ? 'flex' : 'none';
-  }
-
-  // P3: Kiểm tra signature — bỏ qua full rebuild nếu chỉ progress thay đổi
-  const sig = getQueueSignature(downloadQueue as any[]);
-  const needsRebuild = sig !== _lastQueueSignature;
-  _lastQueueSignature = sig;
-
-  if (!needsRebuild) {
-    // Chỉ cập nhật progress của item đang tải
-    const activeItem = (downloadQueue as any[]).find((q: any) => q.status === 'downloading');
-    if (activeItem) {
-      const savedProgress = queueProgressById.get(activeItem.id);
-      if (savedProgress) updateQueueItemProgress(savedProgress);
-    }
-    return;
-  }
-
-  if (downloadQueue.length === 0) {
-    const empty = document.createElement('li');
-    empty.className = 'queue-empty';
-    empty.id = 'queue-empty';
-    const label = document.createElement('span');
-    label.textContent = 'Hàng đợi trống';
-    const hint = document.createElement('span');
-    hint.className = 'queue-empty-hint';
-    hint.textContent = 'Thêm profile vào queue để tải tuần tự mà không cần giám sát';
-    empty.append(label, hint);
-    list.replaceChildren(empty);
-    return;
-  }
-
-  const statusLabels: Record<string, string> = { waiting: 'Chờ', downloading: 'Đang tải', done: 'Xong', error: 'Lỗi' };
-  const filterIcons: Record<string, string>  = { all: '📦', images: '🖼️', videos: '🎬', gifs: '🎞️' };
-
-  const fragment = document.createDocumentFragment();
-  (downloadQueue as any[]).forEach(item => {
-    const icon = filterIcons[item.filterType || 'all'] || '📦';
-    const statusLabel = statusLabels[item.status] || String(item.status || '');
-    const metaText = item.result
-      ? (item.result.error ? String(item.result.error).slice(0, 500) : `${Number(item.result.success)||0}/${Number(item.result.total)||0} files`)
-      : `${Number(item.mediaCount)||0} media · ${icon} ${String(item.filterType || '').slice(0, 30)}`;
-    const canRemove = item.status !== 'downloading';
-    const id = String(item.id || '').slice(0, 120);
-    const username = String(item.username || '').slice(0, 50);
-    const safeStatus = String(item.status || '').replace(/[^a-z]/g, '');
-    const row = document.createElement('li');
-    row.className = `queue-item status-${safeStatus}`;
-    row.dataset.id = id;
-    const avatar = document.createElement('div'); avatar.className = 'queue-item-avatar'; avatar.textContent = username.slice(0, 2).toUpperCase();
-    const info = document.createElement('div'); info.className = 'queue-item-info';
-    const name = document.createElement('div'); name.className = 'queue-item-name'; name.textContent = `@${username}`;
-    const meta = document.createElement('div'); meta.className = 'queue-item-meta'; meta.textContent = metaText;
-    info.append(name, meta);
-    if (item.status === 'downloading') {
-      const count = document.createElement('span'); count.className = 'queue-file-count'; count.id = `qfc-${id}`; count.textContent = '📥 đang tải...'; info.append(count);
-    }
-    const status = document.createElement('span'); status.className = `queue-status ${safeStatus}`; status.textContent = statusLabel;
-    const action = document.createElement('button'); action.className = canRemove ? 'btn-queue-remove' : 'btn-queue-stop'; action.dataset.id = id;
-    action.title = canRemove ? 'Xóa khỏi queue' : 'Dừng download'; action.textContent = canRemove ? '×' : '⏹';
-    row.append(avatar, info, status, action);
-    fragment.append(row);
-  });
-  list.replaceChildren(fragment);
-
-  // Restore live progress bar nếu có item đang downloading
-  const activeItem = (downloadQueue as any[]).find(q => q.status === 'downloading');
-  if (activeItem) {
-    const savedProgress = queueProgressById.get(activeItem.id);
-    if (savedProgress) updateQueueItemProgress(savedProgress);
-  }
-
-  // Remove listeners
-// @ts-ignore
-  list.querySelectorAll('.btn-queue-remove').forEach(btn => {
-// @ts-ignore
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const id = btn.dataset.id;
-      await sendBG('REMOVE_FROM_QUEUE', { id });
-      showToast('Đã xóa khỏi hàng đợi', 'info');
-    });
-  });
-
-  // Bug 2: Stop button cho item đang downloading trong queue
-// @ts-ignore
-  list.querySelectorAll('.btn-queue-stop').forEach(btn => {
-// @ts-ignore
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      await sendBG('STOP_DOWNLOAD', {});
-      showToast('⏹ Đang dừng download...', 'info');
-    });
-  });
-}
-
-// UI-06 + FEA-03: Cập nhật progress bar + file count live của queue item đang downloading
-function updateQueueItemProgress(payload: any) {
-  const active = (downloadQueue as any[]).find(q => q.status === 'downloading');
-  if (!active) return;
-
-  const current = Math.max(0, Number(payload.current) || 0);
-  const total = Math.max(0, Number(payload.total) || 0);
-  const percent = Math.min(100, Math.max(0, Number(payload.percent) || 0));
-  queueProgressById.set(active.id, { current, total, percent });
-
-  // UI-06: mini progress bar trong queue-item-meta
-  const metaEl = document.querySelector<HTMLElement>(`.queue-item[data-id="${active.id}"] .queue-item-meta`);
-  if (metaEl) {
-    let progress = metaEl.querySelector<HTMLElement>('.queue-mini-progress');
-    let bar = metaEl.querySelector<HTMLElement>('.queue-mini-bar');
-    let label = metaEl.querySelector<HTMLElement>('.queue-mini-progress-label');
-    if (!progress || !bar || !label) {
-      progress = document.createElement('div');
-      progress.className = 'queue-mini-progress';
-      bar = document.createElement('div');
-      bar.className = 'queue-mini-bar';
-      label = document.createElement('span');
-      label.className = 'queue-mini-progress-label';
-      label.style.fontSize = '10px';
-      progress.append(bar);
-      metaEl.replaceChildren(progress, label);
-    }
-    bar.style.width = `${percent}%`;
-    label.textContent = `${current}/${total} • ${percent}%`;
-    metaEl.dataset.progressCurrent = String(current);
-    metaEl.dataset.progressTotal = String(total);
-    metaEl.dataset.progressPercent = String(percent);
-  }
-
-  // FEA-03: file count badge rõ ràng hơn
-  const fileCountEl = document.querySelector<HTMLElement>(`#qfc-${active.id}`);
-  if (fileCountEl) {
-    fileCountEl.textContent = `📥 ${current} / ${total} files · ${percent}%`;
-  }
-}
-
+// loadQueue/renderQueue/updateQueueItemProgress sống ở queue-panel.ts (Pha 8).
+// Wrapper dưới đây thu thập input từ popup state/DOM rồi gọi module đó.
 async function addCurrentToQueue() {
-// @ts-ignore
   if (!currentUsername) return;
   const mediaCount = parseInt(els.badge.textContent) || 0;
-  if (mediaCount === 0) {
-    showToast('Chưa có media — hãy thu thập trước', 'error');
-    return;
-  }
   const skipDuplicates = els.skipCheckbox ? els.skipCheckbox.checked : true;
-  const res: any = await sendBG('ADD_TO_QUEUE', {
+  await queueAddCurrent({
     username: currentUsername,
     filterType: activeFilter,
     skipDuplicates,
-    keyword: filterKeyword,
-  });
-  if (res?.error === 'Already in queue') {
-    showToast(`@${currentUsername} đã trong hàng đợi`, 'info');
-  } else if (res?.ok) {
-    showToast(`✓ Đã thêm @${currentUsername} vào queue`, 'success');
-    // Switch to queue tab
-    document.getElementById('nav-queue')?.click();
-  } else {
-    showToast('Lỗi khi thêm vào queue', 'error');
-  }
-}
-
-// ─── v5.0.3: Donut Chart ──────────────────────────────────────────────────────
-function renderDonutChart() {
-  const arcs = els.donutArcs;
-  const totalEl = els.donutTotalNum;
-  if (!arcs || !totalEl) return;
-
-  const data = [
-    { key: 'image', color: '#1D9BF0', label: 'Images', val: stats.image || 0 },
-    { key: 'video', color: '#a855f7', label: 'Videos', val: (stats.video || 0) + (stats.hls || 0) },
-    { key: 'gif',   color: '#00ba7c', label: 'GIFs',   val: stats.gif || 0 },
-    { key: 'hls',   color: '#ff7a00', label: 'HLS',    val: 0 }, // merged into video
-  ];
-
-  // Merge HLS into video (already done above), show separate HLS legend
-  const hlsOnly = stats.hls || 0;
-  if (els.legendHls) els.legendHls.textContent = hlsOnly;
-
-  const total = (stats.image || 0) + (stats.video || 0) + (stats.gif || 0) + (stats.hls || 0);
-  totalEl.textContent = total > 9999 ? '9k+' : String(total);
-
-  if (els.legendImages) els.legendImages.textContent = stats.image || 0;
-  if (els.legendVideos) els.legendVideos.textContent = (stats.video || 0) + (stats.hls || 0);
-  if (els.legendGifs)   els.legendGifs.textContent   = stats.gif || 0;
-
-  const svgArcs = arcs as unknown as SVGElement;
-
-  if (total === 0) {
-    // P3: Update incremental — chỉ set attribute không dùng innerHTML
-    const existing = Array.from(svgArcs.querySelectorAll<SVGCircleElement>('circle'));
-    if (existing.length === 1 && existing[0].getAttribute('stroke') === 'var(--border)') {
-      // Đã đúng, không cần thay đổi
-    } else {
-      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle') as SVGCircleElement;
-      c.setAttribute('cx', '50'); c.setAttribute('cy', '50'); c.setAttribute('r', '38');
-      c.setAttribute('fill', 'none'); c.setAttribute('stroke', 'var(--border)'); c.setAttribute('stroke-width', '12');
-      arcs.replaceChildren(c);
-    }
-    return;
-  }
-
-  // P3: Draw arcs — reuse các circle node hiện có nếu có thể, chỉ tạo mới khi cần
-  const r = 38;
-  const circ = 2 * Math.PI * r;
-  let offset = 0;
-  const activeSegments = data.filter((d: any) => d.val > 0);
-  const existingCircles = Array.from(svgArcs.querySelectorAll<SVGCircleElement>('circle'));
-
-  // Điều chỉnh số lượng circle với số segment
-  while (existingCircles.length > activeSegments.length) existingCircles.pop()!.remove();
-  while (existingCircles.length < activeSegments.length) {
-    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle') as SVGCircleElement;
-    c.setAttribute('cx', '50'); c.setAttribute('cy', '50'); c.setAttribute('r', String(r));
-    c.setAttribute('fill', 'none'); c.setAttribute('stroke-width', '12');
-    c.style.transition = 'stroke-dasharray 0.5s ease';
-    c.style.transformOrigin = '50% 50%';
-    arcs.appendChild(c);
-    existingCircles.push(c);
-  }
-
-  activeSegments.forEach((seg: any, i: number) => {
-    const frac = seg.val / total;
-    const dash = frac * circ;
-    const gap  = circ - dash;
-    existingCircles[i].setAttribute('stroke', seg.color);
-    existingCircles[i].setAttribute('stroke-dasharray', `${dash.toFixed(2)} ${gap.toFixed(2)}`);
-    existingCircles[i].setAttribute('stroke-dashoffset', `${(-offset * circ / 360).toFixed(2)}`);
-    offset += frac * 360;
+    keyword: getDateRange().keyword,
+    mediaCount,
   });
 }
-
-
-
 
 
 // ─── Session Restore ──────────────────────────────────────────────────────────
@@ -1028,6 +622,7 @@ function setupListeners() {
     setStatus('downloading', preparingTxt, '📦');
     showProgress(true);
 
+    const { dateFrom, dateTo, keyword } = getDateRange();
     await sendBG('START_DOWNLOAD', {
       username: currentUsername,
       options: {
@@ -1036,7 +631,7 @@ function setupListeners() {
         // v4.3.0: Truyền date range vào SW
         dateFrom: dateFrom || undefined,
         dateTo:   dateTo   || undefined,
-        keyword:  filterKeyword || undefined, // v4.8.0
+        keyword:  keyword  || undefined, // v4.8.0
       }
     });
   });
@@ -1248,9 +843,7 @@ function setupListeners() {
 
   // History clear
   els.btnHistClear.addEventListener('click', async () => {
-    downloadHistory = [];
-    await chrome.storage.local.remove('download_history');
-    renderHistory();
+    await clearHistory();
     showToast('Đã xóa lịch sử', 'info');
   });
 }
@@ -1267,7 +860,7 @@ function listenToMessages() {
         if (payload.stats) { stats = payload.stats; updateStatTabs(); }
         updateMediaCount(payload.count);
         // UI-02: Realtime donut khi Stats panel đang mở
-        if (document.getElementById('panel-stats')?.classList.contains('active')) renderDonutChart();
+        if (document.getElementById('panel-stats')?.classList.contains('active')) renderDonutChart(stats);
         break;
 
       // PERF-03: Cảnh báo bộ nhớ khi store > 50k items
@@ -1474,8 +1067,7 @@ function listenToMessages() {
 
       // v5.0.3: Queue updates from SW
       case 'QUEUE_UPDATE':
-        downloadQueue = payload.queue || [];
-        renderQueue();
+        setQueueFromUpdate(payload.queue || []);
         break;
 
       // ─── Feature 0: Following Scroll Progress ──────────────────────────────
@@ -1487,140 +1079,6 @@ function listenToMessages() {
         break;
     }
   });
-}
-
-// ─── Status ───────────────────────────────────────────────────────────────────
-// @ts-ignore
-function setStatus(state: string, text: string, phaseIcon?: string) {
-  if (els.statusText) {
-    els.statusText.replaceChildren();
-    if (phaseIcon) {
-      const iconSpan = document.createElement('span');
-      iconSpan.className = 'status-phase-icon';
-      iconSpan.textContent = phaseIcon;
-      els.statusText.append(iconSpan);
-    }
-    els.statusText.append(document.createTextNode(text));
-  }
-  if (els.statusDot) {
-    els.statusDot.className = 'status-dot ' + (state || '');
-    els.statusDot.setAttribute('aria-label', `Trạng thái: ${state || 'idle'}`);
-  }
-}
-
-// @ts-ignore
-function showProgress(show) {
-  els.progressWrap.style.display = show ? 'flex' : 'none';
-  if (!show) { els.progressFill.style.width = '0%'; els.progressLbl.textContent = '0 / 0'; }
-}
-
-// ─── Toast Queue (UI-03) ─────────────────────────────────────────────────────
-// Tránh nhiều toast override nhau — xếp hàng FIFO
-const _toastQueue: Array<{ msg: string; type: string; duration: number }> = [];
-
-
-// P3: Lịch sử có phân trang — hiện tối đa 50 mục, tránh render 1000+ DOM nodes
-const HISTORY_PAGE_SIZE = 50;
-let _historyShowCount = HISTORY_PAGE_SIZE;
-
-function renderHistory() {
-  _historyShowCount = HISTORY_PAGE_SIZE; // reset về đầu mỗi lần reload
-  _renderHistoryPage();
-}
-
-function _renderHistoryPage() {
-  if (!downloadHistory.length) {
-    const emptyTxt = window.i18n ? window.i18n.t('history_empty') : 'No download history';
-    const empty = document.createElement('li');
-    empty.className = 'history-empty';
-    empty.textContent = emptyTxt;
-    els.historyList.replaceChildren(empty);
-    return;
-  }
-
-  const filterIcons: Record<string, string> = { all: '📦', images: '🖼️', videos: '🎦', gifs: '🎞️' };
-  const visible = (downloadHistory as any[]).slice(0, _historyShowCount);
-  const hasMore = downloadHistory.length > _historyShowCount;
-
-  const fragment = document.createDocumentFragment();
-  visible.forEach((item: any) => {
-    const d = new Date(item.date);
-    const ds = `${d.getDate()}/${d.getMonth()+1} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
-    const icon = filterIcons[item.filter || 'all'] || '📦';
-    const row = document.createElement('li');
-    row.className = 'history-item';
-    row.dataset.username = String(item.username || '').slice(0, 50);
-    for (const [className, text] of [
-      ['history-item-icon', icon], ['history-item-name', `@${row.dataset.username}`],
-      ['history-item-count', String(Number(item.count) || 0)], ['history-item-date', ds],
-    ]) {
-      const part = document.createElement('span');
-      part.className = className;
-      part.textContent = text;
-      row.append(part);
-    }
-    fragment.append(row);
-  });
-
-  // Nút "Xem thêm" để load thêm 50 mục nữa mà không cần rebuild toàn bộ
-  if (hasMore) {
-    const showMoreBtn = document.createElement('li');
-    showMoreBtn.className = 'history-show-more';
-    showMoreBtn.id = 'history-show-more-btn';
-    const btn = document.createElement('button');
-    btn.textContent = `Xem thêm (${downloadHistory.length - _historyShowCount} mục)`;
-    btn.addEventListener('click', () => {
-      _historyShowCount += HISTORY_PAGE_SIZE;
-      _renderHistoryPage();
-    }, { once: true });
-    showMoreBtn.append(btn);
-    fragment.append(showMoreBtn);
-  }
-
-  els.historyList.replaceChildren(fragment);
-
-// @ts-ignore
-  els.historyList.querySelectorAll('.history-item').forEach((el: any) => {
-    el.addEventListener('click', () => setCurrentUser(el.dataset.username));
-  });
-}
-let _toastActive = false;
-let _toastTimer: ReturnType<typeof setTimeout> | null = null;
-
-function showToast(msg: string, type = '', duration?: number) {
-  const dur = duration ?? (type === 'warning' ? 7000 : 3000);
-  _toastQueue.push({ msg, type, duration: dur });
-  if (!_toastActive) _drainToastQueue();
-}
-
-function _drainToastQueue() {
-  if (_toastQueue.length === 0) { _toastActive = false; return; }
-  _toastActive = true;
-  const { msg, type, duration } = _toastQueue.shift()!;
-  els.toast.textContent = msg;
-  els.toast.className = 'toast show ' + type;
-  _toastTimer = setTimeout(() => {
-    els.toast.className = 'toast';
-    // Đợi animation fade out (0.3s) rồi show toast tiếp
-    setTimeout(_drainToastQueue, 350);
-  }, duration);
-}
-
-// ─── History ──────────────────────────────────────────────────────────────────
-async function loadHistory() {
-  const stored: any = await chrome.storage.local.get('download_history').catch(() => ({}));
-  downloadHistory = stored.download_history || [];
-  renderHistory();
-}
-
-// @ts-ignore
-function addToHistory(entry) {
-  downloadHistory.unshift(entry);
-// @ts-ignore
-  if (downloadHistory.length > 20) downloadHistory = downloadHistory.slice(0, 20);
-// @ts-ignore
-  chrome.storage.local.set({ download_history: downloadHistory });
-  renderHistory();
 }
 
 // ─── SEC-03: escapeHtml helper ───────────────────────────────────────────────

@@ -45,14 +45,13 @@ Các nhánh đã verify kỹ và **đúng 100%** với code: message schema 256K
 - Thêm test case mới trong `test/validation.test.ts` (`'normalizes media URLs for dedup and forces video URLs to original quality'`).
 - Kết quả: `npm run check` xanh (16/16 unit test, 2/2 e2e, typecheck/lint/build sạch).
 
-### Pha 8 — Refactor `popup.ts` & `fab.ts` (làm trước tính năng mới, theo lựa chọn của người dùng)
-Tách theo pattern `following-panel.ts` (module nhận `deps` object, không import global của popup):
-- `date-range.ts` (~228-356), `queue-panel.ts` (load/signature/render/progress/add, ~388-559), `donut-chart.ts` (~586-660), `history-panel.ts` (~1526-1590), `status-bar.ts` (~1494-1526), `toast.ts` (~1590-1628).
-- `message-router.ts` (switch `chrome.runtime.onMessage`, ~1259-1493) — rủi ro cao nhất, có thể giữ là dispatcher mỏng gọi vào các module trên.
-- Giữ lại trong popup.ts: DOM ref cache, init sequence, `setupListeners`, profile/tab state, preview panel — gắn chặt lifecycle tổng thể, tách ra không lợi.
-- `fab.ts` tách theo ranh giới comment-banner có sẵn: `css.ts`, `dom-builder.ts`, `drag.ts`, `i18n.ts`, `event-bridge.ts`.
-- Nguyên tắc: **chỉ di chuyển code, không đổi hành vi**; tiện tay dọn `any`/`@ts-ignore` trong đúng phần code bị động tới (không làm 1 pass riêng dọn toàn bộ 340+ chỗ — rủi ro/lợi ích không tương xứng cho 1 lần).
-- Verify: `npm run check` xanh sau mỗi module tách; smoke test thủ công trên Chrome thật (load unpacked, thử popup trên X.com và fab/tg-content trên Telegram Web) vì lỗi runtime do sai wiring module không bị bắt bởi typecheck.
+### Pha 8 — Refactor `popup.ts` & `fab.ts` ✅ HOÀN TẤT
+- `popup.ts`: 1741 → 1199 dòng. Tách 6 module theo pattern `following-panel.ts` (deps object, tự query DOM riêng): `status-bar.ts`, `toast.ts`, `donut-chart.ts`, `history-panel.ts`, `date-range.ts`, `queue-panel.ts`. Giữ nguyên trong popup.ts: DOM ref cache, init sequence, `setupListeners`, `listenToMessages` (message router — giữ nguyên tại popup.ts như phương án dự phòng đã duyệt, chỉ đổi thành gọi vào các module mới), profile/tab state, preview panel.
+- `fab.ts`: 671 dòng (1 IIFE) → entry point 28 dòng + 5 module: `fab-css.ts`, `fab-dom.ts`, `fab-drag.ts`, `fab-i18n.ts`, `fab-events.ts`.
+- Không đổi hành vi — chỉ di chuyển code; dọn 1 biến chết (`_toastTimer` không dùng) khi tách toast.ts.
+- Verify: `npm run check` xanh (typecheck/lint/16 unit test/2 e2e/build 14 entrypoints). Build xác nhận cả `dist/popup/popup.js` và `dist/content/fab.js` bundle đúng, không còn `import`/`export` sót lại (Vite bundle content script thành IIFE như cũ).
+- Playwright browser test (`npm run test:browser`, ngoài phạm vi `npm run check`) fail với timeout chờ Service Worker — đã xác minh lỗi này **có sẵn trước Pha 8** (test lại trên code cũ cho cùng lỗi), là hạn chế môi trường sandbox, không phải regression.
+- **Còn thiếu so với plan gốc**: chưa thực hiện smoke test thủ công trên Chrome thật (X.com + Telegram Web) — môi trường hiện tại không có trình duyệt tương tác để làm; cần người dùng tự xác nhận sau khi build lại extension.
 
 ### Pha 9 — Interactive Download Picker (ưu tiên Cao)
 - Panel mới hiển thị lưới thumbnail từ `MediaItem[]` (đã có trong IndexedDB `media_items`, lấy qua `getMediaItems` sẵn có), mỗi item có checkbox chọn/bỏ.
