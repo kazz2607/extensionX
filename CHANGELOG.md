@@ -4,6 +4,14 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [6.1.7] — 2026-09-17 *(React Router Interception Fix)*
+
+### 🐛 Sửa lỗi
+- Sửa lỗi "Bấm tải xuống nhưng không có phản hồi" trên Telegram Web. Lỗi này xuất hiện ở bản 6.1.6 do trình định tuyến (React Router) của Telegram chặn (intercept) sự kiện click giả lập trên thẻ `<a>` cùng tên miền và hủy bỏ luồng tải file.
+- Đã khắc phục bằng cách chặn nổi bọt sự kiện (`e.stopPropagation()`), giúp trình duyệt tiếp nhận trực tiếp luồng tải xuống mà không bị giao diện của Telegram can thiệp.
+
+---
+
 ## [6.1.6] — 2026-09-17 *(CSP Bypass Fix)*
 
 ### 🐛 Sửa lỗi

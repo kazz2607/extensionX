@@ -676,6 +676,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             const a = document.createElement('a');
             a.href = downloadUrl;
             a.download = downloadFilename;
+            // Stop propagation to prevent Telegram's SPA router from intercepting the click
+            // and calling e.preventDefault() on same-origin URLs.
+            a.addEventListener('click', (e) => e.stopPropagation());
             a.style.display = 'none';
             document.body.appendChild(a);
             a.click();
