@@ -101,6 +101,14 @@ Thứ tự áp dụng: **ổn định dữ liệu + bảo mật → đo đạc �
 
 **Mục tiêu đo được:** giảm callback observer ≥50% trên fixture cuộn dài; popup vẫn thao tác mượt với 1.000 queue/history entries; không tăng heap tuyến tính theo toàn bộ lịch sử dedup.
 
+### Cập nhật triển khai Pha 3 (17-09-2026) ✅ HOÀN TẤT
+
+- **dom-scanner (P3-1)**: Observer thu hẹp về `primaryColumn → main → body` (fallback). Scroll listener debounce 500ms. `Performance.mark/measure` quanh mỗi scan. Expose `__disconnectDOMScanner__()` teardown hook.
+- **content.ts (P3-2)**: Batch `X_MEDIA_FOUND` events trong một `requestAnimationFrame` frame — tránh burst message per-item. SPA navigation gọi teardown scanner cũ rồi re-inject sau 300ms để observer track đúng `primaryColumn` mới.
+- **downloader.ts (P3-3)**: Thay `_lastFabProgressTime` global bằng `Map` per-operationId — nhiều profile song song không còn tranh throttle. `_lastActiveDownloadsUpdateTime` được chuyển ra module scope.
+- **popup.ts (P3-4)**: `renderQueue` tính signature `id+status` — bỏ qua full DOM rebuild khi chỉ progress thay đổi, gọi `updateQueueItemProgress` trực tiếp. `renderHistory` phân trang 50 items với nút "Xem thêm". Donut chart update incremental `SVGCircleElement` attribute thay vì replace `innerHTML`.
+- **CI**: 14/14 unit test xanh, typecheck sạch, build thành công.
+
 ## 7. Pha 4 — UI/UX và các lỗi giao diện (P1, 3–4 ngày)
 
 1. Chuẩn hóa design tokens (màu, spacing, typography, z-index, trạng thái focus/disabled/loading) và component nhỏ: Button, Toggle, Select, Toast, Modal, Progress, Empty/Error state.
