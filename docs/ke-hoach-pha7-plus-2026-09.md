@@ -1,0 +1,101 @@
+# Rà soát toàn bộ Pha + Roadmap triển khai tiếp (Pha 7+)
+
+> Kế hoạch kế tiếp của `ke-hoach-nang-cap-2026-09.md` — rà soát độc lập lại Pha 0-6 và lên roadmap cho backlog kỹ thuật + Phase 5+.
+
+## Context
+
+`docs/ke-hoach-nang-cap-2026-09.md` khai báo Pha 0-4 và Pha 6 là "✅ Hoàn tất". Trước khi lên kế hoạch tiếp, cần xác nhận độc lập rằng code thật khớp với các claim đó (không chỉ tin vào tài liệu), rồi mới thiết kế các pha tiếp theo cho backlog kỹ thuật và 6 tính năng "Phase 5+" đã đề xuất trong tài liệu. Đã chạy 3 Explore agent song song đọc trực tiếp source code để verify, và khảo sát kiến trúc hiện tại (popup.ts, fab.ts, data model, IndexedDB, filename, export) làm cơ sở thiết kế các pha mới.
+
+Người dùng đã chọn: **refactor popup.ts/fab.ts trước khi thêm tính năng mới**, và phiên lên plan này **chưa code**.
+
+---
+
+## Phần 1 — Kết quả rà soát lại toàn bộ Pha
+
+Tất cả claim "Hoàn tất" đều **CONFIRMED bằng code thật** (file:line cụ thể đã được agent trích dẫn), chỉ có 2 điểm lệch nhỏ, không phải lỗi chức năng:
+
+| Pha | Điểm lệch phát hiện | Mức độ | Xử lý |
+|---|---|---|---|
+| Pha 0 | Tài liệu nói có unit test cho "chuẩn hóa media URL" và "dedup" — thực tế **không có test nào** cho `name=orig` rewrite (`messages.ts:104`) hay `normalizeUrlForDedup` (`scraper.ts:496`) | Thiếu test coverage, không phải bug | → Pha 7 dưới đây |
+| Pha 4 | Tài liệu liệt kê "🎞️ Đang ghép HLS stream" như 1 trạng thái riêng — thực tế đó chỉ là biến thể text/icon của state `downloading` (`setStatus`, popup.ts:1401), không phải state thứ 6 độc lập | Sai chữ trong tài liệu, không phải bug | Không cần sửa code; có thể sửa lại mô tả trong doc nếu muốn |
+
+Các nhánh đã verify kỹ và **đúng 100%** với code: message schema 256KB + sender/allowlist check (`shared/messages.ts`, `background/messages.ts`), sanitizeFolder/Filename chống path traversal (`shared/validation.ts:78-102`), toàn bộ `innerHTML=` còn lại đều là template tĩnh (không có dữ liệu động → không phải XSS), state machine `queue-state.ts` (waiting→downloading→{waiting,done,error}, error→waiting, done terminal), `operationId` + `broadcastToTab` theo tab/username, IndexedDB dedup TTL 180 ngày + cap 50.000/profile (đúng như tài liệu ghi "per profile"), HLS AbortController + backoff+jitter + không retry 4xx, `recoverQueueItemAfterRestart`, dom-scanner primaryColumn+debounce+teardown hook, rAF batching, per-operationId throttle map, popup diff-render + pagination 50/trang, design tokens CSS, a11y (role/aria-live/aria-expanded), preview panel, copy-log diagnostics, Telegram manifest + `detectCurrentTab`.
+
+**Kết luận:** nền tảng kỹ thuật Pha 0-6 vững, có thể xây tiếp lên trên mà không cần vá lại gì trước — trừ 1 việc nhỏ (test gap) đưa vào Pha 7.
+
+---
+
+## Phần 2 — Kiến trúc hiện tại làm cơ sở cho các pha mới
+
+- **popup.ts** (1741 dòng) đã có 1 tiền lệ module hoá: `following-panel.ts`, nhận dependency qua object `{ showToast, sendBG }` — đây là pattern để tái sử dụng khi tách tiếp.
+- **Data model**: `QueueItem`/`MediaItem`/`DownloadOptions`/`QueueExportData` tại `src/types.ts`; state machine tại `src/shared/queue-state.ts`.
+- **Resume hiện tại chỉ là requeue**: `recoverQueueItemAfterRestart` reset `downloading`→`waiting`, KHÔNG lưu checkpoint tiến độ; `mediaStore` in-memory mất khi SW restart, phải load lại từ IndexedDB.
+- **IndexedDB** (`indexeddb.ts`) chỉ có 2 store: `media_items`, `downloaded_urls` (TTL+LRU). Không có store nào cho preset/recipe. Settings hiện là 1 blob toàn cục (`chrome.storage.sync['options']`) — không theo profile.
+- **Filename**: `buildFilename`/`buildDownloadPath` (`downloader.ts:663-697`) là pattern cứng `[username_]<tweetId|mediaKey>_<rand5>.<ext>`, chưa có template token.
+- **fab.ts** (671 dòng): 1 IIFE, chưa module hoá, nhưng giao tiếp với `content.ts` hoàn toàn qua CustomEvent (`XMD_FAB_ACTION`/`XMD_FAB_UPDATE`) — tách module rủi ro thấp vì đã lỏng khớp (loosely coupled) sẵn.
+- **Export hiện có**: 4 cơ chế tách rời (CSV media hiện tại, JSON queue, JSON settings, JSON diagnostics) — **download history (`download_history`, cap 20) chưa có export nào**.
+
+---
+
+## Phần 3 — Roadmap các pha tiếp theo
+
+### Pha 7 — Đóng lỗ hổng test coverage (làm trước, rẻ, không rủi ro)
+- Thêm test trong `test/validation.test.ts`:
+  - Case cho URL normalization (`name=orig` rewrite logic trong `messages.ts:104`).
+  - Case cho `normalizeUrlForDedup` (`scraper.ts:496`).
+- Deliverable: `npm run check` xanh, 2 test case mới, không đổi hành vi.
+
+### Pha 8 — Refactor `popup.ts` & `fab.ts` (làm trước tính năng mới, theo lựa chọn của người dùng)
+Tách theo pattern `following-panel.ts` (module nhận `deps` object, không import global của popup):
+- `date-range.ts` (~228-356), `queue-panel.ts` (load/signature/render/progress/add, ~388-559), `donut-chart.ts` (~586-660), `history-panel.ts` (~1526-1590), `status-bar.ts` (~1494-1526), `toast.ts` (~1590-1628).
+- `message-router.ts` (switch `chrome.runtime.onMessage`, ~1259-1493) — rủi ro cao nhất, có thể giữ là dispatcher mỏng gọi vào các module trên.
+- Giữ lại trong popup.ts: DOM ref cache, init sequence, `setupListeners`, profile/tab state, preview panel — gắn chặt lifecycle tổng thể, tách ra không lợi.
+- `fab.ts` tách theo ranh giới comment-banner có sẵn: `css.ts`, `dom-builder.ts`, `drag.ts`, `i18n.ts`, `event-bridge.ts`.
+- Nguyên tắc: **chỉ di chuyển code, không đổi hành vi**; tiện tay dọn `any`/`@ts-ignore` trong đúng phần code bị động tới (không làm 1 pass riêng dọn toàn bộ 340+ chỗ — rủi ro/lợi ích không tương xứng cho 1 lần).
+- Verify: `npm run check` xanh sau mỗi module tách; smoke test thủ công trên Chrome thật (load unpacked, thử popup trên X.com và fab/tg-content trên Telegram Web) vì lỗi runtime do sai wiring module không bị bắt bởi typecheck.
+
+### Pha 9 — Interactive Download Picker (ưu tiên Cao)
+- Panel mới hiển thị lưới thumbnail từ `MediaItem[]` (đã có trong IndexedDB `media_items`, lấy qua `getMediaItems` sẵn có), mỗi item có checkbox chọn/bỏ.
+- Nút "Tải các mục đã chọn" → xây `DownloadOptions` với danh sách id/url được chọn, tái dùng `startDownload()` hiện có (chỉ cần thêm bộ lọc theo allowlist id trong downloader.ts).
+- Tái dùng UI pattern của `download-preview` panel (popup.ts ~932-992) cho đếm số lượng/cảnh báo.
+- Nằm trong module mới `download-picker.ts` (tạo sau khi Pha 8 xong cấu trúc).
+
+### Pha 10 — Resume đáng tin cậy (ưu tiên Cao)
+- Không tạo cơ chế checkpoint mới từ đầu — tái dùng store `downloaded_urls` (đã có TTL/LRU) làm nguồn "đã xong" khi resume.
+- Khi `startNextInQueue` chạy lại sau SW restart, đảm bảo LUÔN so khớp với `downloaded_urls` cho username đó để bỏ qua item đã tải, không chỉ khi `skipDuplicates` được bật.
+- Cần rà kỹ tương tác `queue.ts` ↔ `downloader.ts` ở đường resume để xác nhận không bỏ sót state nào.
+
+### Pha 11 — Download Recipe/Preset theo profile (ưu tiên Cao)
+- Lưu trữ mới: key `preset_${username}` trong `chrome.storage.local` (hoặc store IndexedDB riêng nếu cần nhiều preset/profile), schema = snapshot `DownloadOptions` con (filterType, skipDuplicates, saveFolder, flatUsername, filenameUsername, dateFrom/dateTo, keyword).
+- UI: nút "Lưu preset"/"Nạp preset" cạnh bộ lọc hiện có, module mới `presets.ts`.
+
+### Pha 12 — Quản lý hàng đợi nâng cao: pause/reorder/retry (ưu tiên Trung bình)
+- "Retry": đã có sẵn transition `error→waiting` — chỉ cần nút UI gọi `transitionQueueItem`.
+- "Pause": thêm cờ `paused` trên item, KHÔNG thêm state mới vào state machine (tránh phá hợp đồng `transitionQueueItem` đang được assert nhiều nơi) — `startNextInQueue` bỏ qua item có cờ này.
+- "Reorder": thêm drag-and-drop trong `queue-panel.ts` (đã tách ở Pha 8), backed bởi thao tác splice mảng + `persistQueue` hiện có.
+
+### Pha 13 — Template đặt tên file linh hoạt (ưu tiên Trung bình)
+- Thay `buildFilename`/`buildDownloadPath` cứng bằng hàm thay token: `{username} {tweetId} {date} {type} {ext} {index}`.
+- **Bắt buộc**: kết quả cuối cùng luôn phải đi qua `sanitizeFilenameStr`/`sanitizeFolderPath` hiện có làm bước cuối, để giữ nguyên đảm bảo chống path traversal của Pha 1 — không cho template bỏ qua sanitizer.
+- UI nhập template + preview realtime trong options.ts.
+
+### Pha 14 — Xuất Manifest JSON/CSV nâng cao (ưu tiên Trung bình)
+- Gộp `downloadHistory` (hiện chưa có export nào) + metadata giữ trong `downloaded_urls` (mediaKey/tweetDate/username/url) thành 1 manifest, theo đúng format versioned JSON đã dùng cho `exportQueue`/`exportSettings` (`{ _version, _exportedAt, ... }`).
+
+### Pha 15 — Watch mode theo profile (ưu tiên Thấp — để sau, lập plan riêng)
+- Tài liệu gốc đã đánh dấu "Thấp" và cần thiết kế kỹ rate-limit + consent UX để tránh bị X.com coi là bot. Không đi sâu ở đây; nên lập plan riêng sau khi Pha 9-14 xong.
+
+### Ghi chú backlog không đưa vào pha riêng
+- **Dọn `any`/`@ts-ignore`** (340+ `@ts-ignore`, ~90 chỗ `any`): không làm big-bang pass. Chính sách: không thêm mới (đã có rule trong CLAUDE.md), dọn dần theo file mỗi khi pha nào đó chạm tới.
+- **Bảo trì dependency định kỳ**: việc vận hành thủ công, ngoài phạm vi 1 pha code.
+
+---
+
+## Phần 4 — Thứ tự thực hiện & tiêu chí hoàn tất mỗi pha
+
+**Pha 7 → Pha 8 → Pha 9 → Pha 10 → Pha 11 → Pha 12 → Pha 13 → Pha 14** (Pha 15 lập plan riêng sau).
+
+Mỗi pha coi là xong khi:
+1. `npm run check` (typecheck + lint + test + e2e + build) xanh.
+2. Có unit test mới cho logic mới thêm (theo pattern `test/validation.test.ts` hiện có) — riêng Pha 8 (refactor thuần) thêm bước smoke test thủ công trên Chrome thật (X.com + Telegram Web) vì đây là thay đổi cấu trúc module, rủi ro runtime không bị bắt bởi typecheck/unit test.
+3. Cập nhật `docs/ke-hoach-nang-cap-2026-09.md` (bảng tiến độ + lộ trình phát hành) sau khi mỗi pha hoàn tất, giữ tài liệu đồng bộ với code — đúng nguyên tắc dự án đã theo từ Pha 0-6.
