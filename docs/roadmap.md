@@ -1,11 +1,11 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-09-17 | Phiên bản hiện tại: **6.1.4**
+> Cập nhật: 2026-09-17 | Phiên bản hiện tại: **6.1.5**
 
 ---
 
-## 1. Kiến Trúc Hiện Tại (v6.1.4)
+## 1. Kiến Trúc Hiện Tại (v6.1.5)
 
 ```text
 extensionX/
@@ -13,7 +13,7 @@ extensionX/
 ├── tsconfig.json                  # Cấu hình TypeScript (strict: true)
 ├── vite.config.ts                 # Cấu hình Vite bundler
 ├── src/
-│   ├── manifest.json              # Chrome Extension Manifest V3 (version 6.1.4)
+│   ├── manifest.json              # Chrome Extension Manifest V3 (version 6.1.5)
 │   ├── background/
 │   │   ├── service-worker.ts      # Service Worker: core logic, queue, date filter
 │   │   ├── tweet-api.ts           # Fallback API & User Session bypass CORS
@@ -146,7 +146,7 @@ File được lưu vào:
 - **v5.5.0** Global Keyboard Shortcuts: 5 phím tắt tiện ích hoạt động trên mọi trang web (`Ctrl+C`, `Ctrl+S`, v.v.), settings UI, tự trích xuất permalink tweet trên X.com
 - **v5.5.1** Bug Fixes: Cải thiện logic bắt sự kiện hover vào ảnh bằng cách theo dõi tọa độ `mousemove` và `document.elementsFromPoint(x, y)`, giúp hoạt động hoàn hảo trên mọi web có DOM layer phức tạp.
 - **v6.1.0** Telegram Web Integration: chèn nút tải trực tiếp trên ảnh/video của Telegram Web A/K.
-- **v6.1.4** Telegram Reliability: xử lý `blob:`/`data:` trong tab nguồn, giữ đúng định dạng file, xác thực sender và bổ sung regression tests.
+- **v6.1.5** Telegram Reliability: xử lý `blob:`/`data:` trong tab nguồn, giữ đúng định dạng file, xác thực sender và bổ sung regression tests.
 
 ---
 
@@ -181,7 +181,7 @@ File được lưu vào:
 | v5.0.5 | **Queue Fix & Auto-Save** — Sửa triệt để lỗi Queue đứng khi sleep, thêm cơ chế Auto-save cho options page |
 | v5.0.4 | **UI Fixes & Version Sync** — Sửa viền trắng popup dark mode, đồng bộ lại toàn bộ version cũ trong code và docs |
 | v6.1.0 | **Telegram Web Integration** — Tải trực tiếp ảnh/video từ giao diện Telegram Web A/K |
-| v6.1.4 | **Telegram Reliability** — Sửa tải `blob:`/`data:`, phần mở rộng file, phản hồi UI và xác thực nguồn message |
+| v6.1.5 | **Telegram Reliability** — Sửa tải `blob:`/`data:`, phần mở rộng file, phản hồi UI và xác thực nguồn message |
 
 ---
 
@@ -563,7 +563,7 @@ v5.7.4  ── Instant Stop Controls, TweetDetail GraphQL Schema & Syndication T
 v5.7.5  ── Duplicate Detection & History Fixes, UI Controls & TypeScript Hardening       ✅ DONE
 v6.0.0  ── Performance, security, UI/accessibility quality phases                         ✅ DONE
 v6.1.0  ── Telegram Web Integration                                                       ✅ DONE
-v6.1.4  ── Telegram Media Download Reliability                                            ✅ DONE
+v6.1.5  ── Telegram Media Download Reliability                                            ✅ DONE
 
 [TIẾP THEO]
 v6.2.0  ── Product features: download picker, reliable resume, queue reordering

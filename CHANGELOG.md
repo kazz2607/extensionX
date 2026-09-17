@@ -4,6 +4,14 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [6.1.5] — 2026-09-17 *(Telegram Service Worker Stream Fix)*
+
+### 🐛 Sửa lỗi
+- Khắc phục lỗi tải video báo "Lỗi máy chủ không xác định" trên trình duyệt. Lỗi này xảy ra do video có URL dạng `https://web.telegram.org/k/stream/...` bị trình quản lý tải xuống của trình duyệt (Download Manager) gọi trực tiếp đến máy chủ thay vì thông qua Service Worker.
+- Giải pháp: Định tuyến toàn bộ các link media cùng nguồn (Same-Origin) qua tính năng tải trực tiếp trên trang (Main World Click) để Service Worker của Telegram có thể can thiệp và giải mã luồng video thành công.
+
+---
+
 ## [6.1.4] — 2026-09-17 *(Viewer Button Fix)*
 
 ### 🐛 Sửa lỗi

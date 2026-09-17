@@ -1,8 +1,8 @@
 # Đề xuất tính năng mới cho ExtensionX
 
-> **Phiên bản hiện tại:** 6.1.4 | **Cập nhật:** 2026-09-17
+> **Phiên bản hiện tại:** 6.1.5 | **Cập nhật:** 2026-09-17
 
-Dựa trên phiên bản hiện tại (v6.1.4), đã hỗ trợ tải media từ X.com và Telegram Web, dưới đây là các ý tưởng mở rộng có thể cân nhắc cho những bản tiếp theo:
+Dựa trên phiên bản hiện tại (v6.1.5), đã hỗ trợ tải media từ X.com và Telegram Web, dưới đây là các ý tưởng mở rộng có thể cân nhắc cho những bản tiếp theo:
 
 ## 1. Bulk Download (Tải hàng loạt thông minh)
 - **Mô tả:** Thêm một nút trên giao diện Popup cho phép "Quét toàn bộ ảnh trên trang web hiện tại".

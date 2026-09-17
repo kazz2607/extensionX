@@ -102,7 +102,8 @@ async function handleDownloadClick(event: MouseEvent, mediaElement: HTMLElement,
     const filename = telegramMediaFilename(kind, url, mimeType);
     console.log('[ExtensionX] Downloading Telegram media:', url.slice(0, 120));
 
-    if (url.startsWith('blob:') || url.startsWith('data:')) {
+    const isSameOrigin = url.startsWith('blob:') || url.startsWith('data:') || url.startsWith(window.location.origin);
+    if (isSameOrigin) {
       downloadInPage(url, filename);
     } else {
       const message: ExtensionMessage = {
