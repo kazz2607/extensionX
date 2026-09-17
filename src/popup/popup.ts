@@ -367,6 +367,14 @@ async function loadQueue() {
   renderQueue();
 }
 
+// P3: Cache chữ ký queue — tránh rebuild toàn bộ DOM nếu chỉ progress thay đổi
+let _lastQueueSignature = '';
+
+function getQueueSignature(queue: any[]): string {
+  // Signature = id+status của từng item; không bao gồm progress để progress update không trigger rebuild
+  return queue.map((q: any) => `${q.id}:${q.status}`).join('|');
+}
+
 function renderQueue() {
   const list = els.queueList;
   if (!list) return;
@@ -388,6 +396,21 @@ function renderQueue() {
   if (els.navQueueBadge) {
     els.navQueueBadge.textContent = waitingCount;
     els.navQueueBadge.style.display = waitingCount > 0 ? 'flex' : 'none';
+  }
+
+  // P3: Kiểm tra signature — bỏ qua full rebuild nếu chỉ progress thay đổi
+  const sig = getQueueSignature(downloadQueue as any[]);
+  const needsRebuild = sig !== _lastQueueSignature;
+  _lastQueueSignature = sig;
+
+  if (!needsRebuild) {
+    // Chỉ cập nhật progress của item đang tải
+    const activeItem = (downloadQueue as any[]).find((q: any) => q.status === 'downloading');
+    if (activeItem) {
+      const savedProgress = queueProgressById.get(activeItem.id);
+      if (savedProgress) updateQueueItemProgress(savedProgress);
+    }
+    return;
   }
 
   if (downloadQueue.length === 0) {
@@ -559,32 +582,55 @@ function renderDonutChart() {
   if (els.legendVideos) els.legendVideos.textContent = (stats.video || 0) + (stats.hls || 0);
   if (els.legendGifs)   els.legendGifs.textContent   = stats.gif || 0;
 
+  const svgArcs = arcs as unknown as SVGElement;
+
   if (total === 0) {
-    arcs.innerHTML = `<circle cx="50" cy="50" r="38" fill="none" stroke="var(--border)" stroke-width="12"/>`;
+    // P3: Update incremental — chỉ set attribute không dùng innerHTML
+    const existing = Array.from(svgArcs.querySelectorAll<SVGCircleElement>('circle'));
+    if (existing.length === 1 && existing[0].getAttribute('stroke') === 'var(--border)') {
+      // Đã đúng, không cần thay đổi
+    } else {
+      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle') as SVGCircleElement;
+      c.setAttribute('cx', '50'); c.setAttribute('cy', '50'); c.setAttribute('r', '38');
+      c.setAttribute('fill', 'none'); c.setAttribute('stroke', 'var(--border)'); c.setAttribute('stroke-width', '12');
+      arcs.replaceChildren(c);
+    }
     return;
   }
 
-  // Draw arcs
+  // P3: Draw arcs — reuse các circle node hiện có nếu có thể, chỉ tạo mới khi cần
   const r = 38;
   const circ = 2 * Math.PI * r;
   let offset = 0;
-  const segments = data.filter(d => d.val > 0);
+  const activeSegments = data.filter((d: any) => d.val > 0);
+  const existingCircles = Array.from(svgArcs.querySelectorAll<SVGCircleElement>('circle'));
 
-  arcs.innerHTML = segments.map(seg => {
+  // Điều chỉnh số lượng circle với số segment
+  while (existingCircles.length > activeSegments.length) existingCircles.pop()!.remove();
+  while (existingCircles.length < activeSegments.length) {
+    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle') as SVGCircleElement;
+    c.setAttribute('cx', '50'); c.setAttribute('cy', '50'); c.setAttribute('r', String(r));
+    c.setAttribute('fill', 'none'); c.setAttribute('stroke-width', '12');
+    c.style.transition = 'stroke-dasharray 0.5s ease';
+    c.style.transformOrigin = '50% 50%';
+    arcs.appendChild(c);
+    existingCircles.push(c);
+  }
+
+  activeSegments.forEach((seg: any, i: number) => {
     const frac = seg.val / total;
     const dash = frac * circ;
     const gap  = circ - dash;
-    const el = `<circle
-      cx="50" cy="50" r="${r}" fill="none"
-      stroke="${seg.color}" stroke-width="12"
-      stroke-dasharray="${dash.toFixed(2)} ${gap.toFixed(2)}"
-      stroke-dashoffset="${(-offset * circ / 360).toFixed(2)}"
-      style="transition: stroke-dasharray 0.5s ease; transform-origin: 50% 50%;"
-    />`;
+    existingCircles[i].setAttribute('stroke', seg.color);
+    existingCircles[i].setAttribute('stroke-dasharray', `${dash.toFixed(2)} ${gap.toFixed(2)}`);
+    existingCircles[i].setAttribute('stroke-dashoffset', `${(-offset * circ / 360).toFixed(2)}`);
     offset += frac * 360;
-    return el;
-  }).join('');
+  });
 }
+
+
+
+
 
 // ─── Session Restore ──────────────────────────────────────────────────────────
 async function checkSavedSession() {
@@ -1349,6 +1395,73 @@ function showProgress(show) {
 // ─── Toast Queue (UI-03) ─────────────────────────────────────────────────────
 // Tránh nhiều toast override nhau — xếp hàng FIFO
 const _toastQueue: Array<{ msg: string; type: string; duration: number }> = [];
+
+
+// P3: Lịch sử có phân trang — hiện tối đa 50 mục, tránh render 1000+ DOM nodes
+const HISTORY_PAGE_SIZE = 50;
+let _historyShowCount = HISTORY_PAGE_SIZE;
+
+function renderHistory() {
+  _historyShowCount = HISTORY_PAGE_SIZE; // reset về đầu mỗi lần reload
+  _renderHistoryPage();
+}
+
+function _renderHistoryPage() {
+  if (!downloadHistory.length) {
+    const emptyTxt = window.i18n ? window.i18n.t('history_empty') : 'No download history';
+    const empty = document.createElement('li');
+    empty.className = 'history-empty';
+    empty.textContent = emptyTxt;
+    els.historyList.replaceChildren(empty);
+    return;
+  }
+
+  const filterIcons: Record<string, string> = { all: '📦', images: '🖼️', videos: '🎦', gifs: '🎞️' };
+  const visible = (downloadHistory as any[]).slice(0, _historyShowCount);
+  const hasMore = downloadHistory.length > _historyShowCount;
+
+  const fragment = document.createDocumentFragment();
+  visible.forEach((item: any) => {
+    const d = new Date(item.date);
+    const ds = `${d.getDate()}/${d.getMonth()+1} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const icon = filterIcons[item.filter || 'all'] || '📦';
+    const row = document.createElement('li');
+    row.className = 'history-item';
+    row.dataset.username = String(item.username || '').slice(0, 50);
+    for (const [className, text] of [
+      ['history-item-icon', icon], ['history-item-name', `@${row.dataset.username}`],
+      ['history-item-count', String(Number(item.count) || 0)], ['history-item-date', ds],
+    ]) {
+      const part = document.createElement('span');
+      part.className = className;
+      part.textContent = text;
+      row.append(part);
+    }
+    fragment.append(row);
+  });
+
+  // Nút "Xem thêm" để load thêm 50 mục nữa mà không cần rebuild toàn bộ
+  if (hasMore) {
+    const showMoreBtn = document.createElement('li');
+    showMoreBtn.className = 'history-show-more';
+    showMoreBtn.id = 'history-show-more-btn';
+    const btn = document.createElement('button');
+    btn.textContent = `Xem thêm (${downloadHistory.length - _historyShowCount} mục)`;
+    btn.addEventListener('click', () => {
+      _historyShowCount += HISTORY_PAGE_SIZE;
+      _renderHistoryPage();
+    }, { once: true });
+    showMoreBtn.append(btn);
+    fragment.append(showMoreBtn);
+  }
+
+  els.historyList.replaceChildren(fragment);
+
+// @ts-ignore
+  els.historyList.querySelectorAll('.history-item').forEach((el: any) => {
+    el.addEventListener('click', () => setCurrentUser(el.dataset.username));
+  });
+}
 let _toastActive = false;
 let _toastTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -1400,44 +1513,6 @@ function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;');
 }
 
-function renderHistory() {
-  if (!downloadHistory.length) {
-    const emptyTxt = window.i18n ? window.i18n.t('history_empty') : 'No download history';
-    const empty = document.createElement('li');
-    empty.className = 'history-empty';
-    empty.textContent = emptyTxt;
-    els.historyList.replaceChildren(empty);
-    return;
-  }
-
-  const filterIcons: Record<string, string> = { all: '📦', images: '🖼️', videos: '🎬', gifs: '🎞️' };
-
-  const fragment = document.createDocumentFragment();
-  (downloadHistory as any[]).forEach(item => {
-    const d = new Date(item.date);
-    const ds = `${d.getDate()}/${d.getMonth()+1} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
-    const icon = filterIcons[item.filter || 'all'] || '📦';
-    const row = document.createElement('li');
-    row.className = 'history-item';
-    row.dataset.username = String(item.username || '').slice(0, 50);
-    for (const [className, text] of [
-      ['history-item-icon', icon], ['history-item-name', `@${row.dataset.username}`],
-      ['history-item-count', String(Number(item.count) || 0)], ['history-item-date', ds],
-    ]) {
-      const part = document.createElement('span');
-      part.className = className;
-      part.textContent = text;
-      row.append(part);
-    }
-    fragment.append(row);
-  });
-  els.historyList.replaceChildren(fragment);
-
-// @ts-ignore
-  els.historyList.querySelectorAll('.history-item').forEach((el: any) => {
-    el.addEventListener('click', () => setCurrentUser(el.dataset.username));
-  });
-}
 
 // ─── Folder Display ───────────────────────────────────────────────────────────
 // @ts-ignore

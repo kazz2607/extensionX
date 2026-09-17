@@ -186,28 +186,48 @@ function validateMediaItem(item) {
   return true;
 }
 
+// ─── P3: Batch MEDIA_FOUND — gom items trong một rAF frame trước khi gửi SW ─
+// Tránh burst nhiều small message khi DOM scanner hoặc page-interceptor emit
+// nhiều event liên tiếp trong cùng một scroll event / GraphQL response.
+let _mediaBatch: any[] = [];
+let _mediaBatchRaf: number | null = null;
+
+function flushMediaBatch() {
+  _mediaBatchRaf = null;
+  if (!_mediaBatch.length) return;
+  const batch = _mediaBatch;
+  _mediaBatch = [];
+
+  const username = getUsernameFromURL();
+  if (!username) return;
+
+  const validItems = batch.filter(validateMediaItem);
+  if (!validItems.length) return;
+
+  safeSendMessage({
+    type: 'MEDIA_FOUND',
+    payload: {
+      username,
+      mediaItems: validItems,
+      sourceUrl: 'batched',
+      pageUrl: location.href,
+    }
+  }).catch(() => {});
+}
+
 window.addEventListener('X_MEDIA_FOUND', (event) => {
 // @ts-ignore
-  const { mediaItems, sourceUrl } = event.detail;
+  const { mediaItems } = event.detail;
   if (!mediaItems?.length) return;
 
   const username = getUsernameFromURL();
   // Bỏ qua nếu không xác định được username (trang Home, Explore...)
   if (!username) return;
 
-  // S2: Lọc items không hợp lệ trước khi gửi lên SW — chặn injection từ page context
-  const validItems = mediaItems.filter(validateMediaItem);
-  if (!validItems.length) return;
-
-  safeSendMessage({
-    type: 'MEDIA_FOUND',
-    payload: {
-      username: username || 'unknown',
-      mediaItems: validItems,
-      sourceUrl,
-      pageUrl: location.href,
-    }
-  }).catch(() => {});
+  _mediaBatch.push(...mediaItems);
+  if (_mediaBatchRaf === null) {
+    _mediaBatchRaf = requestAnimationFrame(flushMediaBatch);
+  }
 });
 
 const ALLOWED_DIAGNOSTIC_METRICS = new Set(['scan.duration_ms', 'observer.callback']);
@@ -472,6 +492,22 @@ function reportNavigation() {
       handleContextInvalidated();
       return;
     }
+
+    // P3: Khi SPA navigate sang route mới — teardown scanner cũ rồi re-inject
+    // để MutationObserver track đúng primaryColumn của route mới.
+    try {
+// @ts-ignore
+      if (typeof window.__disconnectDOMScanner__ === 'function') {
+// @ts-ignore
+        window.__disconnectDOMScanner__();
+      }
+    } catch (_) {}
+    // Re-inject dom-scanner sau một microtask để X.com kịp swap DOM
+    setTimeout(() => {
+// @ts-ignore
+      injectScript('content/dom-scanner.js');
+    }, 300);
+
     const username = getUsernameFromURL();
     if (username) {
       const match = document.cookie.match(/(?:^|;\s*)ct0=([^;]*)/);

@@ -13,8 +13,10 @@ import { transitionQueueItem } from '../shared/queue-state.ts';
 const KEEPALIVE_ALARM = 'sw-keepalive';
 const DOWNLOAD_TIMEOUT_MS = 90_000; // BUG-1 FIX: 90 giây timeout mỗi file
 
-// UI-05: FAB progress throttle (2s giữa các lần broadcast)
-let _lastFabProgressTime = 0;
+// UI-05: FAB progress throttle — per-operation (keyed by operationId) thay vì global
+// để tránh nhiều profile cùng lúc tranh nhau throttle chung.
+const _fabProgressTimeByOp = new Map<string, number>();
+
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === KEEPALIVE_ALARM) {
@@ -31,7 +33,8 @@ function stopKeepAlive() {
   chrome.alarms.clear(KEEPALIVE_ALARM);
 }
 
-let _lastProgressTime = 0;
+// Global throttle cho ACTIVE_DOWNLOADS_UPDATE overlay (không per-operation)
+const _lastActiveDownloadsUpdateTime = { t: 0 };
 // Đăng ký listener theo dõi từng download
 chrome.downloads.onChanged.addListener((delta) => {
   const tracked = activeDownloads.get(delta.id);
@@ -60,9 +63,11 @@ chrome.downloads.onChanged.addListener((delta) => {
   if (d.bytesReceived && d.bytesReceived.current !== undefined) tracked.bytesReceived = d.bytesReceived.current;
   if (d.totalBytes && d.totalBytes.current !== undefined) tracked.totalBytes = d.totalBytes.current;
 
-  // v4.4.0: Throttled broadcast (max 2 lần/s)
-  if (Date.now() - _lastProgressTime > 500 && activeDownloads.size > 0) {
-    _lastProgressTime = Date.now();
+  // v4.4.0: Throttled broadcast (max 2 lần/s) — chung cho active-downloads overlay
+  // Đây là global vì chỉ phục vụ ACTIVE_DOWNLOADS_UPDATE (danh sách file đang tải),
+  // không phải DOWNLOAD_PROGRESS per-operation.
+  if (Date.now() - _lastActiveDownloadsUpdateTime.t > 500 && activeDownloads.size > 0) {
+    _lastActiveDownloadsUpdateTime.t = Date.now();
     const activeList = Array.from(activeDownloads.values()).map(d => {
       const elapsed = (Date.now() - d.startTime) / 1000 || 1;
       return {
@@ -449,10 +454,11 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
       done: success + failed === total,
     });
 
-    // UI-05: FAB mini progress (throttle 2s để tránh quá nhiều messages)
+    // UI-05: FAB mini progress — throttle per-operation (2s) để tránh quá nhiều messages
     const nowFab = Date.now();
-    if (nowFab - _lastFabProgressTime > 2000 || success + failed === total) {
-      _lastFabProgressTime = nowFab;
+    const lastFab = _fabProgressTimeByOp.get(operationId) || 0;
+    if (nowFab - lastFab > 2000 || success + failed === total) {
+      _fabProgressTimeByOp.set(operationId, nowFab);
       broadcastToTab(username, 'FAB_UPDATE', {
         state: 'DOWNLOAD_PROGRESS',
         percent: Math.round(((success + failed) / total) * 100),
@@ -513,6 +519,7 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
     downloadState.inProgress = false;
     _activeDownloadOperationId = null;
     stopKeepAlive(); // BUG-2 FIX: Tắt keep-alive khi xong
+    _fabProgressTimeByOp.delete(operationId); // P3: dọn per-operation throttle state
     // UI-01: Truyền errors array để popup có thể hiện chi tiết lỗi
     broadcastToPopup('DOWNLOAD_DONE', { username, success, failed, total, skipped, errors: activeErrors.slice(0, 20) });
     // v4.1.0: Hiện system notification

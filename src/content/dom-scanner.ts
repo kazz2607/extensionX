@@ -4,8 +4,11 @@
  * Quét DOM tìm img/video elements khi GraphQL intercept không bắt được
  *
  * Kích hoạt khi:
- *   - Người dùng cuộn trang
+ *   - Người dùng cuộn trang (debounce 500ms)
  *   - MutationObserver phát hiện DOM thay đổi (tweet mới render)
+ *
+ * P3: Observer chỉ observe primaryColumn (thu hẹp subtree), scroll debounced,
+ *     teardown hook cho SPA navigation, Performance.mark/measure quanh scan.
  */
 
 (function () {
@@ -46,6 +49,9 @@
   // `root` is a newly-added subtree for observer work. A full-document scan is
   // retained only for initial load and the explicit scroll fallback.
   function scanDOM(root: ParentNode = document) {
+    // P3: Performance mark để diagnostic và benchmark
+    const markName = `xmd-scan-${Date.now()}`;
+    performance.mark(`${markName}-start`);
     const startedAt = performance.now();
 // @ts-ignore
     const found = [];
@@ -172,6 +178,10 @@
       }));
     }
 
+    // P3: Measure + emit diagnostic (allowlisted metric only)
+    performance.mark(`${markName}-end`);
+    try { performance.measure(`xmd-scan`, `${markName}-start`, `${markName}-end`); } catch (_) {}
+
     // Aggregated performance data only. The isolated content script validates
     // this allowlisted metric before it can reach extension storage.
     window.dispatchEvent(new CustomEvent('XMD_DIAGNOSTIC_METRIC', {
@@ -209,9 +219,20 @@
   }
 
 
+  // ─── P3: Scroll debounce — quét lại document khi user cuộn ───────────────
+  let _scrollTimer: ReturnType<typeof setTimeout> | null = null;
+  function onScroll() {
+    if (_scrollTimer) return;
+    _scrollTimer = setTimeout(() => {
+      _scrollTimer = null;
+      scanDOM(document);
+    }, 500);
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+
   // ─── MutationObserver: quét khi DOM thay đổi ───────────────────────────────
 // @ts-ignore
-  let scanTimeout;
+  let scanTimeout: ReturnType<typeof setTimeout> | null = null;
   const pendingRoots = new Set<Element>();
   const observer = new MutationObserver((mutations) => {
     window.dispatchEvent(new CustomEvent('XMD_DIAGNOSTIC_METRIC', {
@@ -229,9 +250,9 @@
     }
 
     if (pendingRoots.size > 0) {
-// @ts-ignore
-      clearTimeout(scanTimeout);
+      if (scanTimeout) clearTimeout(scanTimeout);
       scanTimeout = setTimeout(() => {
+        scanTimeout = null;
         const roots = Array.from(pendingRoots);
         pendingRoots.clear();
         roots.forEach(root => scanDOM(root));
@@ -239,17 +260,37 @@
     }
   });
 
-  // An toàn: chờ document.body sẵn sàng
-  function startObserver() {
-    if (document.body) {
-      observer.observe(document.body, { childList: true, subtree: true });
-    } else {
-      document.addEventListener('DOMContentLoaded', () => {
-        observer.observe(document.body, { childList: true, subtree: true });
-      }, { once: true });
-    }
+  // P3: Observe subtree thu hẹp — ưu tiên primaryColumn để giảm callback CPU.
+  // Fallback về document.body nếu X.com chưa render primaryColumn.
+  function getObserveRoot(): Element {
+    return document.querySelector('[data-testid="primaryColumn"]') ||
+           document.querySelector('main') ||
+           document.body;
   }
-  startObserver();
+
+  function startObserver() {
+    const root = getObserveRoot();
+    observer.observe(root, { childList: true, subtree: true });
+  }
+
+  // An toàn: chờ document.body sẵn sàng
+  if (document.body) {
+    startObserver();
+  } else {
+    document.addEventListener('DOMContentLoaded', startObserver, { once: true });
+  }
+
+  // ─── P3: Teardown hook — content.ts gọi khi SPA navigate sang route khác ──
+  // Disconnect observer + scroll listener, reset flag để re-inject sạch.
+// @ts-ignore
+  window.__disconnectDOMScanner__ = function () {
+    observer.disconnect();
+    window.removeEventListener('scroll', onScroll);
+    if (scanTimeout) { clearTimeout(scanTimeout); scanTimeout = null; }
+    if (_scrollTimer) { clearTimeout(_scrollTimer); _scrollTimer = null; }
+// @ts-ignore
+    window.__X_DOM_SCANNER_LOADED__ = false;
+  };
 
   // Scan ngay lần đầu sau khi trang render
   setTimeout(scanDOM, 2000);
