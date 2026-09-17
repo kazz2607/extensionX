@@ -348,7 +348,10 @@ export function applyI18nToDOM(root: Document | HTMLElement = document): void {
           el.appendChild(document.createTextNode(text));
         }
       } else {
-        el.innerHTML = text;
+        // Locale strings are rendered as text. This preserves the translation
+        // behavior while preventing a compromised/custom locale from becoming
+        // an HTML injection sink.
+        el.textContent = text;
       }
     }
   });

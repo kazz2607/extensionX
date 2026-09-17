@@ -4,6 +4,9 @@ import { broadcastToPopup, broadcastToTab, sanitizeFolder, broadcastFABState } f
 import { showDownloadNotification, fetchVideoForTweetWithRefresh, loadDownloadedUrls, isAlreadyDownloaded, markDownloaded, ensureMediaStoreLoaded } from './scraper.ts';
 import { startNextInQueue, profileQueue, persistQueue, broadcastQueueUpdate } from './queue.ts';
 import { DownloadOptions, MediaItem } from '../types.ts';
+import { isTrustedMediaUrl, sanitizeFilename } from '../shared/validation.ts';
+import { formatDownloadError } from '../shared/download-errors.ts';
+import { recordDiagnostic } from './diagnostics.ts';
 
 // ─── BUG-2 FIX: Keep-alive alarm để SW không bị Chrome terminate ───────────────
 const KEEPALIVE_ALARM = 'sw-keepalive';
@@ -62,6 +65,7 @@ chrome.downloads.onChanged.addListener((delta) => {
     const activeList = Array.from(activeDownloads.values()).map(d => {
       const elapsed = (Date.now() - d.startTime) / 1000 || 1;
       return {
+        username: d.username,
         filename: d.filename,
         bytesReceived: d.bytesReceived,
         totalBytes: d.totalBytes,
@@ -70,12 +74,16 @@ chrome.downloads.onChanged.addListener((delta) => {
     });
     // Send info to Popup & Snackbar
     broadcastToPopup('ACTIVE_DOWNLOADS_UPDATE', activeList);
-    // Snackbar (lấy username từ tab hiện tại bằng cách hack logic hoặc gửi cho tất cả tab)
-    // Tạm thời truyền cho tất cả tab có state đang collecting
-    tabState.forEach((state, tabId) => {
-      if (state.isCollecting) {
-        chrome.tabs.sendMessage(tabId, { type: 'SNACKBAR_UPDATE', payload: { type: 'ACTIVE_DOWNLOADS_UPDATE', activeList } }).catch(() => {});
-      }
+    // Keep per-profile progress isolated: a download for @a must never update
+    // the snackbar of a tab collecting @b.
+    const byUsername = new Map<string, typeof activeList>();
+    for (const item of activeList) {
+      const list = byUsername.get(item.username) || [];
+      list.push(item);
+      byUsername.set(item.username, list);
+    }
+    byUsername.forEach((items, username) => {
+      broadcastToTab(username, 'SNACKBAR_UPDATE', { type: 'ACTIVE_DOWNLOADS_UPDATE', activeList: items });
     });
   }
 });
@@ -86,8 +94,29 @@ let activeErrors: string[] = []; // Mảng chứa chi tiết lỗi
 // Tránh gọi chrome.runtime.getContexts() (async I/O) mỗi file HLS.
 // Flag reset về false khi SW restart (module scope bị khởi tạo lại).
 let _offscreenReady = false;
+let _offscreenCloseTimer: ReturnType<typeof setTimeout> | null = null;
+const OFFSCREEN_IDLE_CLOSE_MS = 30_000;
+
+function scheduleOffscreenClose() {
+  if (_offscreenCloseTimer) clearTimeout(_offscreenCloseTimer);
+  _offscreenCloseTimer = setTimeout(async () => {
+    _offscreenCloseTimer = null;
+    if (pendingHlsRequests.size > 0 || !_offscreenReady) return;
+    try {
+      await chrome.offscreen.closeDocument();
+      _offscreenReady = false;
+    } catch (_) {
+      // The document may already be closed after a service-worker restart.
+      _offscreenReady = false;
+    }
+  }, OFFSCREEN_IDLE_CLOSE_MS);
+}
 
 async function ensureOffscreen() {
+  if (_offscreenCloseTimer) {
+    clearTimeout(_offscreenCloseTimer);
+    _offscreenCloseTimer = null;
+  }
   if (_offscreenReady) return; // PERF-02: skip I/O nếu đã biết offscreen đang chạy
   try {
     if (chrome.runtime.getContexts) {
@@ -117,7 +146,8 @@ async function downloadSingleItem(
   item: MediaItem,
   username: string,
   saveFolder: string,
-  opts: Pick<DownloadOptions, 'flatUsername' | 'filenameUsername'> = {}
+  opts: Pick<DownloadOptions, 'flatUsername' | 'filenameUsername'> = {},
+  isCancelled: () => boolean = () => false,
 ) {
   const { flatUsername = false, filenameUsername = false } = opts;
   let filename = buildDownloadPath(saveFolder, username, item, flatUsername, filenameUsername);
@@ -134,6 +164,7 @@ async function downloadSingleItem(
       const HLS_TIMEOUT = 5 * 60 * 1000;
       const timeoutId = setTimeout(() => {
         pendingHlsRequests.delete(requestId);
+        chrome.runtime.sendMessage({ target: 'offscreen', type: 'CANCEL_HLS', requestId }).catch(() => {});
         reject(new Error('HLS download timeout (5 min)'));
       }, HLS_TIMEOUT);
       pendingHlsRequests.set(requestId, { resolve, reject, timeoutId });
@@ -149,10 +180,12 @@ async function downloadSingleItem(
         pendingHlsRequests.delete(requestId);
         reject(err);
       });
-    });
-    await downloadFile((res as { dataUrl: string }).dataUrl, filename);
+    }).finally(scheduleOffscreenClose);
+    if (isCancelled()) throw new Error('Download cancelled');
+    await downloadFile((res as { dataUrl: string }).dataUrl, filename, username);
   } else {
-    await downloadFile(item.url, filename);
+    if (isCancelled()) throw new Error('Download cancelled');
+    await downloadFile(item.url, filename, username);
   }
 
   return filename;
@@ -263,6 +296,7 @@ async function handleDownloadTweet(tweetId: string, username: string | undefined
 // UI-01: Lưu last download context để Retry dùng lại
 let _lastDownloadUsername = '';
 let _lastDownloadOptions: DownloadOptions = {};
+let _activeDownloadOperationId: string | null = null;
 
 // Bug 2: Stop download flag — workers kiểm tra trước mỗi file
 let _stopRequested = false;
@@ -278,6 +312,8 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
     return;
   }
   downloadState.inProgress = true;
+  const operationId = crypto.randomUUID();
+  _activeDownloadOperationId = operationId;
   activeErrors = [];
   _stopRequested = false; // reset khi bắt đầu download mới
   _lastDownloadUsername = username;
@@ -336,6 +372,7 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
 
   if (!items.length) {
     downloadState.inProgress = false;
+    if (_activeDownloadOperationId === operationId) _activeDownloadOperationId = null;
     stopKeepAlive();
     // Thông báo nếu tất cả đã được tải rồi
     if (skipped > 0) {
@@ -367,17 +404,25 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
       filename = await downloadSingleItem(item, username, saveFolder, {
         flatUsername: opts.flatUsername,
         filenameUsername,
-      });
+      }, () => _activeDownloadOperationId !== operationId || _stopRequested);
+
+      // Stop/retry can start a new operation while an old Chrome download is
+      // resolving. Never let the old callback mutate the new session.
+      if (_activeDownloadOperationId !== operationId) return;
 
       success++;
       // v4.1.0: Đánh dấu đã tải xong
       markDownloaded(username, item.url);
     } catch (err: unknown) {
+      if (_activeDownloadOperationId !== operationId) return;
       const errMsg = err instanceof Error ? err.message : String(err);
       failed++;
-      activeErrors.push(errMsg);
+      activeErrors.push(formatDownloadError(err));
+      void recordDiagnostic(item.type === 'hls' ? 'hls.failed' : 'download.failed');
       console.warn('[SW] Download failed:', item?.url, errMsg);
     }
+
+    if (_activeDownloadOperationId !== operationId) return;
 
     broadcastToPopup('DOWNLOAD_PROGRESS', {
       username,
@@ -443,7 +488,7 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
           const errMsg = err instanceof Error ? err.message : String(err);
           if (errMsg.startsWith('Batch timeout')) {
             failed++;
-            activeErrors.push(errMsg);
+            activeErrors.push(formatDownloadError(err));
             console.warn('[SW] Batch-level timeout:', errMsg);
             broadcastToPopup('DOWNLOAD_PROGRESS', {
               username, current: success + failed, total, success, failed,
@@ -463,7 +508,9 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
   } catch (err: unknown) {
     console.error('[SW] Critical download error:', err);
   } finally {
+    if (_activeDownloadOperationId !== operationId) return;
     downloadState.inProgress = false;
+    _activeDownloadOperationId = null;
     stopKeepAlive(); // BUG-2 FIX: Tắt keep-alive khi xong
     // UI-01: Truyền errors array để popup có thể hiện chi tiết lỗi
     broadcastToPopup('DOWNLOAD_DONE', { username, success, failed, total, skipped, errors: activeErrors.slice(0, 20) });
@@ -524,7 +571,10 @@ function maybeWarnIdm() {
 // BUG-1 FIX: Thêm timeout 90s — Promise không bao giờ treo vĩnh viễn
 // BUG-7 FIX: Guard chống double-resolve bằng `settled` flag
 // IDM FIX: Detect IDM hijack → resolve thay vì reject để không báo lỗi sai
-function downloadFile(url: string, filename: string): Promise<number> {
+function downloadFile(url: string, filename: string, username: string): Promise<number> {
+  if (!url.startsWith('data:') && !isTrustedMediaUrl(url)) {
+    return Promise.reject(new Error('Blocked untrusted download URL'));
+  }
   return new Promise((resolve, reject) => {
     let settled = false;
     const startTime = Date.now();
@@ -570,6 +620,7 @@ function downloadFile(url: string, filename: string): Promise<number> {
           filename: filename.split('/').pop() || '',
           bytesReceived: 0,
           totalBytes: 0,
+          username,
         });
 
         // BUG-7 FIX: Race condition check — nếu download đã xong trước khi addListener kịp
@@ -623,15 +674,7 @@ function buildDownloadPath(
 }
 
 // S4: Sanitize tên file — loại bỏ ký tự không hợp lệ trên Windows/macOS
-function sanitizeFilenameStr(name: string): string {
-  if (!name) return 'file';
-  return name
-    .replace(/[\x00-\x1f\x7f]/g, '')      // control chars
-    .replace(/[<>:"/\\|?*]/g, '_')         // Windows invalid chars
-    .replace(/^[\s.]+|[\s.]+$/g, '')       // leading/trailing dots & spaces
-    .slice(0, 200)
-    || 'file';
-}
+function sanitizeFilenameStr(name: string): string { return sanitizeFilename(name); }
 
 function buildFilename(item: MediaItem, username = '', filenameUsername = false): string {
   const base = item.tweetId || item.mediaKey || `media_${Date.now()}`;
@@ -686,15 +729,30 @@ function retryLastDownload(): boolean {
 // Bug 2: Dừng download đang chạy — hủy ngay và giải phóng downloadState
 function stopDownload(): boolean {
   _stopRequested = true;
+  _activeDownloadOperationId = null;
   console.log('[SW] ⏹ stopDownload: yêu cầu dừng ngay lập tức');
 
   // Hủy các downloads đang chạy dở trong Chrome
   activeDownloads.forEach((tracked, downloadId) => {
+    // Settle the worker immediately. Removing the map entry alone would make
+    // the onChanged event invisible and leave its Promise waiting for timeout.
+    tracked.reject(new Error('Download cancelled'));
     chrome.downloads.cancel(downloadId, () => {
       const _ = chrome.runtime.lastError;
     });
   });
   activeDownloads.clear();
+
+  // HLS is assembled offscreen and does not have a Chrome download id yet.
+  // Rejecting pending waiters prevents a late HLS result from starting a file
+  // after the user has pressed Stop.
+  pendingHlsRequests.forEach((pending, requestId) => {
+    clearTimeout(pending.timeoutId);
+    pending.reject(new Error('Download cancelled'));
+    pendingHlsRequests.delete(requestId);
+    chrome.runtime.sendMessage({ target: 'offscreen', type: 'CANCEL_HLS', requestId }).catch(() => {});
+  });
+  scheduleOffscreenClose();
 
   downloadState.inProgress = false;
   stopKeepAlive();

@@ -9,7 +9,13 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build"
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/shared test",
+    "test": "node --test test/*.test.ts",
+    "test:e2e": "node --test test/e2e/fixture-regression.test.ts",
+    "test:browser": "npm run build && node --test test/e2e/chrome-extension.test.ts",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run test:e2e && npm run build"
   },
   "repository": {
     "type": "git",
@@ -24,8 +30,12 @@
   },
   "homepage": "https://github.com/kazz2607/extensionX#readme",
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
     "@types/chrome": "^0.1.42",
+    "eslint": "^10.10.0",
     "typescript": "^6.0.3",
+    "typescript-eslint": "^8.70.0",
     "vite": "^8.0.16",
     "vite-plugin-web-extension": "^4.5.1"
   }

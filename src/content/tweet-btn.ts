@@ -340,8 +340,10 @@
   });
 
   // ─── Theo dõi SPA navigation: scan lại khi URL thay đổi ─────────────────────
+  // Do not observe the full document merely to detect a route change: timeline
+  // updates are much more frequent than History API transitions.
   let lastPath = location.pathname;
-  const navObserver = new MutationObserver(() => {
+  function handleNavigation() {
     if (location.pathname !== lastPath) {
       lastPath = location.pathname;
       // Clear map khi navigate (tweet IDs cũ không còn trên DOM)
@@ -350,7 +352,15 @@
       setTimeout(scanArticles, 1500);
       setTimeout(scanArticles, 3000);
     }
-  });
-  navObserver.observe(document, { subtree: true, childList: true });
+  }
+  window.addEventListener('popstate', handleNavigation);
+  for (const method of ['pushState', 'replaceState'] as const) {
+    const original = history[method];
+    history[method] = function (...args: Parameters<typeof original>) {
+      const result = original.apply(this, args);
+      queueMicrotask(handleNavigation);
+      return result;
+    };
+  }
 
 })();

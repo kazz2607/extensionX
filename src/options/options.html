@@ -748,6 +748,27 @@
         <button class="btn-data btn-data--danger" id="btn-clear-all-downloaded">🗑️ Xóa toàn bộ lịch sử</button>
       </div>
 
+      <div class="option-row">
+        <div class="option-label">
+          <strong>📊 Diagnostic cục bộ (opt-in)</strong>
+          <span>Chỉ lưu số liệu tổng hợp trên máy này để chẩn đoán lỗi; không gửi dữ liệu qua mạng, không lưu URL, username hoặc token.</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="opt-local-diagnostics" />
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+
+      <div class="option-row">
+        <div class="option-label">
+          <strong>🧾 Xuất diagnostic cục bộ</strong>
+          <span>Xuất JSON đã redaction để so sánh hiệu năng/lỗi giữa các phiên.</span>
+        </div>
+        <button class="btn-data" id="btn-export-diagnostics">🧾 Xuất</button>
+        <button class="btn-data btn-data--danger" id="btn-clear-diagnostics">Xóa</button>
+      </div>
+
     </div>
   </div>
 

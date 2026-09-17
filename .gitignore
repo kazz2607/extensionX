@@ -2,3 +2,4 @@ node_modules/
 dist/
 .env
 x-media-downloader-*.zip
+.DS_Store

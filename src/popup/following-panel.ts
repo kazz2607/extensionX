@@ -178,27 +178,52 @@ export function followingRenderResults(
   if (titleEl) { titleEl.textContent = `Oldest Following (${total})`; }
 
   const shown = users.slice(0, 50);
-  listEl.innerHTML = shown.map((u, i) => {
+  listEl.replaceChildren();
+  shown.forEach((u, i) => {
     const isParody = u.bio?.includes('Tài khoản giễu nhại');
-    return `
-    <li class="cleanup-user-item${isParody ? ' is-parody' : ''}">
-      <span class="cleanup-user-rank${i < 3 ? ' top3' : ''}">#${i + 1}</span>
-      <div class="cleanup-user-info">
-        <div class="cleanup-user-name">
-          ${u.displayName || u.username}
-          ${isParody ? '<span class="parody-badge">🎭 Giễu nhại</span>' : ''}
-        </div>
-        <div class="cleanup-user-handle">@${u.username}</div>
-        ${u.bio ? `<div class="cleanup-user-bio">${u.bio.slice(0, 80)}${u.bio.length > 80 ? '…' : ''}</div>` : ''}
-      </div>
-      <a class="cleanup-user-link" href="https://x.com/${u.username}" target="_blank" title="Open profile">↗</a>
-    </li>
-  `}).join('');
+    const item = document.createElement('li');
+    item.className = `cleanup-user-item${isParody ? ' is-parody' : ''}`;
+    const rank = document.createElement('span');
+    rank.className = `cleanup-user-rank${i < 3 ? ' top3' : ''}`;
+    rank.textContent = `#${i + 1}`;
+    const info = document.createElement('div');
+    info.className = 'cleanup-user-info';
+    const name = document.createElement('div');
+    name.className = 'cleanup-user-name';
+    name.textContent = u.displayName || u.username;
+    if (isParody) {
+      const badge = document.createElement('span');
+      badge.className = 'parody-badge';
+      badge.textContent = '🎭 Giễu nhại';
+      name.append(' ', badge);
+    }
+    const handle = document.createElement('div');
+    handle.className = 'cleanup-user-handle';
+    handle.textContent = `@${u.username}`;
+    info.append(name, handle);
+    if (u.bio) {
+      const bio = document.createElement('div');
+      bio.className = 'cleanup-user-bio';
+      bio.textContent = `${u.bio.slice(0, 80)}${u.bio.length > 80 ? '…' : ''}`;
+      info.append(bio);
+    }
+    const link = document.createElement('a');
+    link.className = 'cleanup-user-link';
+    link.href = `https://x.com/${encodeURIComponent(u.username)}`;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.title = 'Open profile';
+    link.textContent = '↗';
+    item.append(rank, info, link);
+    listEl.append(item);
+  });
 
   if (total > 50) {
-    listEl.innerHTML += `<li class="cleanup-user-item" style="justify-content:center;color:var(--text-muted);font-size:11px">
-      ...and ${total - 50} more — export CSV to see all
-    </li>`;
+    const more = document.createElement('li');
+    more.className = 'cleanup-user-item';
+    more.style.cssText = 'justify-content:center;color:var(--text-muted);font-size:11px';
+    more.textContent = `...and ${total - 50} more — export CSV to see all`;
+    listEl.append(more);
   }
 
   showToast?.(`✓ Done! ${total} following (oldest first)`, 'success');

@@ -3,6 +3,7 @@ import { getMediaItems } from './indexeddb.ts';
 import { startDownload } from './downloader.ts';
 import { broadcastToPopup } from './utils.ts';
 import { QueueItem, QueueExportData } from '../types.ts';
+import { parseQueueItems } from '../shared/validation.ts';
 
 export let profileQueue: QueueItem[] = [];
 export function setProfileQueue(q: QueueItem[]) { profileQueue = q; }
@@ -97,16 +98,13 @@ function exportQueue(): QueueExportData {
   };
 }
 
-function importQueue(items: QueueItem[]): { added: number; skipped: number } {
-  const validStatuses: QueueItem['status'][] = ['waiting', 'downloading', 'done', 'error'];
+function importQueue(items: unknown): { added: number; skipped: number; error?: string } {
+  const parsedItems = parseQueueItems(items);
+  if (!parsedItems) return { added: 0, skipped: 0, error: 'Invalid queue data' };
   let added = 0;
   let skipped = 0;
 
-  for (const item of items) {
-    if (!item.id || !item.username || !validStatuses.includes(item.status)) {
-      skipped++;
-      continue;
-    }
+  for (const item of parsedItems) {
     // Bỏ qua items đã done/error — không cần re-import
     if (item.status === 'done' || item.status === 'error') {
       skipped++;

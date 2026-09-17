@@ -1,4 +1,5 @@
 import { tabState, downloadState, mediaStore } from './state.ts';
+import { sanitizeFolderPath } from '../shared/validation.ts';
 
 // ─── FAB Helpers ──────────────────────────────────────────────────────────────
 async function updateFAB(tabId: number | undefined, username: string, scrollCount?: number) {
@@ -83,17 +84,6 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 
-function sanitizeFolder(folder: string) {
-  // SEC-01: Split theo '/' để lọc từng segment — chặn path traversal kiểu '../../evil'
-  return folder
-    .split('/')
-    .map(seg => seg
-      .replace(/[<>:"|?*\\]/g, '_')
-      .replace(/^\.+$/, '_')         // block '..' và '.' segment thuần túy
-      .trim()
-    )
-    .filter(Boolean)
-    .join('/');
-}
+function sanitizeFolder(folder: string) { return sanitizeFolderPath(folder); }
 
 export { broadcastToPopup, broadcastToTab, updateBadge, updateFAB, broadcastFABState, sanitizeFolder, sleep, waitForTabLoad };

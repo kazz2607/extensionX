@@ -1,0 +1,10 @@
+{
+  "operation": "TweetDetail",
+  "data": {
+    "media": [
+      { "type": "image", "url": "https://pbs.twimg.com/media/example.jpg?name=orig", "tweetId": "1850000000000000000", "width": 1600, "height": 900 },
+      { "type": "video", "url": "https://video.twimg.com/ext_tw_video/example.mp4", "tweetId": "1850000000000000000", "ext": "mp4" },
+      { "type": "image", "url": "https://pbs.twimg.com/profile_images/avatar.jpg", "tweetId": "1850000000000000001", "width": 400, "height": 400 }
+    ]
+  }
+}

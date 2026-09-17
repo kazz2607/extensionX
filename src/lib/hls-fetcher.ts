@@ -12,9 +12,15 @@
  * @returns {Promise<Blob>}
  */
 // @ts-ignore
-export async function fetchHLS(m3u8Url, onProgress) {
+export async function fetchHLS(
+  m3u8Url: string,
+  onProgress?: (fetched: number, total: number) => void,
+  options: { signal?: AbortSignal } = {},
+) {
+  const signal = options.signal;
+  throwIfAborted(signal);
   // 1. Fetch file playlist .m3u8
-  const playlistText = await fetchText(m3u8Url);
+  const playlistText = await fetchText(m3u8Url, signal);
   if (!playlistText) throw new Error('Cannot fetch HLS playlist');
 
   // 2. Parse — có thể là master playlist hoặc media playlist
@@ -25,7 +31,7 @@ export async function fetchHLS(m3u8Url, onProgress) {
     const mediaPlaylistUrl = extractBestStream(playlistText, baseUrl);
     // BUG-6 FIX: Guard null — nếu không tìm thấy stream hợp lệ thì throw rõ ràng
     if (!mediaPlaylistUrl) throw new Error('No valid HLS stream found in master playlist');
-    return fetchHLS(mediaPlaylistUrl, onProgress); // Đệ quy lấy media playlist
+    return fetchHLS(mediaPlaylistUrl, onProgress, { signal }); // Đệ quy lấy media playlist
   }
 
   // 3. Parse media playlist — lấy danh sách TS segments
@@ -43,19 +49,13 @@ export async function fetchHLS(m3u8Url, onProgress) {
       batch.map(async (segUrl, batchIdx) => {
         const idx = i + batchIdx;
         try {
-          const res = await fetch(segUrl, { credentials: 'include', cache: 'no-store' });
-          if (!res.ok) throw new Error(`Segment HTTP ${res.status}`);
+          const res = await fetchWithRetry(segUrl, signal);
           const buf = await res.arrayBuffer();
+          throwIfAborted(signal);
           fetched++;
           onProgress?.(fetched, segments.length);
           return { idx, buf };
-        } catch (err) {
-// @ts-ignore
-          console.warn('[HLS] Failed segment:', segUrl, err.message);
-          fetched++;
-          onProgress?.(fetched, segments.length);
-          return { idx, buf: null };
-        }
+        } catch (err) { throw err; }
       })
     );
 
@@ -66,7 +66,7 @@ export async function fetchHLS(m3u8Url, onProgress) {
 
   // 5. Concatenate tất cả ArrayBuffer thành một Blob
   const validBuffers = blobs.filter(Boolean);
-  if (!validBuffers.length) throw new Error('All HLS segments failed');
+  if (validBuffers.length !== segments.length) throw new Error('HLS segment download incomplete');
 
   const totalSize = validBuffers.reduce((s, b) => s + b.byteLength, 0);
   const combined = new Uint8Array(totalSize);
@@ -82,14 +82,48 @@ export async function fetchHLS(m3u8Url, onProgress) {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 // @ts-ignore
-async function fetchText(url) {
+async function fetchText(url: string, signal?: AbortSignal) {
   try {
-    const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
+    const res = await fetchWithRetry(url, signal);
     if (!res.ok) return null;
     return res.text();
   } catch {
     return null;
   }
+}
+
+// Network responses can be transient on X's video CDN. Retry only bounded
+// network/5xx failures and let AbortController end both a retry wait and fetch.
+async function fetchWithRetry(url: string, signal?: AbortSignal, maxAttempts = 3): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    throwIfAborted(signal);
+    try {
+      const response = await fetch(url, { credentials: 'include', cache: 'no-store', signal });
+      if (response.ok) return response;
+      if (response.status >= 400 && response.status < 500) throw new Error(`Segment HTTP ${response.status}`);
+      lastError = new Error(`Segment HTTP ${response.status}`);
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      if (error instanceof Error && /^Segment HTTP 4\d\d$/.test(error.message)) throw error;
+      lastError = error;
+    }
+    if (attempt < maxAttempts - 1) await abortableDelay(300 * (2 ** attempt) + Math.floor(Math.random() * 150), signal);
+  }
+  throw lastError || new Error('HLS request failed');
+}
+
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) throw new DOMException('Download cancelled', 'AbortError');
+}
+
+function abortableDelay(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(done, ms);
+    function done() { signal?.removeEventListener('abort', aborted); resolve(); }
+    function aborted() { clearTimeout(timer); reject(new DOMException('Download cancelled', 'AbortError')); }
+    if (signal) signal.addEventListener('abort', aborted, { once: true });
+  });
 }
 
 /**

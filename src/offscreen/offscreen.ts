@@ -17,10 +17,13 @@ function blobToDataUrl(blob) {
 // Giải pháp: queue + drain, kết quả trả về qua sendMessage ngược lại SW.
 const HLS_MAX_PARALLEL = 2;
 const hlsQueue = [];
+const hlsTasks = new Map();
 let hlsRunning = 0;
 
 function enqueueHLS(requestId, url, username) {
-  hlsQueue.push({ requestId, url, username });
+  const task = { requestId, url, username, controller: new AbortController() };
+  hlsTasks.set(requestId, task);
+  hlsQueue.push(task);
   drainHLSQueue();
 }
 
@@ -29,21 +32,23 @@ function drainHLSQueue() {
     const task = hlsQueue.shift();
     hlsRunning++;
     processHLSTask(task).finally(() => {
+      hlsTasks.delete(task.requestId);
       hlsRunning--;
       drainHLSQueue(); // Kéo task tiếp theo khi slot trống
     });
   }
 }
 
-async function processHLSTask({ requestId, url, username }) {
+async function processHLSTask({ requestId, url, username, controller }) {
   try {
     const blob = await fetchHLS(url, (fetched, total) => {
       chrome.runtime.sendMessage({
         type: 'HLS_PROGRESS',
         payload: { username, fetched, total, requestId }
       }).catch(() => {});
-    });
+    }, { signal: controller.signal });
 
+    if (controller.signal.aborted) throw new DOMException('Download cancelled', 'AbortError');
     const dataUrl = await blobToDataUrl(blob);
 
     chrome.runtime.sendMessage({
@@ -55,20 +60,34 @@ async function processHLSTask({ requestId, url, username }) {
     chrome.runtime.sendMessage({
       type: 'HLS_DONE',
       requestId,
-      error: err.message,
+      error: err instanceof Error ? err.message : 'HLS download failed',
     }).catch(() => {});
   }
 }
 
 // ─── Message Listener ─────────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.target !== 'offscreen') return false;
+  if (sender.id !== chrome.runtime.id || msg.target !== 'offscreen') return false;
 
   if (msg.type === 'DOWNLOAD_HLS') {
     // Đẩy vào queue (không await, không block listener)
     enqueueHLS(msg.requestId, msg.url, msg.username);
     // Xác nhận đã nhận để SW không bị timeout message
     sendResponse({ queued: true });
+    return false;
+  }
+
+  if (msg.type === 'CANCEL_HLS') {
+    const task = hlsTasks.get(msg.requestId);
+    if (task) {
+      task.controller.abort();
+      const queuedIndex = hlsQueue.indexOf(task);
+      if (queuedIndex >= 0) {
+        hlsQueue.splice(queuedIndex, 1);
+        hlsTasks.delete(msg.requestId);
+      }
+    }
+    sendResponse({ cancelled: Boolean(task) });
     return false;
   }
 

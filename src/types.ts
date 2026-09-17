@@ -67,6 +67,8 @@ export interface CollectState {
   scrollCount: number;
   reachedEnd?: boolean;
   ct0?: string;
+  operationId?: string;
+  phase?: import('./shared/collect-state.ts').CollectPhase;
 }
 
 export interface DownloadState {
@@ -86,6 +88,7 @@ export interface ActiveDownload {
   filename: string;
   bytesReceived: number;
   totalBytes: number;
+  username: string;
 }
 
 export interface ShortcutAction {
@@ -118,6 +121,8 @@ export interface Options {
   adaptiveScroll?: boolean;
   maxMedia?: number;
   enableBookmarks?: boolean;
+  /** Opt-in only. Aggregated local metrics are never sent over the network. */
+  localDiagnostics?: boolean;
   mediaTypes?: {
     images?: boolean;
     videos?: boolean;
@@ -163,4 +168,3 @@ export interface FollowingScrollState {
   reachedEnd: boolean;
   users: FollowingUserEntry[];
 }
-

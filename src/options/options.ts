@@ -26,6 +26,7 @@ const DEFAULT_OPTIONS = {
   showNotification: true,                      // System notification khi tải xong (v4.1.0)
   enableBookmarks: true,                       // Cho phép quét trang Bookmarks (v5.4.0)
   enableFollowingScanner: true,                // Following Scanner tab (v5.7.1)
+  localDiagnostics: false,                     // Opt-in local-only metrics
   shortcuts: {                                   // Keyboard Shortcuts (v5.5.0)
     enabled: false,                              // Mặc định TẮT — user phải bật chủ động
     showToast: true,
@@ -89,6 +90,7 @@ async function loadOptions() {
   document.getElementById('opt-enable-bookmarks').checked = opts.enableBookmarks ?? true;
 // @ts-ignore
   (document.getElementById('opt-enable-following-scanner') as HTMLInputElement).checked = opts.enableFollowingScanner ?? true;
+  (document.getElementById('opt-local-diagnostics') as HTMLInputElement).checked = opts.localDiagnostics ?? false;
 
   // Keyboard Shortcuts (v5.5.0)
   const sc = opts.shortcuts || DEFAULT_OPTIONS.shortcuts;
@@ -169,6 +171,7 @@ async function saveOptions() {
 // @ts-ignore
     enableBookmarks:  document.getElementById('opt-enable-bookmarks').checked,
     enableFollowingScanner: (document.getElementById('opt-enable-following-scanner') as HTMLInputElement)?.checked ?? true,
+    localDiagnostics: (document.getElementById('opt-local-diagnostics') as HTMLInputElement)?.checked ?? false,
     // FEAT-08: Smart Auto-Stop
     autoStop: (document.getElementById('opt-auto-stop') as HTMLInputElement)?.checked ?? false,
     autoStopAfter: parseInt((document.getElementById('opt-auto-stop-after') as HTMLInputElement)?.value) || 10,
@@ -211,10 +214,19 @@ function updateConcurrencyLabel(val) {
 
 // @ts-ignore
 function sanitizeFolder(str) {
+  if (typeof str !== 'string') return '';
   return str
-    .replace(/[<>:"|?*\\]/g, '_')
-    .replace(/^\/+|\/+$/g, '')
-    .trim();
+    .split(/[\\/]+/)
+    .map(segment => segment
+      .replace(/[\x00-\x1f\x7f]/g, '')
+      .replace(/[<>:"|?*\\/]/g, '_')
+      .replace(/^\.+$/, '_')
+      .trim()
+      .slice(0, 100)
+    )
+    .filter(Boolean)
+    .slice(0, 10)
+    .join('/');
 }
 
 // FEAT-08: Toggle auto-stop-after row state
@@ -251,18 +263,26 @@ function updateFolderPreview() {
   const clean = sanitizeFolder(folder);
   const parts = clean ? ['Downloads', clean, '[username]'] : ['Downloads', '[username]'];
 
-  let html = '📂 ' + parts.map((p, i) => {
-    const color = p === '[username]' ? 'var(--accent)' : p === 'Downloads' ? '#888' : 'var(--green)';
-    return `<span style="color:${color}">${p}</span>`;
-  }).join(' / ');
-
+  if (!preview) return;
+  const fragment = document.createDocumentFragment();
+  fragment.append('📂 ');
+  const addPart = (part: string, color: string) => {
+    const span = document.createElement('span');
+    span.style.color = color;
+    span.textContent = part;
+    fragment.append(span);
+  };
+  parts.forEach((part, index) => {
+    if (index > 0) fragment.append(' / ');
+    addPart(part, part === '[username]' ? 'var(--accent)' : part === 'Downloads' ? '#888' : 'var(--green)');
+  });
   if (!isFlat) {
-    html += ' / <span style="color:#888">images</span>';
+    fragment.append(' / ');
+    addPart('images', '#888');
   }
-  html += ' / <span style="color:#555">photo.jpg</span>';
-
-// @ts-ignore
-  preview.innerHTML = html;
+  fragment.append(' / ');
+  addPart('photo.jpg', '#555');
+  preview.replaceChildren(fragment);
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
@@ -392,6 +412,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('import-file-input')?.addEventListener('change', importSettings);
   document.getElementById('btn-reset')?.addEventListener('click', resetSettings);
   document.getElementById('btn-clear-all-downloaded')?.addEventListener('click', clearAllDownloadedHistory);
+  document.getElementById('btn-export-diagnostics')?.addEventListener('click', exportLocalDiagnostics);
+  document.getElementById('btn-clear-diagnostics')?.addEventListener('click', clearLocalDiagnostics);
 });
 
 // ─── Theme ─────────────────────────────────────────────────────────────────
@@ -534,6 +556,33 @@ async function clearAllDownloadedHistory() {
   } catch (err: any) {
     console.error('[Options] clearAllDownloadedHistory error:', err);
     alert('Lỗi: ' + err.message);
+  }
+}
+
+async function exportLocalDiagnostics() {
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'EXPORT_LOCAL_DIAGNOSTICS' });
+    const diagnostics = response?.diagnostics;
+    if (!diagnostics) throw new Error('Không đọc được diagnostic');
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const dataUrl = `data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(diagnostics, null, 2))}`;
+    await chrome.downloads.download({ url: dataUrl, filename: `extensionx_diagnostics_${dateStr}.json`, saveAs: false });
+    showSaveStatus('✓ Đã xuất diagnostic cục bộ');
+  } catch (err: any) {
+    console.error('[Options] exportLocalDiagnostics error:', err);
+    alert(`Không thể xuất diagnostic: ${err?.message || 'Lỗi không xác định'}`);
+  }
+}
+
+async function clearLocalDiagnostics() {
+  if (!confirm('Xóa toàn bộ diagnostic cục bộ?')) return;
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'CLEAR_LOCAL_DIAGNOSTICS' });
+    if (!response?.ok) throw new Error('Không thể xóa diagnostic');
+    showSaveStatus('✓ Đã xóa diagnostic cục bộ');
+  } catch (err: any) {
+    console.error('[Options] clearLocalDiagnostics error:', err);
+    alert(`Không thể xóa diagnostic: ${err?.message || 'Lỗi không xác định'}`);
   }
 }
 

@@ -37,12 +37,21 @@
   }
 
   // ─── Extract media from DOM ─────────────────────────────────────────────────
-  function scanDOM() {
+  function selectAll<T extends Element>(root: ParentNode, selector: string): T[] {
+    const nodes = Array.from(root.querySelectorAll<T>(selector));
+    if (root instanceof Element && root.matches(selector)) nodes.unshift(root as T);
+    return nodes;
+  }
+
+  // `root` is a newly-added subtree for observer work. A full-document scan is
+  // retained only for initial load and the explicit scroll fallback.
+  function scanDOM(root: ParentNode = document) {
+    const startedAt = performance.now();
 // @ts-ignore
     const found = [];
 
     // ─── Images: <img> ─────────────────────────────────────────────────────
-    document.querySelectorAll('img[src]').forEach(img => {
+    selectAll<HTMLImageElement>(root, 'img[src]').forEach(img => {
 // @ts-ignore
       const src = img.src || img.getAttribute('src') || '';
       if (!src || !isImageUrl(src)) return;
@@ -74,7 +83,7 @@
     });
 
     // ─── Videos: <video> ───────────────────────────────────────────────────
-    document.querySelectorAll('video, video source').forEach(el => {
+    selectAll<HTMLVideoElement | HTMLSourceElement>(root, 'video, video source').forEach(el => {
       const article = el.closest('article');
       const tweetId = extractTweetId(article);
 
@@ -117,7 +126,7 @@
     // ─── Video thumbnails trong media grid ──────────────────────────────────
     // Trên trang /media, X.com hiển thị video bằng <img> thumbnail, không phải <video>
     // URL pattern: pbs.twimg.com/ext_tw_video_thumb/{tweetId}/... hoặc amplify_video_thumb
-    document.querySelectorAll('img[src*="video_thumb"]').forEach(img => {
+    selectAll<HTMLImageElement>(root, 'img[src*="video_thumb"]').forEach(img => {
 // @ts-ignore
       const src = img.src || img.getAttribute('src') || '';
       if (!src.includes('pbs.twimg.com')) return;
@@ -163,6 +172,12 @@
       }));
     }
 
+    // Aggregated performance data only. The isolated content script validates
+    // this allowlisted metric before it can reach extension storage.
+    window.dispatchEvent(new CustomEvent('XMD_DIAGNOSTIC_METRIC', {
+      detail: { name: 'scan.duration_ms', value: Math.round(performance.now() - startedAt) }
+    }));
+
     return found.length;
   }
 
@@ -197,32 +212,30 @@
   // ─── MutationObserver: quét khi DOM thay đổi ───────────────────────────────
 // @ts-ignore
   let scanTimeout;
+  const pendingRoots = new Set<Element>();
   const observer = new MutationObserver((mutations) => {
-    // Debounce — chờ DOM ổn định 800ms rồi mới scan
-    const hasRelevant = mutations.some(m =>
-      Array.from(m.addedNodes).some(n =>
-        n.nodeType === 1 && (
-// @ts-ignore
-          n.tagName === 'ARTICLE' ||
-// @ts-ignore
-          n.querySelector?.('article') ||
-// @ts-ignore
-          n.tagName === 'IMG' ||
-// @ts-ignore
-          n.tagName === 'VIDEO' ||
-          // Phát hiện cell mới trong media grid
-// @ts-ignore
-          n.querySelector?.('img[src*="video_thumb"]') ||
-// @ts-ignore
-          n.querySelector?.('img[src*="pbs.twimg.com"]')
-        )
-      )
-    );
+    window.dispatchEvent(new CustomEvent('XMD_DIAGNOSTIC_METRIC', {
+      detail: { name: 'observer.callback', value: 1 }
+    }));
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (node.nodeType !== 1) continue;
+        const element = node as Element;
+        if (element.tagName === 'ARTICLE' || element.tagName === 'IMG' || element.tagName === 'VIDEO' ||
+          element.querySelector?.('article, img[src*="pbs.twimg.com"], video, img[src*="video_thumb"]')) {
+          pendingRoots.add(element);
+        }
+      }
+    }
 
-    if (hasRelevant) {
+    if (pendingRoots.size > 0) {
 // @ts-ignore
       clearTimeout(scanTimeout);
-      scanTimeout = setTimeout(scanDOM, 800);
+      scanTimeout = setTimeout(() => {
+        const roots = Array.from(pendingRoots);
+        pendingRoots.clear();
+        roots.forEach(root => scanDOM(root));
+      }, 800);
     }
   });
 

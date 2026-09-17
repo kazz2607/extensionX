@@ -13,7 +13,7 @@ let isDownloading = false;
 let activeFilter = 'all';
 let stats = { image: 0, video: 0, gif: 0, hls: 0 };
 // @ts-ignore
-let downloadHistory = [];
+let downloadHistory: any[] = [];
 let lastScrollCount = 0;
 let lastScrollTime = Date.now();
 let currentSaveFolder = '';  // đọc từ options
@@ -24,6 +24,7 @@ let dateTo   = '';           // v4.3.0: Date Range Filter (YYYY-MM-DD)
 let _dateRangeOpen = false;  // trạng thái mở/đóng collapsible
 let filterKeyword = '';      // v4.8.0: Keyword / Hashtag Filter
 let _csvOffset = 0;          // PERF-04: CSV pagination offset (reset khi đổi profile/filter)
+const queueProgressById = new Map<string, { current: number; total: number; percent: number }>();
 
 // ─── DOM ───────────────────────────────────────────────────────────────────────
 // @ts-ignore
@@ -330,21 +331,31 @@ async function updateDateRangeCount() {
 
 // ─── v5.0.3: Bottom Nav ───────────────────────────────────────────────────────
 function setupBottomNav() {
-  const navTabs = document.querySelectorAll('.nav-tab');
+  const navTabs = Array.from(document.querySelectorAll<HTMLElement>('.nav-tab'));
+  const activate = (tab: HTMLElement) => {
+    const panelId = tab.dataset.panel;
+    if (!panelId) return;
+    navTabs.forEach((item) => {
+      const active = item === tab;
+      item.classList.toggle('active', active);
+      item.setAttribute('aria-selected', String(active));
+      item.tabIndex = active ? 0 : -1;
+    });
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    const panel = document.getElementById(panelId);
+    if (panel) panel.classList.add('active');
+    if (panelId === 'panel-stats') renderDonutChart();
+  };
   navTabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-// @ts-ignore
-      const panelId = tab.dataset.panel;
-      // Deactivate all
-      navTabs.forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-      // Activate selected
-      tab.classList.add('active');
-      const panel = document.getElementById(panelId);
-      if (panel) panel.classList.add('active');
-
-      // Refresh donut on Stats open
-      if (panelId === 'panel-stats') renderDonutChart();
+    tab.addEventListener('click', () => activate(tab));
+    tab.addEventListener('keydown', (event) => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      const current = navTabs.indexOf(tab);
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? navTabs.length - 1 :
+        (current + (event.key === 'ArrowRight' ? 1 : -1) + navTabs.length) % navTabs.length;
+      navTabs[next].focus();
+      activate(navTabs[next]);
     });
   });
 }
@@ -359,6 +370,10 @@ async function loadQueue() {
 function renderQueue() {
   const list = els.queueList;
   if (!list) return;
+  const activeQueueIds = new Set(downloadQueue.map((item: any) => item.id));
+  for (const id of queueProgressById.keys()) {
+    if (!activeQueueIds.has(id)) queueProgressById.delete(id);
+  }
 
   // Update badges
 // @ts-ignore
@@ -376,62 +391,57 @@ function renderQueue() {
   }
 
   if (downloadQueue.length === 0) {
-    list.innerHTML = `
-      <li class="queue-empty" id="queue-empty">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.3">
-          <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
-          <line x1="8" y1="18" x2="21" y2="18"/>
-          <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/>
-          <line x1="3" y1="18" x2="3.01" y2="18"/>
-        </svg>
-        <span>Hàng đợi trống</span>
-        <span class="queue-empty-hint">Thêm profile vào queue để tải tuần tự mà không cần giám sát</span>
-      </li>`;
+    const empty = document.createElement('li');
+    empty.className = 'queue-empty';
+    empty.id = 'queue-empty';
+    const label = document.createElement('span');
+    label.textContent = 'Hàng đợi trống';
+    const hint = document.createElement('span');
+    hint.className = 'queue-empty-hint';
+    hint.textContent = 'Thêm profile vào queue để tải tuần tự mà không cần giám sát';
+    empty.append(label, hint);
+    list.replaceChildren(empty);
     return;
   }
 
   const statusLabels: Record<string, string> = { waiting: 'Chờ', downloading: 'Đang tải', done: 'Xong', error: 'Lỗi' };
   const filterIcons: Record<string, string>  = { all: '📦', images: '🖼️', videos: '🎬', gifs: '🎞️' };
 
-// @ts-ignore
-  list.innerHTML = (downloadQueue as any[]).map(item => {
+  const fragment = document.createDocumentFragment();
+  (downloadQueue as any[]).forEach(item => {
     const icon = filterIcons[item.filterType || 'all'] || '📦';
-    const statusLabel = statusLabels[item.status] || escapeHtml(item.status);
-    // SEC-03: escape metaText — có thể chứa dữ liệu từ file JSON import
+    const statusLabel = statusLabels[item.status] || String(item.status || '');
     const metaText = item.result
-      ? (item.result.error ? escapeHtml(String(item.result.error)) : `${Number(item.result.success)||0}/${Number(item.result.total)||0} files`)
-      : `${Number(item.mediaCount)||0} media · ${icon} ${escapeHtml(item.filterType || 'all')}`;
+      ? (item.result.error ? String(item.result.error).slice(0, 500) : `${Number(item.result.success)||0}/${Number(item.result.total)||0} files`)
+      : `${Number(item.mediaCount)||0} media · ${icon} ${String(item.filterType || '').slice(0, 30)}`;
     const canRemove = item.status !== 'downloading';
-    // SEC-03: escape id và username vì có thể từ file import
-    const safeId = escapeHtml(String(item.id));
-    const safeUsername = escapeHtml(String(item.username));
-
-    // FEA-03: File count span — chỉ render cho item đang downloading
-    const fileCountSpan = item.status === 'downloading'
-      ? `<span class="queue-file-count" id="qfc-${safeId}">📥 đang tải...</span>`
-      : '';
-
-    return `<li class="queue-item status-${escapeHtml(item.status)}" data-id="${safeId}">
-      <div class="queue-item-avatar">${safeUsername.slice(0, 2).toUpperCase()}</div>
-      <div class="queue-item-info">
-        <div class="queue-item-name">@${safeUsername}</div>
-        <div class="queue-item-meta">${metaText}</div>
-        ${fileCountSpan}
-      </div>
-      <span class="queue-status ${escapeHtml(item.status)}">${statusLabel}</span>
-      ${canRemove
-        ? `<button class="btn-queue-remove" data-id="${safeId}" title="Xóa khỏi queue">×</button>`
-        : `<button class="btn-queue-stop" data-id="${safeId}" title="Dừng download">⏹</button>`}
-    </li>`;
-  }).join('');
+    const id = String(item.id || '').slice(0, 120);
+    const username = String(item.username || '').slice(0, 50);
+    const safeStatus = String(item.status || '').replace(/[^a-z]/g, '');
+    const row = document.createElement('li');
+    row.className = `queue-item status-${safeStatus}`;
+    row.dataset.id = id;
+    const avatar = document.createElement('div'); avatar.className = 'queue-item-avatar'; avatar.textContent = username.slice(0, 2).toUpperCase();
+    const info = document.createElement('div'); info.className = 'queue-item-info';
+    const name = document.createElement('div'); name.className = 'queue-item-name'; name.textContent = `@${username}`;
+    const meta = document.createElement('div'); meta.className = 'queue-item-meta'; meta.textContent = metaText;
+    info.append(name, meta);
+    if (item.status === 'downloading') {
+      const count = document.createElement('span'); count.className = 'queue-file-count'; count.id = `qfc-${id}`; count.textContent = '📥 đang tải...'; info.append(count);
+    }
+    const status = document.createElement('span'); status.className = `queue-status ${safeStatus}`; status.textContent = statusLabel;
+    const action = document.createElement('button'); action.className = canRemove ? 'btn-queue-remove' : 'btn-queue-stop'; action.dataset.id = id;
+    action.title = canRemove ? 'Xóa khỏi queue' : 'Dừng download'; action.textContent = canRemove ? '×' : '⏹';
+    row.append(avatar, info, status, action);
+    fragment.append(row);
+  });
+  list.replaceChildren(fragment);
 
   // Restore live progress bar nếu có item đang downloading
   const activeItem = (downloadQueue as any[]).find(q => q.status === 'downloading');
   if (activeItem) {
-    const metaEl = list.querySelector(`.queue-item[data-id="${activeItem.id}"] .queue-item-meta`) as HTMLElement | null;
-    if (metaEl && metaEl.dataset.progress) {
-      metaEl.innerHTML = metaEl.dataset.progress;
-    }
+    const savedProgress = queueProgressById.get(activeItem.id);
+    if (savedProgress) updateQueueItemProgress(savedProgress);
   }
 
   // Remove listeners
@@ -463,20 +473,39 @@ function updateQueueItemProgress(payload: any) {
   const active = (downloadQueue as any[]).find(q => q.status === 'downloading');
   if (!active) return;
 
+  const current = Math.max(0, Number(payload.current) || 0);
+  const total = Math.max(0, Number(payload.total) || 0);
+  const percent = Math.min(100, Math.max(0, Number(payload.percent) || 0));
+  queueProgressById.set(active.id, { current, total, percent });
+
   // UI-06: mini progress bar trong queue-item-meta
   const metaEl = document.querySelector<HTMLElement>(`.queue-item[data-id="${active.id}"] .queue-item-meta`);
   if (metaEl) {
-    const progressHTML = `
-      <div class="queue-mini-progress"><div class="queue-mini-bar" style="width:${payload.percent}%"></div></div>
-      <span style="font-size:10px">${payload.current}/${payload.total} • ${payload.percent}%</span>`;
-    metaEl.innerHTML = progressHTML;
-    metaEl.dataset.progress = progressHTML;
+    let progress = metaEl.querySelector<HTMLElement>('.queue-mini-progress');
+    let bar = metaEl.querySelector<HTMLElement>('.queue-mini-bar');
+    let label = metaEl.querySelector<HTMLElement>('.queue-mini-progress-label');
+    if (!progress || !bar || !label) {
+      progress = document.createElement('div');
+      progress.className = 'queue-mini-progress';
+      bar = document.createElement('div');
+      bar.className = 'queue-mini-bar';
+      label = document.createElement('span');
+      label.className = 'queue-mini-progress-label';
+      label.style.fontSize = '10px';
+      progress.append(bar);
+      metaEl.replaceChildren(progress, label);
+    }
+    bar.style.width = `${percent}%`;
+    label.textContent = `${current}/${total} • ${percent}%`;
+    metaEl.dataset.progressCurrent = String(current);
+    metaEl.dataset.progressTotal = String(total);
+    metaEl.dataset.progressPercent = String(percent);
   }
 
   // FEA-03: file count badge rõ ràng hơn
   const fileCountEl = document.querySelector<HTMLElement>(`#qfc-${active.id}`);
   if (fileCountEl) {
-    fileCountEl.textContent = `📥 ${payload.current} / ${payload.total} files · ${payload.percent}%`;
+    fileCountEl.textContent = `📥 ${current} / ${total} files · ${percent}%`;
   }
 }
 
@@ -1191,22 +1220,28 @@ function listenToMessages() {
         if (!listEl) break;
         if (payload && payload.length > 0) {
           listEl.style.display = 'flex';
-// @ts-ignore
-          listEl.innerHTML = payload.map(item => {
-// @ts-ignore
-            const formatSize = (bytes) => (bytes / 1024 / 1024).toFixed(1) + ' MB';
-            const speed = (item.speedBps / 1024 / 1024).toFixed(1) + ' MB/s';
-            const percent = item.totalBytes ? Math.round((item.bytesReceived / item.totalBytes) * 100) + '%' : formatSize(item.bytesReceived);
-            return `
-              <div class="active-download-item">
-                <span class="active-download-name" title="${item.filename}">${item.filename}</span>
-                <span class="active-download-speed">${percent} • ${speed}</span>
-              </div>
-            `;
-          }).join('');
+          const fragment = document.createDocumentFragment();
+          payload.forEach((item: any) => {
+            const formatSize = (bytes: number) => (Math.max(0, Number(bytes) || 0) / 1024 / 1024).toFixed(1) + ' MB';
+            const name = String(item.filename || '').slice(0, 255);
+            const speed = formatSize(item.speedBps) + '/s';
+            const percent = item.totalBytes ? Math.round((Number(item.bytesReceived) / Number(item.totalBytes)) * 100) + '%' : formatSize(item.bytesReceived);
+            const row = document.createElement('div');
+            row.className = 'active-download-item';
+            const nameEl = document.createElement('span');
+            nameEl.className = 'active-download-name';
+            nameEl.title = name;
+            nameEl.textContent = name;
+            const speedEl = document.createElement('span');
+            speedEl.className = 'active-download-speed';
+            speedEl.textContent = `${percent} • ${speed}`;
+            row.append(nameEl, speedEl);
+            fragment.append(row);
+          });
+          listEl.replaceChildren(fragment);
         } else {
           listEl.style.display = 'none';
-          listEl.innerHTML = '';
+          listEl.replaceChildren();
         }
         break;
 
@@ -1236,10 +1271,15 @@ function listenToMessages() {
         // UI-01: Hiện error details panel khi có lỗi
         if (failed > 0 && els.errorDetails) {
           els.errorDetailsCount.textContent = `${failed} file lỗi`;
-          els.errorList.innerHTML = (payload.errors || [])
-            .slice(0, 10)
-            .map((e: string) => `<li title="${e}">${e}</li>`)
-            .join('');
+          const errors = document.createDocumentFragment();
+          (Array.isArray(payload.errors) ? payload.errors : []).slice(0, 10).forEach((error: unknown) => {
+            const item = document.createElement('li');
+            const text = String(error).slice(0, 500);
+            item.title = text;
+            item.textContent = text;
+            errors.append(item);
+          });
+          els.errorList.replaceChildren(errors);
           els.errorDetails.style.display = 'block';
         } else if (els.errorDetails) {
           els.errorDetails.style.display = 'none';
@@ -1363,25 +1403,35 @@ function escapeHtml(s: string): string {
 function renderHistory() {
   if (!downloadHistory.length) {
     const emptyTxt = window.i18n ? window.i18n.t('history_empty') : 'No download history';
-    els.historyList.innerHTML = `<li class="history-empty">${escapeHtml(emptyTxt)}</li>`;
+    const empty = document.createElement('li');
+    empty.className = 'history-empty';
+    empty.textContent = emptyTxt;
+    els.historyList.replaceChildren(empty);
     return;
   }
 
   const filterIcons: Record<string, string> = { all: '📦', images: '🖼️', videos: '🎬', gifs: '🎞️' };
 
-// @ts-ignore
-  els.historyList.innerHTML = (downloadHistory as any[]).map(item => {
+  const fragment = document.createDocumentFragment();
+  (downloadHistory as any[]).forEach(item => {
     const d = new Date(item.date);
     const ds = `${d.getDate()}/${d.getMonth()+1} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
     const icon = filterIcons[item.filter || 'all'] || '📦';
-    // SEC-03: escape username và date để tránh XSS
-    return `<li class="history-item" data-username="${escapeHtml(item.username)}">
-      <span class="history-item-icon">${icon}</span>
-      <span class="history-item-name">@${escapeHtml(item.username)}</span>
-      <span class="history-item-count">${Number(item.count) || 0}</span>
-      <span class="history-item-date">${escapeHtml(ds)}</span>
-    </li>`;
-  }).join('');
+    const row = document.createElement('li');
+    row.className = 'history-item';
+    row.dataset.username = String(item.username || '').slice(0, 50);
+    for (const [className, text] of [
+      ['history-item-icon', icon], ['history-item-name', `@${row.dataset.username}`],
+      ['history-item-count', String(Number(item.count) || 0)], ['history-item-date', ds],
+    ]) {
+      const part = document.createElement('span');
+      part.className = className;
+      part.textContent = text;
+      row.append(part);
+    }
+    fragment.append(row);
+  });
+  els.historyList.replaceChildren(fragment);
 
 // @ts-ignore
   els.historyList.querySelectorAll('.history-item').forEach((el: any) => {
@@ -1403,7 +1453,10 @@ async function updateFolderDisplay(username) {
       const parts = folder
         ? `${prefix}${folder}/${username}/`
         : `${prefix}${username}/`;
-      folderPathEl.innerHTML = `<span data-i18n="folder_prefix">${prefix}</span>${parts.substring(prefix.length)}`;
+      const prefixEl = document.createElement('span');
+      prefixEl.dataset.i18n = 'folder_prefix';
+      prefixEl.textContent = prefix;
+      folderPathEl.replaceChildren(prefixEl, document.createTextNode(parts.substring(prefix.length)));
     }
   } catch (_) {}
 }
@@ -1437,15 +1490,17 @@ function showConfirmModal(message: string): Promise<boolean> {
   return new Promise((resolve) => {
     const modal = document.getElementById('confirm-modal');
     const msgEl = document.getElementById('confirm-message');
-    const btnOk = document.getElementById('confirm-ok');
-    const btnCancel = document.getElementById('confirm-cancel');
+    const dialog = modal?.querySelector<HTMLElement>('.confirm-box');
+    const btnOk = document.getElementById('confirm-ok') as HTMLButtonElement | null;
+    const btnCancel = document.getElementById('confirm-cancel') as HTMLButtonElement | null;
 
-    if (!modal || !msgEl || !btnOk || !btnCancel) {
+    if (!modal || !msgEl || !dialog || !btnOk || !btnCancel) {
       // Fallback nếu modal chưa có trong HTML
       resolve(window.confirm(message));
       return;
     }
 
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     msgEl.textContent = message;
     modal.classList.add('show');
     modal.removeAttribute('hidden');
@@ -1455,6 +1510,9 @@ function showConfirmModal(message: string): Promise<boolean> {
       setTimeout(() => modal.setAttribute('hidden', ''), 200);
       btnOk.removeEventListener('click', onOk);
       btnCancel.removeEventListener('click', onCancel);
+      modal.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onKeydown);
+      previousFocus?.focus();
     };
 
     const onOk = () => { cleanup(); resolve(true); };
@@ -1467,6 +1525,20 @@ function showConfirmModal(message: string): Promise<boolean> {
     const onBackdrop = (e: Event) => {
       if (e.target === modal) { cleanup(); resolve(false); }
     };
-    modal.addEventListener('click', onBackdrop, { once: true });
+    const onKeydown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); cleanup(); resolve(false); return; }
+      if (e.key !== 'Tab') return;
+      const focusable = [btnCancel, btnOk];
+      const current = document.activeElement;
+      const index = focusable.indexOf(current as HTMLButtonElement);
+      if (e.shiftKey && (index <= 0 || current === dialog)) {
+        e.preventDefault(); btnOk.focus();
+      } else if (!e.shiftKey && index === focusable.length - 1) {
+        e.preventDefault(); btnCancel.focus();
+      }
+    };
+    modal.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onKeydown);
+    btnCancel.focus();
   });
 }

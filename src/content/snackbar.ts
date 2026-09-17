@@ -255,6 +255,32 @@
     autoDismissTimer = setTimeout(() => hide(), ms);
   }
 
+  function setCounter(percent: number, current: number, total: number, failed = 0) {
+    const strong = document.createElement('b');
+    strong.textContent = `${percent}%`;
+    counterEl!.replaceChildren(strong, document.createTextNode(`  ${current} / ${total}`));
+    if (failed > 0) {
+      const error = document.createElement('span');
+      error.style.color = '#f4212e';
+      error.textContent = `✗ ${failed}`;
+      counterEl!.append('  (', error, ')');
+    }
+  }
+
+  function setDoneMessage(success: number, failed: number, username: string) {
+    const ok = document.createElement('span');
+    ok.className = '__xmd_sb_done_success__';
+    ok.textContent = `${success} file`;
+    doneMsgEl!.replaceChildren(document.createTextNode('✅  '), ok);
+    if (username) doneMsgEl!.append(` từ @${username}`);
+    if (failed > 0) {
+      const error = document.createElement('span');
+      error.className = '__xmd_sb_done_failed__';
+      error.textContent = `✗ ${failed} lỗi`;
+      doneMsgEl!.append('  —  ', error);
+    }
+  }
+
   // ─── Event: close button ─────────────────────────────────────────────────────
 // @ts-ignore
   closeBtn.addEventListener('click', (e) => {
@@ -273,8 +299,7 @@
         // Reset về trạng thái downloading
         sb.classList.remove('done');
 // @ts-ignore
-        titleEl.innerHTML = '⬇ Đang tải <span id="__xmd_sb_username__">' +
-          (data.username ? '@' + data.username : '') + '</span>';
+        usernameEl.textContent = data.username ? '@' + String(data.username) : '';
 // @ts-ignore
         barEl.style.width = '0%';
 // @ts-ignore
@@ -284,7 +309,7 @@
 // @ts-ignore
         filenameEl.textContent = '';
 // @ts-ignore
-        doneMsgEl.innerHTML = '';
+        doneMsgEl.replaceChildren();
         show();
         break;
       }
@@ -300,16 +325,7 @@
         barEl.style.width = pct + '%';
 
         // Counter
-        if (fail > 0) {
-// @ts-ignore
-          counterEl.innerHTML =
-            '<b>' + pct + '%</b>&nbsp;&nbsp;' +
-            cur + ' / ' + total +
-            ' &nbsp;(<span style="color:#f4212e">✗ ' + fail + '</span>)';
-        } else {
-// @ts-ignore
-          counterEl.innerHTML = '<b>' + pct + '%</b>&nbsp;&nbsp;' + cur + ' / ' + total;
-        }
+        setCounter(pct, cur, total, fail);
 
         // Tên file đang tải
         if (data.currentFile) {
@@ -349,14 +365,7 @@
         barEl.classList.remove('active');
         sb.classList.add('done');
 
-        // Compose done message
-        let msg = '✅ &nbsp;<span class="__xmd_sb_done_success__">' + ok + ' file</span>';
-        if (data.username) msg += ' từ @' + data.username;
-        if (fail > 0) {
-          msg += ' &nbsp;—&nbsp; <span class="__xmd_sb_done_failed__">✗ ' + fail + ' lỗi</span>';
-        }
-// @ts-ignore
-        doneMsgEl.innerHTML = msg;
+        setDoneMessage(ok, fail, typeof data.username === 'string' ? data.username : '');
 
         // Auto-dismiss sau 3.5s
         autoDismiss(3500);

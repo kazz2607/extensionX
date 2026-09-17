@@ -25,7 +25,6 @@ let _contextDead = false;
 function handleContextInvalidated() {
   if (_contextDead) return;
   _contextDead = true;
-  try { navObserver?.disconnect(); } catch (_) {}
   // Dùng console.debug thay vì warn — Chrome không log debug vào trang errors
   console.debug('[X Media Downloader] Extension context invalidated. Page reload required.');
 }
@@ -209,6 +208,16 @@ window.addEventListener('X_MEDIA_FOUND', (event) => {
       pageUrl: location.href,
     }
   }).catch(() => {});
+});
+
+const ALLOWED_DIAGNOSTIC_METRICS = new Set(['scan.duration_ms', 'observer.callback']);
+window.addEventListener('XMD_DIAGNOSTIC_METRIC', (event: Event) => {
+  const detail = (event as CustomEvent<unknown>).detail;
+  if (!detail || typeof detail !== 'object') return;
+  const metric = detail as { name?: unknown; value?: unknown };
+  if (!ALLOWED_DIAGNOSTIC_METRICS.has(String(metric.name))) return;
+  if (typeof metric.value !== 'number' || !Number.isFinite(metric.value) || metric.value < 0 || metric.value > 60_000) return;
+  safeSendMessage({ type: 'DIAGNOSTIC_METRIC', payload: { name: metric.name, value: Math.round(metric.value) } }).catch(() => {});
 });
 
 
@@ -452,8 +461,10 @@ window.addEventListener('load', () => {
 });
 
 // ─── 7. Theo dõi navigation (X.com là SPA) ───────────────────────────────────
+// History events describe route changes directly. Observing the entire document
+// used to run for every timeline mutation, even when the route never changed.
 let lastUrl = location.href;
-const navObserver = new MutationObserver(() => {
+function reportNavigation() {
   if (location.href !== lastUrl) {
     lastUrl = location.href;
     // BUG-3 FIX: Kiểm tra context trước khi sendMessage
@@ -471,5 +482,15 @@ const navObserver = new MutationObserver(() => {
       }).catch(() => {});
     }
   }
-});
-navObserver.observe(document, { subtree: true, childList: true });
+}
+
+window.addEventListener('popstate', reportNavigation);
+window.addEventListener('hashchange', reportNavigation);
+for (const method of ['pushState', 'replaceState'] as const) {
+  const original = history[method];
+  history[method] = function (...args: Parameters<typeof original>) {
+    const result = original.apply(this, args);
+    queueMicrotask(reportNavigation);
+    return result;
+  };
+}

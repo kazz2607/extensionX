@@ -3,13 +3,47 @@ import { addMediaItems, ensureMediaStoreLoaded, applyOptionsFilter, checkAutoScr
 import { startDownload, handleDownloadTweet, buildCSV, retryLastDownload, stopDownload } from './downloader.ts';
 import { profileQueue, setProfileQueue, persistQueue, startNextInQueue, broadcastQueueUpdate, exportQueue, importQueue } from './queue.ts';
 import { updateBadge, broadcastToPopup, updateFAB } from './utils.ts';
-import { getMediaItems } from './indexeddb.ts';
+import { getMediaItems, clearDownloadedUrls, clearAllDownloadedUrls } from './indexeddb.ts';
 import { setDynamicBearer, setDynamicQueryId } from './tweet-api.ts';
 import { startFollowingScroll, stopFollowingScroll, getFollowingScrollState } from './following-scroll.ts';
+import { isValidDownloadOptions, isValidMediaItem, isValidUsername, isXProfileUrlForUsername, isXUrl } from '../shared/validation.ts';
+import { parseExtensionMessage } from '../shared/messages.ts';
+import { clearLocalDiagnostics, exportLocalDiagnostics, recordDiagnostic } from './diagnostics.ts';
+
+const MAX_MEDIA_BATCH = 200;
+const MEDIA_PROCESS_CONCURRENCY = 4;
+const ALLOWED_DIAGNOSTIC_METRICS = new Set(['scan.duration_ms', 'observer.callback']);
+const QUEUE_ID_PATTERN = /^[A-Za-z0-9_-]{1,120}$/;
+
+async function runWithConcurrency<T>(items: readonly T[], limit: number, worker: (item: T) => Promise<void>): Promise<void> {
+  let cursor = 0;
+  const run = async () => {
+    while (cursor < items.length) {
+      const item = items[cursor++];
+      await worker(item);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, run));
+}
+
+function isInternalSender(sender: chrome.runtime.MessageSender): boolean {
+  return sender.id === chrome.runtime.id;
+}
+
+function isMatchingXTab(sender: chrome.runtime.MessageSender, username: unknown): boolean {
+  return Boolean(sender.tab?.id && isXProfileUrlForUsername(sender.tab.url, username));
+}
 
 // ─── Message Handler ──────────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  const { type, payload } = message;
+  // Messages from page/main world are never trusted. Only this extension may use
+  // the internal command channel and every payload is validated again per action.
+  const parsedMessage = parseExtensionMessage(message);
+  if (!isInternalSender(sender) || !parsedMessage) {
+    sendResponse({ error: 'Invalid message' });
+    return false;
+  }
+  const { type, payload } = parsedMessage;
 
   // P3: Offscreen báo kết quả HLS xong
   if (type === 'HLS_DONE') {
@@ -26,14 +60,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (type) {
 
     case 'MEDIA_FOUND': {
-      const { username, mediaItems } = payload;
-      if (!username || !mediaItems?.length) return false;
+      const { username, mediaItems } = payload || {};
+      if (!isMatchingXTab(sender, username) || !Array.isArray(mediaItems) || mediaItems.length === 0 || mediaItems.length > MAX_MEDIA_BATCH) return false;
+      const validItems = mediaItems.filter(isValidMediaItem);
+      if (validItems.length === 0) return false;
+      void recordDiagnostic('media.received', mediaItems.length);
+      if (validItems.length !== mediaItems.length) void recordDiagnostic('media.rejected', mediaItems.length - validItems.length);
       const tabId = sender.tab?.id;
 
-      console.log(`[SW] MEDIA_FOUND: ${mediaItems.length} items từ ${payload.sourceUrl || '?'} cho @${username}`);
+      console.log(`[SW] MEDIA_FOUND: ${validItems.length} items cho @${username}`);
 
-      // BUG-D FIX: Dùng Promise.all thay vì forEach async để quản lý đúng
-      Promise.all((mediaItems as any[]).map(async (item) => {
+      // Bound work so a timeline batch cannot start dozens of GraphQL video
+      // lookups at once. This keeps the extension responsive and reduces 429s.
+      runWithConcurrency(validItems, MEDIA_PROCESS_CONCURRENCY, async (item) => {
         if (!item) return;
 
         if (item.type === 'video_placeholder') {
@@ -83,12 +122,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             if (added > 0) updateFAB(tabId, username);
           }
         }
-      })).catch((err: any) => console.debug('[SW] MEDIA_FOUND handler error:', err.message));
+      }).catch((err: any) => console.debug('[SW] MEDIA_FOUND handler error:', err.message));
       return false;
     }
 
     case 'PAGE_LOADED': {
-      const { username, url, isMediaPage, ct0 } = payload;
+      const { username, ct0 } = payload || {};
+      const tabUrl = sender.tab?.url;
+      if (!isMatchingXTab(sender, username) || !isXUrl(tabUrl)) return false;
+      const isMediaPage = /\/(media|photos|videos|likes|bookmarks)(?:\/|$)/.test(new URL(tabUrl).pathname);
       const tabId = sender.tab?.id;
       if (tabId && username) {
         const existingState = tabState.get(tabId);
@@ -97,15 +139,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         tabState.set(tabId, {
           username,
-          url,
+          url: tabUrl,
           isMediaPage,
           isCollecting,
           scrollCount: isCollecting ? (existingState?.scrollCount ?? 0) : 0,
           reachedEnd: false,
-          ct0: ct0 || existingState?.ct0,
+          ct0: typeof ct0 === 'string' && ct0.length <= 512 ? ct0 : existingState?.ct0,
+          phase: isCollecting ? (existingState?.phase ?? 'collecting') : 'stopped',
         });
 
-        if (ct0) {
+        if (typeof ct0 === 'string' && ct0.length <= 512) {
           // SEC-02 FIX: Dùng setCsrfToken() từ state.ts thay vì gán thẳng lên self
           setCsrfToken(ct0);
         }
@@ -121,6 +164,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     case 'GET_MEDIA_COUNT': {
+      if (!isValidUsername(payload?.username)) { sendResponse({ error: 'Invalid username' }); return false; }
       (async () => {
         const store = await ensureMediaStoreLoaded(payload.username);
         sendResponse({ count: store?.size || 0 });
@@ -129,6 +173,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     case 'GET_STATS': {
+      if (!isValidUsername(payload?.username)) { sendResponse({ error: 'Invalid username' }); return false; }
       (async () => {
         await ensureMediaStoreLoaded(payload.username);
         sendResponse({ stats: statsStore.get(payload.username) || { image: 0, video: 0, gif: 0, hls: 0 } });
@@ -146,6 +191,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     case 'GET_TAB_STATE': {
+      if (!isValidUsername(payload?.username)) { sendResponse({ error: 'Invalid username' }); return false; }
       let isCollecting = false;
       let scrollCount = 0;
       tabState.forEach((state, tid) => {
@@ -158,30 +204,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
 
-    case 'CLEAR_MEDIA': {
-      mediaStore.delete(payload.username);
-      statsStore.delete(payload.username);
-      chrome.action.setBadgeText({ text: '' });
-      broadcastToPopup('MEDIA_CLEARED', { username: payload.username });
-      // Session Restore: xóa session đã lưu khi user xóa thủ công
-      clearSession(payload.username);
-      return false;
-    }
-
     case 'START_COLLECTING': {
+      if (!isValidUsername(payload?.username) || (sender.tab && !isMatchingXTab(sender, payload.username))) { sendResponse({ error: 'Invalid username or tab' }); return false; }
       startCollecting(payload.username, sender.tab?.id);
       sendResponse({ ok: true });
       return true;
     }
 
     case 'STOP_COLLECTING': {
+      if (!isValidUsername(payload?.username) || (sender.tab && !isMatchingXTab(sender, payload.username))) { sendResponse({ error: 'Invalid username or tab' }); return false; }
       stopCollecting(payload.username);
       sendResponse({ ok: true });
       return true;
     }
 
     case 'START_DOWNLOAD': {
-      const { username, options } = payload;
+      const { username, options } = payload || {};
+      if (!isValidUsername(username) || (sender.tab && !isMatchingXTab(sender, username)) || !isValidDownloadOptions(options)) {
+        sendResponse({ error: 'Invalid download request' }); return false;
+      }
       if (downloadState.inProgress) {
         sendResponse({ error: 'Download is already running' });
         return false;
@@ -193,8 +234,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // ─── v5.0.3: Multi-Profile Queue ────────────────────────────────────────
     case 'ADD_TO_QUEUE': {
-      const { username, filterType, skipDuplicates } = payload;
-      if (!username) { sendResponse({ error: 'No username' }); return false; }
+      const { username, filterType, skipDuplicates } = payload || {};
+      if (!isValidUsername(username) || !['all', 'images', 'videos', 'gifs'].includes(String(filterType || 'all'))) { sendResponse({ error: 'Invalid queue item' }); return false; }
       // Không thêm trùng username (chỉ 1 entry mỗi username trong queue)
       const exists = profileQueue.find(q => q.username === username && q.status === 'waiting');
       if (exists) { sendResponse({ error: 'Already in queue' }); return false; }
@@ -221,6 +262,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case 'REMOVE_FROM_QUEUE': {
       const { id } = payload;
+      if (typeof id !== 'string' || !QUEUE_ID_PATTERN.test(id)) { sendResponse({ error: 'Invalid queue id' }); return false; }
       setProfileQueue(profileQueue.filter(q => q.id !== id));
       persistQueue();
       broadcastQueueUpdate();
@@ -255,10 +297,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
 
+    case 'DIAGNOSTIC_METRIC': {
+      const { name, value } = payload || {};
+      if (sender.tab?.id && isXUrl(sender.tab.url) && ALLOWED_DIAGNOSTIC_METRICS.has(name) && typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 60_000) {
+        void recordDiagnostic(name, value);
+      }
+      return false;
+    }
+
+    case 'EXPORT_LOCAL_DIAGNOSTICS': {
+      exportLocalDiagnostics().then((diagnostics) => sendResponse({ diagnostics }));
+      return true;
+    }
+
+    case 'CLEAR_LOCAL_DIAGNOSTICS': {
+      clearLocalDiagnostics().then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
+      return true;
+    }
+
     // v4.3.0: Đếm media theo filter type + date range (cho popup preview)
     case 'GET_MEDIA_COUNT_FILTERED': {
       (async () => {
         const { username, filterType, dateFrom, dateTo, keyword } = payload;
+        if (!isValidUsername(username) || (filterType !== undefined && !['all', 'images', 'videos', 'gifs'].includes(filterType)) ||
+          (dateFrom !== undefined && (typeof dateFrom !== 'string' || dateFrom.length > 32)) ||
+          (dateTo !== undefined && (typeof dateTo !== 'string' || dateTo.length > 32)) ||
+          (keyword !== undefined && (typeof keyword !== 'string' || keyword.length > 1_000))) {
+          sendResponse({ error: 'Invalid media filter' }); return;
+        }
         const store = await ensureMediaStoreLoaded(username);
         if (!store) { sendResponse({ count: 0 }); return; }
 
@@ -294,6 +360,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // v4.1.0: Lấy số lượng file đã tải của username (gọi loadDownloadedUrls trước để chống cold SW)
     case 'GET_DOWNLOADED_COUNT': {
       (async () => {
+        if (!isValidUsername(payload?.username)) { sendResponse({ error: 'Invalid username' }); return; }
         await loadDownloadedUrls(payload.username);
         const set = downloadedStore.get(payload.username);
         sendResponse({ count: set?.size || 0 });
@@ -303,8 +370,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // v4.1.0: Xóa lịch sử đã tải của username
     case 'CLEAR_DOWNLOADED': {
+      if (!isValidUsername(payload?.username)) { sendResponse({ error: 'Invalid username' }); return false; }
       downloadedStore.delete(payload.username);
-      chrome.storage.local.remove(`downloaded_${payload.username}`).catch(() => {});
+      clearDownloadedUrls(payload.username).catch(() => {});
+      chrome.storage.local.remove(`downloaded_${payload.username}`).catch(() => {}); // legacy cleanup
       sendResponse({ ok: true, count: 0 });
       return false;
     }
@@ -312,6 +381,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Xóa toàn bộ lịch sử đã tải của TẤT CẢ username
     case 'CLEAR_ALL_DOWNLOADED': {
       downloadedStore.clear();
+      clearAllDownloadedUrls().catch(() => {});
       chrome.storage.local.get(null, (allData) => {
         const keysToRemove = Object.keys(allData || {}).filter(k => k.startsWith('downloaded_'));
         if (keysToRemove.length > 0) {
@@ -325,12 +395,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Xóa toàn bộ media đã thu thập và lịch sử tải của username
     case 'CLEAR_MEDIA': {
       const u = payload.username;
+      if (!isValidUsername(u)) { sendResponse({ error: 'Invalid username' }); return false; }
       if (u) {
         mediaStore.delete(u);
         statsStore.delete(u);
         dirtyMediaStore.delete(u);
         clearSession(u).catch(() => {});
         downloadedStore.delete(u);
+        clearDownloadedUrls(u).catch(() => {});
         chrome.storage.local.remove(`downloaded_${u}`).catch(() => {});
       }
       sendResponse({ ok: true });
@@ -339,6 +411,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case 'EXPORT_CSV': {
       (async () => {
+        if (!isValidUsername(payload?.username) || (payload.filterType !== undefined && !['all', 'images', 'videos', 'gifs'].includes(payload.filterType)) ||
+          (payload.offset !== undefined && (!Number.isInteger(payload.offset) || payload.offset < 0 || payload.offset > 1_000_000))) {
+          sendResponse({ error: 'Invalid CSV request' }); return;
+        }
         await ensureMediaStoreLoaded(payload.username);
         // PERF-04: buildCSV trả { csv, total, exported, truncated, nextOffset }
         const result = buildCSV(payload.username, payload.filterType, payload.offset || 0);
@@ -349,9 +425,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // ─── Mini Button: Download single tweet ──────────────────────────────────
     case 'DOWNLOAD_TWEET': {
-      const { tweetId, username } = payload;
+      const { tweetId, username } = payload || {};
       const tabId = sender.tab?.id;
-      if (!tweetId) { sendResponse({ error: 'No tweetId' }); return false; }
+      if (!tabId || !isMatchingXTab(sender, username) || typeof tweetId !== 'string' || !/^\d{10,20}$/.test(tweetId)) { sendResponse({ error: 'Invalid tweet request' }); return false; }
 
       // Thông báo loading ngay
       if (tabId) {
@@ -387,6 +463,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case 'RESTORE_SESSION': {
       const { username } = payload;
+      if (!isValidUsername(username)) { sendResponse({ error: 'Invalid username' }); return false; }
       (async () => {
         try {
           const key = `session_${username}`;
@@ -444,6 +521,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case 'RESTORE_SESSION_CANCEL': {
       const { username } = payload;
+      if (!isValidUsername(username)) { sendResponse({ error: 'Invalid username' }); return false; }
       clearSession(username);
       sendResponse({ ok: true });
       return false;
@@ -465,15 +543,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // SEC-04: Nhận bearer token được capture từ page-interceptor
     case 'UPDATE_BEARER': {
-      const { bearer } = payload;
-      if (bearer?.startsWith('Bearer ')) setDynamicBearer(bearer);
+      const { bearer } = payload || {};
+      if (sender.tab?.id && isXUrl(sender.tab.url) && typeof bearer === 'string' && /^Bearer [A-Za-z0-9._~+/=-]{20,4096}$/.test(bearer)) setDynamicBearer(bearer);
       return false;
     }
 
     // Dynamic Query ID: nhận query hash mới nhất từ page-interceptor
     case 'UPDATE_QUERY_ID': {
-      const { queryId, opName } = payload;
-      if (queryId && opName) setDynamicQueryId(queryId, opName);
+      const { queryId, opName } = payload || {};
+      if (sender.tab?.id && isXUrl(sender.tab.url) && typeof queryId === 'string' && /^[A-Za-z0-9_-]{20,128}$/.test(queryId) && typeof opName === 'string' && /^[A-Za-z0-9_]{1,80}$/.test(opName)) setDynamicQueryId(queryId, opName);
       return false;
     }
 
@@ -487,13 +565,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // FEA-02: Import queue từ JSON file
     case 'IMPORT_QUEUE': {
       try {
+        if (typeof payload?.data !== 'string' || payload.data.length > 200_000) {
+          sendResponse({ error: 'Invalid queue file' }); return false;
+        }
         const parsed = JSON.parse(payload.data as string) as { queue?: unknown[] };
         if (!Array.isArray(parsed.queue)) {
           sendResponse({ error: 'Invalid queue file: missing queue array' });
           return true;
         }
-        const result = importQueue(parsed.queue as any[]);
-        sendResponse({ ok: true, ...result });
+        const result = importQueue(parsed.queue);
+        if (result.error) sendResponse({ error: result.error });
+        else sendResponse({ ok: true, ...result });
       } catch (err: any) {
         sendResponse({ error: `Parse error: ${err.message}` });
       }
@@ -549,7 +631,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // ─── Feature 0: Following Scroll ─────────────────────────────────────────
     case 'START_FOLLOWING_SCROLL': {
       const { targetUrl } = payload || {};
-      if (!targetUrl || typeof targetUrl !== 'string') {
+      if (!isXUrl(targetUrl) || !new URL(targetUrl).pathname.endsWith('/following')) {
         sendResponse({ error: 'Missing targetUrl' });
         return true;
       }
@@ -576,4 +658,3 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return false;
   }
 });
-

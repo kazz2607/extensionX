@@ -2,8 +2,11 @@
 import { mediaStore, dirtyMediaStore, statsStore, tabState, downloadState, downloadedStore, userCsrfToken, setCsrfToken } from './state.ts';
 import { fetchVideoForTweet } from './tweet-api.ts';
 import { updateBadge, broadcastToPopup, updateFAB, broadcastFABState, sleep, waitForTabLoad, sanitizeFolder } from './utils.ts';
-import { saveMediaItems, getMediaItems, clearMediaItems } from './indexeddb.ts';
+import { saveMediaItems, getMediaItems, clearMediaItems, getDownloadedUrls, saveDownloadedUrls, clearDownloadedUrls, pruneDownloadedUrls } from './indexeddb.ts';
 import { MediaItem, Options, CollectState } from '../types.ts';
+import { filterMediaItems } from '../shared/media-filter.ts';
+import { recordDiagnostic } from './diagnostics.ts';
+import { canTransitionCollectPhase, type CollectPhase } from '../shared/collect-state.ts';
 
 // ─── BUG-03 FIX: Options Cache — tránh gọi storage.sync N lần per session ────
 let _optionsCache: Options | null = null;
@@ -142,6 +145,7 @@ function addMediaItems(username: string, items: MediaItem[]) {
   });
 
   if (newCount > 0) {
+    void recordDiagnostic('media.accepted', newCount);
     updateBadge(username);
     broadcastToPopup('MEDIA_COUNT_UPDATE', {
       username, count: store.size, newCount, stats: { ...stats },
@@ -162,55 +166,7 @@ function addMediaItems(username: string, items: MediaItem[]) {
 // ─── Apply Options Filter ─────────────────────────────────────────────────────
 async function applyOptionsFilter(username: string, items: MediaItem[]) {
   const opts = await getCachedOptions();
-
-  const { mediaTypes = {}, maxMedia = 0 } = opts;
-  let filtered = items.filter((item: MediaItem) => {
-    if (item.type === 'image' && mediaTypes.images === false) return false;
-    if (item.type === 'gif'   && mediaTypes.gifs   === false) return false;
-    if ((item.type === 'video' || item.type === 'hls') && mediaTypes.videos === false) return false;
-    return true;
-  });
-
-  // ─── Smart Filters ────────────────────────────────────────────────────────────
-  const sf = opts.smartFilters || {};
-  const filterAvatars    = sf.filterAvatars    !== false; // default ON
-  const filterCardImages = sf.filterCardImages !== false; // default ON
-// @ts-ignore
-  const minImageWidth    = sf.minImageWidth  > 0 ? sf.minImageWidth  : 0;
-// @ts-ignore
-  const minImageHeight   = sf.minImageHeight > 0 ? sf.minImageHeight : 0;
-
-  filtered = filtered.filter((item: MediaItem) => {
-    if (item.type !== 'image') return true; // Video/GIF không lọc
-
-    const url = item.url || '';
-
-    // 1. Lọc avatar & banner theo URL pattern
-    if (filterAvatars && (
-      url.includes('/profile_images/') ||
-      url.includes('/profile_banners/')
-    )) return false;
-
-    // 2. Lọc card preview image theo URL pattern
-    if (filterCardImages && url.includes('/card_img/')) return false;
-
-    // 3. Lọc theo kích thước tối thiểu (chỉ khi có metadata)
-// @ts-ignore
-    if (minImageWidth  > 0 && item.width  > 0 && item.width  < minImageWidth)  return false;
-// @ts-ignore
-    if (minImageHeight > 0 && item.height > 0 && item.height < minImageHeight) return false;
-
-    return true;
-  });
-
-  if (maxMedia > 0) {
-    const currentCount = mediaStore.get(username)?.size || 0;
-    const remaining = maxMedia - currentCount;
-    if (remaining <= 0) return [];
-    filtered = filtered.slice(0, remaining);
-  }
-
-  return filtered;
+  return filterMediaItems(items, opts, mediaStore.get(username)?.size || 0);
 }
 
 
@@ -224,8 +180,7 @@ async function checkAutoScroll(tabId, username, isMediaPage) {
   }
 }
 
-// @ts-ignore
-async function startCollecting(username, tabId) {
+async function startCollecting(username: string, tabId?: number) {
   // FEA-01: Block bookmark scanning khi tắt trong options
   if (username === '_bookmarks_') {
     const opts = await getCachedOptions();
@@ -242,19 +197,16 @@ async function startCollecting(username, tabId) {
   }
   if (!tabId) return;
 
-  const state = tabState.get(tabId) || {};
-// @ts-ignore
-  if (state.isCollecting) return;
+  const state: CollectState = tabState.get(tabId) || { scrollCount: 0 };
+  if (state.isCollecting || !canTransitionCollectPhase(state.phase ?? 'idle', 'starting')) return;
 
-// @ts-ignore
+  state.phase = 'starting';
   state.isCollecting = true;
-// @ts-ignore
   state.username = username;
-// @ts-ignore
   state.scrollCount = 0;
-// @ts-ignore
   state.reachedEnd = false;
-// @ts-ignore
+  const operationId = crypto.randomUUID();
+  state.operationId = operationId;
   tabState.set(tabId, state);
 
   broadcastToPopup('COLLECT_STARTED', { username });
@@ -278,14 +230,27 @@ async function startCollecting(username, tabId) {
     await chrome.tabs.update(tabId, { url: targetUrl });
     await waitForTabLoad(tabId);
     await sleep(3000);
+    if (tabState.get(tabId)?.operationId !== operationId) return;
     // Sau navigate, gửi lại vì content script mới reload
     chrome.tabs.sendMessage(tabId, { type: 'COLLECT_STARTED_LOCAL' }).catch(() => {});
   }
 
-  scrollLoop(tabId, username);
+  const activeState = tabState.get(tabId);
+  if (!activeState || activeState.operationId !== operationId) return;
+  activeState.phase = 'collecting';
+  tabState.set(tabId, activeState);
+  void scrollLoop(tabId, username, operationId);
 }
 
-async function scrollLoop(tabId: number, username: string) {
+function finishCollecting(state: CollectState, phase: Extract<CollectPhase, 'stopped' | 'failed'>): CollectState {
+  const current = state.phase ?? 'collecting';
+  if (canTransitionCollectPhase(current, phase)) state.phase = phase;
+  state.isCollecting = false;
+  state.operationId = undefined;
+  return state;
+}
+
+async function scrollLoop(tabId: number, username: string, operationId: string) {
   const opts = await getCachedOptions();
 
   const MAX_SCROLLS = opts.maxScrolls || 200;
@@ -303,9 +268,9 @@ async function scrollLoop(tabId: number, username: string) {
 
   while (true) {
     const state = tabState.get(tabId);
-    if (!state?.isCollecting) break;
+    if (!state?.isCollecting || state.operationId !== operationId) break;
     if (state.scrollCount >= MAX_SCROLLS) {
-      state.isCollecting = false;
+      finishCollecting(state, 'stopped');
       tabState.set(tabId, state);
       chrome.tabs.sendMessage(tabId, { type: 'COLLECT_STOPPED_LOCAL' }).catch(() => {});
       broadcastToPopup('COLLECT_DONE', {
@@ -324,7 +289,18 @@ async function scrollLoop(tabId: number, username: string) {
         stopCollecting(username);
         break;
       }
-    } catch (_) { break; }
+    } catch (_) {
+      if (tabState.get(tabId)?.operationId === operationId) {
+        finishCollecting(state, 'failed');
+        tabState.set(tabId, state);
+        broadcastToPopup('COLLECT_DONE', { username, mediaCount: mediaStore.get(username)?.size || 0, reachedEnd: false, reason: 'tab_unavailable' });
+      }
+      break;
+    }
+
+    // A late SCROLL_DOWN response belongs to the operation that sent it. If
+    // the user stopped/restarted meanwhile, discard it without changing state.
+    if (tabState.get(tabId)?.operationId !== operationId) break;
 
     state.scrollCount++;
     tabState.set(tabId, state);
@@ -357,7 +333,7 @@ async function scrollLoop(tabId: number, username: string) {
       noNewCount++;
       if (noNewCount >= 3) {
         state.reachedEnd = true;
-        state.isCollecting = false;
+        finishCollecting(state, 'stopped');
         tabState.set(tabId, state);
         chrome.tabs.sendMessage(tabId, { type: 'COLLECT_STOPPED_LOCAL' }).catch(() => {});
         broadcastToPopup('COLLECT_DONE', {
@@ -378,7 +354,7 @@ async function scrollLoop(tabId: number, username: string) {
       } else {
         noNewMediaCount++;
         if (noNewMediaCount >= autoStopAfter) {
-          state.isCollecting = false;
+          finishCollecting(state, 'stopped');
           tabState.set(tabId, state);
           chrome.tabs.sendMessage(tabId, { type: 'COLLECT_STOPPED_LOCAL' }).catch(() => {});
           broadcastToPopup('COLLECT_DONE', {
@@ -397,10 +373,12 @@ async function scrollLoop(tabId: number, username: string) {
 }
 
 // @ts-ignore
-function stopCollecting(username) {
+function stopCollecting(username: string) {
   tabState.forEach((state, tabId) => {
     if (!username || !state.username || state.username.toLowerCase() === String(username).toLowerCase()) {
       state.isCollecting = false;
+      state.operationId = undefined;
+      state.phase = 'stopped';
       tabState.set(tabId, state);
       // Tắt flag isCollecting trong content.js của tab
       chrome.tabs.sendMessage(tabId, { type: 'COLLECT_STOPPED_LOCAL' }).catch(() => {});
@@ -416,6 +394,17 @@ function stopCollecting(username) {
   });
   // Session Restore: lưu clean session khi dừng chủ động
   if (username) persistSession(username);
+}
+
+/** Release tab-scoped state without stopping another tab for the same profile. */
+function stopCollectingForTab(tabId: number) {
+  const state = tabState.get(tabId);
+  if (!state) return;
+  tabState.delete(tabId);
+  if (state.username) {
+    void persistSession(state.username);
+    broadcastToPopup('COLLECT_STOPPED', { username: state.username, reason: 'tab_closed' });
+  }
 }
 
 // ─── Session Restore — Persist & Clear ───────────────────────────────────────
@@ -466,10 +455,14 @@ async function persistSession(username: string) {
       };
 
       const key = `session_${username}`;
-      await chrome.storage.local.set({
-        [key]: sessionData,
-        active_session_username: username,
-      });
+      // A delayed persistence from profile A must not overwrite profile B's
+      // active restore pointer while B is collecting in another tab.
+      const hasOtherActiveCollection = Array.from(tabState.values()).some(
+        state => state.isCollecting && state.username !== username
+      );
+      const dataToPersist: Record<string, unknown> = { [key]: sessionData };
+      if (!hasOtherActiveCollection) dataToPersist.active_session_username = username;
+      await chrome.storage.local.set(dataToPersist);
       console.debug(`[SW] Session saved: @${username} — ${store.size} items, scroll=${scrollCount}`);
     } catch (err: any) {
       console.warn('[SW] persistSession error:', err.message);
@@ -518,11 +511,23 @@ function normalizeUrlForDedup(url) {
 async function loadDownloadedUrls(username: string) {
   if (downloadedStore.has(username)) return; // Đã load rồi
   try {
-    const key = `downloaded_${username}`;
-    const data = await chrome.storage.local.get(key);
-    const arr = data[key] || [];
-// @ts-ignore
-    downloadedStore.set(username, new Set(arr));
+    // Prune on load (rather than every completion) to keep hot download paths
+    // fast while applying TTL/LRU when a profile is next used.
+    await pruneDownloadedUrls(username);
+    const urls = await getDownloadedUrls(username);
+    if (urls.length > 0) {
+      downloadedStore.set(username, new Set(urls));
+      return;
+    }
+    // One-time migration from releases that stored a large serialized array.
+    const legacyKey = `downloaded_${username}`;
+    const legacy = await chrome.storage.local.get(legacyKey);
+    const legacyUrls = Array.isArray(legacy[legacyKey]) ? legacy[legacyKey].filter((url): url is string => typeof url === 'string') : [];
+    downloadedStore.set(username, new Set(legacyUrls));
+    if (legacyUrls.length > 0) {
+      await saveDownloadedUrls(username, legacyUrls);
+      await chrome.storage.local.remove(legacyKey);
+    }
   } catch (_) {
     downloadedStore.set(username, new Set<string>());
   }
@@ -530,7 +535,7 @@ async function loadDownloadedUrls(username: string) {
 
 // Kiểm tra một URL đã được tải chưa
 function isAlreadyDownloaded(username: string, url: string) {
-  const set = downloadedStore.get(username);
+  const set = downloadedStore.get(username)!;
   if (!set) return false;
   return set.has(normalizeUrlForDedup(url));
 }
@@ -538,26 +543,30 @@ function isAlreadyDownloaded(username: string, url: string) {
 // Đánh dấu URL đã tải xong + persist vào storage
 function markDownloaded(username: string, url: string) {
   if (!downloadedStore.has(username)) downloadedStore.set(username, new Set<string>());
-  const set = downloadedStore.get(username);
-// @ts-ignore
-  set.add(normalizeUrlForDedup(url));
+  const set = downloadedStore.get(username)!;
+  const normalizedUrl = normalizeUrlForDedup(url);
+  const isNew = !set.has(normalizedUrl);
+  set.add(normalizedUrl);
   // Persist debounce — ghi storage sau 3s, không ghi từng file một
-  scheduleDownloadedPersist(username);
+  if (isNew) scheduleDownloadedPersist(username, normalizedUrl);
 }
 
 const _downloadedPersistTimers = new Map();
+const _dirtyDownloadedUrls = new Map<string, Set<string>>();
 // @ts-ignore
-function scheduleDownloadedPersist(username) {
+function scheduleDownloadedPersist(username: string, normalizedUrl: string) {
+  // Only write the new key. IndexedDB upserts atomically and avoids serializing
+  // the full history after every completed file.
+  if (!_dirtyDownloadedUrls.has(username)) _dirtyDownloadedUrls.set(username, new Set());
+  _dirtyDownloadedUrls.get(username)!.add(normalizedUrl);
   const existing = _downloadedPersistTimers.get(username);
   if (existing) clearTimeout(existing);
   const timer = setTimeout(async () => {
     _downloadedPersistTimers.delete(username);
     try {
-      const key = `downloaded_${username}`;
-      const arr = Array.from(downloadedStore.get(username) || []);
-      // Giới hạn 50,000 entry — giữ 40,000 cái mới nhất nếu vượt
-      const trimmed = arr.length > 50000 ? arr.slice(-40000) : arr;
-      await chrome.storage.local.set({ [key]: trimmed });
+      const dirty = _dirtyDownloadedUrls.get(username);
+      if (dirty?.size) await saveDownloadedUrls(username, dirty);
+      _dirtyDownloadedUrls.delete(username);
     } catch (err: any) {
       console.debug('[SW] markDownloaded persist error:', err.message);
     }
@@ -595,7 +604,7 @@ async function showDownloadNotification(username: string, success: number, faile
 export {
   requestCsrfRefresh, fetchVideoForTweetWithRefresh,
   addMediaItems, ensureMediaStoreLoaded, applyOptionsFilter, tweetDateFromId,
-  checkAutoScroll, startCollecting, stopCollecting, scrollLoop,
+  checkAutoScroll, startCollecting, stopCollecting, stopCollectingForTab, scrollLoop,
   persistSession, clearSession,
   loadDownloadedUrls, isAlreadyDownloaded, markDownloaded, showDownloadNotification
 };
