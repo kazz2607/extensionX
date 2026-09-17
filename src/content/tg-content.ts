@@ -40,9 +40,11 @@ function downloadInPage(url: string, filename: string): void {
   anchor.href = url;
   anchor.download = filename;
   anchor.hidden = true;
-  document.documentElement.appendChild(anchor);
+  document.body.appendChild(anchor);
   anchor.click();
-  anchor.remove();
+  // Delay removal to allow the browser's download manager to process the URL,
+  // especially important for Service Worker intercepted blobs.
+  window.setTimeout(() => anchor.remove(), 1000);
 }
 
 function setButtonState(button: HTMLButtonElement, state: 'success' | 'error'): void {
@@ -60,6 +62,25 @@ async function handleDownloadClick(event: MouseEvent, mediaElement: HTMLElement,
   const button = event.currentTarget as HTMLButtonElement;
 
   try {
+    // 1. Try to trigger the native Telegram download button first.
+    // This is required for videos since they are often streamed via MediaSource (MSE)
+    // and cannot be directly downloaded via their blob: URLs.
+    const viewer = mediaElement.closest('.media-viewer-whole, #MediaViewer');
+    let nativeBtn: HTMLElement | null = null;
+    if (viewer) {
+      nativeBtn = viewer.querySelector<HTMLElement>('button[title="Download"], button[aria-label="Download"], button[title="Download video"], button[title="Tải xuống"], .media-viewer-buttons button.download');
+    }
+    if (!nativeBtn && mediaElement.parentElement) {
+      nativeBtn = mediaElement.parentElement.querySelector<HTMLElement>('button[title="Download"], button.download');
+    }
+
+    if (nativeBtn) {
+      nativeBtn.click();
+      setButtonState(button, 'success');
+      return;
+    }
+
+    // 2. Fallback to extracting the media URL
     let url = mediaUrl(mediaElement);
     let mimeType = mediaMimeType(mediaElement);
     if (!url && mediaElement instanceof HTMLCanvasElement) {
