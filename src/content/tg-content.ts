@@ -33,28 +33,17 @@ function mediaMimeType(element: HTMLElement): string {
   return '';
 }
 
-function downloadInPage(url: string, filename: string): void {
-  // Để tải được các blob: URLs do Service Worker của Telegram tạo ra (trong các nhóm private/bình thường),
-  // ta BẮT BUỘC phải thực thi lệnh click tải xuống ở MAIN world (ngữ cảnh của trang web).
-  // Nếu gọi a.click() từ ISOLATED world (content script), Chrome sẽ bỏ qua Service Worker và báo lỗi Network Error.
-  const script = document.createElement('script');
-  script.textContent = `
-    (function() {
-      try {
-        var a = document.createElement('a');
-        a.href = ${JSON.stringify(url)};
-        a.download = ${JSON.stringify(filename)};
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(function() { a.remove(); }, 2000);
-      } catch (e) {
-        console.error('[ExtensionX] Lỗi khi kích hoạt tải xuống:', e);
-      }
-    })();
-  `;
-  document.documentElement.appendChild(script);
-  script.remove();
+function downloadDataUrlLocal(url: string, filename: string): void {
+  // data: URLs are too large to pass to the background script (exceeds 256KB limit)
+  // and do not require Service Worker interception, so they can be downloaded
+  // directly in the isolated world using a standard a.click().
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => a.remove(), 2000);
 }
 
 function setButtonState(button: HTMLButtonElement, state: 'success' | 'error'): void {
@@ -102,9 +91,8 @@ async function handleDownloadClick(event: MouseEvent, mediaElement: HTMLElement,
     const filename = telegramMediaFilename(kind, url, mimeType);
     console.log('[ExtensionX] Downloading Telegram media:', url.slice(0, 120));
 
-    const isSameOrigin = url.startsWith('blob:') || url.startsWith('data:') || url.startsWith(window.location.origin);
-    if (isSameOrigin) {
-      downloadInPage(url, filename);
+    if (url.startsWith('data:')) {
+      downloadDataUrlLocal(url, filename);
     } else {
       const message: ExtensionMessage = {
         type: 'TG_DOWNLOAD_MEDIA',

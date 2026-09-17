@@ -4,6 +4,14 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [6.1.6] — 2026-09-17 *(CSP Bypass Fix)*
+
+### 🐛 Sửa lỗi
+- Khắc phục lỗi bảo mật **Content Security Policy (CSP)** trên Telegram Web K (`'unsafe-inline'`) chặn việc tiêm mã tạo tải xuống.
+- Tiện ích hiện sử dụng API `chrome.scripting` từ Background Worker để thực thi lệnh tải trực tiếp vào Main World, vượt qua mọi rào cản CSP và kết nối mượt mà với Service Worker của Telegram.
+
+---
+
 ## [6.1.5] — 2026-09-17 *(Telegram Service Worker Stream Fix)*
 
 ### 🐛 Sửa lỗi

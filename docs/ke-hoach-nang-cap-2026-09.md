@@ -1,6 +1,6 @@
 # ExtensionX — Kế hoạch nâng cấp sau rà soát mã nguồn
 
-> Phạm vi: ExtensionX v6.1.5 (Manifest V3)
+> Phạm vi: ExtensionX v6.1.6 (Manifest V3)
 > Rà soát ban đầu: 16-09-2026  
 > Cập nhật hiện trạng: 17-09-2026  
 > Mục tiêu: giảm lỗi khi X.com thay đổi, giữ giao diện phản hồi nhanh với phiên thu thập/tải lớn, giảm bề mặt tấn công, và tạo nền tảng để mở rộng tính năng.
@@ -183,7 +183,7 @@ Tính đến ngày **17-09-2026**, toàn bộ 5 pha kỹ thuật cốt lõi (Pha
 | **v5.9.0** (Reliability) | Pha 2 | State machine cho collector & queue, operationId, IndexedDB dedup, HLS abort & timeout recovery. | ✅ **Đã hoàn thành** |
 | **v6.0.0** (Performance & UI) | Pha 3 + Pha 4 | Giảm 50% observer overhead, rAF batching, phân trang history, design tokens, phase status bar, preview panel. | ✅ **Sẵn sàng phát hành** |
 | **v6.1.0** (Telegram Integration) | Pha 6 | Hỗ trợ tải trực tiếp ảnh/video từ Telegram Web (K & A versions). | ✅ **Đã hoàn thành** |
-| **v6.1.5** (Telegram Reliability) | Pha 6 | Sửa luồng `blob:`/`data:`, giữ đúng định dạng file, xác thực sender và bổ sung regression tests. | ✅ **Đã hoàn thành** |
+| **v6.1.6** (Telegram Reliability) | Pha 6 | Sửa luồng `blob:`/`data:`, giữ đúng định dạng file, xác thực sender và bổ sung regression tests. | ✅ **Đã hoàn thành** |
 | **v6.2.0+** (Product Features) | Phase 5+ | Download picker (chọn từng ảnh/video), resume session sau crash, queue reordering. | 📋 Đang lập kế hoạch |
 
 ---

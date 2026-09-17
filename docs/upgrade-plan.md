@@ -1,6 +1,6 @@
-# ExtensionX — Kế Hoạch Nâng Cấp Toàn Diện v6.1.5+
+# ExtensionX — Kế Hoạch Nâng Cấp Toàn Diện v6.1.6+
 
-> **Phiên bản hiện tại:** 6.1.5
+> **Phiên bản hiện tại:** 6.1.6
 > **Ngày phân tích:** 2026-07-24 | **Cập nhật:** 2026-09-17
 > **Phạm vi:** Performance · Security · UI/UX Bug Fixes · Logic Fixes · New Features  
 
@@ -22,7 +22,7 @@
 ## 1. Tổng Quan Kiến Trúc
 
 ```
-ExtensionX v6.1.5
+ExtensionX v6.1.6
 ├── background/
 │   ├── service-worker.ts     — Entry point (chỉ import)
 │   ├── messages.ts           — 531 lines, Message hub + UPDATE_QUERY_ID handler
@@ -713,4 +713,4 @@ result?: {
 
 ---
 
-*Cập nhật: 2026-09-17. Version hiện tại: **v6.1.5** (Telegram Media Download Reliability). Các hạng mục sản phẩm tiếp theo được theo dõi tại `ke-hoach-nang-cap-2026-09.md`.*
+*Cập nhật: 2026-09-17. Version hiện tại: **v6.1.6** (Telegram Media Download Reliability). Các hạng mục sản phẩm tiếp theo được theo dõi tại `ke-hoach-nang-cap-2026-09.md`.*

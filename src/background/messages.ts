@@ -668,33 +668,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return false;
       }
       
-      // Check allowed scheme
-      try {
-        const urlObj = new URL(url);
-        // blob/data downloads stay in the content script because blob URLs are
-        // document-scoped and data URLs can exceed the message-size boundary.
-        const allowedSchemes = ['https:', 'http:'];
-        if (!allowedSchemes.includes(urlObj.protocol)) {
-          console.warn(`[SW] TG_DOWNLOAD_MEDIA blocked: scheme not allowed: ${urlObj.protocol}`);
-          sendResponse({ error: `Scheme not allowed: ${urlObj.protocol}` });
-          return true;
-        }
-      } catch(e) {
-        sendResponse({ error: 'Invalid URL' });
-        return true;
-      }
-
-      chrome.downloads.download({
-        url: url,
-        filename: safeFilename,
-        saveAs: false,
-      }, (downloadId) => {
-        if (chrome.runtime.lastError) {
-           console.error('[SW] TG Download error:', chrome.runtime.lastError);
-           sendResponse({ error: chrome.runtime.lastError.message });
-        } else {
-           sendResponse({ ok: true, downloadId });
-        }
+      chrome.scripting.executeScript({
+        target: { tabId: sender.tab.id },
+        world: 'MAIN',
+        func: (downloadUrl: string, downloadFilename: string) => {
+          try {
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = downloadFilename;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => a.remove(), 2000);
+          } catch (e) {
+            console.error('[ExtensionX] Main world download trigger failed', e);
+          }
+        },
+        args: [url, safeFilename]
+      }).then(() => {
+        sendResponse({ ok: true });
+      }).catch(err => {
+        console.error('[SW] TG_DOWNLOAD_MEDIA executeScript error:', err);
+        sendResponse({ error: err.message });
       });
       return true;
     }
