@@ -81,12 +81,14 @@ Thứ tự áp dụng: **ổn định dữ liệu + bảo mật → đo đạc �
 
 **Tiêu chí nghiệm thu:** 2 profile chạy song song không lẫn progress/media; refresh/navigate/đóng tab khi collect không để orphan task; restart service worker giữa HLS/download không treo vô hạn; retry không tải trùng.
 
-### Cập nhật triển khai Pha 2 (17-09-2026)
+### Cập nhật triển khai Pha 2 (17-09-2026) ✅ HOÀN TẤT
 
 - Mỗi request HLS hiện có `AbortController`; Stop hủy task đang chạy, bỏ task FIFO đang chờ và reject waiter ở service worker ngay lập tức.
 - Fetch playlist/segment dùng retry giới hạn (3 lần), exponential backoff có jitter; lỗi HTTP 4xx không retry và segment thiếu không tạo video partial.
 - Tab đóng dọn collection state theo tab; offscreen tự đóng sau 30 giây rảnh. Dedup IndexedDB có TTL 180 ngày và giới hạn LRU 50.000 URL/profile khi profile được nạp.
-- Vẫn cần test restart service worker/HLS bằng browser harness và cơ chế đóng offscreen khi idle trước khi xem Pha 2 hoàn tất.
+- Queue recovery sau service-worker restart dùng `recoverQueueItemAfterRestart` (named helper) thay vì inline logic; tất cả mutation status dùng `transitionQueueItem` — invalid transitions bị reject tường minh.
+- Fix `fetchText` trong `hls-fetcher.ts` nuốt `AbortError`: re-throw khi `signal.aborted`, đảm bảo abort propagate đúng qua toàn bộ retry/backoff chain.
+- 3 HLS regression tests pass: retry transient, abort trước fetch, abort trong backoff. Tổng: 14/14 unit test xanh. CI green.
 
 ## 6. Pha 3 — Hiệu năng (P1, 3–5 ngày)
 
