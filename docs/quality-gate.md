@@ -1,10 +1,12 @@
 # Quality gate và baseline Pha 0
 
+> Áp dụng cho phiên bản **6.1.1** | Cập nhật: 2026-09-17
+
 ## Lệnh bắt buộc
 
 Chạy `npm run check` trước khi tạo PR. Lệnh này gồm TypeScript, ESLint cho mã mới/các helper dùng chung, unit test, regression test bằng fixture, và production build. CI GitHub chạy đúng lệnh này cho pull request và nhánh chính.
 
-`npm run test:e2e` là regression tích hợp dùng fixture GraphQL đã khử dữ liệu nhận diện, kiểm tra filter/queue transition trên mọi máy và trong CI. `npm run test:browser` chạy Chrome với extension build thật và manifest test tạm thời chỉ mở quyền fixture localhost; nó kiểm tra content-script DOM fallback, tách state hai profile/tab và SPA navigation. Manifest phát hành không bị thay đổi.
+`npm run test:e2e` là regression tích hợp dùng fixture GraphQL đã khử dữ liệu nhận diện, kiểm tra filter/queue transition trên mọi máy và trong CI. `npm run test:browser` chạy Chrome với extension build thật và manifest test tạm thời chỉ mở quyền fixture localhost; nó kiểm tra content-script DOM fallback, tách state hai profile/tab, SPA navigation và luồng Telegram canvas/data URL. Manifest phát hành không bị thay đổi.
 
 ## SLO khởi điểm
 

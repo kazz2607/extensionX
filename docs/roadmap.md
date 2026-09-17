@@ -1,11 +1,11 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-08-17 | Phiên bản hiện tại: **5.7.5**
+> Cập nhật: 2026-09-17 | Phiên bản hiện tại: **6.1.1**
 
 ---
 
-## 1. Kiến Trúc Hiện Tại (v5.0.5)
+## 1. Kiến Trúc Hiện Tại (v6.1.1)
 
 ```text
 extensionX/
@@ -13,7 +13,7 @@ extensionX/
 ├── tsconfig.json                  # Cấu hình TypeScript (strict: true)
 ├── vite.config.ts                 # Cấu hình Vite bundler
 ├── src/
-│   ├── manifest.json              # Chrome Extension Manifest V3 (version 5.3.0)
+│   ├── manifest.json              # Chrome Extension Manifest V3 (version 6.1.1)
 │   ├── background/
 │   │   ├── service-worker.ts      # Service Worker: core logic, queue, date filter
 │   │   ├── tweet-api.ts           # Fallback API & User Session bypass CORS
@@ -29,7 +29,8 @@ extensionX/
 │   │   ├── fab.ts                 # Floating Action Button trên trang X.com
 │   │   ├── tweet-btn.ts           # Download Mini Button trên từng tweet
 │   │   ├── snackbar.ts            # Progress Snackbar glassmorphism
-│   │   └── page-interceptor.ts    # Hook fetch/XHR/JSON.parse (MAIN world)
+│   │   ├── page-interceptor.ts    # Hook fetch/XHR/JSON.parse (MAIN world)
+│   │   └── tg-content.ts          # Nút tải ảnh/video trên Telegram Web A/K
 │   ├── popup/
 │   │   ├── popup.html             # 3-tab layout: Main / Queue / Stats
 │   │   ├── popup.ts               # Tab nav, queue, donut chart, date filter
@@ -144,6 +145,8 @@ File được lưu vào:
 - **v5.4.0** Queue & Bookmark: toggle bookmark scanning, Queue export/import JSON, file count per profile in Queue tab
 - **v5.5.0** Global Keyboard Shortcuts: 5 phím tắt tiện ích hoạt động trên mọi trang web (`Ctrl+C`, `Ctrl+S`, v.v.), settings UI, tự trích xuất permalink tweet trên X.com
 - **v5.5.1** Bug Fixes: Cải thiện logic bắt sự kiện hover vào ảnh bằng cách theo dõi tọa độ `mousemove` và `document.elementsFromPoint(x, y)`, giúp hoạt động hoàn hảo trên mọi web có DOM layer phức tạp.
+- **v6.1.0** Telegram Web Integration: chèn nút tải trực tiếp trên ảnh/video của Telegram Web A/K.
+- **v6.1.1** Telegram Reliability: xử lý `blob:`/`data:` trong tab nguồn, giữ đúng định dạng file, xác thực sender và bổ sung regression tests.
 
 ---
 
@@ -177,6 +180,8 @@ File được lưu vào:
 | v5.1.0 | **Bug Fixes P0 + Security P2** — activeDownloads conflict, options cache (99% I/O reduction), mini-btn duplicate detection, path traversal fix, CSRF token scoping, URL path validation, dynamic bearer token pipeline |
 | v5.0.5 | **Queue Fix & Auto-Save** — Sửa triệt để lỗi Queue đứng khi sleep, thêm cơ chế Auto-save cho options page |
 | v5.0.4 | **UI Fixes & Version Sync** — Sửa viền trắng popup dark mode, đồng bộ lại toàn bộ version cũ trong code và docs |
+| v6.1.0 | **Telegram Web Integration** — Tải trực tiếp ảnh/video từ giao diện Telegram Web A/K |
+| v6.1.1 | **Telegram Reliability** — Sửa tải `blob:`/`data:`, phần mở rộng file, phản hồi UI và xác thực nguồn message |
 
 ---
 
@@ -556,12 +561,14 @@ v5.7.2  ── Following Scanner Polish (flex scroll chain, 7000+ list, feature 
 v5.7.3  ── Hotfix: CSP MAIN World Bypass, Cold SW State Recovery & Dynamic Query ID    ✅ DONE
 v5.7.4  ── Instant Stop Controls, TweetDetail GraphQL Schema & Syndication Triple-Fallbacks ✅ DONE
 v5.7.5  ── Duplicate Detection & History Fixes, UI Controls & TypeScript Hardening       ✅ DONE
+v6.0.0  ── Performance, security, UI/accessibility quality phases                         ✅ DONE
+v6.1.0  ── Telegram Web Integration                                                       ✅ DONE
+v6.1.1  ── Telegram Media Download Reliability                                            ✅ DONE
 
 [TIẾP THEO]
-v5.8.0  ── Stability: IndexedDB health check, better error recovery, SW reload guard
+v6.2.0  ── Product features: download picker, reliable resume, queue reordering
 
 [TƯƠNG LAI]
-v6.0.0  ── Full-page Dashboard, Masonry Media Gallery, Bulk Selection
 v7.0.0  ── Automation: Background Cron-job Auto-fetch, Cloud Integration
 ```
 

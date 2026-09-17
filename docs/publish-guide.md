@@ -2,7 +2,7 @@
 
 Tài liệu này hướng dẫn chi tiết các bước để chuẩn bị, đóng gói mã nguồn và đưa tiện ích **X Media Downloader** lên chợ ứng dụng Chrome Web Store (CWS).
 
-> Phiên bản hiện tại: **5.7.5** | Cập nhật: 2026-08-17
+> Phiên bản hiện tại: **6.1.1** | Cập nhật: 2026-09-17
 
 ---
 
@@ -48,7 +48,7 @@ npm run build
 1. Mở thư mục `dist/` (output sau khi chạy `npm run build`).
 2. Chọn **tất cả** nội dung bên trong `dist/`.
 3. Click chuột phải, chọn **Compress to ZIP file** (Windows 11) hoặc **Send to > Compressed (zipped) folder** (Windows 10).
-4. Đặt tên file ZIP rõ ràng: `x-media-downloader-v5.7.5.zip`
+4. Đặt tên file ZIP rõ ràng: `x-media-downloader-v6.1.1.zip`
 
 > [!WARNING]
 > Đảm bảo file `manifest.json` nằm ở **thư mục gốc** bên trong file ZIP. Nếu giải nén file ZIP ra mà thấy một thư mục cha bọc ngoài (ví dụ `dist/manifest.json`), Google sẽ báo lỗi không hợp lệ.
@@ -68,7 +68,7 @@ Nếu bạn chưa có tài khoản Chrome Web Store Developer:
 ## 4. Tải Tiện Ích Lên (Upload)
 
 1. Tại Dashboard, nhấn nút **+ New Item** (Thêm mục mới).
-2. Kéo thả file `x-media-downloader-v5.7.5.zip` của bạn vào ô tải lên.
+2. Kéo thả file `x-media-downloader-v6.1.1.zip` của bạn vào ô tải lên.
 3. Chờ Google quét virus sơ bộ. Nếu hợp lệ, bạn sẽ được chuyển sang trang điền thông tin chi tiết (Store Listing).
 
 ---
@@ -103,7 +103,7 @@ Google kiểm duyệt rất gắt gao các quyền (permissions) mà extension y
 - `offscreen`: Dùng để xử lý HLS stream (ghép TS segments) trong document ngầm.
 
 **Single Purpose (Mục đích duy nhất):**
-Khẳng định tiện ích chỉ phục vụ một mục đích duy nhất: "Giúp người dùng sao lưu, tải xuống media từ mạng xã hội X.com."
+Khẳng định tiện ích chỉ phục vụ một mục đích duy nhất: "Giúp người dùng sao lưu, tải xuống media từ X.com và Telegram Web."
 
 **Data Usage (Sử dụng dữ liệu):**
 Đánh dấu xác nhận tiện ích của bạn KHÔNG thu thập dữ liệu cá nhân (PII), KHÔNG bán dữ liệu cho bên thứ ba và KHÔNG theo dõi hành vi duyệt web ngoài X.com.
@@ -126,5 +126,5 @@ Khẳng định tiện ích chỉ phục vụ một mục đích duy nhất: "Gi
 
 ---
 
-🎉 **Chúc bạn phát hành X Media Downloader v5.7.5 thành công!**
+🎉 **Chúc bạn phát hành X Media Downloader v6.1.1 thành công!**
 

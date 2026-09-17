@@ -16,6 +16,7 @@ import { addDiagnosticEvent, emptyDiagnostics } from '../src/shared/diagnostics.
 import { filterMediaItems } from '../src/shared/media-filter.ts';
 import { canTransitionCollectPhase } from '../src/shared/collect-state.ts';
 import { recoverQueueItemAfterRestart, transitionQueueItem } from '../src/shared/queue-state.ts';
+import { isTelegramWebUrl, telegramMediaFilename } from '../src/shared/telegram-media.ts';
 
 test('accepts only known X media origins', () => {
   assert.equal(isTrustedMediaUrl('https://pbs.twimg.com/media/photo.jpg?name=orig'), true);
@@ -101,4 +102,13 @@ test('queue recovery resets interrupted work but rejects invalid terminal transi
   const item = { id: 'NASA_1', username: 'NASA', filterType: 'all', skipDuplicates: true, addedAt: 1, status: 'downloading' as const, mediaCount: 1 };
   assert.equal(recoverQueueItemAfterRestart(item).status, 'waiting');
   assert.equal(transitionQueueItem({ ...item, status: 'done' }, 'waiting'), null);
+});
+
+test('validates Telegram senders and preserves known media extensions', () => {
+  assert.equal(isTelegramWebUrl('https://web.telegram.org/k/'), true);
+  assert.equal(isTelegramWebUrl('https://web.telegram.org.evil.test/k/'), false);
+  assert.equal(isTelegramWebUrl('http://web.telegram.org/k/'), false);
+  assert.equal(telegramMediaFilename('image', 'https://cdn.test/photo.webp', '', 123), 'telegram_image_123.webp');
+  assert.equal(telegramMediaFilename('video', 'blob:https://web.telegram.org/id', 'video/webm', 456), 'telegram_video_456.webm');
+  assert.equal(telegramMediaFilename('image', 'data:image/png;base64,abc', 'image/png', 789), 'telegram_image_789.png');
 });

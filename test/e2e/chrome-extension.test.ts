@@ -90,4 +90,26 @@ test('Chrome extension fixture collects isolated media after SPA navigation', { 
   });
   await waitForCount(() => count('Alice'), 2);
   assert.equal(await count('Bob'), 1);
+
+  // Telegram's canvas/data URL path must download inside the originating tab;
+  // sending it through runtime messaging would exceed the message-size limit.
+  const telegram = await context.newPage();
+  await telegram.goto(`${baseUrl}/Telegram/k`);
+  await telegram.evaluate(() => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'message-media';
+    const canvas = document.createElement('canvas');
+    canvas.width = 200;
+    canvas.height = 200;
+    canvas.getContext('2d')?.fillRect(0, 0, 200, 200);
+    wrapper.append(canvas);
+    document.body.append(wrapper);
+  });
+  const telegramButton = telegram.locator('.message-media .ext-x-tg-download-btn');
+  await telegramButton.waitFor();
+  const [telegramDownload] = await Promise.all([
+    telegram.waitForEvent('download'),
+    telegramButton.click(),
+  ]);
+  assert.match(telegramDownload.suggestedFilename(), /^telegram_image_\d+\.jpg$/);
 });

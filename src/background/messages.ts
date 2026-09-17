@@ -9,6 +9,7 @@ import { startFollowingScroll, stopFollowingScroll, getFollowingScrollState } fr
 import { isValidDownloadOptions, isValidMediaItem, isValidUsername, isXProfileUrlForUsername, isXUrl } from '../shared/validation.ts';
 import { parseExtensionMessage } from '../shared/messages.ts';
 import { clearLocalDiagnostics, exportLocalDiagnostics, recordDiagnostic } from './diagnostics.ts';
+import { isTelegramWebUrl } from '../shared/telegram-media.ts';
 
 const MAX_MEDIA_BATCH = 200;
 const MEDIA_PROCESS_CONCURRENCY = 4;
@@ -657,15 +658,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Pha 6: Telegram Web Download
     case 'TG_DOWNLOAD_MEDIA': {
       const { url, filename } = payload || {};
-      if (typeof url !== 'string' || typeof filename !== 'string') {
+      if (!sender.tab?.id || !isTelegramWebUrl(sender.tab.url) || typeof url !== 'string' || typeof filename !== 'string') {
         sendResponse({ error: 'Missing url or filename' });
         return true;
+      }
+      const safeFilename = filename.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 200);
+      if (!safeFilename || url.length > 8_192) {
+        sendResponse({ error: 'Invalid Telegram download request' });
+        return false;
       }
       
       // Check allowed scheme
       try {
         const urlObj = new URL(url);
-        const allowedSchemes = ['https:', 'http:', 'blob:', 'data:'];
+        // blob/data downloads stay in the content script because blob URLs are
+        // document-scoped and data URLs can exceed the message-size boundary.
+        const allowedSchemes = ['https:', 'http:'];
         if (!allowedSchemes.includes(urlObj.protocol)) {
           console.warn(`[SW] TG_DOWNLOAD_MEDIA blocked: scheme not allowed: ${urlObj.protocol}`);
           sendResponse({ error: `Scheme not allowed: ${urlObj.protocol}` });
@@ -678,7 +686,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       chrome.downloads.download({
         url: url,
-        filename: filename,
+        filename: safeFilename,
         saveAs: false,
       }, (downloadId) => {
         if (chrome.runtime.lastError) {

@@ -2,6 +2,8 @@
 
 Extension Chrome mạnh mẽ cho phép bạn tải toàn bộ ảnh, video và GIF từ bất kỳ profile nào trên X.com (Twitter) với chất lượng gốc, hoàn toàn tự động và sắp xếp gọn gàng vào thư mục theo tên người dùng.
 
+> **Phiên bản hiện tại: 6.1.1** — hỗ trợ tải ảnh/video trực tiếp trên Telegram Web A/K với xử lý an toàn cho URL `blob:`, `data:` và HTTP(S).
+
 ## ✨ Tính Năng Nổi Bật
 
 - 🚀 **Thu thập tự động (Auto-scroll):** Tự động cuộn trang và thu thập media nhanh chóng.
@@ -15,6 +17,7 @@ Extension Chrome mạnh mẽ cho phép bạn tải toàn bộ ảnh, video và G
 - 🧹 **Smart Filters:** Tự động loại bỏ ảnh avatar, banner, card preview và ảnh nhỏ hơn ngưỡng tối thiểu.
 - 📄 **Xuất CSV:** Lưu danh sách các URL media đã quét được thành file `.csv` chỉ với 1 click.
 - 🔒 **100% Xử lý cục bộ:** Toàn bộ quá trình quét, phân tích và tải xuống diễn ra trên máy của bạn, không có bất kỳ kết nối nào tới server bên thứ 3.
+- ✈️ **Telegram Web:** Chèn nút tải trực tiếp lên ảnh/video, hỗ trợ media từ URL HTTP(S), `blob:`, `data:` và canvas trên giao diện A/K.
 
 ## 🛠 Hướng Dẫn Cài Đặt
 
@@ -50,8 +53,8 @@ Click vào nút ⚙ (Cài đặt) trên popup của extension để tuỳ chỉn
 - `storage`: Lưu cấu hình cài đặt và session restore.
 - `scripting`, `activeTab`, `tabs`: Để nhúng mã thu thập (interceptor, dom scanner, fab) trực tiếp vào trang X.com.
 - `alarms`: Keep-alive Service Worker khi đang tải nhiều file, tránh bị Chrome terminate.
-- `host_permissions` (`*.x.com`, `*.twitter.com`, `pbs.twimg.com`, `video.twimg.com`): Cho phép extension đọc dữ liệu và fetch media file từ server của Twitter.
+- `host_permissions` (`*.x.com`, `*.twitter.com`, `pbs.twimg.com`, `video.twimg.com`, `web.telegram.org`): Cho phép extension đọc media từ X/Twitter và gắn nút tải trên Telegram Web.
 
 ---
 
-*Phát triển nội bộ — Phiên bản **4.1.0** | Cập nhật: 2026-06-03*
+*Phát triển nội bộ — Phiên bản **6.1.1** | Cập nhật: 2026-09-17*

@@ -4,6 +4,22 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [6.1.1] — 2026-09-17 *(Telegram Media Download Reliability)*
+
+### 🐛 Sửa lỗi
+- Tải `blob:` và `data:` ngay trong tab Telegram để tránh lỗi URL khác ngữ cảnh service worker và giới hạn 256 KB của runtime message.
+- Chờ phản hồi thật từ background trước khi hiển thị trạng thái tải thành công; bổ sung trạng thái thành công/lỗi trên nút tải.
+- Giữ đúng phần mở rộng theo URL/MIME (`webp`, `png`, `webm`, `mp4`...) thay vì luôn ép `.jpg`/`.mp4`.
+- Mở rộng bộ chọn DOM cho Telegram Web A/K, đồng thời bỏ qua avatar, emoji, sticker và ảnh quá nhỏ.
+
+### 🔒 Bảo mật & kiểm thử
+- Chỉ chấp nhận `TG_DOWNLOAD_MEDIA` từ content script chạy trên `https://web.telegram.org`, giới hạn độ dài URL và làm sạch tên file.
+- Chỉ chuyển URL HTTP(S) sang `chrome.downloads`; URL theo document (`blob:`/`data:`) được xử lý tại tab nguồn.
+- Bổ sung unit test cho URL Telegram/tên file và browser fixture cho luồng tải canvas/data URL.
+- Đồng bộ version ứng dụng, manifest, popup, queue export và toàn bộ tài liệu phát hành lên `6.1.1`.
+
+---
+
 ## [6.1.0] — 2026-09-17 *(Telegram Web Integration)*
 
 ### ✨ Tính Năng Mới

@@ -2,7 +2,9 @@
 
 > Extension Chrome cho phép tải toàn bộ ảnh, video và GIF từ profile bất kỳ trên X.com (Twitter) về máy tính, tự động lưu vào thư mục `{Downloads}/{username}/` (phân loại theo `images/`, `videos/`, `gifs/`).
 
-> **Phiên bản hiện tại:** 5.7.5 | Cập nhật: 2026-08-17
+> **Phiên bản hiện tại:** 6.1.1 | Cập nhật: 2026-09-17
+
+Từ v6.1.1, tiện ích còn hỗ trợ tải trực tiếp ảnh/video trên `https://web.telegram.org` bằng nút tải xuất hiện trên media của giao diện A/K.
 
 ---
 
@@ -118,7 +120,7 @@ Sau khi load, extension sẽ xuất hiện trong danh sách:
 
 ```
 ┌──────────────────────────────────────────┐
-│  ⬇ X Media Downloader          v5.7.5   │
+│  ⬇ X Media Downloader          v6.1.1   │
 │  Tải toàn bộ ảnh & video từ X.com...    │
 │                                          │
 │  [Details]  [Remove]           ● Enabled │
@@ -150,7 +152,7 @@ Click icon **⬇** trên toolbar Chrome. Popup sẽ hiển thị:
 
 ```
 ┌───────────────────────────────────────────┐
-│ ⬇ X Media Downloader        v5.7.5 ⚙☀🔄 │
+│ ⬇ X Media Downloader        v6.1.1 ⚙☀🔄 │
 ├───────────────────────────────────────────┤
 │ 👤 @NASA                             [47]│
 │    Profile đang được xem                 │
@@ -350,6 +352,7 @@ Khi có phiên bản mới:
 | `host_permissions: x.com/*` | Chạy trên trang X.com |
 | `host_permissions: pbs.twimg.com/*` | Tải ảnh từ server Twitter |
 | `host_permissions: video.twimg.com/*` | Tải video từ server Twitter |
+| `host_permissions: web.telegram.org/*` | Hiển thị nút tải ảnh/video trên Telegram Web A/K |
 
 ---
 
@@ -471,4 +474,4 @@ Nếu gặp vấn đề, hãy kiểm tra:
 - **Hướng dẫn bắt đầu:** Khi mở popup mà chưa nhận ra profile X.com, hiển thị card 3 bước hướng dẫn.
 - **Auto-save feedback:** Trang Settings hiện `⏳ Saving...` ngay khi gõ, `✓ Saved` khi lưu xong.
 
-*Phiên bản: 5.3.0 | Cập nhật: 2026-06-04*
+*Phiên bản: 6.1.1 | Cập nhật: 2026-09-17*

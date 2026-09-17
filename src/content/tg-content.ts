@@ -1,8 +1,8 @@
 import type { ExtensionMessage } from '../shared/messages';
+import { telegramMediaFilename, type TelegramMediaKind } from '../shared/telegram-media.ts';
 
 console.log('[ExtensionX] Telegram Web Content Script loaded.');
 
-// Utility to create the SVG icon
 function createDownloadIcon(): SVGSVGElement {
   const svgNS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(svgNS, 'svg');
@@ -13,119 +13,116 @@ function createDownloadIcon(): SVGSVGElement {
   return svg;
 }
 
-// Function to handle the download click
-async function handleDownloadClick(e: MouseEvent, mediaElement: HTMLElement, isVideo: boolean) {
-  e.preventDefault();
-  e.stopPropagation();
-  
-  let url = '';
-  
-  if (mediaElement instanceof HTMLImageElement) {
-    url = mediaElement.src;
-  } else if (mediaElement instanceof HTMLVideoElement) {
-    url = mediaElement.src;
+function mediaUrl(element: HTMLElement): string {
+  if (element instanceof HTMLImageElement) return element.currentSrc || element.src;
+  if (element instanceof HTMLVideoElement) {
+    return element.currentSrc || element.src || element.querySelector('source[src]')?.getAttribute('src') || '';
   }
-  
-  if (url) {
-     console.log('[ExtensionX] Downloading media:', url);
-     try {
-       const message: ExtensionMessage = {
-         type: 'TG_DOWNLOAD_MEDIA',
-         payload: {
-           url: url,
-           filename: isVideo ? `tg_video_${Date.now()}.mp4` : `tg_image_${Date.now()}.jpg`,
-           isVideo: isVideo
-         }
-       };
-       chrome.runtime.sendMessage(message);
-       
-       const btn = e.currentTarget as HTMLButtonElement;
-       const originalBg = btn.style.backgroundColor;
-       btn.style.backgroundColor = 'green';
-       setTimeout(() => {
-         btn.style.backgroundColor = originalBg;
-       }, 1000);
-     } catch (err) {
-       console.error('[ExtensionX] Failed to send download message', err);
-     }
-  } else if (mediaElement instanceof HTMLCanvasElement) {
-     const dataUrl = mediaElement.toDataURL('image/jpeg', 0.95);
-     const message: ExtensionMessage = {
-         type: 'TG_DOWNLOAD_MEDIA',
-         payload: {
-           url: dataUrl,
-           filename: `tg_image_${Date.now()}.jpg`,
-           isVideo: false
-         }
-     };
-     chrome.runtime.sendMessage(message);
-  } else {
-     console.error('[ExtensionX] Could not determine media URL');
+  return '';
+}
+
+function mediaMimeType(element: HTMLElement): string {
+  if (element instanceof HTMLVideoElement) {
+    return element.querySelector('source[type]')?.getAttribute('type') || '';
+  }
+  return '';
+}
+
+function downloadInPage(url: string, filename: string): void {
+  // blob: URLs belong to this Telegram document and data: URLs can be much
+  // larger than Chrome's runtime-message limit, so keep both in this context.
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.hidden = true;
+  document.documentElement.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+}
+
+function setButtonState(button: HTMLButtonElement, state: 'success' | 'error'): void {
+  button.dataset.state = state;
+  button.title = state === 'success' ? 'Đã bắt đầu tải xuống' : 'Không thể tải xuống';
+  window.setTimeout(() => {
+    delete button.dataset.state;
+    button.title = 'Tải xuống (X Media Downloader)';
+  }, 1500);
+}
+
+async function handleDownloadClick(event: MouseEvent, mediaElement: HTMLElement, kind: TelegramMediaKind): Promise<void> {
+  event.preventDefault();
+  event.stopPropagation();
+  const button = event.currentTarget as HTMLButtonElement;
+
+  try {
+    let url = mediaUrl(mediaElement);
+    let mimeType = mediaMimeType(mediaElement);
+    if (!url && mediaElement instanceof HTMLCanvasElement) {
+      mimeType = 'image/jpeg';
+      url = mediaElement.toDataURL(mimeType, 0.95);
+    }
+    if (!url) throw new Error('Could not determine media URL');
+
+    const filename = telegramMediaFilename(kind, url, mimeType);
+    console.log('[ExtensionX] Downloading Telegram media:', url.slice(0, 120));
+
+    if (url.startsWith('blob:') || url.startsWith('data:')) {
+      downloadInPage(url, filename);
+    } else {
+      const message: ExtensionMessage = {
+        type: 'TG_DOWNLOAD_MEDIA',
+        payload: { url, filename, isVideo: kind === 'video' },
+      };
+      const response = await chrome.runtime.sendMessage(message) as { ok?: boolean; error?: string } | undefined;
+      if (!response?.ok) throw new Error(response?.error || 'Download was rejected');
+    }
+    setButtonState(button, 'success');
+  } catch (error) {
+    setButtonState(button, 'error');
+    console.error('[ExtensionX] Telegram download failed:', error);
   }
 }
 
-function attachButtonToMedia(container: HTMLElement, mediaElement: HTMLElement, isVideo: boolean) {
-  if (container.querySelector('.ext-x-tg-download-btn')) {
-    return; // Already attached
-  }
-  
+function attachButtonToMedia(container: HTMLElement, mediaElement: HTMLElement, kind: TelegramMediaKind): void {
+  if (mediaElement.dataset.extXTelegramDownload === 'true') return;
+  mediaElement.dataset.extXTelegramDownload = 'true';
   container.classList.add('ext-x-tg-media-wrapper');
-  
-  const btn = document.createElement('button');
-  btn.className = 'ext-x-tg-download-btn';
-  btn.title = 'Tải xuống (X Media Downloader)';
-  btn.appendChild(createDownloadIcon());
-  
-  btn.addEventListener('click', (e) => handleDownloadClick(e, mediaElement, isVideo));
-  
-  container.appendChild(btn);
+
+  const button = document.createElement('button');
+  button.className = 'ext-x-tg-download-btn';
+  button.type = 'button';
+  button.title = 'Tải xuống (X Media Downloader)';
+  button.setAttribute('aria-label', kind === 'video' ? 'Tải video Telegram' : 'Tải ảnh Telegram');
+  button.appendChild(createDownloadIcon());
+  button.addEventListener('click', (event) => void handleDownloadClick(event, mediaElement, kind));
+  container.appendChild(button);
 }
 
-function processDOM() {
-  // 1. Find videos
-  const videos = document.querySelectorAll('video');
+function processDOM(): void {
+  const videos = document.querySelectorAll<HTMLVideoElement>(
+    '.message video, .Message video, .message-media video, .media-viewer video, .MediaViewer video, .VideoPlayer video, video.media-video',
+  );
   videos.forEach((video) => {
-    const parent = video.parentElement;
-    if (parent && !parent.querySelector('.ext-x-tg-download-btn')) {
-       attachButtonToMedia(parent, video, true);
-    }
+    if (video.parentElement) attachButtonToMedia(video.parentElement, video, 'video');
   });
-  
-  // 2. Find images
-  const images = document.querySelectorAll('img.media-photo, .message-media img, .media-viewer-aspecter img');
-  images.forEach((img) => {
-    const parent = img.parentElement;
-    if (parent && !parent.querySelector('.ext-x-tg-download-btn')) {
-       attachButtonToMedia(parent, img as HTMLElement, false);
-    }
+
+  const images = document.querySelectorAll<HTMLImageElement>(
+    'img.media-photo, .message-media img, .media-viewer-aspecter img, .Media img, .Photo img, .MediaViewer img, .album-item-media img',
+  );
+  images.forEach((image) => {
+    if (image.closest('.avatar, .Avatar, .emoji, .Emoji, .sticker, .Sticker')) return;
+    if (image.naturalWidth > 0 && image.naturalHeight > 0 && (image.naturalWidth < 120 || image.naturalHeight < 120)) return;
+    if (image.parentElement) attachButtonToMedia(image.parentElement, image, 'image');
   });
-  
-  // 3. Canvas (WebA sometimes uses canvas for images)
-  const canvases = document.querySelectorAll('.message-media canvas');
-  canvases.forEach((canvas) => {
-    const parent = canvas.parentElement;
-    if (parent && !parent.querySelector('.ext-x-tg-download-btn')) {
-       attachButtonToMedia(parent, canvas as HTMLElement, false);
-    }
+
+  document.querySelectorAll<HTMLCanvasElement>('.message-media canvas, .Media canvas').forEach((canvas) => {
+    if (canvas.parentElement) attachButtonToMedia(canvas.parentElement, canvas, 'image');
   });
 }
 
 const observer = new MutationObserver((mutations) => {
-  let shouldProcess = false;
-  for (const mutation of mutations) {
-    if (mutation.addedNodes.length > 0) {
-      shouldProcess = true;
-      break;
-    }
-  }
-  if (shouldProcess) {
-    processDOM();
-  }
+  if (mutations.some((mutation) => mutation.addedNodes.length > 0)) processDOM();
 });
 
-observer.observe(document.body, {
-  childList: true,
-  subtree: true
-});
-
-setTimeout(processDOM, 1000);
+observer.observe(document.body, { childList: true, subtree: true });
+processDOM();

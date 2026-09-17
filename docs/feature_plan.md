@@ -1,6 +1,8 @@
 # Đề xuất tính năng mới cho ExtensionX
 
-Dựa trên phiên bản hiện tại (v5.7.5) đã hoạt động rất ổn định với các tính năng cơ bản và phím tắt thông minh, dưới đây là một số ý tưởng tính năng mở rộng nâng cao mà chúng ta có thể cân nhắc phát triển tiếp theo để biến ExtensionX thành một công cụ siêu mạnh mẽ:
+> **Phiên bản hiện tại:** 6.1.1 | **Cập nhật:** 2026-09-17
+
+Dựa trên phiên bản hiện tại (v6.1.1), đã hỗ trợ tải media từ X.com và Telegram Web, dưới đây là các ý tưởng mở rộng có thể cân nhắc cho những bản tiếp theo:
 
 ## 1. Bulk Download (Tải hàng loạt thông minh)
 - **Mô tả:** Thêm một nút trên giao diện Popup cho phép "Quét toàn bộ ảnh trên trang web hiện tại".

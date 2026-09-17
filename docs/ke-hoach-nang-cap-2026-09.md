@@ -1,6 +1,6 @@
 # ExtensionX — Kế hoạch nâng cấp sau rà soát mã nguồn
 
-> Phạm vi: ExtensionX v5.7.5 (Manifest V3)  
+> Phạm vi: ExtensionX v6.1.1 (Manifest V3)
 > Rà soát ban đầu: 16-09-2026  
 > Cập nhật hiện trạng: 17-09-2026  
 > Mục tiêu: giảm lỗi khi X.com thay đổi, giữ giao diện phản hồi nhanh với phiên thu thập/tải lớn, giảm bề mặt tấn công, và tạo nền tảng để mở rộng tính năng.
@@ -21,11 +21,11 @@ Tính đến ngày **17-09-2026**, toàn bộ 5 pha kỹ thuật cốt lõi (Pha
 | **Pha 6** | Hỗ trợ Telegram Web (DOM Scanner, inject nút tải xuống, bypass restrictions) | P1 | ✅ **Hoàn tất** | |
 
 **Trạng thái kiểm thử hiện hành (`npm run check`):**
-- ✅ `14/14 unit tests` pass
+- ✅ `15/15 unit tests` pass
 - ✅ `2/2 e2e fixture regression tests` pass
 - ✅ `TypeScript (tsc --noEmit)` clean (không có lỗi typecheck)
 - ✅ `ESLint` clean
-- ✅ `Vite build` thành công toàn bộ 12 entrypoints
+- ✅ `Vite build` thành công toàn bộ 14 entrypoints
 
 ---
 
@@ -151,7 +151,10 @@ Tính đến ngày **17-09-2026**, toàn bộ 5 pha kỹ thuật cốt lõi (Pha
    - Thêm nút Download (SVG icon, class `.ext-x-tg-download-btn`) trực tiếp vào thẻ ảnh/video trên giao diện Telegram (bản K/A).
 3. **Download Bridge**:
    - Bắt sự kiện click tải xuống trên Telegram Web. Trích xuất URL gốc (`src` hoặc `blob:`) hoặc dùng `canvas.toDataURL()` nếu Telegram render ảnh trên canvas.
-   - Truyền dữ liệu qua message type `TG_DOWNLOAD_MEDIA` đến Background Script để gọi `chrome.downloads.download`.
+   - URL HTTP(S) được truyền qua message type `TG_DOWNLOAD_MEDIA` đến Background Script để gọi `chrome.downloads.download`.
+   - URL `blob:` và `data:` được tải ngay trong tab nguồn để giữ đúng document context và tránh giới hạn kích thước runtime message.
+   - Suy luận phần mở rộng từ URL/MIME, chờ phản hồi background và hiển thị trạng thái thành công/lỗi trên nút tải.
+   - Background chỉ chấp nhận yêu cầu từ `https://web.telegram.org`, làm sạch tên file và giới hạn URL đầu vào.
 4. **Popup UI Detection**:
    - Mở rộng logic `detectCurrentTab()` để nhận diện Telegram Web.
    - Khóa các nút chức năng của X.com khi đang ở Telegram, chỉ hiện thông báo hướng dẫn người dùng bấm nút tải trực tiếp trên trình duyệt.
@@ -180,6 +183,7 @@ Tính đến ngày **17-09-2026**, toàn bộ 5 pha kỹ thuật cốt lõi (Pha
 | **v5.9.0** (Reliability) | Pha 2 | State machine cho collector & queue, operationId, IndexedDB dedup, HLS abort & timeout recovery. | ✅ **Đã hoàn thành** |
 | **v6.0.0** (Performance & UI) | Pha 3 + Pha 4 | Giảm 50% observer overhead, rAF batching, phân trang history, design tokens, phase status bar, preview panel. | ✅ **Sẵn sàng phát hành** |
 | **v6.1.0** (Telegram Integration) | Pha 6 | Hỗ trợ tải trực tiếp ảnh/video từ Telegram Web (K & A versions). | ✅ **Đã hoàn thành** |
+| **v6.1.1** (Telegram Reliability) | Pha 6 | Sửa luồng `blob:`/`data:`, giữ đúng định dạng file, xác thực sender và bổ sung regression tests. | ✅ **Đã hoàn thành** |
 | **v6.2.0+** (Product Features) | Phase 5+ | Download picker (chọn từng ảnh/video), resume session sau crash, queue reordering. | 📋 Đang lập kế hoạch |
 
 ---
