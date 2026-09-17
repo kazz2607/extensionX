@@ -4,6 +4,13 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [6.1.3] — 2026-09-17 *(Private Group Video Fix)*
+
+### 🐛 Sửa lỗi
+- Khắc phục triệt để lỗi không tải được video/ảnh trong các Nhóm riêng tư (Private Group) trên Telegram Web. Bằng cách thực thi luồng tải xuống trong Main World (ngữ cảnh gốc của trang) thay vì Isolated World (ngữ cảnh của tiện ích), Service Worker của Telegram đã có thể nhận diện và cung cấp luồng file chính xác cho các `blob:` URLs.
+
+---
+
 ## [6.1.2] — 2026-09-17 *(Telegram Video Download Fix)*
 
 ### 🐛 Sửa lỗi

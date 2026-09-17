@@ -34,17 +34,27 @@ function mediaMimeType(element: HTMLElement): string {
 }
 
 function downloadInPage(url: string, filename: string): void {
-  // blob: URLs belong to this Telegram document and data: URLs can be much
-  // larger than Chrome's runtime-message limit, so keep both in this context.
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.hidden = true;
-  document.body.appendChild(anchor);
-  anchor.click();
-  // Delay removal to allow the browser's download manager to process the URL,
-  // especially important for Service Worker intercepted blobs.
-  window.setTimeout(() => anchor.remove(), 1000);
+  // Để tải được các blob: URLs do Service Worker của Telegram tạo ra (trong các nhóm private/bình thường),
+  // ta BẮT BUỘC phải thực thi lệnh click tải xuống ở MAIN world (ngữ cảnh của trang web).
+  // Nếu gọi a.click() từ ISOLATED world (content script), Chrome sẽ bỏ qua Service Worker và báo lỗi Network Error.
+  const script = document.createElement('script');
+  script.textContent = `
+    (function() {
+      try {
+        var a = document.createElement('a');
+        a.href = ${JSON.stringify(url)};
+        a.download = ${JSON.stringify(filename)};
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() { a.remove(); }, 2000);
+      } catch (e) {
+        console.error('[ExtensionX] Lỗi khi kích hoạt tải xuống:', e);
+      }
+    })();
+  `;
+  document.documentElement.appendChild(script);
+  script.remove();
 }
 
 function setButtonState(button: HTMLButtonElement, state: 'success' | 'error'): void {
