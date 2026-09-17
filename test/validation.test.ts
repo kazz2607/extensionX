@@ -15,6 +15,7 @@ import { parseExtensionMessage } from '../src/shared/messages.ts';
 import { addDiagnosticEvent, emptyDiagnostics } from '../src/shared/diagnostics.ts';
 import { filterMediaItems } from '../src/shared/media-filter.ts';
 import { canTransitionCollectPhase } from '../src/shared/collect-state.ts';
+import { recoverQueueItemAfterRestart, transitionQueueItem } from '../src/shared/queue-state.ts';
 
 test('accepts only known X media origins', () => {
   assert.equal(isTrustedMediaUrl('https://pbs.twimg.com/media/photo.jpg?name=orig'), true);
@@ -94,4 +95,10 @@ test('collector state transitions cannot return from a stopped operation without
   assert.equal(canTransitionCollectPhase('idle', 'starting'), true);
   assert.equal(canTransitionCollectPhase('collecting', 'failed'), true);
   assert.equal(canTransitionCollectPhase('stopped', 'collecting'), false);
+});
+
+test('queue recovery resets interrupted work but rejects invalid terminal transitions', () => {
+  const item = { id: 'NASA_1', username: 'NASA', filterType: 'all', skipDuplicates: true, addedAt: 1, status: 'downloading' as const, mediaCount: 1 };
+  assert.equal(recoverQueueItemAfterRestart(item).status, 'waiting');
+  assert.equal(transitionQueueItem({ ...item, status: 'done' }, 'waiting'), null);
 });

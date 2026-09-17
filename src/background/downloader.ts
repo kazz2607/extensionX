@@ -7,6 +7,7 @@ import { DownloadOptions, MediaItem } from '../types.ts';
 import { isTrustedMediaUrl, sanitizeFilename } from '../shared/validation.ts';
 import { formatDownloadError } from '../shared/download-errors.ts';
 import { recordDiagnostic } from './diagnostics.ts';
+import { transitionQueueItem } from '../shared/queue-state.ts';
 
 // ─── BUG-2 FIX: Keep-alive alarm để SW không bị Chrome terminate ───────────────
 const KEEPALIVE_ALARM = 'sw-keepalive';
@@ -533,7 +534,9 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
     if (options._fromQueue && options._queueId) {
       const qItem = profileQueue.find(q => q.id === options._queueId);
       if (qItem) {
-        qItem.status = failed === total && total > 0 ? 'error' : 'done';
+        const nextStatus = failed === total && total > 0 ? 'error' : 'done';
+        const transitioned = transitionQueueItem(qItem, nextStatus);
+        if (transitioned) Object.assign(qItem, transitioned);
         qItem.result = { success, failed, total, skipped };
         persistQueue();
         broadcastQueueUpdate();

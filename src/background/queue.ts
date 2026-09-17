@@ -4,6 +4,7 @@ import { startDownload } from './downloader.ts';
 import { broadcastToPopup } from './utils.ts';
 import { QueueItem, QueueExportData } from '../types.ts';
 import { parseQueueItems } from '../shared/validation.ts';
+import { recoverQueueItemAfterRestart, transitionQueueItem } from '../shared/queue-state.ts';
 
 export let profileQueue: QueueItem[] = [];
 export function setProfileQueue(q: QueueItem[]) { profileQueue = q; }
@@ -14,9 +15,7 @@ async function loadPersistedQueue() {
     const data = await chrome.storage.local.get('profile_queue');
     const saved: QueueItem[] = (data.profile_queue as QueueItem[]) || [];
     // Các item đang 'downloading' khi SW restart → đặt lại 'waiting'
-    profileQueue = saved.map((item: QueueItem) =>
-      item.status === 'downloading' ? { ...item, status: 'waiting' } : item
-    );
+    profileQueue = saved.map(recoverQueueItemAfterRestart);
   } catch (_) {
     profileQueue = [];
   }
@@ -59,7 +58,8 @@ async function startNextInQueue() {
 
   if (!store?.size) {
     // Không có media → đánh dấu error và chuyển tiếp
-    next.status = 'error';
+    const failedItem = transitionQueueItem(next, 'error');
+    if (failedItem) Object.assign(next, failedItem);
     next.result = { success: 0, failed: 0, total: 0, skipped: 0, error: 'No media found' };
     persistQueue();
     broadcastQueueUpdate();
@@ -67,7 +67,9 @@ async function startNextInQueue() {
     return;
   }
 
-  next.status = 'downloading';
+  const downloadingItem = transitionQueueItem(next, 'downloading');
+  if (!downloadingItem) return;
+  Object.assign(next, downloadingItem);
   // BUG-L6 FIX: Cập nhật mediaCount thực tế từ store — tránh hiển thị số cũ khi user scroll thêm sau khi add vào queue
   next.mediaCount = store.size;
   persistQueue();

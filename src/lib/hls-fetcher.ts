@@ -87,7 +87,9 @@ async function fetchText(url: string, signal?: AbortSignal) {
     const res = await fetchWithRetry(url, signal);
     if (!res.ok) return null;
     return res.text();
-  } catch {
+  } catch (err) {
+    // AbortError phải được re-throw để caller có thể phân biệt cancel vs. lỗi mạng
+    if (signal?.aborted || (err instanceof DOMException && err.name === 'AbortError')) throw err;
     return null;
   }
 }
