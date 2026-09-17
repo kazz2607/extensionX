@@ -117,6 +117,18 @@ Thứ tự áp dụng: **ổn định dữ liệu + bảo mật → đo đạc �
 4. Hiển thị trạng thái theo phase thay vì spinner chung: “Đang chờ trang”, “Đang quét”, “Đang lấy video”, “Đang tải 3/20”, “Tạm dừng”, “Cần đăng nhập”, “Rate limited”. Error card phải có action Retry/Copy diagnostic/Go to tab.
 5. Thêm preview trước download: filter áp dụng, số sẽ bỏ qua do duplicate, dung lượng ước tính nếu biết, và cảnh báo rõ khi chọn concurrency cao/HLS.
 
+### Cập nhật triển khai Pha 4 (Hoàn tất 2026-09-17)
+- **Design Tokens (CSS)**: Chuẩn hóa `:root` và `[data-theme="light"]` với alias `--text`, spacing scale `--space-1` đến `--space-6`, z-index layers (`--z-fab`, `--z-modal`, `--z-toast`).
+- **Styling**: Style `.history-show-more` button, `.status-phase-icon`, `.download-preview`, `.btn-copy-errors`.
+- **Accessibility (a11y)**:
+  - Thêm `role="status"` và `aria-live="polite"` cho status bar để screen reader thông báo tiến trình tải.
+  - Thêm `role="button"`, `tabindex="0"`, `aria-expanded`, và hỗ trợ phím `Enter`/`Space` cho `daterange-toggle`.
+  - Thêm `aria-label` cho `status-dot`.
+- **Status theo Phase**: Hiển thị rõ các phase trực quan kèm icon: chờ trang (⏳), đang quét (🔍), đang lấy video/chuẩn bị (📦), đang tải (⬇️), HLS stream (🎞️), hoàn tất (✓), lỗi/IDM/rate-limit (⚠️).
+- **Download Preview Panel**: Tự động tính toán số file sẽ tải sau filter, số file bỏ qua do duplicate (`_downloadedCount`), và hiển thị cảnh báo khi concurrency ≥ 4 hoặc tải video HLS.
+- **Error Diagnostics**: Thêm nút "Copy log" trong error details panel giúp người dùng copy toàn bộ danh sách lỗi đã format kèm timestamp vào clipboard.
+- **CI**: 14/14 unit tests, 2/2 e2e tests pass, typecheck sạch, eslint sạch, vite build thành công.
+
 ## 8. Tính năng mới đề xuất
 
 | Ưu tiên | Tính năng | Giá trị | Điều kiện triển khai |
