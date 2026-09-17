@@ -39,6 +39,25 @@
   background-color: rgba(220, 53, 69, 0.95);
 }
 
+/* Telegram Web K/A media viewer fallback. Keeping this fixed avoids relying
+   on Telegram's frequently changing internal image/container class names. */
+.ext-x-tg-viewer-download-btn {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  z-index: 100000;
+  width: 44px;
+  height: 44px;
+  opacity: 1;
+  background-color: rgba(29, 155, 240, 0.92);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+}
+
+.ext-x-tg-viewer-download-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
 .ext-x-tg-download-btn svg {
   width: 18px;
   height: 18px;

@@ -3,6 +3,8 @@ import { telegramMediaFilename, type TelegramMediaKind } from '../shared/telegra
 
 console.log('[ExtensionX] Telegram Web Content Script loaded.');
 
+const VIEWER_SELECTOR = '.media-viewer-whole, #MediaViewer';
+
 function createDownloadIcon(): SVGSVGElement {
   const svgNS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(svgNS, 'svg');
@@ -18,6 +20,9 @@ function mediaUrl(element: HTMLElement): string {
   if (element instanceof HTMLVideoElement) {
     return element.currentSrc || element.src || element.querySelector('source[src]')?.getAttribute('src') || '';
   }
+  const backgroundImage = getComputedStyle(element).backgroundImage;
+  const backgroundUrl = backgroundImage.match(/^url\(["']?(.*?)["']?\)$/)?.[1];
+  if (backgroundUrl) return backgroundUrl;
   return '';
 }
 
@@ -98,11 +103,57 @@ function attachButtonToMedia(container: HTMLElement, mediaElement: HTMLElement, 
   container.appendChild(button);
 }
 
+function visibleMediaArea(element: HTMLElement): number {
+  const rect = element.getBoundingClientRect();
+  if (rect.width < 120 || rect.height < 120) return 0;
+  const style = getComputedStyle(element);
+  if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return 0;
+  return rect.width * rect.height;
+}
+
+function findViewerMedia(viewer: HTMLElement): HTMLElement | null {
+  const media = Array.from(viewer.querySelectorAll<HTMLElement>('video, img, canvas'))
+    .filter((element) => !element.closest('.ext-x-tg-download-btn'))
+    .sort((left, right) => visibleMediaArea(right) - visibleMediaArea(left));
+  if (media.length > 0 && visibleMediaArea(media[0]) > 0) return media[0];
+
+  // Web K may render the current photo on a div with background-image.
+  const backgrounds = [viewer, ...Array.from(viewer.querySelectorAll<HTMLElement>('div'))]
+    .filter((element) => visibleMediaArea(element) > 0 && getComputedStyle(element).backgroundImage !== 'none')
+    .sort((left, right) => visibleMediaArea(right) - visibleMediaArea(left));
+  return backgrounds[0] || null;
+}
+
+function attachButtonToViewer(viewer: HTMLElement): void {
+  if (viewer.dataset.extXTelegramViewerDownload === 'true') return;
+  viewer.dataset.extXTelegramViewerDownload = 'true';
+
+  const button = document.createElement('button');
+  button.className = 'ext-x-tg-download-btn ext-x-tg-viewer-download-btn';
+  button.type = 'button';
+  button.title = 'Tải media đang xem (X Media Downloader)';
+  button.setAttribute('aria-label', 'Tải media Telegram đang xem');
+  button.appendChild(createDownloadIcon());
+  button.addEventListener('click', (event) => {
+    const media = findViewerMedia(viewer);
+    if (!media) {
+      setButtonState(button, 'error');
+      console.error('[ExtensionX] No visible media found in Telegram viewer');
+      return;
+    }
+    void handleDownloadClick(event, media, media instanceof HTMLVideoElement ? 'video' : 'image');
+  });
+  viewer.appendChild(button);
+}
+
 function processDOM(): void {
+  document.querySelectorAll<HTMLElement>(VIEWER_SELECTOR).forEach(attachButtonToViewer);
+
   const videos = document.querySelectorAll<HTMLVideoElement>(
     '.message video, .Message video, .message-media video, .media-viewer video, .MediaViewer video, .VideoPlayer video, video.media-video',
   );
   videos.forEach((video) => {
+    if (video.closest(VIEWER_SELECTOR)) return;
     if (video.parentElement) attachButtonToMedia(video.parentElement, video, 'video');
   });
 
@@ -110,12 +161,14 @@ function processDOM(): void {
     'img.media-photo, .message-media img, .media-viewer-aspecter img, .Media img, .Photo img, .MediaViewer img, .album-item-media img',
   );
   images.forEach((image) => {
+    if (image.closest(VIEWER_SELECTOR)) return;
     if (image.closest('.avatar, .Avatar, .emoji, .Emoji, .sticker, .Sticker')) return;
     if (image.naturalWidth > 0 && image.naturalHeight > 0 && (image.naturalWidth < 120 || image.naturalHeight < 120)) return;
     if (image.parentElement) attachButtonToMedia(image.parentElement, image, 'image');
   });
 
   document.querySelectorAll<HTMLCanvasElement>('.message-media canvas, .Media canvas').forEach((canvas) => {
+    if (canvas.closest(VIEWER_SELECTOR)) return;
     if (canvas.parentElement) attachButtonToMedia(canvas.parentElement, canvas, 'image');
   });
 }
