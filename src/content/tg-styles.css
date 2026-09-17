@@ -44,7 +44,7 @@
 .ext-x-tg-viewer-download-btn {
   position: fixed;
   right: 28px;
-  bottom: 28px;
+  top: 80px;
   z-index: 100000;
   width: 44px;
   height: 44px;

@@ -120,7 +120,9 @@ async function handleDownloadClick(event: MouseEvent, mediaElement: HTMLElement,
 }
 
 function attachButtonToMedia(container: HTMLElement, mediaElement: HTMLElement, kind: TelegramMediaKind): void {
-  if (mediaElement.dataset.extXTelegramDownload === 'true') return;
+  if (container.querySelector('.ext-x-tg-download-btn')) return;
+  
+  // Set flag to prevent double processing in edge cases, though querySelector is the source of truth
   mediaElement.dataset.extXTelegramDownload = 'true';
   container.classList.add('ext-x-tg-media-wrapper');
 
@@ -156,7 +158,9 @@ function findViewerMedia(viewer: HTMLElement): HTMLElement | null {
 }
 
 function attachButtonToViewer(viewer: HTMLElement): void {
-  if (viewer.dataset.extXTelegramViewerDownload === 'true') return;
+  // React may re-render the viewer contents and destroy our button while keeping the wrapper.
+  // We MUST check if the button actually exists in the DOM instead of relying solely on dataset.
+  if (viewer.querySelector('.ext-x-tg-viewer-download-btn')) return;
   viewer.dataset.extXTelegramViewerDownload = 'true';
 
   const button = document.createElement('button');

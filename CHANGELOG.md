@@ -4,6 +4,14 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [6.1.4] — 2026-09-17 *(Viewer Button Fix)*
+
+### 🐛 Sửa lỗi
+- Sửa lỗi mất nút tải xuống trong giao diện xem toàn màn hình (Media Viewer) ở các Nhóm riêng tư khi chuyển đổi qua lại giữa các file media.
+- Dời vị trí nút tải xuống dự phòng (Fallback Download Button) trong Media Viewer lên góc trên bên phải (Top Right) để dễ tìm và thao tác hơn.
+
+---
+
 ## [6.1.3] — 2026-09-17 *(Private Group Video Fix)*
 
 ### 🐛 Sửa lỗi
