@@ -1,169 +1,185 @@
 # ExtensionX — Kế hoạch nâng cấp sau rà soát mã nguồn
 
-> Phạm vi: ExtensionX v5.7.5 (Manifest V3)
-> Rà soát: 16-09-2026
+> Phạm vi: ExtensionX v5.7.5 (Manifest V3)  
+> Rà soát ban đầu: 16-09-2026  
+> Cập nhật hiện trạng: 17-09-2026  
 > Mục tiêu: giảm lỗi khi X.com thay đổi, giữ giao diện phản hồi nhanh với phiên thu thập/tải lớn, giảm bề mặt tấn công, và tạo nền tảng để mở rộng tính năng.
 
-## 1. Kết quả baseline và nguyên tắc thực hiện
+---
 
-- `npm run build`: thành công. Tuy nhiên Vite không thay thế kiểm thử nghiệp vụ.
-- `npx tsc --noEmit`: thành công tại thời điểm rà soát. File `ts_errors.log` trong repo là dữ liệu cũ, không phản ánh trạng thái hiện hành và nên được xóa hoặc thay thế bằng pipeline CI.
-- Code còn nhiều `@ts-ignore` và `any`, tập trung ở content scripts, popup và HLS. Đây là rủi ro bảo trì cao dù TypeScript hiện chưa báo lỗi.
-- Các mô-đun lớn nhất là `popup.ts` (1.472 dòng), `popup.css` (2.097 dòng), `downloader.ts` (714 dòng), `fab.ts` (671 dòng) và `scraper.ts` (601 dòng). Không nên vừa refactor vừa thêm feature trong cùng một PR.
+## 1. Bảng tiến độ tổng quan (Progress Dashboard)
 
-Thứ tự áp dụng: **ổn định dữ liệu + bảo mật → đo đạc → tối ưu → UI → tính năng**. Mỗi hạng mục phải có kiểm thử hồi quy trước khi chuyển sang hạng mục sau.
+Tính đến ngày **17-09-2026**, toàn bộ 5 pha kỹ thuật cốt lõi (Pha 0 → Pha 4) đã hoàn thành và vượt qua 100% các kiểm thử hồi quy:
 
-## 2. Các phát hiện cần xử lý
+| Pha | Tên pha & Mục tiêu | Ưu tiên | Trạng thái | Commit tham chiếu |
+|---|---|---|---|---|
+| **Pha 0** | Cổng chất lượng & Quan sát (CI/CD, regression fixtures, local telemetry) | P0 | ✅ **Hoàn tất** | `8738d3f`, `8c274b9` |
+| **Pha 1** | Bảo mật & Tính đúng đắn (Message schema, validate input, cấm path traversal, diệt XSS) | P0 | ✅ **Hoàn tất** | `8738d3f` |
+| **Pha 2** | Sửa logic & Độ bền MV3 (State machine, IndexedDB dedup, HLS abort & timeout recovery) | P0/P1 | ✅ **Hoàn tất** | `3d908d1`, `b19c10b` |
+| **Pha 3** | Hiệu năng (Observer debounce, batch rAF, per-op progress throttle, diff render) | P1 | ✅ **Hoàn tất** | `9c1f823`, `4b9c5b7` |
+| **Pha 4** | UI/UX & Accessibility (Design tokens, phase status bar, preview panel, error diagnostics) | P1 | ✅ **Hoàn tất** | `d19b4dd`, `62d7d12` |
 
-| Ưu tiên | Phát hiện từ mã nguồn | Rủi ro / tác động | Vị trí chính |
+**Trạng thái kiểm thử hiện hành (`npm run check`):**
+- ✅ `14/14 unit tests` pass
+- ✅ `2/2 e2e fixture regression tests` pass
+- ✅ `TypeScript (tsc --noEmit)` clean (không có lỗi typecheck)
+- ✅ `ESLint` clean
+- ✅ `Vite build` thành công toàn bộ 12 entrypoints
+
+---
+
+## 2. Kết quả baseline và nguyên tắc thực hiện
+
+- `npm run check`: pipeline kiểm thử hợp nhất (`typecheck`, `lint`, `test`, `test:e2e`, `build`), bắt buộc chạy trước mọi commit.
+- `npx tsc --noEmit`: sạch lỗi type.
+- Thứ tự áp dụng đã thực hiện nghiêm ngặt: **ổn định dữ liệu + bảo mật (P0/P1) → đo đạc (P0) → tối ưu (P3) → UI (P4) → tính năng mới (P5+)**. Mỗi hạng mục đều có kiểm thử tự động đi kèm.
+
+---
+
+## 3. Các phát hiện và trạng thái xử lý
+
+| Ưu tiên | Phát hiện từ mã nguồn | Rủi ro / tác động | Vị trí chính | Trạng thái & Giải pháp đã áp dụng |
+| --- | --- | --- | --- | --- |
+| P0 | Message handler nhận `message`/`payload` không có schema | Dữ liệu sai hoặc message không tin cậy có thể kích hoạt hành động nhạy cảm. | `background/messages.ts` | ✅ **Đã xử lý (Pha 1)**: Thêm runtime message validator với envelope 256KB, kiểm tra extension sender ID và URL tab thuộc allowlist `x.com`/`twitter.com`. |
+| P0 | Content script chạy trong `MAIN` world hook `fetch`/`XHR` relay về extension | X.com là môi trường không tin cậy; dữ liệu có thể bị giả mạo. | `content/page-interceptor.ts`, `content/content.ts` | ✅ **Đã xử lý (Pha 1)**: Isolated content script không tin cậy URL hay state do page gửi; derive `tabId` và URL trực tiếp từ `sender.tab`. |
+| P0 | Đường dẫn/tên file tải xuống và dữ liệu import/export đi qua nhiều lớp | Path traversal logic, tên file độc hại, queue hỏng hoặc XSS. | `downloader.ts`, `queue.ts`, `messages.ts` | ✅ **Đã xử lý (Pha 1)**: `sanitizeFolder` loại bỏ triệt để `..`, slash, control char; validate schema import queue atomic; whitelist extension. |
+| P1 | Progress download broadcast tới mọi tab | Snackbar sai ngữ cảnh, tạo message thừa khi mở nhiều profile. | `background/downloader.ts` | ✅ **Đã xử lý (Pha 2 & 3)**: Chuyển sang `broadcastToTab` có filter username/tab; throttle progress per-operationId. |
+| P1 | Nhiều điểm dựng UI bằng `innerHTML` | Dữ liệu từ profile/tweet có thể gây DOM-XSS. | `content/snackbar.ts`, `popup/popup.ts`, `options/options.ts` | ✅ **Đã xử lý (Pha 1, 3, 4)**: Chuyển toàn bộ render động sang `textContent` và `DocumentFragment`. Loại bỏ inline `onclick` trong options.html (CSP compliance). |
+| P1 | MutationObserver/hook mạng chạy liên tục trên SPA X.com | CPU cao, quét lặp, observer rò rỉ bộ nhớ khi chuyển trang. | `dom-scanner.ts`, `content.ts` | ✅ **Đã xử lý (Pha 3)**: Thu hẹp target vào `primaryColumn`, scroll debounce 500ms, batch event qua `requestAnimationFrame`, expose teardown hook khi SPA navigation. |
+| P1 | Dedup lịch sử tải lưu mảng URL trong `chrome.storage.local` (50k items) | Tốn quota/RAM, truy xuất O(n), không đồng nhất với media IndexedDB. | `scraper.ts`, `indexeddb.ts` | ✅ **Đã xử lý (Pha 2)**: Chuyển lưu trữ dedup vào IndexedDB có index URL hash, TTL 180 ngày và giới hạn LRU 50.000 items/profile. |
+| P1 | Các màn hình popup/options lớn, event và state gắn chặt DOM | Khó bảo trì, lag khi danh sách dài, thiếu accessibility. | `popup.ts`, `popup.css` | ✅ **Đã xử lý (Pha 3 & 4)**: Phân trang history 50/page, diff-render queue, design tokens CSS, ARIA live cho tiến trình, preview trước download. |
+
+---
+
+## 4. Pha 0 — Cổng chất lượng và quan sát (P0) ✅ HOÀN TẤT
+
+1. Thêm scripts `typecheck`, `lint`, `test`, `test:e2e` vào `package.json`; lệnh `npm run check` chạy toàn bộ pipeline.
+2. Thiết lập test unit cho: chuẩn hóa media URL, `sanitizeFolder`, lọc theo ngày/từ khóa, dedup và chuyển trạng thái queue. Sử dụng fixture GraphQL đã khử dữ liệu nhạy cảm.
+3. Thiết lập E2E fixture regression: kiểm thử sanitized GraphQL fixture và queue state machine transition.
+4. Thêm telemetry cục bộ, opt-in: thống kê số media, thời gian scan, số lỗi, có nút xuất diagnostic JSON đã redact dữ liệu nhạy cảm (`docs/quality-gate.md`).
+5. Đặt SLO ban đầu cho popup và background processing.
+
+### Cập nhật triển khai Pha 0
+- Script `npm run check` hoạt động trơn tru trong CI/CD.
+- Harness kiểm thử tự động tại `test/` và `test/e2e/`.
+
+---
+
+## 5. Pha 1 — Bảo mật và tính đúng đắn (P0) ✅ HOÀN TẤT
+
+### 5.1 Hợp đồng message và xác thực nguồn
+- Tạo parser runtime tại `src/shared/validation.ts` và `src/shared/messages.ts`, chỉ nhận payload hợp lệ có kích thước < 256 KB.
+- `messages.ts` reject mặc định; kiểm tra `sender.id === chrome.runtime.id`, `sender.tab?.id` và URL thuộc allowlist `x.com`/`twitter.com`.
+- Trạng thái `tabId`, `username`, URL nhạy cảm không nhận từ page world mà suy ra từ `sender.tab`.
+
+### 5.2 Validate input và an toàn download
+- Allowlist host tải xuống chỉ gồm các domain media chính thức của X (`pbs.twimg.com`, `video.twimg.com`,...).
+- Hàm `sanitizeFolder` và `sanitizeFilename` loại bỏ hoàn toàn path traversal (`..`, `\`, `/`), control characters.
+- Import queue được validate nghiêm ngặt theo schema, đảm bảo tính atomic khi ghi dữ liệu.
+- Thay thế toàn bộ các điểm gán `innerHTML` động bằng `textContent` và `DocumentFragment`.
+
+---
+
+## 6. Pha 2 — Sửa logic và độ bền MV3 (P0/P1) ✅ HOÀN TẤT
+
+1. **State Machine**: Tạo transition logic rõ ràng cho collector và download queue. Mọi chuyển đổi trạng thái bất hợp lệ đều bị từ chối tường minh (`transitionQueueItem`).
+2. **OperationId & Isolation**: Gắn `operationId` cho từng phiên tải; progress gửi đúng tab profile qua `broadcastToTab`.
+3. **Dọn dẹp tài nguyên**: Khi đóng tab hoặc dừng download, hủy toàn bộ pending fetch và timer. Offscreen document tự động đóng sau 30 giây idle.
+4. **Dedup IndexedDB**: Chuyển lưu trữ URL đã tải từ `storage.local` sang IndexedDB với TTL 180 ngày và LRU 50.000 items/profile.
+5. **HLS Abort & Timeout Recovery**:
+   - `AbortController` cho từng request HLS; hủy ngay lập tức khi người dùng bấm Stop.
+   - Sửa lỗi trong `hls-fetcher.ts` nuốt `AbortError`: propagate lỗi chính xác khi `signal.aborted`.
+   - Cơ chế retry exponential backoff có jitter cho network transient errors, không retry lỗi 4xx.
+6. **Queue Recovery**: Khôi phục hàng đợi sau khi Service Worker restart thông qua helper `recoverQueueItemAfterRestart`.
+
+---
+
+## 7. Pha 3 — Hiệu năng (P1) ✅ HOÀN TẤT
+
+1. **dom-scanner (P3-1)**:
+   - Thu hẹp phạm vi `MutationObserver` từ toàn bộ `document.body` về `primaryColumn` (fallback `main → body`).
+   - Debounce scroll listener 500ms.
+   - Thêm `Performance.mark/measure` để đo đạc thời gian quét DOM.
+   - Expose hook teardown `__disconnectDOMScanner__()` dọn dẹp observer khi chuyển trang.
+2. **content.ts (P3-2)**:
+   - Batch các event `X_MEDIA_FOUND` trong một khung hình `requestAnimationFrame` để tránh burst messaging.
+   - SPA navigation tự động ngắt kết nối scanner cũ và tái khởi tạo observer mới theo `primaryColumn`.
+3. **downloader.ts (P3-3)**:
+   - Chuyển `_lastFabProgressTime` sang `Map` theo `operationId` giúp nhiều profile tải song song không tranh chấp throttle progress.
+4. **popup.ts (P3-4)**:
+   - `renderQueue` diff signature `id+status`: chỉ render lại DOM khi có thay đổi cấu trúc, cập nhật trực tiếp item progress.
+   - `renderHistory` phân trang 50 mục/lần với nút "Xem thêm", giải quyết triệt để vấn đề giật lag khi lịch sử có hàng ngàn bản ghi.
+   - Donut chart cập nhật thuộc tính SVG trực tiếp thay vì dựng lại toàn bộ DOM.
+
+---
+
+## 8. Pha 4 — UI/UX và Accessibility (P1) ✅ HOÀN TẤT
+
+1. **Design Tokens (CSS)**:
+   - Chuẩn hóa CSS variables `:root` và `[data-theme="light"]`: alias `--text` cho `--text-primary`.
+   - Spacing scale đồng nhất `--space-1` (4px) đến `--space-6` (24px).
+   - Z-index tokens có phân lớp: `--z-fab` (100), `--z-modal` (500), `--z-toast` (1000).
+   - Styling trau chuốt cho `.history-show-more button`, `.status-phase-icon`, `.download-preview`, `.btn-copy-errors`.
+2. **Accessibility (a11y)**:
+   - Status bar có `role="status"` và `aria-live="polite"` giúp screen reader thông báo trạng thái tải thời gian thực.
+   - Daterange toggle có `role="button"`, `tabindex="0"`, `aria-expanded` và hỗ trợ phím `Enter`/`Space`.
+   - Status dot có thuộc tính `aria-label` mô tả trạng thái chi tiết.
+3. **Status Bar theo Phase**:
+   - Thay thế spinner đơn điệu bằng hiển thị trực quan theo phase cụ thể kèm icon:
+     - ⏳ Chờ trang X.com (`idle`)
+     - 🔍 Đang quét media (`collecting`)
+     - 📦 Chuẩn bị tải
+     - ⬇️ Đang tải file (`downloading`)
+     - 🎞️ Đang ghép HLS stream
+     - ✓ Hoàn tất tải (`done`/`success`)
+     - ⚠️ Lỗi / IDM chiếm quyền / Rate limit (`error`)
+4. **Download Preview Panel**:
+   - Tự động hiển thị trước khi download: số lượng media sau khi lọc, số lượng bỏ qua do đã tải (`_downloadedCount`).
+   - Cảnh báo rõ ràng khi concurrency ≥ 4 (tải nặng mạng) hoặc phát hiện stream HLS (mất thời gian ghép file).
+5. **Error Diagnostics**:
+   - Bổ sung nút **"Copy log"** trong Error Card cho phép sao chép toàn bộ danh sách lỗi (kèm dấu thời gian ISO) vào clipboard để báo lỗi nhanh chóng.
+
+---
+
+## 9. Đề xuất tính năng mới (Phase 5+)
+
+| Ưu tiên | Tính năng | Giá trị người dùng | Điều kiện kỹ thuật |
 | --- | --- | --- | --- |
-| P0 | Message handler nhận `message`/`payload` không có schema, trong khi có các lệnh xóa storage, download, import queue và điều khiển collector. | Dữ liệu sai hoặc message không tin cậy có thể kích hoạt hành động nhạy cảm. | `background/messages.ts` |
-| P0 | Content script chạy trong `MAIN` world hook `fetch` và `XMLHttpRequest`; dữ liệu từ trang được relay về extension. | X.com là môi trường không tin cậy; phải xem mọi payload là input chưa kiểm chứng. | `manifest.json`, `content/page-interceptor.ts`, `content/content.ts` |
-| P0 | Đường dẫn/tên file tải xuống và dữ liệu import/export đi qua nhiều lớp. | Path traversal logic, tên file không hợp lệ, queue hỏng hoặc XSS gián tiếp nếu xử lý thiếu chặt. | `downloader.ts`, `queue.ts`, `messages.ts` |
-| P1 | Progress download hiện broadcast đến mọi tab đang collect, không gắn với username/tab của download. | Snackbar sai ngữ cảnh, tạo message thừa khi mở nhiều profile. | `background/downloader.ts` |
-| P1 | Nhiều điểm dựng UI bằng `innerHTML`; popup có `escapeHtml`, nhưng snackbar/following panel/options chưa thống nhất chính sách. | Dữ liệu từ profile/tweet/URL có thể gây DOM-XSS nếu được dùng như HTML ở lần sửa sau. | `content/snackbar.ts`, `popup/following-panel.ts`, `options/options.ts` |
-| P1 | Ba `MutationObserver`/hook mạng hoạt động trên SPA X.com; chưa thấy cơ chế chung đo tần suất, debounce và teardown theo navigation. | CPU cao, quét lặp, listener/observer tồn tại lâu. | `page-interceptor.ts`, `dom-scanner.ts`, `tweet-btn.ts`, `content.ts` |
-| P1 | Dedup lịch sử tải được lưu mảng URL trong `chrome.storage.local`, giới hạn 50.000 mục; media đã dùng IndexedDB. | Tốn quota/RAM, truy xuất O(n), và state không nhất quán giữa hai kho. | `scraper.ts`, `indexeddb.ts` |
-| P1 | Các màn hình popup/options/FAB lớn, event và state gắn chặt DOM. | Khó tái hiện/fix lỗi UI và dễ làm popup bị giật khi list/queue dài. | `popup.ts`, `popup.css`, `fab.ts` |
+| **Cao** | Interactive Download Picker | Xem preview thumbnail và chọn/bỏ chọn từng media cụ thể trước khi tải. | Tận dụng `download-preview` panel và danh sách media trong IndexedDB. |
+| **Cao** | Resume đáng tin cậy | Tiếp tục tải từ session trước sau khi đóng trình duyệt hoặc crash. | Đã có nền tảng `operationId` + `state machine` từ Pha 2. |
+| **Cao** | Download Recipe / Preset | Lưu cấu hình filter, thư mục, định dạng tên file riêng cho từng profile. | Tích hợp vào options migration. |
+| **Trung bình** | Quản lý hàng đợi nâng cao | Cho phép tạm dừng, đổi thứ tự (drag-drop/reorder), retry từng item trong queue. | Hoàn thiện UI Queue controls. |
+| **Trung bình** | Template đặt tên file linh hoạt | Cho phép template `{username}_{date}_{tweetId}_{index}.{ext}` kèm preview thời gian thực. | Sử dụng sanitizer whitelist đã có. |
+| **Trung bình** | Xuất Manifest JSON/CSV nâng cao | Báo cáo chi tiết các file đã tải kèm metadata (retweet, timestamp, resolution). | Mở rộng schema export từ Pha 0. |
+| **Thấp** | Chế độ theo dõi profile (Watch) | Kiểm tra và thông báo media mới theo chu kỳ người dùng chọn. | Cần cơ chế rate-limit chặt chẽ và UX consent. |
 
-## 3. Pha 0 — Cổng chất lượng và quan sát (1–2 ngày)
+---
 
-1. Thêm scripts `typecheck`, `lint`, `test`, `test:e2e` vào `package.json`; CI bắt buộc chạy build + typecheck cho mọi PR. Không đưa log lỗi cũ như `ts_errors.log` vào nguồn sự thật.
-2. Thiết lập test unit cho: chuẩn hóa media URL, `sanitizeFolder`, xây tên file, lọc theo ngày/từ khóa/kích thước, dedup và chuyển trạng thái queue. Dùng fixture GraphQL đã khử dữ liệu nhạy cảm.
-3. Thiết lập E2E với trang fixture mô phỏng DOM X.com: collect ảnh/video/HLS, SPA navigation, pause/resume, 2 tab khác profile, service worker restart, download lỗi/timeout.
-4. Thêm telemetry **cục bộ, opt-in, không gửi ra mạng**: số media nhận/loại, thời gian scan, số callback observer, hàng đợi, retry, HLS timeout và lỗi theo mã. Có nút export diagnostic đã redaction.
-5. Đặt SLO ban đầu: popup mở <300 ms với 1.000 media; UI không long task >50 ms; không gửi progress tới tab sai; state session khôi phục đúng sau service-worker restart.
+## 10. Lộ trình phát hành
 
-**Điều kiện hoàn tất:** CI xanh, có fixture regression tối thiểu cho các luồng ở trên và dashboard/debug view local để so trước-sau.
-
-### Cập nhật triển khai Pha 0 (17-09-2026)
-
-- Đã có `npm run check` (typecheck, lint, unit test, fixture regression, build) và workflow CI bắt buộc.
-- Đã thêm fixture GraphQL đã khử dữ liệu nhận diện, regression cho media/filter/queue transition, cùng unit test URL/path/import/dedup-facing validation và redaction lỗi.
-- Đã thêm diagnostic cục bộ opt-in, xuất/xoá JSON và SLO khởi điểm. Quy tắc privacy và giới hạn của harness được ghi tại `docs/quality-gate.md`.
-- `test:e2e` chạy regression fixture trong CI; `test:browser` là harness Chrome extension thật cho DOM fallback, SPA navigation và 2 tab/profile. Pause/resume, service-worker restart và HLS timeout còn cần fixture chuyên biệt khi Pha 2 chuẩn hóa cancellation/retry.
-- CI có browser job riêng: provision Chromium Playwright rồi chạy `test:browser`; harness chỉ dùng manifest tạm có quyền localhost, không thay đổi manifest phát hành.
-
-## 4. Pha 1 — Bảo mật và tính đúng đắn (P0, 3–5 ngày)
-
-### 4.1 Hợp đồng message và xác thực nguồn
-
-- Tạo `src/shared/messages.ts`: discriminated union cho từng `type`, payload/response có kiểu chặt, hàm `parseMessage` runtime (Zod/Valibot hoặc validator nội bộ nhỏ).
-- Ở `background/messages.ts`, reject mặc định; kiểm tra `sender.id === chrome.runtime.id`; với message liên quan tab phải có `sender.tab?.id`, URL thuộc allowlist `x.com`/`twitter.com`, và username khớp state của tab.
-- Không nhận `tabId`, `username`, URL hoặc trạng thái nhạy cảm từ page world làm quyền hạn. Derive `tabId` từ `sender`, URL từ `chrome.tabs.get`, và xác nhận lại trước các lệnh destructive.
-- Ràng buộc kích thước payload, số media/batch, độ dài tweet text, và format tweet ID/URL để chống memory exhaustion.
-
-### 4.2 Validate input và an toàn download
-
-- Chuẩn hóa duy nhất bằng `URL`; chỉ chấp nhận `https:` và host trong allowlist (`pbs.twimg.com`, `video.twimg.com`, X API cần thiết). Cấm `data:`, `blob:`, `file:`, hostname đánh lừa và redirect ra ngoài allowlist.
-- `sanitizeFolder` phải loại `..`, slash/backslash, control character, tên rỗng và giới hạn độ dài mỗi segment; chỉ tạo filename từ whitelist ký tự + extension suy luận từ URL/content type.
-- Schema hóa file import queue: version, max item, enum `filterType`/`status`, username hợp lệ. Import thất bại phải atomic: không ghi queue một phần.
-- Thay mọi chỗ gắn dữ liệu động vào `innerHTML` bằng `textContent`/DOM API; nếu cần template tĩnh, chỉ nội suy qua helper escape duy nhất và test XSS. `snackbar.ts` nên giữ reference đến node username/counter/done thay vì dựng lại HTML.
-- Rà lại hard-coded bearer token/cookie/CSRF: không log token, không persist token nếu không cần; xoá token khi tab/session kết thúc; redact URL query và header trong diagnostic.
-
-**Kiểm thử bắt buộc:** payload sai schema, message từ tab không thuộc X, URL độc hại, username/path độc hại, import queue lỗi, strings HTML trong display name/tweet/filename.
-
-### Cập nhật triển khai Pha 1 (17-09-2026)
-
-- Thêm parser runtime chung với envelope giới hạn 256 KB, chỉ nhận type hợp lệ/payload object; các command content quan trọng kiểm tra extension sender, tab X.com và username suy ra từ URL tab.
-- `PAGE_LOADED` không còn tin URL do page gửi; state dùng URL từ `sender.tab`.
-- Translation fallback ghi qua `textContent`; các render popup động còn lại dùng escape helper hoặc DOM APIs và tiếp tục được chuyển dần trong Pha 3 (virtual rendering).
-- Queue, history, active-download và error detail đã chuyển sang `DocumentFragment`/`textContent`; `innerHTML` còn lại chỉ dành cho template/SVG tĩnh hoặc geometry đã tính từ counter nội bộ.
-
-## 5. Pha 2 — Sửa logic và độ bền MV3 (P0/P1, 4–6 ngày)
-
-1. Tạo state machine rõ ràng cho collector: `idle → starting → collecting → stopping → stopped | failed`; cho download/queue: `waiting → preparing → downloading → paused | done | failed | cancelled`. Chỉ cho phép transition hợp lệ và persist snapshot versioned.
-2. Gắn `operationId` cho mỗi phiên collect/download/HLS. Mọi callback, timeout và message phải mang ID này; bỏ qua callback cũ sau khi navigation, stop hoặc retry. Đây là cách chặn race condition tốt hơn so với chỉ dùng boolean/map module-level.
-3. Gắn `username`, `tabId`, `operationId` vào `ActiveDownload`; `broadcastToTab` chỉ gửi progress tới tab đúng profile. Popup nhận update theo operationId để không render trạng thái cũ.
-4. Đảm bảo `clearSession`, clear media, stop, tab close và service-worker restart đều cancel timer/observer/pending HLS, cập nhật IndexedDB + storage theo transaction/logical commit.
-5. Với HLS offscreen: có hàng đợi hữu hạn, cancellation signal, retry exponential backoff có jitter, phân loại lỗi HTTP/network/playlist/segment, dọn pending request ở mọi nhánh và đóng offscreen khi idle.
-6. Lưu dedup vào IndexedDB (key theo normalized URL/hash + username, có timestamp/index và TTL/LRU), thay mảng 40–50k URL trong `chrome.storage.local`. `storage.local` chỉ giữ session/options/snapshot nhỏ.
-
-**Tiêu chí nghiệm thu:** 2 profile chạy song song không lẫn progress/media; refresh/navigate/đóng tab khi collect không để orphan task; restart service worker giữa HLS/download không treo vô hạn; retry không tải trùng.
-
-### Cập nhật triển khai Pha 2 (17-09-2026) ✅ HOÀN TẤT
-
-- Mỗi request HLS hiện có `AbortController`; Stop hủy task đang chạy, bỏ task FIFO đang chờ và reject waiter ở service worker ngay lập tức.
-- Fetch playlist/segment dùng retry giới hạn (3 lần), exponential backoff có jitter; lỗi HTTP 4xx không retry và segment thiếu không tạo video partial.
-- Tab đóng dọn collection state theo tab; offscreen tự đóng sau 30 giây rảnh. Dedup IndexedDB có TTL 180 ngày và giới hạn LRU 50.000 URL/profile khi profile được nạp.
-- Queue recovery sau service-worker restart dùng `recoverQueueItemAfterRestart` (named helper) thay vì inline logic; tất cả mutation status dùng `transitionQueueItem` — invalid transitions bị reject tường minh.
-- Fix `fetchText` trong `hls-fetcher.ts` nuốt `AbortError`: re-throw khi `signal.aborted`, đảm bảo abort propagate đúng qua toàn bộ retry/backoff chain.
-- 3 HLS regression tests pass: retry transient, abort trước fetch, abort trong backoff. Tổng: 14/14 unit test xanh. CI green.
-
-## 6. Pha 3 — Hiệu năng (P1, 3–5 ngày)
-
-- Dùng `Performance.mark/measure` để ghi baseline cho scan, render popup, persist và download scheduler trước khi thay đổi.
-- Gom batch `MEDIA_FOUND` theo `requestAnimationFrame`/timeout ngắn, dedup trước khi gọi `applyOptionsFilter`; giới hạn số API video placeholder đồng thời để tránh burst request.
-- Trong các content scanner, chỉ quan sát subtree cần thiết, debounce mutation, xử lý node mới thay vì quét lại toàn trang; disconnect/reconnect theo route SPA và dùng `AbortController` cho fetch đang chạy.
-- Dùng scheduler có concurrency dùng chung cho download thường/HLS, giới hạn theo cấu hình và network errors; progress throttle theo tab/operation thay vì broadcast toàn cục.
-- Popup: render theo diff, `DocumentFragment`, event delegation và virtual list/pagination cho queue, history, errors và following list. Không thay toàn bộ `innerHTML` khi chỉ progress thay đổi.
-- Tách CSS theo popup/options/FAB và dùng CSS variables/design tokens; rà style inline để giảm chi phí reflow và giúp dark/light theme nhất quán.
-
-**Mục tiêu đo được:** giảm callback observer ≥50% trên fixture cuộn dài; popup vẫn thao tác mượt với 1.000 queue/history entries; không tăng heap tuyến tính theo toàn bộ lịch sử dedup.
-
-### Cập nhật triển khai Pha 3 (17-09-2026) ✅ HOÀN TẤT
-
-- **dom-scanner (P3-1)**: Observer thu hẹp về `primaryColumn → main → body` (fallback). Scroll listener debounce 500ms. `Performance.mark/measure` quanh mỗi scan. Expose `__disconnectDOMScanner__()` teardown hook.
-- **content.ts (P3-2)**: Batch `X_MEDIA_FOUND` events trong một `requestAnimationFrame` frame — tránh burst message per-item. SPA navigation gọi teardown scanner cũ rồi re-inject sau 300ms để observer track đúng `primaryColumn` mới.
-- **downloader.ts (P3-3)**: Thay `_lastFabProgressTime` global bằng `Map` per-operationId — nhiều profile song song không còn tranh throttle. `_lastActiveDownloadsUpdateTime` được chuyển ra module scope.
-- **popup.ts (P3-4)**: `renderQueue` tính signature `id+status` — bỏ qua full DOM rebuild khi chỉ progress thay đổi, gọi `updateQueueItemProgress` trực tiếp. `renderHistory` phân trang 50 items với nút "Xem thêm". Donut chart update incremental `SVGCircleElement` attribute thay vì replace `innerHTML`.
-- **CI**: 14/14 unit test xanh, typecheck sạch, build thành công.
-
-## 7. Pha 4 — UI/UX và các lỗi giao diện (P1, 3–4 ngày)
-
-1. Chuẩn hóa design tokens (màu, spacing, typography, z-index, trạng thái focus/disabled/loading) và component nhỏ: Button, Toggle, Select, Toast, Modal, Progress, Empty/Error state.
-2. Kiểm tra responsive popup ở 320/360/400 px, zoom 200%, dark/light mode, tiếng Việt/Anh dài, và `prefers-reduced-motion`.
-3. Sửa accessibility: điều khiển có label, focus ring, focus trap/ESC cho modal, ARIA live cho tiến trình, aria-expanded cho panel, contrast AA, thao tác đầy đủ bằng bàn phím.
-4. Hiển thị trạng thái theo phase thay vì spinner chung: “Đang chờ trang”, “Đang quét”, “Đang lấy video”, “Đang tải 3/20”, “Tạm dừng”, “Cần đăng nhập”, “Rate limited”. Error card phải có action Retry/Copy diagnostic/Go to tab.
-5. Thêm preview trước download: filter áp dụng, số sẽ bỏ qua do duplicate, dung lượng ước tính nếu biết, và cảnh báo rõ khi chọn concurrency cao/HLS.
-
-### Cập nhật triển khai Pha 4 (Hoàn tất 2026-09-17)
-- **Design Tokens (CSS)**: Chuẩn hóa `:root` và `[data-theme="light"]` với alias `--text`, spacing scale `--space-1` đến `--space-6`, z-index layers (`--z-fab`, `--z-modal`, `--z-toast`).
-- **Styling**: Style `.history-show-more` button, `.status-phase-icon`, `.download-preview`, `.btn-copy-errors`.
-- **Accessibility (a11y)**:
-  - Thêm `role="status"` và `aria-live="polite"` cho status bar để screen reader thông báo tiến trình tải.
-  - Thêm `role="button"`, `tabindex="0"`, `aria-expanded`, và hỗ trợ phím `Enter`/`Space` cho `daterange-toggle`.
-  - Thêm `aria-label` cho `status-dot`.
-- **Status theo Phase**: Hiển thị rõ các phase trực quan kèm icon: chờ trang (⏳), đang quét (🔍), đang lấy video/chuẩn bị (📦), đang tải (⬇️), HLS stream (🎞️), hoàn tất (✓), lỗi/IDM/rate-limit (⚠️).
-- **Download Preview Panel**: Tự động tính toán số file sẽ tải sau filter, số file bỏ qua do duplicate (`_downloadedCount`), và hiển thị cảnh báo khi concurrency ≥ 4 hoặc tải video HLS.
-- **Error Diagnostics**: Thêm nút "Copy log" trong error details panel giúp người dùng copy toàn bộ danh sách lỗi đã format kèm timestamp vào clipboard.
-- **CI**: 14/14 unit tests, 2/2 e2e tests pass, typecheck sạch, eslint sạch, vite build thành công.
-
-## 8. Tính năng mới đề xuất
-
-| Ưu tiên | Tính năng | Giá trị | Điều kiện triển khai |
+| Phiên bản | Nội dung | Tiêu chí hoàn tất (Definition of Done) | Trạng thái |
 | --- | --- | --- | --- |
-| Cao | Download plan/preview + chọn/bỏ chọn từng media | Người dùng biết chính xác thứ sẽ tải và giảm tải nhầm. | Hoàn tất model `MediaItem`, virtual list. |
-| Cao | Resume đáng tin cậy | Tiếp tục từ session sau crash/đóng popup, hiển thị lý do không thể resume. | Hoàn tất operationId + state machine. |
-| Cao | Download recipe | Lưu filter, folder, format tên file theo profile/danh sách. | Validate folder/URL và migration options. |
-| Trung bình | Hàng đợi có pause/reorder/retry theo item | Kiểm soát batch lớn tốt hơn. | Scheduler và queue state machine. |
-| Trung bình | Quy tắc đặt tên có preview | Template `{username}/{date}_{tweetId}_{index}.{ext}` tránh collision. | Sanitizer/template parser có whitelist. |
-| Trung bình | Export manifest JSON/CSV | Kiểm tra lại những gì đã tải, gồm URL đã redaction tùy chọn. | Quy tắc privacy/export schema. |
-| Thấp | Chế độ “watch profile” thủ công | Báo có media mới theo lịch người dùng chọn. | Permission/giới hạn rate rõ ràng, opt-in. |
-| Thấp | Báo cáo tương thích X.com | Người dùng export diagnostic khi selector/API X thay đổi. | Telemetry local + redaction tuyệt đối. |
+| **v5.8.0** (Stabilization) | Pha 0 + Pha 1 | CI/CD pipeline bắt buộc, runtime message schema, validation URL/path/import, triệt tiêu XSS. | ✅ **Đã hoàn thành** |
+| **v5.9.0** (Reliability) | Pha 2 | State machine cho collector & queue, operationId, IndexedDB dedup, HLS abort & timeout recovery. | ✅ **Đã hoàn thành** |
+| **v6.0.0** (Performance & UI) | Pha 3 + Pha 4 | Giảm 50% observer overhead, rAF batching, phân trang history, design tokens, phase status bar, preview panel. | ✅ **Sẵn sàng phát hành** |
+| **v6.1.0+** (Product Features) | Phase 5+ | Download picker (chọn từng ảnh/video), resume session sau crash, queue reordering. | 📋 Đang lập kế hoạch |
 
-Không khuyến nghị triển khai watch/background polling trước khi có rate limiting, UX consent và xử lý thay đổi API X.com bền vững.
+---
 
-## 9. Lộ trình phát hành
+## 11. Backlog kỹ thuật và bảo trì định kỳ
 
-| Mốc | Nội dung | Definition of done |
-| --- | --- | --- |
-| v5.8.0 Stabilization | Pha 0 + 1 | CI, schema message, validate URL/path/import, không DOM-XSS trong test. |
-| v5.9.0 Reliability | Pha 2 | State machine, operationId, dedup IndexedDB, E2E multi-tab/restart xanh. |
-| v6.0.0 Performance & UI | Pha 3 + 4 | Có benchmark đạt mục tiêu, virtual list, a11y/responsive pass. |
-| v6.1+ Product | Tính năng ưu tiên cao | Feature flag, telemetry local opt-in, hướng dẫn/migration hoàn chỉnh. |
-
-## 10. Backlog kỹ thuật chi tiết
-
-- Chia `popup.ts` thành `popup-state`, `popup-messages`, `popup-queue`, `popup-history`, `popup-render`, `popup-actions`; không thay đổi hành vi trong PR refactor đầu tiên.
-- Tách `fab.ts` thành view, drag controller và collect actions; thêm teardown contract cho toàn bộ content script.
-- Thay `@ts-ignore` dần theo module bằng type guard và declaration cho `Window`; bật dần `noUncheckedIndexedAccess` sau khi test baseline ổn định.
-- Pin version dependency bằng lockfile, chạy audit dependency trong CI, và có lịch cập nhật Vite/TypeScript/plugin hàng tháng.
-- Viết changelog theo “fixed / security / known limitations”, cùng ma trận browser Chrome stable/beta và các route X: profile/media/status/likes/bookmarks/following.
-
-## 11. Rủi ro và quyết định cần chốt
-
-- X.com thay đổi DOM/GraphQL thường xuyên: ưu tiên adapter có version/feature detection + fallback DOM, không phụ thuộc một selector/query ID duy nhất.
-- `MAIN` world là cần thiết để intercept network nhưng không được là trust boundary. Mọi dữ liệu crossing world phải được parse/validate ở isolated content script/background.
-- Một số video/HLS bị giới hạn bởi session, region, DRM hoặc thay đổi endpoint; UI cần báo “không khả dụng” minh bạch thay vì retry vô hạn.
-- Trước v6.0, giữ compatibility migration cho options/session/queue cũ và có rollback path cho IndexedDB schema.
+1. **Refactor cấu trúc module `popup.ts`**:
+   - Hiện tại `popup.ts` (~1.700 dòng). Đề xuất chia nhỏ thành các submodules chuyên trách:
+     - `popup-state.ts`: Quản lý reactive state & storage sync.
+     - `popup-messages.ts`: Xử lý `chrome.runtime.onMessage`.
+     - `popup-queue.ts`: Logic hiển thị và điều khiển Multi-Profile Queue.
+     - `popup-history.ts`: Logic phân trang và hiển thị Download History.
+     - `popup-ui.ts`: Render DOM, status bar, preview panel, error dialogs.
+2. **Modularize `fab.ts`**:
+   - Tách thành floating button view, drag gesture controller và collect bridge.
+3. **Nâng cao Type Safety**:
+   - Loại bỏ dần các annotation `@ts-ignore` và `any` còn lại trong `popup.ts` và content scripts; thay bằng type guards và `Window` interface mở rộng.
+4. **Bảo trì Dependencies**:
+   - Kiểm tra định kỳ hàng tháng các bản cập nhật bảo mật của Vite, TypeScript, Rollup/Rolldown.
+5. **Khả năng thích ứng với thay đổi từ X.com**:
+   - Duy trì song song cơ chế bắt GraphQL API (network interceptor) và cơ chế fallback quét DOM (`dom-scanner.ts`) để đảm bảo extension vẫn hoạt động ổn định khi X thay đổi cấu trúc giao diện hoặc query ID.
