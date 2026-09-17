@@ -6,6 +6,10 @@ export default defineConfig({
   build: {
     outDir: "../dist",
     emptyOutDir: true,
+    // Extension pages run in their own execution world. Chromium forks such
+    // as Cốc Cốc report Vite's generated cross-origin modulepreload links as
+    // cross-world resource mismatches. Native ES module imports are enough.
+    modulePreload: false,
   },
   plugins: [
     webExtension({
