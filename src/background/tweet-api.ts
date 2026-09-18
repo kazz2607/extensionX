@@ -9,6 +9,62 @@
  * File này xử lý trường hợp video chưa được phát (user chưa click xem).
  */
 
+// ─── Shape tối thiểu của response từ API nội bộ/không tài liệu của X.com ─────
+// X rotate cấu trúc + đổi field thường xuyên; chỉ khai báo đúng field thực sự
+// được đọc, tất cả optional vì không có gì đảm bảo — không dùng `any` để vẫn
+// giữ được gợi ý/kiểm tra kiểu cho các field đã biết.
+interface RawVariant {
+  type?: string;
+  content_type?: string;
+  src?: string;
+  url?: string;
+  bitrate?: number;
+}
+
+interface RawMedia {
+  type?: string;
+  media_key?: string;
+  id_str?: string;
+  video_info?: { variants?: RawVariant[] };
+}
+
+interface RawLegacy {
+  extended_entities?: { media?: RawMedia[] };
+  entities?: { media?: RawMedia[] };
+}
+
+interface RawTweetResult {
+  legacy?: RawLegacy;
+  tweet?: { legacy?: RawLegacy };
+  result?: { legacy?: RawLegacy };
+  core?: { user_results?: { result?: { legacy?: RawLegacy } } };
+}
+
+interface RawSyndicationResponse {
+  id_str?: string;
+  video?: { variants?: RawVariant[]; isGif?: boolean };
+  mediaDetails?: RawMedia[];
+  extended_entities?: { media?: RawMedia[] };
+  entities?: { media?: RawMedia[] };
+}
+
+interface RawGraphQLResponse {
+  data?: {
+    tweetResult?: { result?: RawTweetResult };
+    tweet_result?: { result?: RawTweetResult };
+    tweetResults?: { result?: RawTweetResult };
+  };
+}
+
+export interface VideoResult {
+  type: 'video' | 'hls' | 'gif';
+  url: string;
+  mediaKey: string;
+  tweetId: string;
+  ext: 'mp4' | 'm3u8';
+  bitrate: number;
+}
+
 const GUEST_BEARER = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
 
 // SEC-04: Dynamic bearer — được cập nhật từ page-interceptor khi X.com thực hiện request
@@ -52,8 +108,7 @@ function getQueryId(opName: string): string {
   return _dynamicQueryIds[opName] || HARDCODED_QUERY_IDS[opName] || '';
 }
 
-// @ts-ignore
-let cachedGuestToken = null;
+let cachedGuestToken: string | null = null;
 let guestTokenTime = 0;
 
 // ─── S3: Token Bucket Rate Limiter (20 calls/phút) ───────────────────────────────────
@@ -87,14 +142,12 @@ async function acquireRateToken() {
 // LƯU Ý QUAN TRỌNG: KHÔNG dùng BigInt. 
 // JavaScript Number(tweetId) sẽ bị mất precision cho các ID dài 19 số, 
 // nhưng Twitter thiết kế token generator dựa trên CHÍNH lỗi mất precision đó!
-// @ts-ignore
-function getSyndicationToken(tweetId) {
+function getSyndicationToken(tweetId: string): string {
   return (Number(tweetId) / 1e15 * Math.PI).toString(36).replace(/(0+|\.)/g, '');
 }
 
 // ─── Layer 1: Syndication API ─────────────────────────────────────────────────
-// @ts-ignore
-async function fetchVideoViaSyndication(tweetId) {
+async function fetchVideoViaSyndication(tweetId: string): Promise<VideoResult> {
   await acquireRateToken(); // S3: Rate limit
   const token = getSyndicationToken(tweetId);
   const urls = [
@@ -103,7 +156,7 @@ async function fetchVideoViaSyndication(tweetId) {
     `https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&lang=en`,
   ];
 
-  let data: any = null;
+  let data: RawSyndicationResponse | null = null;
   for (const url of urls) {
     try {
       const res = await fetch(url, {
@@ -133,7 +186,7 @@ async function fetchVideoViaSyndication(tweetId) {
   // Cấu trúc 3 (mới): data.entities.media[] hoặc data.extended_entities.media[]
   const extMedia = data.extended_entities?.media || data.entities?.media || [];
 
-  let variants: any[] = [];
+  let variants: RawVariant[] = [];
   let isGif = false;
 
   if (videoVariants.length > 0) {
@@ -161,13 +214,13 @@ async function fetchVideoViaSyndication(tweetId) {
   if (!variants.length) throw new Error('No video variants found in syndication response');
 
   // Tìm MP4 chất lượng cao nhất
-  let bestMp4 = variants
-    .filter((v: any) => (v.type === 'video/mp4') || (v.content_type === 'video/mp4'))
-    .sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0))[0];
+  let bestMp4: RawVariant | undefined = variants
+    .filter((v) => (v.type === 'video/mp4') || (v.content_type === 'video/mp4'))
+    .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
 
   let isHls = false;
   if (!bestMp4) {
-    bestMp4 = variants.find((v: any) =>
+    bestMp4 = variants.find((v) =>
       v.type === 'application/x-mpegURL' ||
       v.content_type === 'application/x-mpegURL' ||
       (v.src || v.url || '').includes('.m3u8')
@@ -191,8 +244,7 @@ async function fetchVideoViaSyndication(tweetId) {
 }
 
 // ─── Layer 2: Guest GraphQL API ───────────────────────────────────────────────
-async function getGuestToken() {
-// @ts-ignore
+async function getGuestToken(): Promise<string> {
   if (cachedGuestToken && Date.now() - guestTokenTime < 1000 * 60 * 60) {
     return cachedGuestToken;
   }
@@ -207,7 +259,7 @@ async function getGuestToken() {
 
   if (!res.ok) throw new Error(`Guest token HTTP ${res.status}`);
 
-  const data = await res.json();
+  const data = await res.json() as { guest_token?: string };
   if (!data.guest_token) throw new Error('No guest_token in response');
 
   cachedGuestToken = data.guest_token;
@@ -215,8 +267,7 @@ async function getGuestToken() {
   return cachedGuestToken;
 }
 
-// @ts-ignore
-async function fetchVideoViaGuestAPI(tweetId) {
+async function fetchVideoViaGuestAPI(tweetId: string): Promise<VideoResult> {
   await acquireRateToken(); // S3: Rate limit
   const gt = await getGuestToken();
 
@@ -274,7 +325,7 @@ async function fetchVideoViaGuestAPI(tweetId) {
     throw new Error(`Guest GraphQL HTTP ${res.status}`);
   }
 
-  const data = await res.json();
+  const data = await res.json() as RawGraphQLResponse;
 
   // Parse tweetResult — hỗ trợ cả cấu trúc cũ và mới
   const tweetResult = data?.data?.tweetResult?.result
@@ -290,17 +341,17 @@ async function fetchVideoViaGuestAPI(tweetId) {
   for (const media of mediaList) {
     if (media.type === 'video' || media.type === 'animated_gif') {
       const variants = media.video_info?.variants || [];
-      let bestMp4 = variants
-        .filter((v: any) => v.content_type === 'video/mp4')
-        .sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0))[0];
+      let bestMp4: RawVariant | undefined = variants
+        .filter((v) => v.content_type === 'video/mp4')
+        .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
 
       let isHls = false;
       if (!bestMp4) {
-        bestMp4 = variants.find((v: any) => v.content_type === 'application/x-mpegURL');
+        bestMp4 = variants.find((v) => v.content_type === 'application/x-mpegURL');
         if (bestMp4) isHls = true;
       }
 
-      if (bestMp4) {
+      if (bestMp4?.url) {
         return {
           type: isHls ? 'hls' : (media.type === 'animated_gif' ? 'gif' : 'video'),
           url: bestMp4.url,
@@ -308,7 +359,7 @@ async function fetchVideoViaGuestAPI(tweetId) {
           tweetId,
           ext: isHls ? 'm3u8' : 'mp4',
           bitrate: bestMp4.bitrate || 0,
-        };
+        } as VideoResult;
       }
     }
   }
@@ -317,8 +368,7 @@ async function fetchVideoViaGuestAPI(tweetId) {
 }
 
 // ─── Helper: Parse media list từ GraphQL tweetResult ─────────────────────────
-// @ts-ignore
-function parseTweetResultMedia(tweetResult: any, tweetId: any) {
+function parseTweetResultMedia(tweetResult: RawTweetResult | undefined, tweetId: string): VideoResult | null {
   const legacy = tweetResult?.legacy
     || tweetResult?.tweet?.legacy
     || tweetResult?.result?.legacy;
@@ -329,15 +379,15 @@ function parseTweetResultMedia(tweetResult: any, tweetId: any) {
   for (const media of mediaList) {
     if (media.type === 'video' || media.type === 'animated_gif') {
       const variants = media.video_info?.variants || [];
-      let bestMp4 = variants
-        .filter((v: any) => v.content_type === 'video/mp4')
-        .sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0))[0];
+      let bestMp4: RawVariant | undefined = variants
+        .filter((v) => v.content_type === 'video/mp4')
+        .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
       let isHls = false;
       if (!bestMp4) {
-        bestMp4 = variants.find((v: any) => v.content_type === 'application/x-mpegURL');
+        bestMp4 = variants.find((v) => v.content_type === 'application/x-mpegURL');
         if (bestMp4) isHls = true;
       }
-      if (bestMp4) {
+      if (bestMp4?.url) {
         return {
           type: isHls ? 'hls' : (media.type === 'animated_gif' ? 'gif' : 'video'),
           url: bestMp4.url,
@@ -396,8 +446,7 @@ const GQL_FEATURES = {
 };
 
 // ─── Main Export: Thử từng layer theo thứ tự ─────────────────────────────────
-// @ts-ignore
-export async function fetchVideoForTweet(tweetId: string, userCsrfToken = '') {
+export async function fetchVideoForTweet(tweetId: string, userCsrfToken = ''): Promise<VideoResult | null> {
   // Layer 0: User Session API (nếu có ct0) — dùng dynamic query ID
   if (userCsrfToken) {
     const sessionOps = ['TweetResultByRestId', 'TweetDetail'];
@@ -423,7 +472,7 @@ export async function fetchVideoForTweet(tweetId: string, userCsrfToken = '') {
         });
 
         if (res.ok) {
-          const data = await res.json();
+          const data = await res.json() as RawGraphQLResponse;
           const tweetResult = data?.data?.tweetResult?.result
             || data?.data?.tweet_result?.result
             || data?.data?.tweetResults?.result;
@@ -441,8 +490,8 @@ export async function fetchVideoForTweet(tweetId: string, userCsrfToken = '') {
         } else {
           console.warn(`[tweet-api] ⚠ Layer 0 ${opName} HTTP ${res.status}`);
         }
-      } catch (e: any) {
-        console.warn(`[tweet-api] ⚠ Layer 0 ${opName} lỗi: ${e.message}`);
+      } catch (e) {
+        console.warn(`[tweet-api] ⚠ Layer 0 ${opName} lỗi: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
   }
@@ -454,8 +503,8 @@ export async function fetchVideoForTweet(tweetId: string, userCsrfToken = '') {
       console.log(`[tweet-api] ✓ Syndication API thành công cho tweet ${tweetId}`);
       return result;
     }
-  } catch (err: any) {
-    console.warn(`[tweet-api] Syndication API fail (${err.message}), thử Guest API...`);
+  } catch (err) {
+    console.warn(`[tweet-api] Syndication API fail (${err instanceof Error ? err.message : String(err)}), thử Guest API...`);
   }
 
   // Layer 2: Guest GraphQL API (fallback cuối, cần guest token)
@@ -465,8 +514,8 @@ export async function fetchVideoForTweet(tweetId: string, userCsrfToken = '') {
       console.log(`[tweet-api] ✓ Guest API thành công cho tweet ${tweetId}`);
       return result;
     }
-  } catch (err: any) {
-    console.warn(`[tweet-api] Guest API fail (${err.message})`);
+  } catch (err) {
+    console.warn(`[tweet-api] Guest API fail (${err instanceof Error ? err.message : String(err)})`);
   }
 
   return null;
