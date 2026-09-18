@@ -10,6 +10,7 @@ import { isValidDownloadOptions, isValidMediaItem, isValidUsername, isXProfileUr
 import { parseExtensionMessage } from '../shared/messages.ts';
 import { clearLocalDiagnostics, exportLocalDiagnostics, recordDiagnostic } from './diagnostics.ts';
 import { isTelegramWebUrl } from '../shared/telegram-media.ts';
+import type { QueueItem, Stats, MediaItem } from '../types.ts';
 
 const MAX_MEDIA_BATCH = 200;
 const MEDIA_PROCESS_CONCURRENCY = 4;
@@ -103,14 +104,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
             if (videoItem) {
               videoItem.url = normalizeMediaUrlToOrig(videoItem.url);
-              (videoItem as any).username = username;
-              const added = addMediaItems(username, [videoItem as any]);
+              const videoMediaItem = videoItem as MediaItem;
+              videoMediaItem.username = username;
+              const added = addMediaItems(username, [videoMediaItem]);
               if (added > 0) updateFAB(tabId, username);
             } else {
               console.warn(`[SW] ✗ Không lấy được video URL cho tweet ${item.tweetId}`);
             }
-          } catch (err: any) {
-            console.warn('[SW] fetchVideoForTweet lỗi:', item.tweetId, err.message);
+          } catch (err) {
+            console.warn('[SW] fetchVideoForTweet lỗi:', item.tweetId, err instanceof Error ? err.message : String(err));
           }
         } else {
           // Xử lý ảnh hoặc video URL trực tiếp (từ page-interceptor)
@@ -124,7 +126,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             if (added > 0) updateFAB(tabId, username);
           }
         }
-      }).catch((err: any) => console.debug('[SW] MEDIA_FOUND handler error:', err.message));
+      }).catch((err: unknown) => console.debug('[SW] MEDIA_FOUND handler error:', err instanceof Error ? err.message : String(err)));
       return false;
     }
 
@@ -243,7 +245,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (exists) { sendResponse({ error: 'Already in queue' }); return false; }
 
       const mediaCount = mediaStore.get(username)?.size || 0;
-      const item = {
+      const item: QueueItem = {
         id: `${username}_${Date.now()}`,
         username,
         filterType: filterType || 'all',
@@ -253,7 +255,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         mediaCount,
         result: null,
       };
-// @ts-ignore
       profileQueue.push(item);
       persistQueue();
       broadcastQueueUpdate();
@@ -318,7 +319,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case 'GET_DOWNLOAD_STATE': {
       // BUG-8 FIX: Popup query trạng thái download khi mở lại
-// @ts-ignore
       sendResponse({ isDownloading: downloadState.inProgress });
       return true;
     }
@@ -547,8 +547,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       (async () => {
         try {
           const key = `session_${username}`;
-          const res = await chrome.storage.local.get(key);
-          const session = res[key];
+          const res = await chrome.storage.local.get(key) as Record<string, unknown>;
+          const session = res[key] as { scrollCount?: number; stats?: Stats } | undefined;
 
           if (!session) {
             sendResponse({ error: 'No session found' });
@@ -557,43 +557,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
           // v4.4.0: Load media items from IndexedDB
           const itemsArray = await getMediaItems(username);
-// @ts-ignore
           if (itemsArray && itemsArray.length > 0) {
             if (!mediaStore.has(username)) mediaStore.set(username, new Map());
-            const store = mediaStore.get(username);
-// @ts-ignore
+            const store = mediaStore.get(username)!;
             itemsArray.forEach(item => {
-// @ts-ignore
               if (item?.url && !store.has(item.url)) store.set(item.url, item);
             });
           }
 
           if (!mediaStore.has(username)) mediaStore.set(username, new Map());
-          const store = mediaStore.get(username);
+          const store = mediaStore.get(username)!;
 
-// @ts-ignore
           if (session.stats) statsStore.set(username, session.stats);
 
           updateBadge(username);
           broadcastToPopup('SESSION_RESTORED', {
             username,
-// @ts-ignore
             count: store.size,
-// @ts-ignore
             scrollCount: session.scrollCount || 0,
-// @ts-ignore
             stats: session.stats || {},
           });
 
           // Xóa session sau khi đã restore thành công
           await clearSession(username);
 
-// @ts-ignore
           sendResponse({ ok: true, count: store.size });
         } catch (err) {
           console.error('[SW] RESTORE_SESSION error:', err);
-// @ts-ignore
-          sendResponse({ error: err.message });
+          sendResponse({ error: err instanceof Error ? err.message : String(err) });
         }
       })();
       return true; // async
@@ -656,8 +647,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const result = importQueue(parsed.queue);
         if (result.error) sendResponse({ error: result.error });
         else sendResponse({ ok: true, ...result });
-      } catch (err: any) {
-        sendResponse({ error: `Parse error: ${err.message}` });
+      } catch (err) {
+        sendResponse({ error: `Parse error: ${err instanceof Error ? err.message : String(err)}` });
       }
       return true;
     }
@@ -701,8 +692,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             sendResponse({ ok: true, downloadId });
           }
         });
-      } catch (err: any) {
-        sendResponse({ error: err.message });
+      } catch (err) {
+        sendResponse({ error: err instanceof Error ? err.message : String(err) });
       }
       return true;
     }
@@ -716,8 +707,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
       }
       // Chạy async — không block message channel
-      startFollowingScroll(targetUrl).catch((err: any) => {
-        console.error('[SW] startFollowingScroll error:', err.message);
+      startFollowingScroll(targetUrl).catch((err: unknown) => {
+        console.error('[SW] startFollowingScroll error:', err instanceof Error ? err.message : String(err));
       });
       sendResponse({ ok: true });
       return true;
