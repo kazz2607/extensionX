@@ -11,12 +11,11 @@
  * @param {function} onProgress - callback(fetched, total)
  * @returns {Promise<Blob>}
  */
-// @ts-ignore
 export async function fetchHLS(
   m3u8Url: string,
   onProgress?: (fetched: number, total: number) => void,
   options: { signal?: AbortSignal } = {},
-) {
+): Promise<Blob> {
   const signal = options.signal;
   throwIfAborted(signal);
   // 1. Fetch file playlist .m3u8
@@ -81,8 +80,7 @@ export async function fetchHLS(
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// @ts-ignore
-async function fetchText(url: string, signal?: AbortSignal) {
+async function fetchText(url: string, signal?: AbortSignal): Promise<string | null> {
   try {
     const res = await fetchWithRetry(url, signal);
     if (!res.ok) return null;
@@ -131,12 +129,10 @@ function abortableDelay(ms: number, signal?: AbortSignal): Promise<void> {
 /**
  * Parse master playlist, trả về URL của stream có bandwidth cao nhất
  */
-// @ts-ignore
-function extractBestStream(text, baseUrl) {
-// @ts-ignore
+function extractBestStream(text: string, baseUrl: string): string | null {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   let bestBandwidth = -1;
-  let bestUrl = null;
+  let bestUrl: string | null = null;
 
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].startsWith('#EXT-X-STREAM-INF')) {
@@ -156,11 +152,9 @@ function extractBestStream(text, baseUrl) {
 /**
  * Parse media playlist, trả về mảng URL của các TS segment
  */
-// @ts-ignore
-function parseSegments(text, baseUrl) {
-// @ts-ignore
+function parseSegments(text: string, baseUrl: string): string[] {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  const segments = [];
+  const segments: string[] = [];
 
   for (const line of lines) {
     if (!line.startsWith('#') && (line.endsWith('.ts') || line.includes('.ts?') || line.match(/\.(ts|aac|mp4)(\?|$)/i))) {
@@ -180,8 +174,7 @@ function parseSegments(text, baseUrl) {
   return segments;
 }
 
-// @ts-ignore
-function resolveUrl(url, baseUrl) {
+function resolveUrl(url: string, baseUrl: string): string {
   if (url.startsWith('http')) return url;
   if (url.startsWith('/')) {
     const base = new URL(baseUrl);
