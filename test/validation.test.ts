@@ -17,7 +17,7 @@ import { parseExtensionMessage } from '../src/shared/messages.ts';
 import { addDiagnosticEvent, emptyDiagnostics } from '../src/shared/diagnostics.ts';
 import { filterMediaItems } from '../src/shared/media-filter.ts';
 import { canTransitionCollectPhase } from '../src/shared/collect-state.ts';
-import { recoverQueueItemAfterRestart, transitionQueueItem } from '../src/shared/queue-state.ts';
+import { recoverQueueItemAfterRestart, transitionQueueItem, wasInterrupted } from '../src/shared/queue-state.ts';
 import { isTelegramWebUrl, telegramMediaFilename } from '../src/shared/telegram-media.ts';
 
 test('accepts only known X media origins', () => {
@@ -112,6 +112,14 @@ test('queue recovery resets interrupted work but rejects invalid terminal transi
   const item = { id: 'NASA_1', username: 'NASA', filterType: 'all', skipDuplicates: true, addedAt: 1, status: 'downloading' as const, mediaCount: 1 };
   assert.equal(recoverQueueItemAfterRestart(item).status, 'waiting');
   assert.equal(transitionQueueItem({ ...item, status: 'done' }, 'waiting'), null);
+});
+
+test('flags only downloading queue items as interrupted (Pha 10 resume dedup signal)', () => {
+  const base = { id: 'NASA_1', username: 'NASA', filterType: 'all', skipDuplicates: false, addedAt: 1, mediaCount: 1 };
+  assert.equal(wasInterrupted({ ...base, status: 'downloading' }), true);
+  assert.equal(wasInterrupted({ ...base, status: 'waiting' }), false);
+  assert.equal(wasInterrupted({ ...base, status: 'done' }), false);
+  assert.equal(wasInterrupted({ ...base, status: 'error' }), false);
 });
 
 test('normalizes media URLs for dedup and forces video URLs to original quality', () => {

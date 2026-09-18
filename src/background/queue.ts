@@ -4,16 +4,23 @@ import { startDownload } from './downloader.ts';
 import { broadcastToPopup } from './utils.ts';
 import { QueueItem, QueueExportData } from '../types.ts';
 import { parseQueueItems } from '../shared/validation.ts';
-import { recoverQueueItemAfterRestart, transitionQueueItem } from '../shared/queue-state.ts';
+import { recoverQueueItemAfterRestart, transitionQueueItem, wasInterrupted } from '../shared/queue-state.ts';
 
 export let profileQueue: QueueItem[] = [];
 export function setProfileQueue(q: QueueItem[]) { profileQueue = q; }
 
+// Pha 10: id các queue item vừa bị reset do gián đoạn (SW restart hoặc import lại
+// giữa chừng) — chỉ dùng để ép skipDuplicates=true cho ĐÚNG 1 lần resume kế tiếp
+// của item đó, không lưu trữ và không đổi preference skipDuplicates người dùng đã lưu.
+const _forceDedupOnNextRun = new Set<string>();
 
 async function loadPersistedQueue() {
   try {
     const data = await chrome.storage.local.get('profile_queue');
     const saved: QueueItem[] = (data.profile_queue as QueueItem[]) || [];
+    for (const item of saved) {
+      if (wasInterrupted(item)) _forceDedupOnNextRun.add(item.id);
+    }
     // Các item đang 'downloading' khi SW restart → đặt lại 'waiting'
     profileQueue = saved.map(recoverQueueItemAfterRestart);
   } catch (_) {
@@ -75,10 +82,15 @@ async function startNextInQueue() {
   persistQueue();
   broadcastQueueUpdate();
 
+  // Pha 10: nếu item này vừa bị reset do gián đoạn (crash/import lại), ép dedupe
+  // đúng 1 lần resume này để không tải lại phần đã xong trước khi bị ngắt — không
+  // đổi preference skipDuplicates đã lưu của item cho các lần chạy bình thường khác.
+  const forceDedup = _forceDedupOnNextRun.delete(next.id);
+
   // startDownload sẽ tự gọi startNextInQueue() trong finally
   startDownload(next.username, {
     filterType: (next.filterType || 'all') as 'all' | 'images' | 'videos' | 'gifs',
-    skipDuplicates: next.skipDuplicates !== false,
+    skipDuplicates: forceDedup ? true : next.skipDuplicates !== false,
     _fromQueue: true,
     _queueId: next.id,
   });
@@ -118,6 +130,7 @@ function importQueue(items: unknown): { added: number; skipped: number; error?: 
       continue;
     }
     // Reset downloading → waiting (SW đã tắt, không còn active)
+    if (wasInterrupted(item)) _forceDedupOnNextRun.add(item.id); // Pha 10
     profileQueue.push({ ...item, status: 'waiting' });
     added++;
   }

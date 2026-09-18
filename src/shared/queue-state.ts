@@ -17,3 +17,12 @@ export function transitionQueueItem(item: QueueItem, to: QueueStatus): QueueItem
 export function recoverQueueItemAfterRestart(item: QueueItem): QueueItem {
   return item.status === 'downloading' ? { ...item, status: 'waiting' } : item;
 }
+
+/**
+ * true nếu item đang dang dở (downloading) tại thời điểm bị buộc reset — dùng để
+ * ép dedupe đúng 1 lần resume kế tiếp, không đổi preference skipDuplicates đã lưu
+ * của item. Phải gọi TRƯỚC khi đổi status sang 'waiting' vì sau đó mất dấu vết.
+ */
+export function wasInterrupted(item: QueueItem): boolean {
+  return item.status === 'downloading';
+}

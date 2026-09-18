@@ -62,10 +62,16 @@ Các nhánh đã verify kỹ và **đúng 100%** với code: message schema 256K
 - **Ngoài phạm vi v1** (đã ghi rõ trong plan): không tích hợp Queue, không auto-refresh khi đang collect, không virtualize — chặn cứng ở 200 item, hướng dẫn thu hẹp bằng filter/date range có sẵn.
 - **Chưa làm**: smoke test thủ công trên Chrome thật — môi trường hiện tại không có trình duyệt tương tác.
 
-### Pha 10 — Resume đáng tin cậy (ưu tiên Cao)
-- Không tạo cơ chế checkpoint mới từ đầu — tái dùng store `downloaded_urls` (đã có TTL/LRU) làm nguồn "đã xong" khi resume.
-- Khi `startNextInQueue` chạy lại sau SW restart, đảm bảo LUÔN so khớp với `downloaded_urls` cho username đó để bỏ qua item đã tải, không chỉ khi `skipDuplicates` được bật.
-- Cần rà kỹ tương tác `queue.ts` ↔ `downloader.ts` ở đường resume để xác nhận không bỏ sót state nào.
+### Pha 10 — Resume đáng tin cậy ✅ HOÀN TẤT
+- Phát hiện qua rà soát: `markDownloaded` (`scraper.ts`) đã ghi nhận file tải xong **vô điều kiện**, không phụ thuộc `skipDuplicates` — nhưng `startDownload` chỉ tra cứu (lọc) dữ liệu đó khi `skipDuplicates !== false`. Nếu ép "luôn dedupe khi resume" như dự tính ban đầu sẽ đè lên lựa chọn cố ý của người dùng khi họ tắt `skipDuplicates` (cờ này là cross-session, không phải cờ riêng cho crash-recovery).
+- Giải pháp đã chọn: **ép dedupe chỉ đúng 1 lần resume kế tiếp** của queue item bị gián đoạn, không đổi preference đã lưu cho các lần chạy khác:
+  - `wasInterrupted(item)` (hàm pure mới, `src/shared/queue-state.ts`) — trả `true` nếu item đang `status: 'downloading'` tại thời điểm bị buộc reset.
+  - `src/background/queue.ts`: thêm `Set<string>` in-memory `_forceDedupOnNextRun` (không persist, không đổi schema `QueueItem`). Đánh dấu id vào set này ở cả 2 nơi item có thể bị "gián đoạn": `loadPersistedQueue()` (SW restart) và `importQueue()` (import lại item đang dở dang từ file export cũ). `startNextInQueue()` tiêu thụ đúng 1 lần (`.delete(id)`) để ép `skipDuplicates: true` cho lần chạy đó, các lần khác giữ nguyên preference đã lưu.
+  - Không đổi `downloader.ts`/`types.ts`/`validation.ts` — cơ chế dedupe sẵn có đã đúng, chỉ thiếu chỗ bật đúng lúc.
+- Test: `wasInterrupted` có unit test riêng trong `test/validation.test.ts`. Phần wiring trong `queue.ts` không tự động test được (phụ thuộc `chrome.storage`, giống phần còn lại của file) — xác minh bằng đọc lại logic + typecheck.
+- `npm run check` xanh (18 unit test, 2 e2e, typecheck/lint/build).
+- **Ngoài phạm vi**: luồng Download trực tiếp (nút Download thường, ngoài Queue) vẫn không có cơ chế resume nào nếu SW restart giữa chừng — không mở rộng phạm vi Pha 10 sang đây. SW restart vẫn không tự động resume ngay (chờ user tương tác), Pha 10 chỉ sửa "khi resume xảy ra thì đúng".
+- **Chưa làm**: smoke test thủ công (giả lập SW restart giữa chừng 1 queue download rồi resume) trên Chrome thật — môi trường hiện tại không có trình duyệt tương tác.
 
 ### Pha 11 — Download Recipe/Preset theo profile (ưu tiên Cao)
 - Lưu trữ mới: key `preset_${username}` trong `chrome.storage.local` (hoặc store IndexedDB riêng nếu cần nhiều preset/profile), schema = snapshot `DownloadOptions` con (filterType, skipDuplicates, saveFolder, flatUsername, filenameUsername, dateFrom/dateTo, keyword).
