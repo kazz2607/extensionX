@@ -27,6 +27,7 @@ Tính đến ngày **17-09-2026**, toàn bộ 5 pha kỹ thuật cốt lõi (Pha
 | **Pha 12** | Quản lý hàng đợi nâng cao (pause/reorder/retry) — xem `ke-hoach-pha7-plus-2026-09.md` | P3 | ✅ **Hoàn tất** (cần smoke test tay trên Chrome thật) | |
 | **Pha 13** | Template đặt tên file linh hoạt — xem `ke-hoach-pha7-plus-2026-09.md` | P3 | ✅ **Hoàn tất** (cần smoke test tay trên Chrome thật) | |
 | **Pha 14** | Xuất Manifest JSON/CSV nâng cao — xem `ke-hoach-pha7-plus-2026-09.md` | P3 | ✅ **Hoàn tất** (cần smoke test tay trên Chrome thật) | |
+| **Pha 15** | Watch mode theo profile (thiết kế an toàn, không polling ngầm) — xem `ke-hoach-pha7-plus-2026-09.md` | P4 | ✅ **Hoàn tất** (cần smoke test tay trên Chrome thật) | |
 
 **Trạng thái kiểm thử hiện hành (`npm run check`):**
 - ✅ `15/15 unit tests` pass

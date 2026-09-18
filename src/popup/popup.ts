@@ -12,6 +12,7 @@ import { initDateRange, getDateRange, setDateRange } from './date-range.ts';
 import { initPresets, type FilterPreset } from './presets.ts';
 import { initQueuePanel, loadQueue, addCurrentToQueue as queueAddCurrent, updateQueueItemProgress, setQueueFromUpdate } from './queue-panel.ts';
 import { initDownloadPicker, loadPickerItems } from './download-picker.ts';
+import { isWatched, toggleWatch, checkWatchedProfile } from './watch-list.ts';
 import type { DownloadOptions } from '../types.ts';
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -39,6 +40,7 @@ const els: any = {
   badge:        $('media-count-badge'),
   avatar:       $('profile-avatar'),
   profileCard:  $('profile-card'),
+  btnWatchToggle: $('btn-watch-toggle'), // Pha 15
 
   tabAll:       $('tab-all'),
   tabImages:    $('tab-images'),
@@ -394,7 +396,20 @@ async function setCurrentUser(username) {
   }
 
 // @ts-ignore
-  updateMediaCount(countRes?.count || 0);
+  const currentMediaCount = countRes?.count || 0;
+  updateMediaCount(currentMediaCount);
+
+  // Pha 15: Watch mode (không poll ngầm) — so sánh với lần xem trước, dùng đúng
+  // số liệu GET_MEDIA_COUNT đã gọi sẵn ở trên, không phát sinh request nào thêm.
+  if (els.btnWatchToggle) {
+    els.btnWatchToggle.style.display = 'flex';
+    const watching = await isWatched(username);
+    els.btnWatchToggle.classList.toggle('watching', watching);
+    if (watching) {
+      const delta = await checkWatchedProfile(username, currentMediaCount);
+      if (delta) showToast(`👁 +${delta} media mới ở @${username} kể từ lần xem trước`, 'info');
+    }
+  }
 
   // v4.3.0: Hiện Date Range Filter section khi có media
   if (els.sectionDaterange) {
@@ -784,6 +799,17 @@ function setupListeners() {
   };
   document.getElementById('btn-export-manifest-json')?.addEventListener('click', () => void exportManifest('json'));
   document.getElementById('btn-export-manifest-csv')?.addEventListener('click', () => void exportManifest('csv'));
+
+  // Pha 15: Watch mode toggle (không poll ngầm — xem watch-list.ts)
+  if (els.btnWatchToggle) {
+    els.btnWatchToggle.addEventListener('click', async () => {
+      if (!currentUsername) return;
+      const mediaCount = parseInt(els.badge.textContent) || 0;
+      const watching = await toggleWatch(currentUsername, mediaCount);
+      els.btnWatchToggle.classList.toggle('watching', watching);
+      showToast(watching ? `👁 Đang theo dõi @${currentUsername}` : `Đã bỏ theo dõi @${currentUsername}`, 'info');
+    });
+  }
 
   // Duplicate Skip checkbox change listener
   if (els.skipCheckbox) {

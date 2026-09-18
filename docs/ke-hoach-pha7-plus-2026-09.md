@@ -100,8 +100,11 @@ Các nhánh đã verify kỹ và **đúng 100%** với code: message schema 256K
 - `buildManifest(username)` (`downloader.ts`, cạnh `buildCSV`) trả cả `json` và `csv` cùng lúc trong 1 response — cap `MANIFEST_ITEM_LIMIT = 10_000` (đồng bộ `CSV_ROW_LIMIT`), theo đúng format versioned JSON `{ _version, _exportedAt, username, history, items, total, truncated }` như `exportQueue`/`exportSettings`.
 - Message mới `EXPORT_MANIFEST` (payload: `{username}`), 2 nút "JSON"/"CSV" cạnh nút Clear trong History panel (`popup.html`/`popup.ts`).
 
-### Pha 15 — Watch mode theo profile (ưu tiên Thấp — để sau, lập plan riêng)
-- Tài liệu gốc đã đánh dấu "Thấp" và cần thiết kế kỹ rate-limit + consent UX để tránh bị X.com coi là bot. Không đi sâu ở đây; nên lập plan riêng sau khi Pha 9-14 xong.
+### Pha 15 — Watch mode theo profile ✅ HOÀN TẤT (thiết kế an toàn, phạm vi thu hẹp)
+- **Quyết định thiết kế đã xác nhận với người dùng**: KHÔNG polling ngầm thật (không `chrome.alarms` mở tab định kỳ, không gọi thẳng GraphQL API từ service worker) — cả 2 cách đó đều làm tăng rủi ro bị X.com coi là hành vi bot so với cách extension hoạt động hiện tại (chỉ bắt request từ tab X.com thật đang mở). Thay vào đó: chỉ so sánh số media hiện tại với lần xem gần nhất **mỗi khi người dùng tự mở lại popup**, dùng đúng kết quả `GET_MEDIA_COUNT` đã gọi sẵn trong `setCurrentUser()` — **không thêm bất kỳ request mạng nào tới X.com** so với trước Pha 15.
+- Module mới `src/popup/watch-list.ts`: lưu `{lastCount, lastCheckedAt}` theo username trong `chrome.storage.local['watched_profiles']`, thuần client-side, không cần message/handler backend mới (giống Pha 11).
+- UI: nút mắt 👁 nhỏ trong profile card (`#btn-watch-toggle`) để bật/tắt theo dõi; khi profile đang theo dõi có media mới, hiện toast báo số lượng mới ngay khi mở popup.
+- **Ngoài phạm vi**: không có panel quản lý danh sách đang theo dõi (chỉ toggle được khi đang xem đúng profile đó); không tùy chọn tần suất kiểm tra (vì không polling nền, không có "tần suất" để cấu hình).
 
 ### Ghi chú backlog không đưa vào pha riêng
 - **Dọn `any`/`@ts-ignore`** (340+ `@ts-ignore`, ~90 chỗ `any`): không làm big-bang pass. Chính sách: không thêm mới (đã có rule trong CLAUDE.md), dọn dần theo file mỗi khi pha nào đó chạm tới.
@@ -111,7 +114,9 @@ Các nhánh đã verify kỹ và **đúng 100%** với code: message schema 256K
 
 ## Phần 4 — Thứ tự thực hiện & tiêu chí hoàn tất mỗi pha
 
-**Pha 7 → Pha 8 → Pha 9 → Pha 10 → Pha 11 → Pha 12 → Pha 13 → Pha 14** (Pha 15 lập plan riêng sau).
+**Pha 7 → Pha 8 → Pha 9 → Pha 10 → Pha 11 → Pha 12 → Pha 13 → Pha 14 → Pha 15 — ✅ Toàn bộ roadmap Pha 7-15 đã hoàn tất.**
+
+Còn lại: smoke test thủ công trên Chrome thật cho tất cả các pha (môi trường phát triển này không có trình duyệt tương tác), và 2 mục backlog kỹ thuật ở trên (dọn `any`/`@ts-ignore`, bảo trì dependency định kỳ) vẫn để ngỏ theo đúng chính sách đã nêu — không phải việc của 1 pha cụ thể.
 
 Mỗi pha coi là xong khi:
 1. `npm run check` (typecheck + lint + test + e2e + build) xanh.
