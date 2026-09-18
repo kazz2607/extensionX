@@ -10,6 +10,8 @@ import { renderDonutChart } from './donut-chart.ts';
 import { initHistoryPanel, loadHistory, addToHistory, clearHistory } from './history-panel.ts';
 import { initDateRange, getDateRange } from './date-range.ts';
 import { initQueuePanel, loadQueue, addCurrentToQueue as queueAddCurrent, updateQueueItemProgress, setQueueFromUpdate } from './queue-panel.ts';
+import { initDownloadPicker, loadPickerItems } from './download-picker.ts';
+import type { DownloadOptions } from '../types.ts';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 // @ts-ignore
@@ -118,6 +120,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   await applyCompactMode(); // v4.8.0
   initHistoryPanel({ onSelectUsername: setCurrentUser });
   initQueuePanel({ sendBG, showToast });
+  initDownloadPicker({             // Pha 9
+    getUsername: () => currentUsername,
+    getActiveFilter: () => activeFilter,
+    getDateRange,
+    sendBG,
+    showToast,
+    onDownloadSelected: (selectedUrls) => void beginDownload({ selectedUrls }),
+  });
   await loadHistory();
   await loadQueue();                // v5.0.3
   await checkSavedSession();
@@ -218,6 +228,7 @@ function setupBottomNav() {
     const panel = document.getElementById(panelId);
     if (panel) panel.classList.add('active');
     if (panelId === 'panel-stats') renderDonutChart(stats);
+    if (panelId === 'panel-picker') void loadPickerItems(); // Pha 9
   };
   navTabs.forEach(tab => {
     tab.addEventListener('click', () => activate(tab));
@@ -582,6 +593,37 @@ function updateScrollSpeed(newCount) {
   lastScrollTime = now;
 }
 
+// ─── Download ─────────────────────────────────────────────────────────────────
+// Dùng chung bởi nút Download (toàn bộ theo filter) và Pha 9 Download Picker
+// (chỉ các url đã chọn) — cùng 1 sequence set trạng thái UI + gọi START_DOWNLOAD.
+async function beginDownload(extraOptions: Partial<DownloadOptions> = {}) {
+  if (!currentUsername || isDownloading) return;
+  if (!extraOptions.selectedUrls?.length) {
+    const filteredCount = getFilteredCount();
+    if (filteredCount === 0) { showToast('Không có media để tải', 'error'); return; }
+  }
+
+  isDownloading = true;
+  updateButtons();
+  const preparingTxt = window.i18n ? window.i18n.t('status_downloading') : 'Chuẩn bị download...';
+  setStatus('downloading', preparingTxt, '📦');
+  showProgress(true);
+
+  const { dateFrom, dateTo, keyword } = getDateRange();
+  await sendBG('START_DOWNLOAD', {
+    username: currentUsername,
+    options: {
+      filterType: activeFilter,
+      skipDuplicates: els.skipCheckbox ? els.skipCheckbox.checked : true,
+      // v4.3.0: Truyền date range vào SW
+      dateFrom: dateFrom || undefined,
+      dateTo:   dateTo   || undefined,
+      keyword:  keyword  || undefined, // v4.8.0
+      ...extraOptions,
+    }
+  });
+}
+
 // ─── Event Listeners ──────────────────────────────────────────────────────────
 function setupListeners() {
   setupTabs();
@@ -610,31 +652,7 @@ function setupListeners() {
   });
 
   // Download
-  els.btnDownload.addEventListener('click', async () => {
-// @ts-ignore
-    if (!currentUsername || isDownloading) return;
-    const filteredCount = getFilteredCount();
-    if (filteredCount === 0) { showToast('Không có media để tải', 'error'); return; }
-
-    isDownloading = true;
-    updateButtons();
-    const preparingTxt = window.i18n ? window.i18n.t('status_downloading') : 'Chuẩn bị download...';
-    setStatus('downloading', preparingTxt, '📦');
-    showProgress(true);
-
-    const { dateFrom, dateTo, keyword } = getDateRange();
-    await sendBG('START_DOWNLOAD', {
-      username: currentUsername,
-      options: {
-        filterType: activeFilter,
-        skipDuplicates: els.skipCheckbox ? els.skipCheckbox.checked : true,
-        // v4.3.0: Truyền date range vào SW
-        dateFrom: dateFrom || undefined,
-        dateTo:   dateTo   || undefined,
-        keyword:  keyword  || undefined, // v4.8.0
-      }
-    });
-  });
+  els.btnDownload.addEventListener('click', () => void beginDownload());
 
   // Add to Queue (action row button)
   if (els.btnQueueAdd) {

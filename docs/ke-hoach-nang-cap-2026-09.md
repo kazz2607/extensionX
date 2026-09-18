@@ -21,6 +21,7 @@ Tính đến ngày **17-09-2026**, toàn bộ 5 pha kỹ thuật cốt lõi (Pha
 | **Pha 6** | Hỗ trợ Telegram Web (DOM Scanner, inject nút tải xuống, bypass restrictions) | P1 | ✅ **Hoàn tất** | |
 | **Pha 7** | Đóng lỗ hổng test coverage (URL normalization/dedup) — xem `ke-hoach-pha7-plus-2026-09.md` | P2 | ✅ **Hoàn tất** | |
 | **Pha 8** | Refactor `popup.ts`/`fab.ts` thành module nhỏ — xem `ke-hoach-pha7-plus-2026-09.md` | P2 | ✅ **Hoàn tất** (cần smoke test tay trên Chrome thật) | |
+| **Pha 9** | Interactive Download Picker — xem `ke-hoach-pha7-plus-2026-09.md` | P2 | ✅ **Hoàn tất** (cần smoke test tay trên Chrome thật) | |
 
 **Trạng thái kiểm thử hiện hành (`npm run check`):**
 - ✅ `15/15 unit tests` pass

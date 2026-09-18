@@ -45,6 +45,8 @@ export interface DownloadOptions {
   dateFrom?: string;
   dateTo?: string;
   keyword?: string;
+  // Pha 9: chỉ tải các URL này (Interactive Download Picker) — vẫn qua date/keyword/dedup filter
+  selectedUrls?: string[];
   // Filename options
   flatUsername?: boolean;
   filenameUsername?: boolean;

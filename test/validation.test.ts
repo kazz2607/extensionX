@@ -56,6 +56,14 @@ test('bounds download options before they enter the scheduler', () => {
   assert.equal(isValidDownloadOptions([]), false);
 });
 
+test('bounds Download Picker selectedUrls to a trusted, size-capped array', () => {
+  assert.equal(isValidDownloadOptions({ selectedUrls: ['https://pbs.twimg.com/media/a.jpg', 'https://video.twimg.com/a.mp4'] }), true);
+  assert.equal(isValidDownloadOptions({ selectedUrls: [] }), true);
+  assert.equal(isValidDownloadOptions({ selectedUrls: 'https://pbs.twimg.com/media/a.jpg' }), false);
+  assert.equal(isValidDownloadOptions({ selectedUrls: Array.from({ length: 2_001 }, () => 'https://pbs.twimg.com/media/a.jpg') }), false);
+  assert.equal(isValidDownloadOptions({ selectedUrls: ['https://evil.test/a.jpg'] }), false);
+});
+
 test('normalizes folder and filename segments without traversal', () => {
   assert.equal(sanitizeFolderPath('../../Downloads//  profile  /images'), '_/_/Downloads/profile/images');
   assert.equal(sanitizeFolderPath('one\\two/../three'), 'one/two/_/three');

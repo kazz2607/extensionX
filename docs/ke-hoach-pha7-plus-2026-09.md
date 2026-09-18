@@ -53,11 +53,14 @@ Các nhánh đã verify kỹ và **đúng 100%** với code: message schema 256K
 - Playwright browser test (`npm run test:browser`, ngoài phạm vi `npm run check`) fail với timeout chờ Service Worker — đã xác minh lỗi này **có sẵn trước Pha 8** (test lại trên code cũ cho cùng lỗi), là hạn chế môi trường sandbox, không phải regression.
 - **Còn thiếu so với plan gốc**: chưa thực hiện smoke test thủ công trên Chrome thật (X.com + Telegram Web) — môi trường hiện tại không có trình duyệt tương tác để làm; cần người dùng tự xác nhận sau khi build lại extension.
 
-### Pha 9 — Interactive Download Picker (ưu tiên Cao)
-- Panel mới hiển thị lưới thumbnail từ `MediaItem[]` (đã có trong IndexedDB `media_items`, lấy qua `getMediaItems` sẵn có), mỗi item có checkbox chọn/bỏ.
-- Nút "Tải các mục đã chọn" → xây `DownloadOptions` với danh sách id/url được chọn, tái dùng `startDownload()` hiện có (chỉ cần thêm bộ lọc theo allowlist id trong downloader.ts).
-- Tái dùng UI pattern của `download-preview` panel (popup.ts ~932-992) cho đếm số lượng/cảnh báo.
-- Nằm trong module mới `download-picker.ts` (tạo sau khi Pha 8 xong cấu trúc).
+### Pha 9 — Interactive Download Picker ✅ HOÀN TẤT
+- Backend: `DownloadOptions.selectedUrls?: string[]` (`types.ts`) + validate chặt trong `isValidDownloadOptions` (cap 2000 URL, mỗi URL phải qua `isTrustedMediaUrl`) — chặn mảng không giới hạn/không tin cậy lọt qua (`shared/validation.ts`). `startDownload` (`downloader.ts`) lọc thêm theo `selectedUrls` ngay sau filterType, trước date/keyword/dedup. Message mới `GET_MEDIA_ITEMS_FILTERED` (`background/messages.ts`) trả `{items, total, truncated}`, cap `PICKER_ITEM_LIMIT=200`, lọc type/date/keyword giống hệt `GET_MEDIA_COUNT_FILTERED` (không lọc skipDuplicates — picker hiện mọi item khớp, dedup vẫn áp dụng lúc tải thật).
+- Frontend: module mới `src/popup/download-picker.ts` (theo pattern deps-object của Pha 8) — lưới thumbnail (`<img>` cho ảnh, icon cho video/gif/hls vì X mã hoá GIF thành mp4 nội bộ, không có URL ảnh tĩnh), chọn/bỏ từng item hoặc tất cả, cảnh báo khi bị cắt bớt do vượt cap.
+- `popup.ts`: refactor `beginDownload(extraOptions)` dùng chung giữa nút Download thường và nút "Tải mục đã chọn" của picker — tránh lặp lại sequence set trạng thái UI + gọi `START_DOWNLOAD`.
+- `popup.html`/`popup.css`: thêm tab "Picker" (vị trí 2, sau Main) + panel shell JS tự inject (giống `panel-cleanup`), CSS grid tái dùng token màu/spacing sẵn có, không tạo token mới.
+- Test: thêm case cho `selectedUrls` trong `test/validation.test.ts` (hợp lệ / quá dài / URL không tin cậy). `npm run check` xanh (17 unit test, 2 e2e, typecheck/lint/build).
+- **Ngoài phạm vi v1** (đã ghi rõ trong plan): không tích hợp Queue, không auto-refresh khi đang collect, không virtualize — chặn cứng ở 200 item, hướng dẫn thu hẹp bằng filter/date range có sẵn.
+- **Chưa làm**: smoke test thủ công trên Chrome thật — môi trường hiện tại không có trình duyệt tương tác.
 
 ### Pha 10 — Resume đáng tin cậy (ưu tiên Cao)
 - Không tạo cơ chế checkpoint mới từ đầu — tái dùng store `downloaded_urls` (đã có TTL/LRU) làm nguồn "đã xong" khi resume.

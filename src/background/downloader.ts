@@ -343,6 +343,13 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
     else if (options.filterType === 'gifs') items = items.filter(i => i.type === 'gif');
   }
 
+  // Pha 9: Interactive Download Picker — chỉ tải các URL người dùng đã chọn
+  // (vẫn để date/keyword/dedup filter phía dưới áp dụng tiếp lên phần đã chọn)
+  if (options.selectedUrls?.length) {
+    const selected = new Set(options.selectedUrls);
+    items = items.filter(i => selected.has(i.url));
+  }
+
   // v4.3.0: Lọc theo Date Range
   const dateFrom = options.dateFrom ? new Date(options.dateFrom).getTime() : 0;
   const dateTo   = options.dateTo   ? new Date(options.dateTo + 'T23:59:59Z').getTime() : Infinity;

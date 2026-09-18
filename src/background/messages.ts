@@ -13,6 +13,7 @@ import { isTelegramWebUrl } from '../shared/telegram-media.ts';
 
 const MAX_MEDIA_BATCH = 200;
 const MEDIA_PROCESS_CONCURRENCY = 4;
+const PICKER_ITEM_LIMIT = 200; // Pha 9: Interactive Download Picker — cap số item trả về để hiển thị
 const ALLOWED_DIAGNOSTIC_METRICS = new Set(['scan.duration_ms', 'observer.callback']);
 const QUEUE_ID_PATTERN = /^[A-Za-z0-9_-]{1,120}$/;
 
@@ -354,6 +355,50 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         sendResponse({ count: items.length });
+      })();
+      return true;
+    }
+
+    // Pha 9: Interactive Download Picker — trả về item thật (cap PICKER_ITEM_LIMIT) để hiển thị thumbnail
+    case 'GET_MEDIA_ITEMS_FILTERED': {
+      (async () => {
+        const { username, filterType, dateFrom, dateTo, keyword } = payload;
+        if (!isValidUsername(username) || (filterType !== undefined && !['all', 'images', 'videos', 'gifs'].includes(filterType)) ||
+          (dateFrom !== undefined && (typeof dateFrom !== 'string' || dateFrom.length > 32)) ||
+          (dateTo !== undefined && (typeof dateTo !== 'string' || dateTo.length > 32)) ||
+          (keyword !== undefined && (typeof keyword !== 'string' || keyword.length > 1_000))) {
+          sendResponse({ error: 'Invalid media filter' }); return;
+        }
+        const store = await ensureMediaStoreLoaded(username);
+        if (!store) { sendResponse({ items: [], total: 0, truncated: false }); return; }
+
+        let items = Array.from(store.values());
+
+        // Filter theo type
+        if (filterType && filterType !== 'all') {
+          if (filterType === 'images') items = items.filter(i => i.type === 'image');
+          else if (filterType === 'videos') items = items.filter(i => i.type === 'video' || i.type === 'hls');
+          else if (filterType === 'gifs') items = items.filter(i => i.type === 'gif');
+        }
+
+        // Filter theo date range
+        if (dateFrom || dateTo) {
+          const from = dateFrom ? new Date(dateFrom).getTime() : 0;
+          const to   = dateTo  ? new Date(dateTo + 'T23:59:59Z').getTime() : Infinity;
+          items = items.filter(item => {
+            const d = item.tweetDate || 0;
+            return d >= from && d <= to;
+          });
+        }
+        // Filter theo keyword
+        if (keyword && keyword.trim()) {
+          const kw = keyword.toLowerCase().trim();
+          items = items.filter(item => (item.tweetText || '').toLowerCase().includes(kw));
+        }
+
+        const total = items.length;
+        const truncated = total > PICKER_ITEM_LIMIT;
+        sendResponse({ items: items.slice(0, PICKER_ITEM_LIMIT), total, truncated });
       })();
       return true;
     }

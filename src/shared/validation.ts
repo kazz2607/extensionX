@@ -6,6 +6,7 @@ const MEDIA_HOSTS = new Set(['pbs.twimg.com', 'video.twimg.com']);
 const FILE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'ts', 'm3u8', 'mov']);
 const QUEUE_STATUSES = new Set<QueueItem['status']>(['waiting', 'downloading', 'done', 'error']);
 const FILTER_TYPES = new Set(['all', 'images', 'videos', 'gifs']);
+const MAX_SELECTED_URLS = 2_000; // Pha 9: Interactive Download Picker
 
 export function isValidUsername(value: unknown): value is string {
   return typeof value === 'string' && USERNAME_PATTERN.test(value);
@@ -92,6 +93,11 @@ export function isValidDownloadOptions(value: unknown): boolean {
   if (booleans.some((key) => options[key] !== undefined && typeof options[key] !== 'boolean')) return false;
   if (options.concurrency !== undefined && (!Number.isInteger(options.concurrency) || (options.concurrency as number) < 1 || (options.concurrency as number) > 10)) return false;
   if (options.filterType !== undefined && !FILTER_TYPES.has(options.filterType as string)) return false;
+  // Pha 9: Interactive Download Picker — chặn mảng URL không giới hạn/không tin cậy lọt qua
+  if (options.selectedUrls !== undefined) {
+    if (!Array.isArray(options.selectedUrls) || options.selectedUrls.length > MAX_SELECTED_URLS) return false;
+    if (!options.selectedUrls.every(isTrustedMediaUrl)) return false;
+  }
   return true;
 }
 
