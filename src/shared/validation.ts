@@ -137,6 +137,7 @@ export function parseQueueItems(value: unknown, maxItems = 500): QueueItem[] | n
     if (typeof item.id !== 'string' || !/^[A-Za-z0-9_-]{1,120}$/.test(item.id) || ids.has(item.id)) return null;
     if (!isValidUsername(item.username) || !FILTER_TYPES.has(item.filterType || '') || !QUEUE_STATUSES.has(item.status as QueueItem['status'])) return null;
     if (typeof item.skipDuplicates !== 'boolean' || typeof item.addedAt !== 'number' || !Number.isFinite(item.addedAt) || typeof item.mediaCount !== 'number' || !Number.isInteger(item.mediaCount) || item.mediaCount < 0) return null;
+    if (item.paused !== undefined && typeof item.paused !== 'boolean') return null; // Pha 12
     ids.add(item.id);
     parsed.push({
       ...(item as QueueItem),

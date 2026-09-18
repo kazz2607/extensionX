@@ -17,7 +17,8 @@ import { parseExtensionMessage } from '../src/shared/messages.ts';
 import { addDiagnosticEvent, emptyDiagnostics } from '../src/shared/diagnostics.ts';
 import { filterMediaItems } from '../src/shared/media-filter.ts';
 import { canTransitionCollectPhase } from '../src/shared/collect-state.ts';
-import { recoverQueueItemAfterRestart, transitionQueueItem, wasInterrupted } from '../src/shared/queue-state.ts';
+import { recoverQueueItemAfterRestart, transitionQueueItem, wasInterrupted, findInterruptedIds } from '../src/shared/queue-state.ts';
+import { renderFilenameTemplate } from '../src/shared/filename-template.ts';
 import { isTelegramWebUrl, telegramMediaFilename } from '../src/shared/telegram-media.ts';
 
 test('accepts only known X media origins', () => {
@@ -78,6 +79,9 @@ test('rejects malformed or oversized queue imports atomically', () => {
   assert.equal(parseQueueItems(valid)?.length, 1);
   assert.equal(parseQueueItems([{ ...valid[0], username: '../../evil' }]), null);
   assert.equal(parseQueueItems([...valid, valid[0]]), null);
+  // Pha 12: paused field phải là boolean nếu có mặt
+  assert.equal(parseQueueItems([{ ...valid[0], paused: true }])?.[0]?.paused, true);
+  assert.equal(parseQueueItems([{ ...valid[0], paused: 'yes' }]), null);
 });
 
 test('redacts raw download errors before they reach UI', () => {
@@ -120,6 +124,29 @@ test('flags only downloading queue items as interrupted (Pha 10 resume dedup sig
   assert.equal(wasInterrupted({ ...base, status: 'waiting' }), false);
   assert.equal(wasInterrupted({ ...base, status: 'done' }), false);
   assert.equal(wasInterrupted({ ...base, status: 'error' }), false);
+});
+
+test('finds interrupted ids from raw import data before parseQueueItems normalizes status (Pha 10 bugfix)', () => {
+  const raw = [
+    { id: 'A', status: 'downloading' },
+    { id: 'B', status: 'waiting' },
+    { id: 'C', status: 'downloading' },
+    { notAnObject: true },
+    null,
+  ];
+  assert.deepEqual(findInterruptedIds(raw), new Set(['A', 'C']));
+  assert.deepEqual(findInterruptedIds('not-an-array'), new Set());
+  assert.deepEqual(findInterruptedIds(undefined), new Set());
+});
+
+test('renders filename template tokens without touching unknown text (Pha 13)', () => {
+  const ctx = { username: 'NASA', tweetId: '123', date: '2026-09-18', type: 'image', ext: 'jpg', index: 3 };
+  assert.equal(renderFilenameTemplate('{username}_{tweetId}_{date}.{ext}', ctx), 'NASA_123_2026-09-18.jpg');
+  assert.equal(renderFilenameTemplate('{index}-{index}', ctx), '3-3');
+  assert.equal(renderFilenameTemplate('{type}/{username}', ctx), 'image/NASA');
+  assert.equal(renderFilenameTemplate('plain-no-tokens', ctx), 'plain-no-tokens');
+  assert.equal(renderFilenameTemplate('', ctx), '');
+  assert.equal(renderFilenameTemplate('{unknown}_{username}', ctx), '{unknown}_NASA');
 });
 
 test('normalizes media URLs for dedup and forces video URLs to original quality', () => {

@@ -23,6 +23,9 @@ Tính đến ngày **17-09-2026**, toàn bộ 5 pha kỹ thuật cốt lõi (Pha
 | **Pha 8** | Refactor `popup.ts`/`fab.ts` thành module nhỏ — xem `ke-hoach-pha7-plus-2026-09.md` | P2 | ✅ **Hoàn tất** (cần smoke test tay trên Chrome thật) | |
 | **Pha 9** | Interactive Download Picker — xem `ke-hoach-pha7-plus-2026-09.md` | P2 | ✅ **Hoàn tất** (cần smoke test tay trên Chrome thật) | |
 | **Pha 10** | Resume đáng tin cậy (queue) — xem `ke-hoach-pha7-plus-2026-09.md` | P2 | ✅ **Hoàn tất** (cần smoke test tay trên Chrome thật) | |
+| **Pha 11** | Download Recipe/Preset theo profile — xem `ke-hoach-pha7-plus-2026-09.md` | P2 | ✅ **Hoàn tất** (cần smoke test tay trên Chrome thật) | |
+| **Pha 12** | Quản lý hàng đợi nâng cao (pause/reorder/retry) — xem `ke-hoach-pha7-plus-2026-09.md` | P3 | ✅ **Hoàn tất** (cần smoke test tay trên Chrome thật) | |
+| **Pha 13** | Template đặt tên file linh hoạt — xem `ke-hoach-pha7-plus-2026-09.md` | P3 | ✅ **Hoàn tất** (cần smoke test tay trên Chrome thật) | |
 
 **Trạng thái kiểm thử hiện hành (`npm run check`):**
 - ✅ `15/15 unit tests` pass

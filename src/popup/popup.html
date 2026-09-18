@@ -238,6 +238,12 @@
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               <span id="daterange-count-text">0 items match</span>
             </div>
+            <!-- Pha 11: Download Recipe/Preset theo profile. Class riêng (không phải
+                 .btn-preset) — tránh bị date-range.ts gắn nhầm listener chọn nhanh ngày. -->
+            <div class="daterange-presets" style="margin-top:6px">
+              <button class="btn-recipe-preset" id="btn-save-preset" title="Lưu bộ lọc hiện tại cho profile này">💾 Lưu bộ lọc</button>
+              <button class="btn-recipe-preset" id="btn-load-preset" title="Nạp bộ lọc đã lưu cho profile này">📂 Nạp bộ lọc</button>
+            </div>
           </div>
         </section>
 

@@ -26,3 +26,21 @@ export function recoverQueueItemAfterRestart(item: QueueItem): QueueItem {
 export function wasInterrupted(item: QueueItem): boolean {
   return item.status === 'downloading';
 }
+
+/**
+ * Quét dữ liệu THÔ (trước khi qua parseQueueItems, vốn đã tự chuẩn hoá
+ * 'downloading' → 'waiting' trong lúc parse) để tìm id các item đang dang dở
+ * tại thời điểm export — dùng bởi importQueue() để ép dedupe đúng 1 lần resume
+ * kế tiếp, thay vì kiểm tra trên item đã bị chuẩn hoá (luôn false, xem bugfix Pha 10).
+ */
+export function findInterruptedIds(rawItems: unknown): Set<string> {
+  const ids = new Set<string>();
+  if (!Array.isArray(rawItems)) return ids;
+  for (const raw of rawItems) {
+    if (raw && typeof raw === 'object') {
+      const item = raw as { status?: unknown; id?: unknown };
+      if (item.status === 'downloading' && typeof item.id === 'string') ids.add(item.id);
+    }
+  }
+  return ids;
+}

@@ -4,7 +4,7 @@ import { startDownload } from './downloader.ts';
 import { broadcastToPopup } from './utils.ts';
 import { QueueItem, QueueExportData } from '../types.ts';
 import { parseQueueItems } from '../shared/validation.ts';
-import { recoverQueueItemAfterRestart, transitionQueueItem, wasInterrupted } from '../shared/queue-state.ts';
+import { recoverQueueItemAfterRestart, transitionQueueItem, wasInterrupted, findInterruptedIds } from '../shared/queue-state.ts';
 
 export let profileQueue: QueueItem[] = [];
 export function setProfileQueue(q: QueueItem[]) { profileQueue = q; }
@@ -47,8 +47,9 @@ function broadcastQueueUpdate() {
 
 async function startNextInQueue() {
   if (downloadState.inProgress) return; // Đang có download chạy — đợi
-  const next = profileQueue.find(item => item.status === 'waiting');
-  if (!next) return; // Hàng đợi rỗng
+  // Pha 12: bỏ qua item đang tạm dừng (paused) — không chọn làm next
+  const next = profileQueue.find(item => item.status === 'waiting' && !item.paused);
+  if (!next) return; // Hàng đợi rỗng (hoặc chỉ còn item đang paused)
 
   let store = mediaStore.get(next.username);
   if (!store?.size) {
@@ -113,6 +114,11 @@ function exportQueue(): QueueExportData {
 }
 
 function importQueue(items: unknown): { added: number; skipped: number; error?: string } {
+  // Bugfix Pha 10: phải tìm id "đang dang dở" trên dữ liệu THÔ trước khi
+  // parseQueueItems tự chuẩn hoá 'downloading' → 'waiting' trong lúc parse —
+  // kiểm tra sau khi parse (như code cũ) luôn ra false, dedupe-on-resume không
+  // bao giờ chạy cho nhánh import.
+  const interruptedIds = findInterruptedIds(items);
   const parsedItems = parseQueueItems(items);
   if (!parsedItems) return { added: 0, skipped: 0, error: 'Invalid queue data' };
   let added = 0;
@@ -130,7 +136,7 @@ function importQueue(items: unknown): { added: number; skipped: number; error?: 
       continue;
     }
     // Reset downloading → waiting (SW đã tắt, không còn active)
-    if (wasInterrupted(item)) _forceDedupOnNextRun.add(item.id); // Pha 10
+    if (interruptedIds.has(item.id)) _forceDedupOnNextRun.add(item.id); // Pha 10
     profileQueue.push({ ...item, status: 'waiting' });
     added++;
   }
@@ -142,4 +148,43 @@ function importQueue(items: unknown): { added: number; skipped: number; error?: 
   return { added, skipped };
 }
 
-export { loadPersistedQueue, persistQueue, broadcastQueueUpdate, startNextInQueue, exportQueue, importQueue };
+// ─── Pha 12: Quản lý hàng đợi nâng cao (pause / reorder / retry) ─────────────
+
+function retryQueueItem(id: string): boolean {
+  const idx = profileQueue.findIndex(q => q.id === id);
+  if (idx === -1) return false;
+  const retried = transitionQueueItem(profileQueue[idx], 'waiting');
+  if (!retried) return false;
+  profileQueue[idx] = retried;
+  persistQueue();
+  broadcastQueueUpdate();
+  startNextInQueue();
+  return true;
+}
+
+function toggleQueuePause(id: string): boolean {
+  const idx = profileQueue.findIndex(q => q.id === id && q.status === 'waiting');
+  if (idx === -1) return false;
+  profileQueue[idx] = { ...profileQueue[idx], paused: !profileQueue[idx].paused };
+  persistQueue();
+  broadcastQueueUpdate();
+  // Item vừa được resume (bỏ paused) có thể trở thành next — thử chạy ngay nếu rảnh
+  startNextInQueue();
+  return true;
+}
+
+function moveQueueItem(id: string, direction: 'up' | 'down'): boolean {
+  const idx = profileQueue.findIndex(q => q.id === id);
+  if (idx === -1) return false;
+  const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+  if (targetIdx < 0 || targetIdx >= profileQueue.length) return false;
+  [profileQueue[idx], profileQueue[targetIdx]] = [profileQueue[targetIdx], profileQueue[idx]];
+  persistQueue();
+  broadcastQueueUpdate();
+  return true;
+}
+
+export {
+  loadPersistedQueue, persistQueue, broadcastQueueUpdate, startNextInQueue, exportQueue, importQueue,
+  retryQueueItem, toggleQueuePause, moveQueueItem,
+};

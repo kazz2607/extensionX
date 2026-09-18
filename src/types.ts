@@ -28,6 +28,8 @@ export interface QueueItem {
   addedAt: number;
   status: 'waiting' | 'downloading' | 'done' | 'error';
   mediaCount: number;
+  // Pha 12: tạm dừng — chỉ có ý nghĩa khi status === 'waiting', không phải state riêng
+  paused?: boolean;
   // TS-03: Typed result thay vì any
   result?: {
     success: number;
@@ -51,6 +53,8 @@ export interface DownloadOptions {
   flatUsername?: boolean;
   filenameUsername?: boolean;
   saveFolder?: string;
+  // Pha 13: template đặt tên file tuỳ chỉnh — {username} {tweetId} {date} {type} {ext} {index}
+  filenameTemplate?: string;
   // Performance options
   concurrency?: number;
   // UI options
@@ -114,6 +118,8 @@ export interface Options {
   concurrency?: number;
   filenameUsername?: boolean;
   flatUsername?: boolean;
+  // Pha 13: template đặt tên file tuỳ chỉnh — {username} {tweetId} {date} {type} {ext} {index}
+  filenameTemplate?: string;
   showSnackbar?: boolean;
   showNotification?: boolean;
   autoScroll?: boolean;

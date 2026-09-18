@@ -73,19 +73,26 @@ Các nhánh đã verify kỹ và **đúng 100%** với code: message schema 256K
 - **Ngoài phạm vi**: luồng Download trực tiếp (nút Download thường, ngoài Queue) vẫn không có cơ chế resume nào nếu SW restart giữa chừng — không mở rộng phạm vi Pha 10 sang đây. SW restart vẫn không tự động resume ngay (chờ user tương tác), Pha 10 chỉ sửa "khi resume xảy ra thì đúng".
 - **Chưa làm**: smoke test thủ công (giả lập SW restart giữa chừng 1 queue download rồi resume) trên Chrome thật — môi trường hiện tại không có trình duyệt tương tác.
 
-### Pha 11 — Download Recipe/Preset theo profile (ưu tiên Cao)
-- Lưu trữ mới: key `preset_${username}` trong `chrome.storage.local` (hoặc store IndexedDB riêng nếu cần nhiều preset/profile), schema = snapshot `DownloadOptions` con (filterType, skipDuplicates, saveFolder, flatUsername, filenameUsername, dateFrom/dateTo, keyword).
-- UI: nút "Lưu preset"/"Nạp preset" cạnh bộ lọc hiện có, module mới `presets.ts`.
+### Pha 10 bugfix (phát hiện lại khi chuẩn bị Pha 12) ✅ ĐÃ SỬA
+`importQueue()` gọi `wasInterrupted(item)` trên item **đã qua** `parseQueueItems` — hàm đó tự chuẩn hoá `status: 'downloading' → 'waiting'` ngay trong lúc parse, nên điều kiện luôn `false`, dedupe-on-resume của Pha 10 chưa từng chạy ở nhánh import (nhánh SW-restart không bị ảnh hưởng). Fix: hàm pure mới `findInterruptedIds(rawItems)` (`shared/queue-state.ts`) quét dữ liệu thô trước khi parse; `importQueue()` dùng kết quả đó thay vì kiểm tra trên item đã chuẩn hoá. Có unit test riêng.
 
-### Pha 12 — Quản lý hàng đợi nâng cao: pause/reorder/retry (ưu tiên Trung bình)
-- "Retry": đã có sẵn transition `error→waiting` — chỉ cần nút UI gọi `transitionQueueItem`.
-- "Pause": thêm cờ `paused` trên item, KHÔNG thêm state mới vào state machine (tránh phá hợp đồng `transitionQueueItem` đang được assert nhiều nơi) — `startNextInQueue` bỏ qua item có cờ này.
-- "Reorder": thêm drag-and-drop trong `queue-panel.ts` (đã tách ở Pha 8), backed bởi thao tác splice mảng + `persistQueue` hiện có.
+### Pha 11 — Download Recipe/Preset theo profile ✅ HOÀN TẤT
+- **Thu hẹp phạm vi so với mô tả gốc**: chỉ snapshot `filterType, skipDuplicates, dateFrom, dateTo, keyword` — bỏ `saveFolder/flatUsername/filenameUsername` vì đó là cài đặt toàn cục (`Options`, `chrome.storage.sync`), không có cơ chế theo-profile; thêm per-profile override cho chúng là scope lớn hơn hẳn, không thực hiện ở Pha 11.
+- Lưu thẳng `chrome.storage.local` key `preset_${username}` từ phía popup — không qua service worker/message mới (giống `pref_skip_duplicates`/`compactMode`/`theme`), không phát sinh bề mặt tin cậy mới.
+- Module mới `src/popup/presets.ts` (pattern deps-object Pha 8/9). `date-range.ts` thêm export `setDateRange()` (nâng `els` lên module-scope). `popup.ts` tách `selectFilterTab()` dùng chung giữa click tab thật và áp dụng preset.
+- UI: 2 nút "💾 Lưu bộ lọc"/"📂 Nạp bộ lọc" trong `#daterange-panel`, class `.btn-recipe-preset` riêng (cố ý không dùng `.btn-preset` để tránh bị `date-range.ts` gắn nhầm listener chọn nhanh ngày 7d/30d/90d/1y).
 
-### Pha 13 — Template đặt tên file linh hoạt (ưu tiên Trung bình)
-- Thay `buildFilename`/`buildDownloadPath` cứng bằng hàm thay token: `{username} {tweetId} {date} {type} {ext} {index}`.
-- **Bắt buộc**: kết quả cuối cùng luôn phải đi qua `sanitizeFilenameStr`/`sanitizeFolderPath` hiện có làm bước cuối, để giữ nguyên đảm bảo chống path traversal của Pha 1 — không cho template bỏ qua sanitizer.
-- UI nhập template + preview realtime trong options.ts.
+### Pha 12 — Quản lý hàng đợi nâng cao: pause/reorder/retry ✅ HOÀN TẤT
+- "Retry": nút mới gọi `RETRY_QUEUE_ITEM` → `transitionQueueItem(item, 'waiting')` (transition đã hợp lệ sẵn) rồi `startNextInQueue()`.
+- "Pause": thêm `paused?: boolean` trên `QueueItem` — KHÔNG thêm state mới vào state machine. `startNextInQueue` bỏ qua item `waiting && paused`.
+- "Reorder": **đơn giản hoá thành nút ▲/▼** thay vì kéo-thả (native drag-and-drop trong popup nhỏ dễ vỡ trên cả chuột lẫn cảm ứng, tốn nhiều CSS/JS hơn cho cùng kết quả) — hoán đổi vị trí với phần tử liền kề trong mảng, persist qua `REORDER_QUEUE_ITEM`.
+- `getQueueSignature` thêm `paused` vào chuỗi ký hiệu để bật/tắt pause hoặc đổi thứ tự kích hoạt rebuild UI đúng lúc.
+
+### Pha 13 — Template đặt tên file linh hoạt ✅ HOÀN TẤT
+- Hàm render token tách thành pure function `renderFilenameTemplate` (`src/shared/filename-template.ts`, có unit test riêng) — theo đúng tinh thần Pha 7.
+- `buildFilename`: có `filenameTemplate` → render token + `sanitizeFilenameStr` (bước cuối, bắt buộc) + tự nối lại `.${ext}` nếu bị cắt ngắn (100 ký tự) làm mất đuôi file. Không có template → giữ nguyên 100% hành vi cũ.
+- `{index}` (vị trí trong danh sách đã lọc) được tính trước khi worker pool chạy (`Map<MediaItem, number>` theo tham chiếu object), forward qua `downloadSingleItem`/`buildDownloadPath`.
+- UI: input `#opt-filename-template` trong `options.html` + preview realtime (`options.ts`, dùng lại `renderFilenameTemplate` với dữ liệu mẫu — không viết lại logic thay token lần 2).
 
 ### Pha 14 — Xuất Manifest JSON/CSV nâng cao (ưu tiên Trung bình)
 - Gộp `downloadHistory` (hiện chưa có export nào) + metadata giữ trong `downloaded_urls` (mediaKey/tweetDate/username/url) thành 1 manifest, theo đúng format versioned JSON đã dùng cho `exportQueue`/`exportSettings` (`{ _version, _exportedAt, ... }`).

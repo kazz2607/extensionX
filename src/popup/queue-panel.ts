@@ -41,8 +41,10 @@ export function setQueueFromUpdate(queue: QueueItem[]): void {
 }
 
 function getQueueSignature(queue: QueueItem[]): string {
-  // Signature = id+status của từng item; không bao gồm progress để progress update không trigger rebuild
-  return queue.map((q) => `${q.id}:${q.status}`).join('|');
+  // Signature = id+status+paused của từng item, theo đúng thứ tự mảng — không bao
+  // gồm progress để progress update không trigger rebuild. Thứ tự mảng nằm trong
+  // signature nên đổi chỗ (Pha 12 reorder) cũng kích hoạt rebuild đúng lúc.
+  return queue.map((q) => `${q.id}:${q.status}:${q.paused ? 1 : 0}`).join('|');
 }
 
 export function renderQueue(): void {
@@ -101,9 +103,10 @@ export function renderQueue(): void {
   const filterIcons: Record<string, string> = { all: '📦', images: '🖼️', videos: '🎬', gifs: '🎞️' };
 
   const fragment = document.createDocumentFragment();
-  downloadQueue.forEach((item) => {
+  downloadQueue.forEach((item, index) => {
     const icon = filterIcons[item.filterType || 'all'] || '📦';
-    const statusLabel = statusLabels[item.status] || String(item.status || '');
+    const isPaused = item.status === 'waiting' && !!item.paused;
+    const statusLabel = isPaused ? 'Tạm dừng' : statusLabels[item.status] || String(item.status || '');
     const metaText = item.result
       ? (item.result.error ? String(item.result.error).slice(0, 500) : `${Number(item.result.success) || 0}/${Number(item.result.total) || 0} files`)
       : `${Number(item.mediaCount) || 0} media · ${icon} ${String(item.filterType || '').slice(0, 30)}`;
@@ -112,7 +115,7 @@ export function renderQueue(): void {
     const username = String(item.username || '').slice(0, 50);
     const safeStatus = String(item.status || '').replace(/[^a-z]/g, '');
     const row = document.createElement('li');
-    row.className = `queue-item status-${safeStatus}`;
+    row.className = `queue-item status-${safeStatus}${isPaused ? ' paused' : ''}`;
     row.dataset.id = id;
     const avatar = document.createElement('div'); avatar.className = 'queue-item-avatar'; avatar.textContent = username.slice(0, 2).toUpperCase();
     const info = document.createElement('div'); info.className = 'queue-item-info';
@@ -123,9 +126,33 @@ export function renderQueue(): void {
       const count = document.createElement('span'); count.className = 'queue-file-count'; count.id = `qfc-${id}`; count.textContent = '📥 đang tải...'; info.append(count);
     }
     const status = document.createElement('span'); status.className = `queue-status ${safeStatus}`; status.textContent = statusLabel;
+
+    // Pha 12: Quản lý hàng đợi nâng cao — pause/reorder/retry
+    const actions = document.createElement('div');
+    actions.className = 'queue-item-actions';
+    if (item.status === 'waiting') {
+      const up = document.createElement('button');
+      up.className = 'btn-queue-move'; up.dataset.id = id; up.dataset.dir = 'up';
+      up.title = 'Di chuyển lên'; up.textContent = '▲'; up.disabled = index === 0;
+      const down = document.createElement('button');
+      down.className = 'btn-queue-move'; down.dataset.id = id; down.dataset.dir = 'down';
+      down.title = 'Di chuyển xuống'; down.textContent = '▼'; down.disabled = index === downloadQueue.length - 1;
+      const pause = document.createElement('button');
+      pause.className = 'btn-queue-pause'; pause.dataset.id = id;
+      pause.title = isPaused ? 'Tiếp tục' : 'Tạm dừng'; pause.textContent = isPaused ? '▶' : '⏸';
+      actions.append(up, down, pause);
+    }
+    if (item.status === 'error') {
+      const retry = document.createElement('button');
+      retry.className = 'btn-queue-retry'; retry.dataset.id = id;
+      retry.title = 'Thử lại'; retry.textContent = '↻';
+      actions.append(retry);
+    }
     const action = document.createElement('button'); action.className = canRemove ? 'btn-queue-remove' : 'btn-queue-stop'; action.dataset.id = id;
     action.title = canRemove ? 'Xóa khỏi queue' : 'Dừng download'; action.textContent = canRemove ? '×' : '⏹';
-    row.append(avatar, info, status, action);
+    actions.append(action);
+
+    row.append(avatar, info, status, actions);
     fragment.append(row);
   });
   list.replaceChildren(fragment);
@@ -153,6 +180,35 @@ export function renderQueue(): void {
       e.stopPropagation();
       await _deps!.sendBG('STOP_DOWNLOAD', {});
       _deps!.showToast('⏹ Đang dừng download...', 'info');
+    });
+  });
+
+  // Pha 12: Retry — item lỗi quay lại hàng đợi
+  list.querySelectorAll<HTMLButtonElement>('.btn-queue-retry').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      const res: any = await _deps!.sendBG('RETRY_QUEUE_ITEM', { id });
+      _deps!.showToast(res?.ok ? 'Đang thử lại...' : 'Không thể thử lại', res?.ok ? 'info' : 'error');
+    });
+  });
+
+  // Pha 12: Pause/Resume item đang chờ
+  list.querySelectorAll<HTMLButtonElement>('.btn-queue-pause').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      await _deps!.sendBG('TOGGLE_QUEUE_PAUSE', { id });
+    });
+  });
+
+  // Pha 12: Di chuyển item lên/xuống trong hàng đợi
+  list.querySelectorAll<HTMLButtonElement>('.btn-queue-move').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      const direction = btn.dataset.dir;
+      await _deps!.sendBG('REORDER_QUEUE_ITEM', { id, direction });
     });
   });
 }

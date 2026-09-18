@@ -32,9 +32,31 @@ let dateTo = ''; // YYYY-MM-DD
 let filterKeyword = '';
 let _debounceTimer: ReturnType<typeof setTimeout> | undefined;
 let _countTimer: ReturnType<typeof setTimeout> | undefined;
+// Pha 11: nâng lên module-scope để setDateRange() dùng lại đúng DOM refs, không
+// query lại — chỉ có giá trị sau khi initDateRange() đã chạy.
+let _els: DateRangeEls | null = null;
 
 export function getDateRange(): { dateFrom: string; dateTo: string; keyword: string } {
   return { dateFrom, dateTo, keyword: filterKeyword };
+}
+
+/** Pha 11: áp dụng preset đã lưu — cập nhật cả state nội bộ lẫn input DOM. */
+export function setDateRange(partial: { dateFrom?: string; dateTo?: string; keyword?: string }): void {
+  if (!_els) return;
+  if (partial.dateFrom !== undefined) {
+    dateFrom = partial.dateFrom;
+    if (_els.inputDateFrom) _els.inputDateFrom.value = partial.dateFrom;
+  }
+  if (partial.dateTo !== undefined) {
+    dateTo = partial.dateTo;
+    if (_els.inputDateTo) _els.inputDateTo.value = partial.dateTo;
+  }
+  if (partial.keyword !== undefined) {
+    filterKeyword = partial.keyword;
+    if (_els.inputKeyword) _els.inputKeyword.value = partial.keyword;
+  }
+  document.querySelectorAll('.btn-preset').forEach((b) => b.classList.remove('active'));
+  updateDateRangeUI(_els);
 }
 
 export function initDateRange(deps: DateRangeDeps): void {
@@ -52,6 +74,7 @@ export function initDateRange(deps: DateRangeDeps): void {
     daterangeCountRow: document.getElementById('daterange-count-row'),
     daterangeCountText: document.getElementById('daterange-count-text'),
   };
+  _els = els;
 
   if (!els.daterangeToggle || !els.inputDateFrom || !els.inputDateTo) return;
 

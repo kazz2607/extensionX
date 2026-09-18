@@ -8,7 +8,8 @@ import { setStatus, showProgress } from './status-bar.ts';
 import { showToast } from './toast.ts';
 import { renderDonutChart } from './donut-chart.ts';
 import { initHistoryPanel, loadHistory, addToHistory, clearHistory } from './history-panel.ts';
-import { initDateRange, getDateRange } from './date-range.ts';
+import { initDateRange, getDateRange, setDateRange } from './date-range.ts';
+import { initPresets, type FilterPreset } from './presets.ts';
 import { initQueuePanel, loadQueue, addCurrentToQueue as queueAddCurrent, updateQueueItemProgress, setQueueFromUpdate } from './queue-panel.ts';
 import { initDownloadPicker, loadPickerItems } from './download-picker.ts';
 import type { DownloadOptions } from '../types.ts';
@@ -143,6 +144,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     getActiveFilter: () => activeFilter,
     sendBG,
     onChange: updateButtons,
+  });
+  initPresets({                     // Pha 11
+    getUsername: () => currentUsername,
+    getActiveFilter: () => activeFilter,
+    getDateRange,
+    getSkipDuplicates: () => (els.skipCheckbox ? els.skipCheckbox.checked : true),
+    onApplyPreset: applyFilterPreset,
+    showToast,
   });
   listenToMessages();
   await applyFollowingScannerSetting(); // v5.7.1 — hide tab if disabled in settings
@@ -475,31 +484,38 @@ function getFilteredCount() {
 }
 
 // ─── Filter Tabs ──────────────────────────────────────────────────────────────
-function setupTabs() {
-  document.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-// @ts-ignore
-      activeFilter = tab.dataset.filter;
-      _csvOffset = 0; // PERF-04: reset CSV pagination khi đổi filter
-      updateButtons();
+// Pha 11: tách riêng để dùng chung giữa click tab thật và áp dụng preset đã lưu.
+function selectFilterTab(filterType: string): void {
+  document.querySelectorAll<HTMLElement>('.tab').forEach(t => t.classList.toggle('active', t.dataset.filter === filterType));
+  activeFilter = filterType;
+  _csvOffset = 0; // PERF-04: reset CSV pagination khi đổi filter
+  updateButtons();
 
-      const dlTxt = window.i18n ? window.i18n.t('btn_download') : 'Download';
-      const labels = {
-        all: dlTxt,
-        images: window.i18n ? window.i18n.t('tab_images') : 'Ảnh',
-        videos: window.i18n ? window.i18n.t('tab_videos') : 'Video',
-        gifs: window.i18n ? window.i18n.t('tab_gifs') : 'GIF',
-      };
-      const cnt = getFilteredCount();
-      els.btnDownloadTxt.textContent = cnt > 0
-// @ts-ignore
-        ? `${labels[activeFilter]} (${cnt})`
-// @ts-ignore
-        : labels[activeFilter];
+  const dlTxt = window.i18n ? window.i18n.t('btn_download') : 'Download';
+  const labels: Record<string, string> = {
+    all: dlTxt,
+    images: window.i18n ? window.i18n.t('tab_images') : 'Ảnh',
+    videos: window.i18n ? window.i18n.t('tab_videos') : 'Video',
+    gifs: window.i18n ? window.i18n.t('tab_gifs') : 'GIF',
+  };
+  const cnt = getFilteredCount();
+  els.btnDownloadTxt.textContent = cnt > 0 ? `${labels[activeFilter]} (${cnt})` : labels[activeFilter];
+}
+
+function setupTabs() {
+  document.querySelectorAll<HTMLElement>('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      if (tab.dataset.filter) selectFilterTab(tab.dataset.filter);
     });
   });
+}
+
+// Pha 11: áp dụng preset đã lưu — cập nhật filter tab, date range, skip-duplicates.
+function applyFilterPreset(preset: FilterPreset): void {
+  selectFilterTab(preset.filterType);
+  setDateRange({ dateFrom: preset.dateFrom, dateTo: preset.dateTo, keyword: preset.keyword });
+  if (els.skipCheckbox) els.skipCheckbox.checked = preset.skipDuplicates;
+  updateDownloadPreview();
 }
 
 // ─── Buttons ──────────────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@
 /**
  * options.js — Logic trang Cài đặt (v5.7.0)
  */
+import { renderFilenameTemplate } from '../shared/filename-template.ts';
 
 const DEFAULT_OPTIONS = {
   saveFolder: '',                              // Thư mục con trong Downloads
@@ -71,6 +72,8 @@ async function loadOptions() {
   document.getElementById('opt-flat-username').checked = opts.flatUsername || false;
 // @ts-ignore
   document.getElementById('opt-filename-username').checked = opts.filenameUsername || false;
+// @ts-ignore
+  document.getElementById('opt-filename-template').value = opts.filenameTemplate || '';
 
   // Smart Filters
   const sf = opts.smartFilters || DEFAULT_OPTIONS.smartFilters;
@@ -119,6 +122,7 @@ async function loadOptions() {
   updateAutoStopRowState();
 
   updateFolderPreview();
+  updateFilenameTemplatePreview();
 }
 
 // ─── Save ─────────────────────────────────────────────────────────────────────
@@ -154,6 +158,8 @@ async function saveOptions() {
     flatUsername: document.getElementById('opt-flat-username').checked,
 // @ts-ignore
     filenameUsername: document.getElementById('opt-filename-username').checked,
+// @ts-ignore
+    filenameTemplate: String(document.getElementById('opt-filename-template').value || '').trim().slice(0, 200),
     smartFilters: {
 // @ts-ignore
       filterAvatars:    document.getElementById('opt-filter-avatars').checked,
@@ -285,6 +291,25 @@ function updateFolderPreview() {
   preview.replaceChildren(fragment);
 }
 
+// Pha 13: preview realtime cho filename template — dữ liệu mẫu, không sanitize
+// (sanitize chỉ áp dụng thật khi tải, xem downloader.ts buildFilename)
+function updateFilenameTemplatePreview() {
+// @ts-ignore
+  const template = String(document.getElementById('opt-filename-template').value || '').trim();
+  const preview = document.getElementById('filename-template-preview');
+  if (!preview) return;
+
+  if (!template) {
+    preview.style.display = 'none';
+    return;
+  }
+  const sample = renderFilenameTemplate(template, {
+    username: 'NASA', tweetId: '1234567890', date: '2026-09-18', type: 'image', ext: 'jpg', index: 1,
+  });
+  preview.style.display = 'block';
+  preview.textContent = `📄 ${sample}`;
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   if (window.i18n) {
@@ -341,6 +366,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('opt-save-folder')?.addEventListener('input', updateFolderPreview);
   document.getElementById('opt-flat-username')?.addEventListener('change', updateFolderPreview);
   document.getElementById('opt-filename-username')?.addEventListener('change', updateFolderPreview);
+  // Pha 13: Live preview khi gõ filename template
+  document.getElementById('opt-filename-template')?.addEventListener('input', updateFilenameTemplatePreview);
 
   // FEAT-08: Auto-Stop toggle → dim/enable row-auto-stop-after
   document.getElementById('opt-auto-stop')?.addEventListener('change', updateAutoStopRowState);

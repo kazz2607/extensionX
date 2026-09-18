@@ -536,6 +536,17 @@
         </label>
       </div>
 
+      <div class="option-row" style="flex-direction: column; align-items: flex-start; gap: 10px;">
+        <div style="width:100%">
+          <div class="option-label">
+            <strong data-i18n="opt_filename_template">🧩 Mẫu đặt tên file (nâng cao)</strong>
+            <span data-i18n="opt_filename_template_desc">Để trống để dùng mặc định ở trên. Token hỗ trợ: {username} {tweetId} {date} {type} {ext} {index}</span>
+          </div>
+          <input type="text" id="opt-filename-template" placeholder="{username}_{tweetId}_{date}.{ext}" maxlength="200" style="width:100%; margin-top:8px;" />
+        </div>
+        <div class="folder-preview" id="filename-template-preview" style="display:none"></div>
+      </div>
+
       <div class="option-row">
         <div class="option-label">
           <strong><span data-i18n="opt_snackbar">🔔 Hiển thị tiến trình trên trang (Snackbar)</span></strong>

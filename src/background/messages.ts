@@ -1,7 +1,7 @@
 import { mediaStore, statsStore, tabState, downloadedStore, downloadState, pendingHlsRequests, setCsrfToken, dirtyMediaStore } from './state.ts';
 import { addMediaItems, ensureMediaStoreLoaded, applyOptionsFilter, checkAutoScroll, startCollecting, stopCollecting, clearSession, fetchVideoForTweetWithRefresh, loadDownloadedUrls } from './scraper.ts';
 import { startDownload, handleDownloadTweet, buildCSV, retryLastDownload, stopDownload } from './downloader.ts';
-import { profileQueue, setProfileQueue, persistQueue, startNextInQueue, broadcastQueueUpdate, exportQueue, importQueue } from './queue.ts';
+import { profileQueue, setProfileQueue, persistQueue, startNextInQueue, broadcastQueueUpdate, exportQueue, importQueue, retryQueueItem, toggleQueuePause, moveQueueItem } from './queue.ts';
 import { updateBadge, broadcastToPopup, updateFAB } from './utils.ts';
 import { getMediaItems, clearDownloadedUrls, clearAllDownloadedUrls } from './indexeddb.ts';
 import { setDynamicBearer, setDynamicQueryId } from './tweet-api.ts';
@@ -269,6 +269,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       persistQueue();
       broadcastQueueUpdate();
       sendResponse({ ok: true });
+      return false;
+    }
+
+    // Pha 12: Quản lý hàng đợi nâng cao (retry / pause / reorder)
+    case 'RETRY_QUEUE_ITEM': {
+      const { id } = payload || {};
+      if (typeof id !== 'string' || !QUEUE_ID_PATTERN.test(id)) { sendResponse({ error: 'Invalid queue id' }); return false; }
+      sendResponse({ ok: retryQueueItem(id) });
+      return false;
+    }
+
+    case 'TOGGLE_QUEUE_PAUSE': {
+      const { id } = payload || {};
+      if (typeof id !== 'string' || !QUEUE_ID_PATTERN.test(id)) { sendResponse({ error: 'Invalid queue id' }); return false; }
+      sendResponse({ ok: toggleQueuePause(id) });
+      return false;
+    }
+
+    case 'REORDER_QUEUE_ITEM': {
+      const { id, direction } = payload || {};
+      if (typeof id !== 'string' || !QUEUE_ID_PATTERN.test(id) || (direction !== 'up' && direction !== 'down')) {
+        sendResponse({ error: 'Invalid reorder request' }); return false;
+      }
+      sendResponse({ ok: moveQueueItem(id, direction) });
       return false;
     }
 

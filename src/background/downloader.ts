@@ -5,6 +5,7 @@ import { showDownloadNotification, fetchVideoForTweetWithRefresh, loadDownloaded
 import { startNextInQueue, profileQueue, persistQueue, broadcastQueueUpdate } from './queue.ts';
 import { DownloadOptions, MediaItem } from '../types.ts';
 import { isTrustedMediaUrl, sanitizeFilename } from '../shared/validation.ts';
+import { renderFilenameTemplate } from '../shared/filename-template.ts';
 import { formatDownloadError } from '../shared/download-errors.ts';
 import { recordDiagnostic } from './diagnostics.ts';
 import { transitionQueueItem } from '../shared/queue-state.ts';
@@ -152,11 +153,12 @@ async function downloadSingleItem(
   item: MediaItem,
   username: string,
   saveFolder: string,
-  opts: Pick<DownloadOptions, 'flatUsername' | 'filenameUsername'> = {},
+  opts: Pick<DownloadOptions, 'flatUsername' | 'filenameUsername' | 'filenameTemplate'> = {},
   isCancelled: () => boolean = () => false,
+  index = 1,
 ) {
-  const { flatUsername = false, filenameUsername = false } = opts;
-  let filename = buildDownloadPath(saveFolder, username, item, flatUsername, filenameUsername);
+  const { flatUsername = false, filenameUsername = false, filenameTemplate } = opts;
+  let filename = buildDownloadPath(saveFolder, username, item, flatUsername, filenameUsername, filenameTemplate, index);
 
   if (item.type === 'hls' || filename.endsWith('.m3u8')) {
     filename = filename.replace('.m3u8', '.ts').replace('.mp4', '.ts');
@@ -274,9 +276,9 @@ async function handleDownloadTweet(tweetId: string, username: string | undefined
     // 4. Download tất cả items của tweet (gallery có thể nhiều ảnh)
     let success = 0;
     let failed = 0;
-    for (const item of mediaItems) {
+    for (const [i, item] of mediaItems.entries()) {
       try {
-        await downloadSingleItem(item, username || (item as MediaItem & { username?: string }).username || 'unknown', saveFolder, opts);
+        await downloadSingleItem(item, username || (item as MediaItem & { username?: string }).username || 'unknown', saveFolder, opts, undefined, i + 1);
         success++;
         // BUG-04 FIX: Đánh dấu đã tải (như startDownload đã làm)
         markDownloaded(usernameForDedup, item.url);
@@ -399,6 +401,9 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
   const saveFolder = sanitizeFolder(opts.saveFolder || '');
   const CONCURRENCY = Math.min(Math.max(opts.concurrency || 3, 1), 5);
   const filenameUsername = opts.filenameUsername || false;
+  // Pha 13: {index} trong filename template — vị trí item trong danh sách đã lọc,
+  // cố định trước khi worker pool bắt đầu (không phụ thuộc thứ tự hoàn thành).
+  const itemIndex = new Map<MediaItem, number>(items.map((it, i) => [it, i + 1]));
 
   const total = items.length;
   let success = 0;
@@ -417,7 +422,8 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
       filename = await downloadSingleItem(item, username, saveFolder, {
         flatUsername: opts.flatUsername,
         filenameUsername,
-      }, () => _activeDownloadOperationId !== operationId || _stopRequested);
+        filenameTemplate: opts.filenameTemplate,
+      }, () => _activeDownloadOperationId !== operationId || _stopRequested, itemIndex.get(item));
 
       // Stop/retry can start a new operation while an old Chrome download is
       // resolving. Never let the old callback mutate the new session.
@@ -672,13 +678,15 @@ function buildDownloadPath(
   username: string,
   item: MediaItem,
   flatUsername = false,
-  filenameUsername = false
+  filenameUsername = false,
+  filenameTemplate?: string,
+  index = 1,
 ) {
   const subfolder = item.type === 'image' ? 'images'
     : item.type === 'gif' ? 'gifs'
     : 'videos';
 
-  const filename = buildFilename(item, username, filenameUsername);
+  const filename = buildFilename(item, username, filenameUsername, filenameTemplate, index);
 
   // Cấu trúc: {saveFolder?}/{username}/{subfolder?}/{filename}
   const parts = [saveFolder, username];
@@ -686,21 +694,42 @@ function buildDownloadPath(
     parts.push(subfolder);
   }
   parts.push(filename);
-  
+
   return parts.filter(Boolean).join('/');
 }
 
 // S4: Sanitize tên file — loại bỏ ký tự không hợp lệ trên Windows/macOS
 function sanitizeFilenameStr(name: string): string { return sanitizeFilename(name); }
 
-function buildFilename(item: MediaItem, username = '', filenameUsername = false): string {
+// Pha 13: template đặt tên file tuỳ chỉnh — {username} {tweetId} {date} {type} {ext} {index}
+function buildFilename(item: MediaItem, username = '', filenameUsername = false, template?: string, index = 1): string {
+  const ext = item.ext || 'jpg';
+
+  if (template && template.trim()) {
+    const date = item.tweetDate ? new Date(item.tweetDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
+    const rendered = renderFilenameTemplate(template, {
+      username: username || 'unknown',
+      tweetId: item.tweetId || item.mediaKey || 'media',
+      date,
+      type: item.type,
+      ext,
+      index,
+    });
+    // Sanitize luôn là bước cuối cùng (chống path traversal, Pha 1). Nếu bị cắt
+    // ngắn (max 100 ký tự) làm mất đuôi mở rộng, tự nối lại để đảm bảo file luôn
+    // có extension đúng.
+    const safe = sanitizeFilenameStr(rendered);
+    return safe.toLowerCase().endsWith(`.${ext.toLowerCase()}`) ? safe : `${safe}.${ext}`;
+  }
+
+  // Không có template → giữ nguyên 100% hành vi mặc định trước Pha 13
   const base = item.tweetId || item.mediaKey || `media_${Date.now()}`;
   const rand = Math.random().toString(36).slice(2, 7);
   // S4: Sanitize tất cả các thành phần trước khi ghép
   const safeName = sanitizeFilenameStr(filenameUsername && username
     ? `${username}_${base}_${rand}`
     : `${base}_${rand}`);
-  return `${safeName}.${item.ext || 'jpg'}`;
+  return `${safeName}.${ext}`;
 }
 
 // ─── Export CSV ───────────────────────────────────────────────────────────────
