@@ -39,15 +39,15 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 
 // ─── S1: CSRF Token Auto-Refresh helpers ────────────────────────────────────────────
-async function requestCsrfRefresh(tabId: number) {
-  return new Promise(resolve => {
+async function requestCsrfRefresh(tabId: number): Promise<string | null> {
+  return new Promise<string | null>(resolve => {
     const timeout = setTimeout(() => resolve(null), 3000);
     try {
-      chrome.tabs.sendMessage(tabId, { type: 'REQUEST_CSRF_REFRESH' }, (res) => {
+      chrome.tabs.sendMessage(tabId, { type: 'REQUEST_CSRF_REFRESH' }, (res: { ct0?: string } | undefined) => {
         // Consume runtime.lastError to prevent unchecked runtime error in extension page
         const _ = chrome.runtime.lastError;
         clearTimeout(timeout);
-        resolve((res as any)?.ct0 || null);
+        resolve(res?.ct0 || null);
       });
     } catch (_) {
       clearTimeout(timeout);
@@ -59,12 +59,12 @@ async function requestCsrfRefresh(tabId: number) {
 async function fetchVideoForTweetWithRefresh(tweetId: string, tabId?: number) {
   try {
     return await fetchVideoForTweet(tweetId, userCsrfToken);
-  } catch (err: any) {
+  } catch (_) {
     if (tabId) {
       const newToken = await requestCsrfRefresh(tabId);
       if (newToken) {
-        setCsrfToken(newToken as string);
-        return await fetchVideoForTweet(tweetId, newToken as string);
+        setCsrfToken(newToken);
+        return await fetchVideoForTweet(tweetId, newToken);
       }
     }
     return null;
@@ -111,8 +111,8 @@ async function ensureMediaStoreLoaded(username: string): Promise<Map<string, Med
       });
       return store;
     }
-  } catch (err: any) {
-    console.debug('[SW] ensureMediaStoreLoaded error:', err?.message);
+  } catch (err) {
+    console.debug('[SW] ensureMediaStoreLoaded error:', err instanceof Error ? err.message : String(err));
   }
   if (!mediaStore.has(username)) mediaStore.set(username, new Map());
   if (!statsStore.has(username)) statsStore.set(username, { image: 0, video: 0, gif: 0, hls: 0 });
@@ -172,8 +172,7 @@ async function applyOptionsFilter(username: string, items: MediaItem[]) {
 
 
 // ─── Auto-Scroll ──────────────────────────────────────────────────────────────
-// @ts-ignore
-async function checkAutoScroll(tabId, username, isMediaPage) {
+async function checkAutoScroll(tabId: number | undefined, username: string | undefined, isMediaPage: boolean | undefined): Promise<void> {
   if (!isMediaPage || !tabId || !username) return;
   const opts = await getCachedOptions();
   if (opts.autoScroll) {
@@ -185,7 +184,7 @@ async function startCollecting(username: string, tabId?: number) {
   // FEA-01: Block bookmark scanning khi tắt trong options
   if (username === '_bookmarks_') {
     const opts = await getCachedOptions();
-    if ((opts as any).enableBookmarks === false) {
+    if (opts.enableBookmarks === false) {
       console.log('[SW] Bookmark scanning disabled by user — skip');
       return;
     }
@@ -373,7 +372,6 @@ async function scrollLoop(tabId: number, username: string, operationId: string) 
   }
 }
 
-// @ts-ignore
 function stopCollecting(username: string) {
   tabState.forEach((state, tabId) => {
     if (!username || !state.username || state.username.toLowerCase() === String(username).toLowerCase()) {
@@ -465,8 +463,8 @@ async function persistSession(username: string) {
       if (!hasOtherActiveCollection) dataToPersist.active_session_username = username;
       await chrome.storage.local.set(dataToPersist);
       console.debug(`[SW] Session saved: @${username} — ${store.size} items, scroll=${scrollCount}`);
-    } catch (err: any) {
-      console.warn('[SW] persistSession error:', err.message);
+    } catch (err) {
+      console.warn('[SW] persistSession error:', err instanceof Error ? err.message : String(err));
     }
   }, 2000); // Debounce 2 giây
 
@@ -535,10 +533,9 @@ function markDownloaded(username: string, url: string) {
   if (isNew) scheduleDownloadedPersist(username, normalizedUrl);
 }
 
-const _downloadedPersistTimers = new Map();
+const _downloadedPersistTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const _dirtyDownloadedUrls = new Map<string, Set<string>>();
-// @ts-ignore
-function scheduleDownloadedPersist(username: string, normalizedUrl: string) {
+function scheduleDownloadedPersist(username: string, normalizedUrl: string): void {
   // Only write the new key. IndexedDB upserts atomically and avoids serializing
   // the full history after every completed file.
   if (!_dirtyDownloadedUrls.has(username)) _dirtyDownloadedUrls.set(username, new Set());
@@ -551,8 +548,8 @@ function scheduleDownloadedPersist(username: string, normalizedUrl: string) {
       const dirty = _dirtyDownloadedUrls.get(username);
       if (dirty?.size) await saveDownloadedUrls(username, dirty);
       _dirtyDownloadedUrls.delete(username);
-    } catch (err: any) {
-      console.debug('[SW] markDownloaded persist error:', err.message);
+    } catch (err) {
+      console.debug('[SW] markDownloaded persist error:', err instanceof Error ? err.message : String(err));
     }
   }, 3000);
   _downloadedPersistTimers.set(username, timer);
@@ -561,9 +558,8 @@ function scheduleDownloadedPersist(username: string, normalizedUrl: string) {
 // ─── v4.1.0: Chrome System Notification ───────────────────────────────────────────
 async function showDownloadNotification(username: string, success: number, failed: number, total: number, skipped: number) {
   try {
-    const stored = await chrome.storage.sync.get('options');
+    const stored = await chrome.storage.sync.get('options') as { options?: { showNotification?: boolean } };
     const opts = stored.options || {};
-// @ts-ignore
     if (opts.showNotification === false) return; // opt-out
 
     const emoji  = failed > 0 ? '⚠️' : '✅';
@@ -580,8 +576,8 @@ async function showDownloadNotification(username: string, success: number, faile
       contextMessage: `Tổng: ${total} files`,
       priority: 1,
     });
-  } catch (err: any) {
-    console.debug('[SW] showDownloadNotification error:', err.message);
+  } catch (err) {
+    console.debug('[SW] showDownloadNotification error:', err instanceof Error ? err.message : String(err));
   }
 }
 

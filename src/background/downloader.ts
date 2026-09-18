@@ -59,9 +59,13 @@ chrome.downloads.onChanged.addListener((delta) => {
     }
   } 
   
-  // Update progress — cast sang any vì chrome.downloads.DownloadDelta type def không khai báo bytesReceived/totalBytes
-  // nhưng Chrome runtime thực tế cung cấp 2 field này khi download đang chạy
-  const d = delta as any;
+  // Update progress — chrome.downloads.DownloadDelta type def không khai báo
+  // bytesReceived/totalBytes nhưng Chrome runtime thực tế cung cấp 2 field này
+  // khi download đang chạy; khai báo thêm thay vì cast any.
+  const d = delta as chrome.downloads.DownloadDelta & {
+    bytesReceived?: { current?: number };
+    totalBytes?: { current?: number };
+  };
   if (d.bytesReceived && d.bytesReceived.current !== undefined) tracked.bytesReceived = d.bytesReceived.current;
   if (d.totalBytes && d.totalBytes.current !== undefined) tracked.totalBytes = d.totalBytes.current;
 
@@ -140,11 +144,12 @@ async function ensureOffscreen() {
       justification: 'Convert HLS stream to Blob for downloading',
     });
     _offscreenReady = true;
-  } catch (err: any) {
-    if (err.message?.includes('single offscreen document')) {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes('single offscreen document')) {
       _offscreenReady = true; // document đã tồn tại — cập nhật flag
     } else {
-      console.warn('[SW] Offscreen creation error:', err.message);
+      console.warn('[SW] Offscreen creation error:', message);
     }
   }
 }
@@ -251,9 +256,9 @@ async function handleDownloadTweet(tweetId: string, username: string | undefined
       try {
         const videoItem = await fetchVideoForTweetWithRefresh(tweetId, tabId);
         if (videoItem) {
-          // Cast sang any để gắn username runtime field (API trả về object partial)
-          (videoItem as any).username = username;
-          mediaItems = [videoItem as unknown as MediaItem];
+          const videoMediaItem = videoItem as MediaItem;
+          videoMediaItem.username = username;
+          mediaItems = [videoMediaItem];
         }
       } catch (_) {}
     }
@@ -450,7 +455,6 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
       total,
       success,
       failed,
-// @ts-ignore
       errors: activeErrors,
       done: success + failed === total,
       percent: Math.round(((success + failed) / total) * 100),
