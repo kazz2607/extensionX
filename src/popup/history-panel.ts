@@ -3,13 +3,9 @@
  * Tách nguyên vẹn từ popup.ts, không đổi hành vi: phân trang 50 mục/lần với
  * nút "Xem thêm" (tối ưu từ Pha 3), lưu trong `chrome.storage.local['download_history']`.
  */
+import type { HistoryEntry } from '../types.ts';
 
-export interface HistoryEntry {
-  username: string;
-  count: number;
-  filter: string;
-  date: string;
-}
+export type { HistoryEntry };
 
 export interface HistoryPanelDeps {
   onSelectUsername: (username: string) => void;

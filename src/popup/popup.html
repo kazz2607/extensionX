@@ -497,7 +497,12 @@
         <section class="history-section">
           <div class="history-header">
             <span class="history-title" data-i18n="history_title">History</span>
-            <button class="btn-text" id="btn-history-clear" data-i18n="history_clear">Clear</button>
+            <div class="history-header-actions">
+              <!-- Pha 14: Manifest export (download history + per-file metadata cho profile hiện tại) -->
+              <button class="btn-text" id="btn-export-manifest-json" title="Xuất manifest JSON cho profile hiện tại">JSON</button>
+              <button class="btn-text" id="btn-export-manifest-csv" title="Xuất manifest CSV cho profile hiện tại">CSV</button>
+              <button class="btn-text" id="btn-history-clear" data-i18n="history_clear">Clear</button>
+            </div>
           </div>
           <ul class="history-list" id="history-list">
             <li class="history-empty" data-i18n="history_empty">No download history</li>

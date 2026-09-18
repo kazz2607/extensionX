@@ -1,6 +1,6 @@
 import { mediaStore, statsStore, tabState, downloadedStore, downloadState, pendingHlsRequests, setCsrfToken, dirtyMediaStore } from './state.ts';
 import { addMediaItems, ensureMediaStoreLoaded, applyOptionsFilter, checkAutoScroll, startCollecting, stopCollecting, clearSession, fetchVideoForTweetWithRefresh, loadDownloadedUrls } from './scraper.ts';
-import { startDownload, handleDownloadTweet, buildCSV, retryLastDownload, stopDownload } from './downloader.ts';
+import { startDownload, handleDownloadTweet, buildCSV, buildManifest, retryLastDownload, stopDownload } from './downloader.ts';
 import { profileQueue, setProfileQueue, persistQueue, startNextInQueue, broadcastQueueUpdate, exportQueue, importQueue, retryQueueItem, toggleQueuePause, moveQueueItem } from './queue.ts';
 import { updateBadge, broadcastToPopup, updateFAB } from './utils.ts';
 import { getMediaItems, clearDownloadedUrls, clearAllDownloadedUrls } from './indexeddb.ts';
@@ -488,6 +488,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         await ensureMediaStoreLoaded(payload.username);
         // PERF-04: buildCSV trả { csv, total, exported, truncated, nextOffset }
         const result = buildCSV(payload.username, payload.filterType, payload.offset || 0);
+        sendResponse(result);
+      })();
+      return true;
+    }
+
+    // Pha 14: Manifest export (lịch sử tải + metadata từng file cho profile hiện tại)
+    case 'EXPORT_MANIFEST': {
+      (async () => {
+        if (!isValidUsername(payload?.username)) { sendResponse({ error: 'Invalid username' }); return; }
+        const result = await buildManifest(payload.username);
         sendResponse(result);
       })();
       return true;

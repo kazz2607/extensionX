@@ -3,7 +3,8 @@ import { mediaStore, downloadedStore, tabState, downloadState, pendingHlsRequest
 import { broadcastToPopup, broadcastToTab, sanitizeFolder, broadcastFABState } from './utils.ts';
 import { showDownloadNotification, fetchVideoForTweetWithRefresh, loadDownloadedUrls, isAlreadyDownloaded, markDownloaded, ensureMediaStoreLoaded } from './scraper.ts';
 import { startNextInQueue, profileQueue, persistQueue, broadcastQueueUpdate } from './queue.ts';
-import { DownloadOptions, MediaItem } from '../types.ts';
+import { DownloadOptions, MediaItem, HistoryEntry, ManifestItem } from '../types.ts';
+import { getMediaItems, getDownloadedUrlRecords } from './indexeddb.ts';
 import { isTrustedMediaUrl, sanitizeFilename } from '../shared/validation.ts';
 import { renderFilenameTemplate } from '../shared/filename-template.ts';
 import { formatDownloadError } from '../shared/download-errors.ts';
@@ -765,6 +766,58 @@ function buildCSV(username: string, filterType = 'all', offset = 0) {
   };
 }
 
+// ─── Pha 14: Manifest export (lịch sử tải + metadata từng file) ─────────────
+const MANIFEST_ITEM_LIMIT = 10_000; // đồng bộ với CSV_ROW_LIMIT
+
+async function buildManifest(username: string): Promise<{ json: string; csv: string; total: number; exported: number; truncated: boolean }> {
+  const [downloadedRecords, mediaItems, storedHistory] = await Promise.all([
+    getDownloadedUrlRecords(username),
+    getMediaItems(username) as Promise<MediaItem[]>,
+    chrome.storage.local.get('download_history').catch(() => ({})) as Promise<Record<string, unknown>>,
+  ]);
+
+  // Ghép downloaded_urls (biết url nào đã tải, khi nào) với media_items (metadata
+  // tweet nếu item đó vẫn còn trong IndexedDB tại thời điểm export — có thể đã bị
+  // dọn nếu người dùng Clear Media sau khi tải).
+  const mediaByUrl = new Map<string, MediaItem>(mediaItems.map((item) => [item.url, item]));
+
+  const total = downloadedRecords.length;
+  const page = downloadedRecords.slice(0, MANIFEST_ITEM_LIMIT);
+  const truncated = total > MANIFEST_ITEM_LIMIT;
+
+  const items: ManifestItem[] = page.map((record) => {
+    const media = mediaByUrl.get(record.url);
+    return {
+      url: record.url,
+      downloadedAt: record.addedAt,
+      type: media?.type,
+      ext: media?.ext,
+      tweetId: media?.tweetId,
+      mediaKey: media?.mediaKey,
+      tweetDate: media?.tweetDate,
+    };
+  });
+
+  const history = ((storedHistory.download_history as HistoryEntry[]) || []).filter((entry) => entry.username === username);
+
+  const json = JSON.stringify({
+    _version: '6.1.8',
+    _exportedAt: new Date().toISOString(),
+    username,
+    history,
+    items,
+    total,
+    truncated,
+  }, null, 2);
+
+  const csvHeader = 'url,type,ext,tweetId,mediaKey,tweetDate,downloadedAt\n';
+  const csvRows = items.map((item) =>
+    `"${item.url}","${item.type || ''}","${item.ext || ''}","${item.tweetId || ''}","${item.mediaKey || ''}","${item.tweetDate ? new Date(item.tweetDate).toISOString() : ''}","${new Date(item.downloadedAt).toISOString()}"`
+  );
+
+  return { json, csv: csvHeader + csvRows.join('\n'), total, exported: items.length, truncated };
+}
+
 // UI-01: Retry bằng cách chạy lại download cuối — skipDuplicates tự bỏ qua file đã tải OK
 function retryLastDownload(): boolean {
   if (downloadState.inProgress || !_lastDownloadUsername) return false;
@@ -815,4 +868,4 @@ function stopDownload(): boolean {
   return true;
 }
 
-export { startDownload, handleDownloadTweet, activeErrors, buildCSV, retryLastDownload, stopDownload };
+export { startDownload, handleDownloadTweet, activeErrors, buildCSV, buildManifest, retryLastDownload, stopDownload };

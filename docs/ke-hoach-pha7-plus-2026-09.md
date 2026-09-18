@@ -94,8 +94,11 @@ Các nhánh đã verify kỹ và **đúng 100%** với code: message schema 256K
 - `{index}` (vị trí trong danh sách đã lọc) được tính trước khi worker pool chạy (`Map<MediaItem, number>` theo tham chiếu object), forward qua `downloadSingleItem`/`buildDownloadPath`.
 - UI: input `#opt-filename-template` trong `options.html` + preview realtime (`options.ts`, dùng lại `renderFilenameTemplate` với dữ liệu mẫu — không viết lại logic thay token lần 2).
 
-### Pha 14 — Xuất Manifest JSON/CSV nâng cao (ưu tiên Trung bình)
-- Gộp `downloadHistory` (hiện chưa có export nào) + metadata giữ trong `downloaded_urls` (mediaKey/tweetDate/username/url) thành 1 manifest, theo đúng format versioned JSON đã dùng cho `exportQueue`/`exportSettings` (`{ _version, _exportedAt, ... }`).
+### Pha 14 — Xuất Manifest JSON/CSV nâng cao ✅ HOÀN TẤT
+- **Sửa lại giả định sai trong mô tả gốc**: `downloaded_urls` IndexedDB thực ra chỉ có `{id, username, url, addedAt}` — KHÔNG có `mediaKey`/`tweetDate`. Metadata đó nằm ở store `media_items` (qua `getMediaItems`). Manifest được build bằng cách **ghép (join)** 2 nguồn tại thời điểm export: `getDownloadedUrlRecords()` (hàm mới, `indexeddb.ts`, giữ nguyên `getDownloadedUrls()` cũ không đổi để không ảnh hưởng các call site dedup hiện có) cho biết url nào đã tải + khi nào, ghép với `media_items` theo `url` để lấy `tweetId/mediaKey/type/ext/tweetDate` nếu item đó vẫn còn trong IndexedDB tại thời điểm export (có thể đã bị dọn nếu người dùng Clear Media sau khi tải — khi đó chỉ còn url+ngày tải, không có metadata, chấp nhận được).
+- `HistoryEntry` (trước đây định nghĩa riêng trong `history-panel.ts`) chuyển sang `types.ts` (dùng chung) vì `buildManifest()` (background) cũng cần đọc `chrome.storage.local['download_history']` để gộp vào manifest, lọc theo đúng `username`.
+- `buildManifest(username)` (`downloader.ts`, cạnh `buildCSV`) trả cả `json` và `csv` cùng lúc trong 1 response — cap `MANIFEST_ITEM_LIMIT = 10_000` (đồng bộ `CSV_ROW_LIMIT`), theo đúng format versioned JSON `{ _version, _exportedAt, username, history, items, total, truncated }` như `exportQueue`/`exportSettings`.
+- Message mới `EXPORT_MANIFEST` (payload: `{username}`), 2 nút "JSON"/"CSV" cạnh nút Clear trong History panel (`popup.html`/`popup.ts`).
 
 ### Pha 15 — Watch mode theo profile (ưu tiên Thấp — để sau, lập plan riêng)
 - Tài liệu gốc đã đánh dấu "Thấp" và cần thiết kế kỹ rate-limit + consent UX để tránh bị X.com coi là bot. Không đi sâu ở đây; nên lập plan riêng sau khi Pha 9-14 xong.

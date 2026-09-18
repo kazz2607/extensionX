@@ -764,6 +764,27 @@ function setupListeners() {
     }
   });
 
+  // Pha 14: Manifest export (lịch sử tải + metadata từng file cho profile hiện tại)
+  const exportManifest = async (format: 'json' | 'csv') => {
+    if (!currentUsername) return;
+    const res: any = await sendBG('EXPORT_MANIFEST', { username: currentUsername });
+    const body = format === 'json' ? res?.json : res?.csv;
+    if (!body) { showToast('Không có dữ liệu để xuất', 'error'); return; }
+
+    const mime = format === 'json' ? 'application/json' : 'text/csv';
+    const dataUrl = `data:${mime};charset=utf-8,` + encodeURIComponent(body);
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    chrome.downloads.download({
+      url: dataUrl,
+      filename: `${currentUsername}_manifest_${dateStr}.${format}`,
+      saveAs: false,
+    });
+    const truncatedNote = res.truncated ? ` (đã cắt còn ${res.exported.toLocaleString()}/${res.total.toLocaleString()})` : '';
+    showToast(`✓ Đã xuất manifest ${format.toUpperCase()}: ${res.exported.toLocaleString()} file${truncatedNote}`, 'success');
+  };
+  document.getElementById('btn-export-manifest-json')?.addEventListener('click', () => void exportManifest('json'));
+  document.getElementById('btn-export-manifest-csv')?.addEventListener('click', () => void exportManifest('csv'));
+
   // Duplicate Skip checkbox change listener
   if (els.skipCheckbox) {
     els.skipCheckbox.addEventListener('change', () => {

@@ -139,6 +139,19 @@ export async function getDownloadedUrls(username: string): Promise<string[]> {
   });
 }
 
+// Pha 14: bản đầy đủ (kèm addedAt) cho Manifest export — getDownloadedUrls() ở
+// trên chỉ trả url vì đó là tất cả dedup cần, không đổi hàm đó để tránh ảnh hưởng
+// các call site hiện có.
+export async function getDownloadedUrlRecords(username: string): Promise<Array<{ url: string; addedAt: number }>> {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DOWNLOADED_STORE_NAME, 'readonly');
+    const request = tx.objectStore(DOWNLOADED_STORE_NAME).index('username').getAll(username);
+    request.onsuccess = () => resolve((request.result as DownloadedUrlRecord[]).map((item) => ({ url: item.url, addedAt: item.addedAt })));
+    request.onerror = () => reject(request.error);
+  });
+}
+
 export async function saveDownloadedUrls(username: string, urls: Iterable<string>): Promise<void> {
   const entries = [...urls];
   if (!entries.length) return;

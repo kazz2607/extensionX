@@ -20,6 +20,27 @@ export interface Stats {
   hls: number;
 }
 
+// Một dòng download history (tóm tắt theo phiên tải) — hiển thị ở popup History
+// panel và cũng được đọc lại từ background khi build Manifest export (Pha 14).
+export interface HistoryEntry {
+  username: string;
+  count: number;
+  filter: string;
+  date: string;
+}
+
+// Pha 14: 1 file đã tải, ghép từ downloaded_urls (đã tải khi nào) + media_items
+// (metadata tweet nếu vẫn còn trong IndexedDB tại thời điểm export).
+export interface ManifestItem {
+  url: string;
+  downloadedAt: number;
+  type?: string;
+  ext?: string;
+  tweetId?: string;
+  mediaKey?: string;
+  tweetDate?: number | null;
+}
+
 export interface QueueItem {
   id: string;
   username: string;
