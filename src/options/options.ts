@@ -4,6 +4,12 @@
  */
 import { renderFilenameTemplate } from '../shared/filename-template.ts';
 
+// Mọi id dùng qua helper này đều trỏ tới input/select tĩnh có sẵn trong
+// options.html — cast trực tiếp thay vì ts-ignore từng dòng, không đổi hành vi.
+function el<T extends HTMLElement = HTMLInputElement>(id: string): T {
+  return document.getElementById(id) as T;
+}
+
 const DEFAULT_OPTIONS = {
   saveFolder: '',                              // Thư mục con trong Downloads
   mediaTypes: { images: true, videos: true, gifs: true },
@@ -17,6 +23,7 @@ const DEFAULT_OPTIONS = {
   maxMedia: 0,
   flatUsername: false,
   filenameUsername: false,                     // Tên file theo username_TweetID_Serial
+  filenameTemplate: '',                        // Pha 13: template đặt tên file tuỳ chỉnh
   smartFilters: {                              // Smart Filters (v3.8.0)
     filterAvatars:    true,
     filterCardImages: true,
@@ -28,6 +35,8 @@ const DEFAULT_OPTIONS = {
   enableBookmarks: true,                       // Cho phép quét trang Bookmarks (v5.4.0)
   enableFollowingScanner: true,                // Following Scanner tab (v5.7.1)
   localDiagnostics: false,                     // Opt-in local-only metrics
+  autoStop: false,                             // FEAT-08: Smart Auto-Stop
+  autoStopAfter: 10,                           // FEAT-08: số scroll không có media mới trước khi dừng
   shortcuts: {                                   // Keyboard Shortcuts (v5.5.0)
     enabled: false,                              // Mặc định TẮT — user phải bật chủ động
     showToast: true,
@@ -41,76 +50,46 @@ const DEFAULT_OPTIONS = {
 
 // ─── Load ─────────────────────────────────────────────────────────────────────
 async function loadOptions() {
-  const stored: any = await chrome.storage.sync.get('options').catch(() => ({}));
+  const stored = await chrome.storage.sync.get('options').catch(() => ({})) as { options?: Record<string, unknown> };
   const opts = { ...DEFAULT_OPTIONS, ...(stored.options || {}) };
 
-// @ts-ignore
-  document.getElementById('opt-save-folder').value   = opts.saveFolder || '';
-// @ts-ignore
-  document.getElementById('opt-images').checked      = opts.mediaTypes?.images ?? true;
-// @ts-ignore
-  document.getElementById('opt-videos').checked      = opts.mediaTypes?.videos ?? true;
-// @ts-ignore
-  document.getElementById('opt-gifs').checked        = opts.mediaTypes?.gifs ?? true;
-// @ts-ignore
-  document.getElementById('opt-img-quality').value   = opts.imgQuality || 'orig';
-// @ts-ignore
-  document.getElementById('opt-auto-scroll').checked = opts.autoScroll || false;
-// @ts-ignore
-  document.getElementById('opt-adaptive-scroll').checked = opts.adaptiveScroll ?? true;
-// @ts-ignore
-  document.getElementById('opt-scroll-delay').value  = opts.scrollDelay || 2;
-// @ts-ignore
-  document.getElementById('opt-max-scrolls').value   = opts.maxScrolls || 200;
-// @ts-ignore
-  document.getElementById('opt-concurrency').value   = opts.concurrency || 3;
-// @ts-ignore
-  document.getElementById('opt-save-as').checked     = opts.saveAs || false;
-// @ts-ignore
-  document.getElementById('opt-max-media').value     = opts.maxMedia || 0;
-// @ts-ignore
-  document.getElementById('opt-flat-username').checked = opts.flatUsername || false;
-// @ts-ignore
-  document.getElementById('opt-filename-username').checked = opts.filenameUsername || false;
-// @ts-ignore
-  document.getElementById('opt-filename-template').value = opts.filenameTemplate || '';
+  el('opt-save-folder').value   = opts.saveFolder || '';
+  el('opt-images').checked      = opts.mediaTypes?.images ?? true;
+  el('opt-videos').checked      = opts.mediaTypes?.videos ?? true;
+  el('opt-gifs').checked        = opts.mediaTypes?.gifs ?? true;
+  el<HTMLSelectElement>('opt-img-quality').value = opts.imgQuality || 'orig';
+  el('opt-auto-scroll').checked = opts.autoScroll || false;
+  el('opt-adaptive-scroll').checked = opts.adaptiveScroll ?? true;
+  el('opt-scroll-delay').value  = String(opts.scrollDelay || 2);
+  el('opt-max-scrolls').value   = String(opts.maxScrolls || 200);
+  el('opt-concurrency').value   = String(opts.concurrency || 3);
+  el('opt-save-as').checked     = opts.saveAs || false;
+  el('opt-max-media').value     = String(opts.maxMedia || 0);
+  el('opt-flat-username').checked = opts.flatUsername || false;
+  el('opt-filename-username').checked = opts.filenameUsername || false;
+  el('opt-filename-template').value = opts.filenameTemplate || '';
 
   // Smart Filters
   const sf = opts.smartFilters || DEFAULT_OPTIONS.smartFilters;
-// @ts-ignore
-  document.getElementById('opt-filter-avatars').checked    = sf.filterAvatars    ?? true;
-// @ts-ignore
-  document.getElementById('opt-filter-card-images').checked = sf.filterCardImages ?? true;
-// @ts-ignore
-  document.getElementById('opt-min-img-width').value       = sf.minImageWidth    ?? 150;
-// @ts-ignore
-  document.getElementById('opt-min-img-height').value      = sf.minImageHeight   ?? 150;
-// @ts-ignore
-  document.getElementById('opt-show-snackbar').checked     = opts.showSnackbar   ?? true;
-// @ts-ignore
-  document.getElementById('opt-show-notification').checked = opts.showNotification ?? true;
-// @ts-ignore
-  document.getElementById('opt-enable-bookmarks').checked = opts.enableBookmarks ?? true;
-// @ts-ignore
-  (document.getElementById('opt-enable-following-scanner') as HTMLInputElement).checked = opts.enableFollowingScanner ?? true;
-  (document.getElementById('opt-local-diagnostics') as HTMLInputElement).checked = opts.localDiagnostics ?? false;
+  el('opt-filter-avatars').checked    = sf.filterAvatars    ?? true;
+  el('opt-filter-card-images').checked = sf.filterCardImages ?? true;
+  el('opt-min-img-width').value       = String(sf.minImageWidth    ?? 150);
+  el('opt-min-img-height').value      = String(sf.minImageHeight   ?? 150);
+  el('opt-show-snackbar').checked     = opts.showSnackbar   ?? true;
+  el('opt-show-notification').checked = opts.showNotification ?? true;
+  el('opt-enable-bookmarks').checked = opts.enableBookmarks ?? true;
+  el('opt-enable-following-scanner').checked = opts.enableFollowingScanner ?? true;
+  el('opt-local-diagnostics').checked = opts.localDiagnostics ?? false;
 
   // Keyboard Shortcuts (v5.5.0)
   const sc = opts.shortcuts || DEFAULT_OPTIONS.shortcuts;
-// @ts-ignore
-  document.getElementById('opt-shortcuts-enabled').checked = sc.enabled ?? false;
-// @ts-ignore
-  document.getElementById('opt-sc-copy-link').checked      = sc.copyLink?.enabled ?? true;
-// @ts-ignore
-  document.getElementById('opt-sc-download').checked       = sc.downloadMedia?.enabled ?? true;
-// @ts-ignore
-  document.getElementById('opt-sc-copy-img-url').checked   = sc.copyImageUrl?.enabled ?? true;
-// @ts-ignore
-  document.getElementById('opt-sc-open-original').checked  = sc.openOriginal?.enabled ?? true;
-// @ts-ignore
-  document.getElementById('opt-sc-reverse-search').checked = sc.reverseSearch?.enabled ?? true;
-// @ts-ignore
-  document.getElementById('opt-sc-show-toast').checked     = sc.showToast ?? true;
+  el('opt-shortcuts-enabled').checked = sc.enabled ?? false;
+  el('opt-sc-copy-link').checked      = sc.copyLink?.enabled ?? true;
+  el('opt-sc-download').checked       = sc.downloadMedia?.enabled ?? true;
+  el('opt-sc-copy-img-url').checked   = sc.copyImageUrl?.enabled ?? true;
+  el('opt-sc-open-original').checked  = sc.openOriginal?.enabled ?? true;
+  el('opt-sc-reverse-search').checked = sc.reverseSearch?.enabled ?? true;
+  el('opt-sc-show-toast').checked     = sc.showToast ?? true;
   updateShortcutsDetailState();
 
   updateScrollLabel(opts.scrollDelay || 2);
@@ -128,98 +107,69 @@ async function loadOptions() {
 // ─── Save ─────────────────────────────────────────────────────────────────────
 async function saveOptions() {
   const opts = {
-// @ts-ignore
-    saveFolder:  sanitizeFolder(document.getElementById('opt-save-folder').value),
+    saveFolder:  sanitizeFolder(el('opt-save-folder').value),
     mediaTypes: {
-// @ts-ignore
-      images: document.getElementById('opt-images').checked,
-// @ts-ignore
-      videos: document.getElementById('opt-videos').checked,
-// @ts-ignore
-      gifs:   document.getElementById('opt-gifs').checked,
+      images: el('opt-images').checked,
+      videos: el('opt-videos').checked,
+      gifs:   el('opt-gifs').checked,
     },
-// @ts-ignore
-    imgQuality:  document.getElementById('opt-img-quality').value,
-// @ts-ignore
-    autoScroll:  document.getElementById('opt-auto-scroll').checked,
-// @ts-ignore
-    adaptiveScroll: document.getElementById('opt-adaptive-scroll').checked,
-// @ts-ignore
-    scrollDelay: parseFloat(document.getElementById('opt-scroll-delay').value) || 2,
-// @ts-ignore
-    maxScrolls:  parseInt(document.getElementById('opt-max-scrolls').value) || 200,
-// @ts-ignore
-    concurrency: parseInt(document.getElementById('opt-concurrency').value) || 3,
-// @ts-ignore
-    saveAs:      document.getElementById('opt-save-as').checked,
-// @ts-ignore
-    maxMedia:    parseInt(document.getElementById('opt-max-media').value) || 0,
-// @ts-ignore
-    flatUsername: document.getElementById('opt-flat-username').checked,
-// @ts-ignore
-    filenameUsername: document.getElementById('opt-filename-username').checked,
-// @ts-ignore
-    filenameTemplate: String(document.getElementById('opt-filename-template').value || '').trim().slice(0, 200),
+    imgQuality:  el<HTMLSelectElement>('opt-img-quality').value,
+    autoScroll:  el('opt-auto-scroll').checked,
+    adaptiveScroll: el('opt-adaptive-scroll').checked,
+    scrollDelay: parseFloat(el('opt-scroll-delay').value) || 2,
+    maxScrolls:  parseInt(el('opt-max-scrolls').value) || 200,
+    concurrency: parseInt(el('opt-concurrency').value) || 3,
+    saveAs:      el('opt-save-as').checked,
+    maxMedia:    parseInt(el('opt-max-media').value) || 0,
+    flatUsername: el('opt-flat-username').checked,
+    filenameUsername: el('opt-filename-username').checked,
+    filenameTemplate: String(el('opt-filename-template').value || '').trim().slice(0, 200),
     smartFilters: {
-// @ts-ignore
-      filterAvatars:    document.getElementById('opt-filter-avatars').checked,
-// @ts-ignore
-      filterCardImages: document.getElementById('opt-filter-card-images').checked,
-// @ts-ignore
-      minImageWidth:    parseInt(document.getElementById('opt-min-img-width').value)  || 0,
-// @ts-ignore
-      minImageHeight:   parseInt(document.getElementById('opt-min-img-height').value) || 0,
+      filterAvatars:    el('opt-filter-avatars').checked,
+      filterCardImages: el('opt-filter-card-images').checked,
+      minImageWidth:    parseInt(el('opt-min-img-width').value)  || 0,
+      minImageHeight:   parseInt(el('opt-min-img-height').value) || 0,
     },
-// @ts-ignore
-    showSnackbar: document.getElementById('opt-show-snackbar').checked,
-// @ts-ignore
-    showNotification: document.getElementById('opt-show-notification').checked,
-// @ts-ignore
-    enableBookmarks:  document.getElementById('opt-enable-bookmarks').checked,
-    enableFollowingScanner: (document.getElementById('opt-enable-following-scanner') as HTMLInputElement)?.checked ?? true,
-    localDiagnostics: (document.getElementById('opt-local-diagnostics') as HTMLInputElement)?.checked ?? false,
+    showSnackbar: el('opt-show-snackbar').checked,
+    showNotification: el('opt-show-notification').checked,
+    enableBookmarks:  el('opt-enable-bookmarks').checked,
+    enableFollowingScanner: el('opt-enable-following-scanner')?.checked ?? true,
+    localDiagnostics: el('opt-local-diagnostics')?.checked ?? false,
     // FEAT-08: Smart Auto-Stop
-    autoStop: (document.getElementById('opt-auto-stop') as HTMLInputElement)?.checked ?? false,
-    autoStopAfter: parseInt((document.getElementById('opt-auto-stop-after') as HTMLInputElement)?.value) || 10,
+    autoStop: el('opt-auto-stop')?.checked ?? false,
+    autoStopAfter: parseInt(el('opt-auto-stop-after')?.value) || 10,
     shortcuts: {
-// @ts-ignore
-      enabled:       document.getElementById('opt-shortcuts-enabled').checked,
-// @ts-ignore
-      showToast:     document.getElementById('opt-sc-show-toast').checked,
-      copyLink:      { enabled: (document.getElementById('opt-sc-copy-link') as HTMLInputElement)?.checked ?? true,      modifiers: 'ctrl', key: 'c' },
-      downloadMedia: { enabled: (document.getElementById('opt-sc-download') as HTMLInputElement)?.checked ?? true,       modifiers: 'ctrl', key: 's' },
-      copyImageUrl:  { enabled: (document.getElementById('opt-sc-copy-img-url') as HTMLInputElement)?.checked ?? true,   modifiers: 'ctrl+shift', key: 'c' },
-      openOriginal:  { enabled: (document.getElementById('opt-sc-open-original') as HTMLInputElement)?.checked ?? true,  modifiers: 'ctrl+shift', key: 'o' },
-      reverseSearch: { enabled: (document.getElementById('opt-sc-reverse-search') as HTMLInputElement)?.checked ?? true, modifiers: 'ctrl+shift', key: 'g' },
+      enabled:       el('opt-shortcuts-enabled').checked,
+      showToast:     el('opt-sc-show-toast').checked,
+      copyLink:      { enabled: el('opt-sc-copy-link')?.checked ?? true,      modifiers: 'ctrl', key: 'c' },
+      downloadMedia: { enabled: el('opt-sc-download')?.checked ?? true,       modifiers: 'ctrl', key: 's' },
+      copyImageUrl:  { enabled: el('opt-sc-copy-img-url')?.checked ?? true,   modifiers: 'ctrl+shift', key: 'c' },
+      openOriginal:  { enabled: el('opt-sc-open-original')?.checked ?? true,  modifiers: 'ctrl+shift', key: 'o' },
+      reverseSearch: { enabled: el('opt-sc-reverse-search')?.checked ?? true, modifiers: 'ctrl+shift', key: 'g' },
     },
   };
 
   await chrome.storage.sync.set({ options: opts });
 
   // UI-03: Reset text về "✓ Saved" sau khi lưu xong (có thể đang là "Saving...")
-  const el = document.getElementById('save-status');
-  if (el) {
-    el.textContent = window.i18n ? window.i18n.t('save_success') : '✓ Saved';
-    el.classList.add('show');
-    setTimeout(() => el.classList.remove('show'), 2500);
+  const statusEl = document.getElementById('save-status');
+  if (statusEl) {
+    statusEl.textContent = window.i18n ? window.i18n.t('save_success') : '✓ Saved';
+    statusEl.classList.add('show');
+    setTimeout(() => statusEl.classList.remove('show'), 2500);
   }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-// @ts-ignore
-function updateScrollLabel(val) {
-// @ts-ignore
-  document.getElementById('scroll-delay-val').textContent = `${val}s`;
+function updateScrollLabel(val: string | number): void {
+  el<HTMLElement>('scroll-delay-val').textContent = `${val}s`;
 }
 
-// @ts-ignore
-function updateConcurrencyLabel(val) {
-// @ts-ignore
-  document.getElementById('concurrency-val').textContent = val;
+function updateConcurrencyLabel(val: string | number): void {
+  el<HTMLElement>('concurrency-val').textContent = String(val);
 }
 
-// @ts-ignore
-function sanitizeFolder(str) {
+function sanitizeFolder(str: unknown): string {
   if (typeof str !== 'string') return '';
   return str
     .split(/[\\/]+/)
@@ -260,10 +210,8 @@ function updateShortcutsDetailState() {
 }
 
 function updateFolderPreview() {
-// @ts-ignore
-  const folder = document.getElementById('opt-save-folder').value;
-// @ts-ignore
-  const isFlat = document.getElementById('opt-flat-username').checked;
+  const folder = el('opt-save-folder').value;
+  const isFlat = el('opt-flat-username').checked;
   const preview = document.getElementById('folder-preview');
 
   const clean = sanitizeFolder(folder);
@@ -294,8 +242,7 @@ function updateFolderPreview() {
 // Pha 13: preview realtime cho filename template — dữ liệu mẫu, không sanitize
 // (sanitize chỉ áp dụng thật khi tải, xem downloader.ts buildFilename)
 function updateFilenameTemplatePreview() {
-// @ts-ignore
-  const template = String(document.getElementById('opt-filename-template').value || '').trim();
+  const template = String(el('opt-filename-template').value || '').trim();
   const preview = document.getElementById('filename-template-preview');
   if (!preview) return;
 
@@ -315,51 +262,39 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (window.i18n) {
     await window.i18n.load();
     window.i18n.applyToDOM();
-    const langSelect = document.getElementById('opt-language');
-// @ts-ignore
+    const langSelect = document.getElementById('opt-language') as HTMLSelectElement | null;
     if (langSelect) langSelect.value = window.i18n.lang;
   }
-  
+
   await applyTheme();
   await loadOptions();
 
-// @ts-ignore
-  document.getElementById('btn-save').addEventListener('click', saveOptions);
+  el('btn-save').addEventListener('click', saveOptions);
 
-  const adaptiveToggle = document.getElementById('opt-adaptive-scroll');
-  const delayRow = document.getElementById('row-scroll-delay');
-  const delaySlider = document.getElementById('opt-scroll-delay');
-  
+  const adaptiveToggle = el('opt-adaptive-scroll');
+  const delayRow = el<HTMLElement>('row-scroll-delay');
+  const delaySlider = el('opt-scroll-delay');
+
   const updateDelayRowState = () => {
-// @ts-ignore
     if (adaptiveToggle.checked) {
-// @ts-ignore
       delayRow.style.opacity = '0.5';
-// @ts-ignore
       delaySlider.disabled = true;
     } else {
-// @ts-ignore
       delayRow.style.opacity = '1';
-// @ts-ignore
       delaySlider.disabled = false;
     }
   };
-  
-// @ts-ignore
+
   adaptiveToggle.addEventListener('change', updateDelayRowState);
   // initial state
   updateDelayRowState();
 
-// @ts-ignore
-  document.getElementById('opt-scroll-delay').addEventListener('input', (e) => {
-// @ts-ignore
-    updateScrollLabel(e.target.value);
+  el('opt-scroll-delay').addEventListener('input', (e) => {
+    updateScrollLabel((e.target as HTMLInputElement).value);
   });
 
-// @ts-ignore
-  document.getElementById('opt-concurrency').addEventListener('input', (e) => {
-// @ts-ignore
-    updateConcurrencyLabel(e.target.value);
+  el('opt-concurrency').addEventListener('input', (e) => {
+    updateConcurrencyLabel((e.target as HTMLInputElement).value);
   });
 
   // Live preview khi gõ tên folder hoặc toggle flat/filenameUsername
@@ -372,13 +307,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   // FEAT-08: Auto-Stop toggle → dim/enable row-auto-stop-after
   document.getElementById('opt-auto-stop')?.addEventListener('change', updateAutoStopRowState);
   updateAutoStopRowState();
-  
+
   // Appearance
-  const langSelect = document.getElementById('opt-language');
+  const langSelect = document.getElementById('opt-language') as HTMLSelectElement | null;
   if (langSelect) {
     langSelect.addEventListener('change', async (e) => {
-// @ts-ignore
-      const newLang = e.target.value;
+      const newLang = (e.target as HTMLSelectElement).value;
       if (window.i18n) {
         window.i18n.lang = newLang;
         window.i18n.applyToDOM();
@@ -387,11 +321,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  const themeSelect = document.getElementById('opt-theme-select');
+  const themeSelect = document.getElementById('opt-theme-select') as HTMLSelectElement | null;
   if (themeSelect) {
     themeSelect.addEventListener('change', (e) => {
-// @ts-ignore
-      setTheme(e.target.value);
+      setTheme((e.target as HTMLSelectElement).value);
     });
   }
   
@@ -405,11 +338,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Debounce helper
-  function debounce(func: (...args: any[]) => void, wait: number) {
-    let timeout: any;
-    return function(this: any, ...args: any[]) {
+  function debounce<T extends (...args: never[]) => void>(func: T, wait: number) {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    return (...args: Parameters<T>) => {
       clearTimeout(timeout);
-      timeout = setTimeout(() => func.apply(this, args), wait);
+      timeout = setTimeout(() => func(...args), wait);
     };
   }
 
@@ -444,22 +377,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ─── Theme ─────────────────────────────────────────────────────────────────
-// @ts-ignore
-async function applyTheme() {
-  const stored: any = await chrome.storage.local.get('theme').catch(() => ({}));
-  let theme = stored.theme || 'dark';
-  const themeSelect = document.getElementById('opt-theme-select');
-// @ts-ignore
+async function applyTheme(): Promise<void> {
+  const stored: Record<string, unknown> = await chrome.storage.local.get('theme').catch(() => ({}));
+  let theme = (stored.theme as string) || 'dark';
+  const themeSelect = document.getElementById('opt-theme-select') as HTMLSelectElement | null;
   if (themeSelect) themeSelect.value = theme;
-  
+
   if (theme === 'system') {
     theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
   document.documentElement.setAttribute('data-theme', theme);
 }
 
-// @ts-ignore
-function setTheme(next) {
+function setTheme(next: string): void {
   chrome.storage.local.set({ theme: next });
   if (next === 'system') {
     const active = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -471,7 +401,7 @@ function setTheme(next) {
 
 // v4.1.0: System theme auto switch
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', async (e) => {
-  const stored: any = await chrome.storage.local.get('theme').catch(() => ({}));
+  const stored = await chrome.storage.local.get('theme').catch(() => ({})) as { theme?: string };
   if (stored.theme === 'system') {
     document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
   }
@@ -481,7 +411,7 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', asy
 
 async function exportSettings() {
   try {
-    const stored: any = await chrome.storage.sync.get('options').catch(() => ({}));
+    const stored = await chrome.storage.sync.get('options').catch(() => ({})) as { options?: Record<string, unknown> };
     const opts = stored.options || DEFAULT_OPTIONS;
     const exportData = {
       _version: '5.3.1',
@@ -499,18 +429,17 @@ async function exportSettings() {
     showSaveStatus('✓ Exported successfully');
   } catch (err) {
     console.error('[Options] exportSettings error:', err);
-// @ts-ignore
-    alert('Export thất bại: ' + err.message);
+    alert('Export thất bại: ' + (err instanceof Error ? err.message : String(err)));
   }
 }
 
-// @ts-ignore
-async function importSettings(event) {
-  const file = event.target.files?.[0];
+async function importSettings(event: Event): Promise<void> {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
   if (!file) return;
 
   // Reset input để có thể import lại cùng file
-  event.target.value = '';
+  target.value = '';
 
   try {
     const text = await file.text();
@@ -537,8 +466,7 @@ async function importSettings(event) {
     setTimeout(() => location.reload(), 800);
   } catch (err) {
     console.error('[Options] importSettings error:', err);
-// @ts-ignore
-    alert('Import thất bại: ' + err.message);
+    alert('Import thất bại: ' + (err instanceof Error ? err.message : String(err)));
   }
 }
 
@@ -552,21 +480,21 @@ async function resetSettings() {
     await chrome.storage.sync.set({ options: DEFAULT_OPTIONS });
     showSaveStatus('✓ Reset! Reloading...');
     setTimeout(() => location.reload(), 600);
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Options] resetSettings error:', err);
-    alert('Reset thất bại: ' + err?.message);
+    alert('Reset thất bại: ' + (err instanceof Error ? err.message : String(err)));
   }
 }
 
 function showSaveStatus(msg = '✓ Saved successfully') {
-  const el = document.getElementById('save-status');
-  if (!el) return;
-  const prev = el.textContent;
-  el.textContent = msg;
-  el.classList.add('show');
+  const statusEl = document.getElementById('save-status');
+  if (!statusEl) return;
+  const prev = statusEl.textContent;
+  statusEl.textContent = msg;
+  statusEl.classList.add('show');
   setTimeout(() => {
-    el.classList.remove('show');
-    el.textContent = prev;
+    statusEl.classList.remove('show');
+    statusEl.textContent = prev;
   }, 2500);
 }
 
@@ -580,9 +508,9 @@ async function clearAllDownloadedHistory() {
     await chrome.runtime.sendMessage({ type: 'CLEAR_ALL_DOWNLOADED' });
     showSaveStatus('✓ Đã xóa toàn bộ lịch sử tải!');
     alert('✓ Đã xóa thành công toàn bộ lịch sử tải của tất cả profile! Bạn có thể tải lại bất kỳ file nào.');
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Options] clearAllDownloadedHistory error:', err);
-    alert('Lỗi: ' + err.message);
+    alert('Lỗi: ' + (err instanceof Error ? err.message : String(err)));
   }
 }
 
@@ -595,9 +523,9 @@ async function exportLocalDiagnostics() {
     const dataUrl = `data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(diagnostics, null, 2))}`;
     await chrome.downloads.download({ url: dataUrl, filename: `extensionx_diagnostics_${dateStr}.json`, saveAs: false });
     showSaveStatus('✓ Đã xuất diagnostic cục bộ');
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Options] exportLocalDiagnostics error:', err);
-    alert(`Không thể xuất diagnostic: ${err?.message || 'Lỗi không xác định'}`);
+    alert(`Không thể xuất diagnostic: ${err instanceof Error ? err.message : 'Lỗi không xác định'}`);
   }
 }
 
@@ -607,17 +535,13 @@ async function clearLocalDiagnostics() {
     const response = await chrome.runtime.sendMessage({ type: 'CLEAR_LOCAL_DIAGNOSTICS' });
     if (!response?.ok) throw new Error('Không thể xóa diagnostic');
     showSaveStatus('✓ Đã xóa diagnostic cục bộ');
-  } catch (err: any) {
+  } catch (err) {
     console.error('[Options] clearLocalDiagnostics error:', err);
-    alert(`Không thể xóa diagnostic: ${err?.message || 'Lỗi không xác định'}`);
+    alert(`Không thể xóa diagnostic: ${err instanceof Error ? err.message : 'Lỗi không xác định'}`);
   }
 }
 
-// @ts-ignore
 window.exportSettings = exportSettings;
-// @ts-ignore
 window.importSettings = importSettings;
-// @ts-ignore
 window.resetSettings = resetSettings;
-// @ts-ignore
 window.clearAllDownloadedHistory = clearAllDownloadedHistory;

@@ -178,6 +178,12 @@ export interface QueueExportData {
 declare global {
   interface Window {
     i18n?: any;
+    // options.ts: exposé console-accessible cho debug thủ công (không được gọi
+    // từ options.html — các nút thật đều wire qua addEventListener).
+    exportSettings?: () => Promise<void>;
+    importSettings?: (event: Event) => Promise<void>;
+    resetSettings?: () => Promise<void>;
+    clearAllDownloadedHistory?: () => Promise<void>;
   }
 }
 
