@@ -19,7 +19,13 @@ import { filterMediaItems } from '../src/shared/media-filter.ts';
 import { canTransitionCollectPhase } from '../src/shared/collect-state.ts';
 import { recoverQueueItemAfterRestart, transitionQueueItem, wasInterrupted, findInterruptedIds } from '../src/shared/queue-state.ts';
 import { renderFilenameTemplate } from '../src/shared/filename-template.ts';
-import { isTelegramWebUrl, telegramMediaFilename } from '../src/shared/telegram-media.ts';
+import {
+  isTelegramStreamUrl,
+  isTelegramWebUrl,
+  parseContentRange,
+  streamFileExtension,
+  telegramMediaFilename,
+} from '../src/shared/telegram-media.ts';
 
 test('accepts only known X media origins', () => {
   assert.equal(isTrustedMediaUrl('https://pbs.twimg.com/media/photo.jpg?name=orig'), true);
@@ -173,4 +179,25 @@ test('validates Telegram senders and preserves known media extensions', () => {
   assert.equal(telegramMediaFilename('image', 'https://cdn.test/photo.webp', '', 123), 'telegram_image_123.webp');
   assert.equal(telegramMediaFilename('video', 'blob:https://web.telegram.org/id', 'video/webm', 456), 'telegram_video_456.webm');
   assert.equal(telegramMediaFilename('image', 'data:image/png;base64,abc', 'image/png', 789), 'telegram_image_789.png');
+});
+
+test('recognizes Telegram Service Worker stream URLs and parses Range responses', () => {
+  assert.equal(isTelegramStreamUrl('https://web.telegram.org/k/stream/%7B%22dcId%22%3A4%7D'), true);
+  assert.equal(isTelegramStreamUrl('https://web.telegram.org/a/progressive/document123'), true);
+  assert.equal(isTelegramStreamUrl('https://web.telegram.org/k/'), false);
+  assert.equal(isTelegramStreamUrl('blob:https://web.telegram.org/abc'), false);
+  assert.equal(isTelegramStreamUrl('https://evil.test/k/stream/x'), false);
+  assert.equal(isTelegramStreamUrl('https://web.telegram.org.evil.test/k/stream/x'), false);
+  assert.equal(isTelegramStreamUrl(undefined), false);
+
+  assert.deepEqual(parseContentRange('bytes 0-524287/1048576'), { start: 0, end: 524287, total: 1048576 });
+  assert.deepEqual(parseContentRange('bytes 10-19/*'), { start: 10, end: 19, total: null });
+  assert.equal(parseContentRange('bytes 20-10/100'), null, 'end before start');
+  assert.equal(parseContentRange('bytes 0-100/100'), null, 'end must be inside total');
+  assert.equal(parseContentRange('items 0-1/2'), null);
+  assert.equal(parseContentRange(null), null);
+
+  assert.equal(streamFileExtension('video/mp4; codecs="avc1"'), 'mp4');
+  assert.equal(streamFileExtension('video/webm'), 'webm');
+  assert.equal(streamFileExtension('application/octet-stream'), 'mp4');
 });

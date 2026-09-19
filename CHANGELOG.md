@@ -4,6 +4,17 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [6.2.1] — 2026-09-19 *(Telegram Private Group Video Fix)*
+
+### 🐛 Sửa lỗi
+- Sửa lỗi không tải được video trong **nhóm/chat riêng tư (nội dung bị hạn chế)** trên Telegram Web. Video ở đây không có URL tải trực tiếp: thẻ `<video>` trỏ tới URL stream (`/k/stream/…` ở Web K, `/a/progressive/…` ở Web A) do Service Worker của Telegram phát lại từng đoạn `206 Partial Content`, nên `<a download>` chỉ nhận được một đoạn hoặc báo lỗi máy chủ.
+- Cách mới: script `tg-main.ts` chạy trong ngữ cảnh gốc của trang (MAIN world, khai báo trong manifest nên không bị CSP chặn) gọi `fetch` với header `Range` liên tiếp, kiểm tra `Content-Range` từng đoạn (đúng offset, đủ dung lượng, tổng không đổi), thử lại đoạn lỗi tạm thời (mạng/5xx), rồi ghép Blob và lưu file với đuôi theo MIME thật. Không đi qua service worker của extension nên video dài không bị giới hạn tuổi thọ SW.
+- Nút tải hiển thị trạng thái đang tải kèm % tiến độ; bấm đúp không tải trùng. Nếu tải theo Range thất bại, tự động thử nút Download gốc của Telegram. Ảnh, `blob:`, `data:` và các luồng cũ giữ nguyên.
+- Thêm hàm thuần `isTelegramStreamUrl`, `parseContentRange`, `streamFileExtension` (có unit test, 20 → 21 test). Logic ghép Range đã được kiểm chứng bằng harness Node chạy bản build thật với server giả lập 206/200/503 (file ghép khớp từng byte).
+- **Lưu ý:** sau khi cập nhật extension cần **tải lại tab Telegram** để script MAIN world được nạp.
+
+---
+
 ## [6.2.0] — 2026-09-19 *(Product Features & Type-Safety)*
 
 ### ✨ Tính năng mới

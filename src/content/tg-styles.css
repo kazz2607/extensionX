@@ -35,6 +35,15 @@
   background-color: rgba(25, 135, 84, 0.95);
 }
 
+.ext-x-tg-download-btn[data-state="loading"] {
+  background-color: rgba(29, 155, 240, 0.95);
+  animation: ext-x-tg-pulse 1s ease-in-out infinite;
+}
+
+@keyframes ext-x-tg-pulse {
+  50% { opacity: 0.55; }
+}
+
 .ext-x-tg-download-btn[data-state="error"] {
   background-color: rgba(220, 53, 69, 0.95);
 }

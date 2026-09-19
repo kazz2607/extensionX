@@ -1,6 +1,6 @@
 # ExtensionX — Kế hoạch nâng cấp sau rà soát mã nguồn
 
-> Phạm vi: ExtensionX v6.2.0 (Manifest V3)
+> Phạm vi: ExtensionX v6.2.1 (Manifest V3)
 > Rà soát ban đầu: 16-09-2026  
 > Cập nhật hiện trạng: 19-09-2026  
 > Mục tiêu: giảm lỗi khi X.com thay đổi, giữ giao diện phản hồi nhanh với phiên thu thập/tải lớn, giảm bề mặt tấn công, và tạo nền tảng để mở rộng tính năng.
@@ -166,6 +166,7 @@ Tính đến ngày **19-09-2026**, toàn bộ các pha kỹ thuật cốt lõi (
    - URL `blob:` và `data:` được tải ngay trong tab nguồn để giữ đúng document context và tránh giới hạn kích thước runtime message.
    - Suy luận phần mở rộng từ URL/MIME, chờ phản hồi background và hiển thị trạng thái thành công/lỗi trên nút tải.
    - Background chỉ chấp nhận yêu cầu từ `https://web.telegram.org`, làm sạch tên file và giới hạn URL đầu vào.
+   - **Video stream (v6.2.1):** URL `/k/stream/…` (Web K) và `/a/progressive/…` (Web A) do Service Worker của Telegram phát theo `206 Partial Content`, nên không dùng `a[download]`. Script `tg-main.ts` (MAIN world) gọi `fetch` + `Range` liên tiếp, kiểm tra `Content-Range`, ghép Blob rồi lưu; báo tiến độ về `tg-content.ts` qua CustomEvent `XMD_TG_STREAM_DOWNLOAD`/`XMD_TG_STREAM_STATUS`. Lỗi thì fallback nút Download gốc.
 4. **Popup UI Detection**:
    - Mở rộng logic `detectCurrentTab()` để nhận diện Telegram Web.
    - Khóa các nút chức năng của X.com khi đang ở Telegram, chỉ hiện thông báo hướng dẫn người dùng bấm nút tải trực tiếp trên trình duyệt.
@@ -198,6 +199,7 @@ Chi tiết triển khai, các điểm thu hẹp phạm vi và quyết định th
 | **v6.1.0** (Telegram Integration) | Pha 6 | Hỗ trợ tải trực tiếp ảnh/video từ Telegram Web (K & A versions). | ✅ **Đã hoàn thành** |
 | **v6.1.8** (Telegram Reliability) | Pha 6 | Sửa luồng `blob:`/`data:`, giữ đúng định dạng file, xác thực sender và bổ sung regression tests. | ✅ **Đã hoàn thành** |
 | **v6.2.0** (Product Features & Type-Safety) | Pha 7 → Pha 15 | Refactor `popup.ts`/`fab.ts` thành module, Download Picker, Resume đáng tin cậy, Filter Preset, queue pause/reorder/retry, template tên file, Manifest export, Watch mode; dọn `@ts-ignore`/`any` ở 9 file. | ✅ **Đã hoàn thành** |
+| **v6.2.1** (Telegram Private Group Video) | Pha 6 | Video stream của nhóm/chat riêng tư (`/k/stream/`, `/a/progressive/`) tải bằng Range fetch trong MAIN world thay vì `a[download]`. | ✅ **Đã hoàn thành** (cần xác nhận trên Telegram thật) |
 | **v6.3.0+** (Following Scanner / Type-Safety) | Backlog | Following Scanner Feature 1 (API scan + unfollow), dọn nốt type ở content script. | 📋 Đang lập kế hoạch |
 
 ---

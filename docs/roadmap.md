@@ -1,11 +1,11 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-09-19 | Phiên bản hiện tại: **6.2.0**
+> Cập nhật: 2026-09-19 | Phiên bản hiện tại: **6.2.1**
 
 ---
 
-## 1. Kiến Trúc Hiện Tại (v6.2.0)
+## 1. Kiến Trúc Hiện Tại (v6.2.1)
 
 ```text
 extensionX/
@@ -13,7 +13,7 @@ extensionX/
 ├── tsconfig.json                  # Cấu hình TypeScript (strict: true)
 ├── vite.config.ts                 # Cấu hình Vite bundler
 ├── src/
-│   ├── manifest.json              # Chrome Extension Manifest V3 (version 6.2.0)
+│   ├── manifest.json              # Chrome Extension Manifest V3 (version 6.2.1)
 │   ├── background/
 │   │   ├── service-worker.ts      # Service Worker: core logic, queue, date filter
 │   │   ├── tweet-api.ts           # Fallback API & User Session bypass CORS
@@ -30,7 +30,8 @@ extensionX/
 │   │   ├── tweet-btn.ts           # Download Mini Button trên từng tweet
 │   │   ├── snackbar.ts            # Progress Snackbar glassmorphism
 │   │   ├── page-interceptor.ts    # Hook fetch/XHR/JSON.parse (MAIN world)
-│   │   └── tg-content.ts          # Nút tải ảnh/video trên Telegram Web A/K
+│   │   ├── tg-content.ts          # Nút tải ảnh/video trên Telegram Web A/K (isolated world)
+│   │   └── tg-main.ts             # Range-fetch video stream Telegram (MAIN world, v6.2.1)
 │   ├── popup/
 │   │   ├── popup.html             # Tab layout: Main / Picker / Queue / Stats
 │   │   ├── popup.ts               # Entry: DOM refs, init, message router, tab nav
@@ -152,6 +153,7 @@ File được lưu vào:
 - **v6.1.0** Telegram Web Integration: chèn nút tải trực tiếp trên ảnh/video của Telegram Web A/K.
 - **v6.1.8** Telegram Reliability: xử lý `blob:`/`data:` trong tab nguồn, giữ đúng định dạng file, xác thực sender và bổ sung regression tests.
 - **v6.2.0** Product Features & Type-Safety: refactor popup/fab thành module, Download Picker, Filter Preset, queue pause/reorder/retry, resume đáng tin cậy, template tên file, Manifest export, Watch mode; dọn `@ts-ignore`/`any` ở 9 file (264 → 98 / 87 → 42).
+- **v6.2.1** Telegram Private Group Video: tải video stream `/k/stream/`, `/a/progressive/` bằng Range fetch trong MAIN world (`tg-main.ts`) thay cho `a[download]`.
 
 ---
 
@@ -188,6 +190,7 @@ File được lưu vào:
 | v6.1.0 | **Telegram Web Integration** — Tải trực tiếp ảnh/video từ giao diện Telegram Web A/K |
 | v6.1.8 | **Telegram Reliability** — Sửa tải `blob:`/`data:`, phần mở rộng file, phản hồi UI và xác thực nguồn message |
 | v6.2.0 | **Product Features** — Download Picker, Filter Preset, Queue pause/reorder/retry, Resume đáng tin cậy, Template tên file, Manifest JSON/CSV, Watch mode (không polling ngầm) |
+| v6.2.1 | **Telegram Private Group Video** — Range fetch trong trang cho video stream của nhóm/chat riêng tư, có % tiến độ |
 
 ---
 
@@ -571,6 +574,7 @@ v6.0.0  ── Performance, security, UI/accessibility quality phases           
 v6.1.0  ── Telegram Web Integration                                                       ✅ DONE
 v6.1.8  ── Telegram Media Download Reliability                                            ✅ DONE
 v6.2.0  ── Product features (Pha 7-15) + dọn @ts-ignore/any ở 9 file                        ✅ DONE
+v6.2.1  ── Telegram private group video: Range fetch stream trong MAIN world               ✅ DONE
 
 [TIẾP THEO]
 v6.3.0  ── Following Scanner Feature 1 (API scan + unfollow), dọn type nốt content script

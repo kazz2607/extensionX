@@ -2,7 +2,7 @@
 
 Extension Chrome mạnh mẽ cho phép bạn tải toàn bộ ảnh, video và GIF từ bất kỳ profile nào trên X.com (Twitter) với chất lượng gốc, hoàn toàn tự động và sắp xếp gọn gàng vào thư mục theo tên người dùng.
 
-> **Phiên bản hiện tại: 6.2.0** — bổ sung Download Picker, Filter Preset, điều khiển Queue (tạm dừng/đổi thứ tự/thử lại), template đặt tên file, xuất Manifest và Watch mode; hỗ trợ tải ảnh/video trực tiếp trên Telegram Web A/K.
+> **Phiên bản hiện tại: 6.2.1** — sửa tải video Telegram Web trong nhóm/chat riêng tư (Range fetch trong trang). Bản 6.2.0 bổ sung Download Picker, Filter Preset, điều khiển Queue (tạm dừng/đổi thứ tự/thử lại), template đặt tên file, xuất Manifest và Watch mode; hỗ trợ tải ảnh/video trực tiếp trên Telegram Web A/K.
 
 ## ✨ Tính Năng Nổi Bật
 
@@ -22,7 +22,7 @@ Extension Chrome mạnh mẽ cho phép bạn tải toàn bộ ảnh, video và G
 - 🧩 **Template tên file:** Tự đặt tên file bằng `{username} {tweetId} {date} {type} {ext} {index}` kèm preview.
 - 👁 **Watch mode:** Báo media mới của profile theo dõi mỗi khi mở popup — không polling ngầm.
 - 🔒 **100% Xử lý cục bộ:** Toàn bộ quá trình quét, phân tích và tải xuống diễn ra trên máy của bạn, không có bất kỳ kết nối nào tới server bên thứ 3.
-- ✈️ **Telegram Web:** Chèn nút tải trực tiếp lên ảnh/video, hỗ trợ media từ URL HTTP(S), `blob:`, `data:` và canvas trên giao diện A/K.
+- ✈️ **Telegram Web:** Chèn nút tải trực tiếp lên ảnh/video, hỗ trợ media từ URL HTTP(S), `blob:`, `data:`, canvas và video stream của nhóm/chat riêng tư (tải theo từng đoạn Range, có % tiến độ) trên giao diện A/K.
 
 ## 🛠 Hướng Dẫn Cài Đặt
 
@@ -63,4 +63,4 @@ Click vào nút ⚙ (Cài đặt) trên popup của extension để tuỳ chỉn
 
 ---
 
-*Phát triển nội bộ — Phiên bản **6.2.0** | Cập nhật: 2026-09-19*
+*Phát triển nội bộ — Phiên bản **6.2.1** | Cập nhật: 2026-09-19*

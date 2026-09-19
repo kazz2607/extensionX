@@ -1,5 +1,5 @@
 import type { ExtensionMessage } from '../shared/messages';
-import { telegramMediaFilename, type TelegramMediaKind } from '../shared/telegram-media.ts';
+import { isTelegramStreamUrl, telegramMediaFilename, type TelegramMediaKind } from '../shared/telegram-media.ts';
 
 console.log('[ExtensionX] Telegram Web Content Script loaded.');
 
@@ -46,6 +46,60 @@ function downloadDataUrlLocal(url: string, filename: string): void {
   setTimeout(() => a.remove(), 2000);
 }
 
+// Giao thức với tg-main.ts (MAIN world) — phải khớp tên/định dạng ở đó.
+const STREAM_REQUEST_EVENT = 'XMD_TG_STREAM_DOWNLOAD';
+const STREAM_STATUS_EVENT = 'XMD_TG_STREAM_STATUS';
+// tg-main.ts chưa nạp (vừa cập nhật extension mà chưa tải lại tab) thì không bao giờ phản hồi.
+const STREAM_START_TIMEOUT_MS = 4_000;
+
+interface StreamStatusDetail {
+  id?: unknown;
+  state?: unknown;
+  received?: unknown;
+  total?: unknown;
+  message?: unknown;
+}
+
+let _streamSeq = 0;
+
+/** Tải video stream bằng Range fetch trong MAIN world; reject nếu thất bại để caller fallback. */
+function downloadViaStream(button: HTMLButtonElement, url: string, filename: string): Promise<void> {
+  const id = `tg-${Date.now()}-${++_streamSeq}`;
+  return new Promise<void>((resolve, reject) => {
+    let started = false;
+    const finish = (fn: () => void): void => {
+      window.clearTimeout(startTimer);
+      window.removeEventListener(STREAM_STATUS_EVENT, onStatus);
+      fn();
+    };
+    const onStatus = (event: Event): void => {
+      const detail = (event as CustomEvent<StreamStatusDetail>).detail;
+      if (!detail || detail.id !== id) return;
+      started = true;
+      if (detail.state === 'started') {
+        button.dataset.state = 'loading';
+        button.title = 'Đang tải…';
+      } else if (detail.state === 'progress') {
+        const received = Number(detail.received);
+        const total = Number(detail.total);
+        const percent = total > 0 ? Math.min(100, Math.floor((received / total) * 100)) : 0;
+        button.dataset.state = 'loading';
+        button.title = `Đang tải… ${percent}%`;
+      } else if (detail.state === 'done') {
+        finish(resolve);
+      } else {
+        finish(() => reject(new Error(typeof detail.message === 'string' ? detail.message : 'Stream download failed')));
+      }
+    };
+    const startTimer = window.setTimeout(() => {
+      if (!started) finish(() => reject(new Error('tg-main chưa sẵn sàng — hãy tải lại tab Telegram')));
+    }, STREAM_START_TIMEOUT_MS);
+
+    window.addEventListener(STREAM_STATUS_EVENT, onStatus);
+    window.dispatchEvent(new CustomEvent(STREAM_REQUEST_EVENT, { detail: { id, url, filename } }));
+  });
+}
+
 function setButtonState(button: HTMLButtonElement, state: 'success' | 'error'): void {
   button.dataset.state = state;
   button.title = state === 'success' ? 'Đã bắt đầu tải xuống' : 'Không thể tải xuống';
@@ -55,24 +109,49 @@ function setButtonState(button: HTMLButtonElement, state: 'success' | 'error'): 
   }, 1500);
 }
 
+function findNativeDownloadButton(mediaElement: HTMLElement): HTMLElement | null {
+  const viewer = mediaElement.closest('.media-viewer-whole, #MediaViewer');
+  let nativeBtn: HTMLElement | null = null;
+  if (viewer) {
+    nativeBtn = viewer.querySelector<HTMLElement>('button[title="Download"], button[aria-label="Download"], button[title="Download video"], button[title="Tải xuống"], .media-viewer-buttons button.download');
+  }
+  if (!nativeBtn && mediaElement.parentElement) {
+    nativeBtn = mediaElement.parentElement.querySelector<HTMLElement>('button[title="Download"], button.download');
+  }
+  return nativeBtn;
+}
+
 async function handleDownloadClick(event: MouseEvent, mediaElement: HTMLElement, kind: TelegramMediaKind): Promise<void> {
   event.preventDefault();
   event.stopPropagation();
   const button = event.currentTarget as HTMLButtonElement;
+  if (button.dataset.state === 'loading') return; // đang tải — bỏ qua click đúp
 
   try {
+    // 0. Video stream (Web K /stream/, Web A /progressive/) — nhóm/chat riêng tư bị hạn chế
+    // thường chỉ có dạng này. Phải Range-fetch trong trang; a[download] chỉ nhận 1 đoạn 206.
+    const streamUrl = kind === 'video' ? mediaUrl(mediaElement) : '';
+    if (isTelegramStreamUrl(streamUrl)) {
+      try {
+        await downloadViaStream(button, streamUrl, telegramMediaFilename('video', streamUrl, mediaMimeType(mediaElement)));
+        setButtonState(button, 'success');
+        return;
+      } catch (streamError) {
+        console.warn('[ExtensionX] Telegram stream download failed, trying native button:', streamError);
+        delete button.dataset.state;
+        button.title = 'Tải xuống (X Media Downloader)';
+        const native = findNativeDownloadButton(mediaElement);
+        if (!native) throw streamError;
+        native.click();
+        setButtonState(button, 'success');
+        return;
+      }
+    }
+
     // 1. Try to trigger the native Telegram download button first.
     // This is required for videos since they are often streamed via MediaSource (MSE)
     // and cannot be directly downloaded via their blob: URLs.
-    const viewer = mediaElement.closest('.media-viewer-whole, #MediaViewer');
-    let nativeBtn: HTMLElement | null = null;
-    if (viewer) {
-      nativeBtn = viewer.querySelector<HTMLElement>('button[title="Download"], button[aria-label="Download"], button[title="Download video"], button[title="Tải xuống"], .media-viewer-buttons button.download');
-    }
-    if (!nativeBtn && mediaElement.parentElement) {
-      nativeBtn = mediaElement.parentElement.querySelector<HTMLElement>('button[title="Download"], button.download');
-    }
-
+    const nativeBtn = findNativeDownloadButton(mediaElement);
     if (nativeBtn) {
       nativeBtn.click();
       setButtonState(button, 'success');
