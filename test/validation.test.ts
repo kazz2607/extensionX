@@ -20,9 +20,12 @@ import { canTransitionCollectPhase } from '../src/shared/collect-state.ts';
 import { recoverQueueItemAfterRestart, transitionQueueItem, wasInterrupted, findInterruptedIds } from '../src/shared/queue-state.ts';
 import { renderFilenameTemplate } from '../src/shared/filename-template.ts';
 import {
+  isRetryableChunkStatus,
   isTelegramStreamUrl,
   isTelegramWebUrl,
   parseContentRange,
+  parseTelegramStreamInfo,
+  pickLatestVideoStreamUrl,
   streamFileExtension,
   telegramMediaFilename,
 } from '../src/shared/telegram-media.ts';
@@ -200,4 +203,26 @@ test('recognizes Telegram Service Worker stream URLs and parses Range responses'
   assert.equal(streamFileExtension('video/mp4; codecs="avc1"'), 'mp4');
   assert.equal(streamFileExtension('video/webm'), 'webm');
   assert.equal(streamFileExtension('application/octet-stream'), 'mp4');
+});
+
+test('treats Telegram SW timeouts as retryable and picks the newest viewer video stream', () => {
+  for (const status of [408, 425, 429, 500, 502, 503]) assert.equal(isRetryableChunkStatus(status), true, String(status));
+  for (const status of [400, 401, 403, 404, 416]) assert.equal(isRetryableChunkStatus(status), false, String(status));
+
+  const meta = (mimeType: string, id: number) =>
+    `https://web.telegram.org/k/stream/${encodeURIComponent(JSON.stringify({ dcId: 5, id, size: 1234, mimeType, fileName: 'a.mp4' }))}`;
+  assert.deepEqual(parseTelegramStreamInfo(meta('video/mp4', 1)), { mimeType: 'video/mp4', size: 1234, fileName: 'a.mp4' });
+  assert.equal(parseTelegramStreamInfo('https://web.telegram.org/a/progressive/document1'), null);
+  assert.equal(parseTelegramStreamInfo('https://web.telegram.org/k/stream/%7Bbroken'), null);
+
+  const records = [
+    { url: meta('video/mp4', 1), startTime: 100 }, // trước khi mở viewer
+    { url: meta('video/mp4', 2), startTime: 500 },
+    { url: meta('audio/ogg', 3), startTime: 600 }, // không phải video
+    { url: 'https://web.telegram.org/a/progressive/document9', startTime: 700 },
+  ];
+  assert.equal(pickLatestVideoStreamUrl(records, 400), records[3].url, 'latest video-like request since open');
+  assert.equal(pickLatestVideoStreamUrl(records.slice(0, 3), 400), records[1].url, 'skips non-video mime');
+  assert.equal(pickLatestVideoStreamUrl(records, 800), null, 'nothing requested since the viewer opened');
+  assert.equal(pickLatestVideoStreamUrl([], 0), null);
 });

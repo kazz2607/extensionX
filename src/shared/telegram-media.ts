@@ -91,3 +91,57 @@ export function parseContentRange(header: string | null | undefined): ContentRan
 export function streamFileExtension(mimeType: string): string {
   return MIME_EXTENSIONS[mimeType.toLowerCase().split(';', 1)[0].trim()] || 'mp4';
 }
+
+/**
+ * Lỗi tạm thời nên thử lại khi tải 1 đoạn Range: 5xx, và đặc biệt 408/425/429 — Service Worker
+ * của Telegram trả 408 khi đoạn đó hết thời gian chờ ở phía server, thử lại thường thành công.
+ */
+export function isRetryableChunkStatus(status: number): boolean {
+  return status >= 500 || status === 408 || status === 425 || status === 429;
+}
+
+export interface StreamUrlInfo {
+  mimeType?: string;
+  size?: number;
+  fileName?: string;
+}
+
+/** Đọc metadata Web K nhúng trong URL `/k/stream/<JSON được encode>`; null với URL dạng khác. */
+export function parseTelegramStreamInfo(url: string): StreamUrlInfo | null {
+  try {
+    const segment = new URL(url).pathname.split('/stream/')[1];
+    if (!segment) return null;
+    const data: unknown = JSON.parse(decodeURIComponent(segment));
+    if (typeof data !== 'object' || data === null) return null;
+    const raw = data as Record<string, unknown>;
+    return {
+      mimeType: typeof raw.mimeType === 'string' ? raw.mimeType : undefined,
+      size: typeof raw.size === 'number' ? raw.size : undefined,
+      fileName: typeof raw.fileName === 'string' ? raw.fileName : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export interface StreamRequestRecord {
+  url: string;
+  /** performance.now() lúc request bắt đầu. */
+  startTime: number;
+}
+
+/**
+ * URL video stream mới nhất được yêu cầu kể từ `since` (thường là lúc mở viewer).
+ * Bỏ URL Web K có mimeType không phải video (ảnh/audio); URL dạng /progressive/ không có
+ * metadata nên được giữ lại.
+ */
+export function pickLatestVideoStreamUrl(records: readonly StreamRequestRecord[], since: number): string | null {
+  for (let i = records.length - 1; i >= 0; i--) {
+    const record = records[i];
+    if (record.startTime < since || !isTelegramStreamUrl(record.url)) continue;
+    const mime = parseTelegramStreamInfo(record.url)?.mimeType;
+    if (mime && !mime.startsWith('video/')) continue;
+    return record.url;
+  }
+  return null;
+}

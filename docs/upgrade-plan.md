@@ -1,6 +1,6 @@
-# ExtensionX — Kế Hoạch Nâng Cấp Toàn Diện v6.2.3+
+# ExtensionX — Kế Hoạch Nâng Cấp Toàn Diện v6.2.4+
 
-> **Phiên bản hiện tại:** 6.2.3
+> **Phiên bản hiện tại:** 6.2.4
 > **Ngày phân tích:** 2026-07-24 | **Cập nhật:** 2026-09-19
 > **Phạm vi:** Performance · Security · UI/UX Bug Fixes · Logic Fixes · New Features  
 
@@ -22,7 +22,7 @@
 ## 1. Tổng Quan Kiến Trúc
 
 ```
-ExtensionX v6.2.3
+ExtensionX v6.2.4
 ├── background/
 │   ├── service-worker.ts     — Entry point (chỉ import)
 │   ├── messages.ts           — 531 lines, Message hub + UPDATE_QUERY_ID handler
@@ -713,4 +713,4 @@ result?: {
 
 ---
 
-*Cập nhật: 2026-09-19. Version hiện tại: **v6.2.3** (Product Features & Type-Safety). Các hạng mục sản phẩm tiếp theo được theo dõi tại `ke-hoach-nang-cap-2026-09.md`.*
+*Cập nhật: 2026-09-19. Version hiện tại: **v6.2.4** (Product Features & Type-Safety). Các hạng mục sản phẩm tiếp theo được theo dõi tại `ke-hoach-nang-cap-2026-09.md`.*

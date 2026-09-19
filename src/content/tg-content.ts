@@ -1,5 +1,12 @@
 import type { ExtensionMessage } from '../shared/messages';
-import { isTelegramStreamUrl, telegramMediaFilename, type TelegramMediaKind } from '../shared/telegram-media.ts';
+import {
+  isTelegramStreamUrl,
+  parseTelegramStreamInfo,
+  pickLatestVideoStreamUrl,
+  telegramMediaFilename,
+  type StreamRequestRecord,
+  type TelegramMediaKind,
+} from '../shared/telegram-media.ts';
 
 console.log('[ExtensionX] Telegram Web Content Script loaded.');
 
@@ -61,6 +68,14 @@ interface StreamStatusDetail {
 }
 
 let _streamSeq = 0;
+
+/** Lỗi tải stream — message được hiện trong tooltip nút để người dùng biết lý do. */
+class StreamDownloadError extends Error {
+  constructor(reason: string) {
+    super(`Không tải được video: ${reason}`);
+    this.name = 'StreamDownloadError';
+  }
+}
 
 class StaleExtensionError extends Error {
   constructor() {
@@ -129,16 +144,22 @@ function findNativeDownloadButton(mediaElement: HTMLElement): HTMLElement | null
   return nativeBtn;
 }
 
-async function handleDownloadClick(button: HTMLButtonElement, mediaElement: HTMLElement, kind: TelegramMediaKind): Promise<void> {
+async function handleDownloadClick(
+  button: HTMLButtonElement,
+  mediaElement: HTMLElement,
+  kind: TelegramMediaKind,
+  streamUrlOverride?: string,
+): Promise<void> {
   if (button.dataset.state === 'loading') return; // đang tải — bỏ qua click đúp
 
   try {
     // 0. Video stream (Web K /stream/, Web A /progressive/) — nhóm/chat riêng tư bị hạn chế
     // thường chỉ có dạng này. Phải Range-fetch trong trang; a[download] chỉ nhận 1 đoạn 206.
-    const streamUrl = kind === 'video' ? mediaUrl(mediaElement) : '';
+    const streamUrl = streamUrlOverride ?? (kind === 'video' ? mediaUrl(mediaElement) : '');
     if (isTelegramStreamUrl(streamUrl)) {
       try {
-        await downloadViaStream(button, streamUrl, telegramMediaFilename('video', streamUrl, mediaMimeType(mediaElement)));
+        const info = parseTelegramStreamInfo(streamUrl);
+        await downloadViaStream(button, streamUrl, telegramMediaFilename('video', streamUrl, mediaMimeType(mediaElement) || info?.mimeType || ''));
         setButtonState(button, 'success');
         return;
       } catch (streamError) {
@@ -146,7 +167,7 @@ async function handleDownloadClick(button: HTMLButtonElement, mediaElement: HTML
         delete button.dataset.state;
         button.title = 'Tải xuống (X Media Downloader)';
         const native = findNativeDownloadButton(mediaElement);
-        if (!native) throw streamError;
+        if (!native) throw new StreamDownloadError(streamError instanceof Error ? streamError.message : String(streamError));
         native.click();
         setButtonState(button, 'success');
         return;
@@ -190,7 +211,11 @@ async function handleDownloadClick(button: HTMLButtonElement, mediaElement: HTML
     }
     setButtonState(button, 'success');
   } catch (error) {
-    setButtonState(button, 'error', error instanceof StaleExtensionError ? error.message : undefined);
+    setButtonState(
+      button,
+      'error',
+      error instanceof StaleExtensionError || error instanceof StreamDownloadError ? error.message : undefined,
+    );
     console.error('[ExtensionX] Telegram download failed:', error);
   }
 }
@@ -249,12 +274,50 @@ function isOnScreen(element: HTMLElement): boolean {
   return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity) !== 0;
 }
 
-/** <video> đang hiển thị trong viewer và đã có nguồn — luôn được ưu tiên hơn ảnh/canvas thumbnail. */
-function findViewerVideo(viewer: HTMLElement): HTMLVideoElement | null {
-  const videos = Array.from(viewer.querySelectorAll<HTMLVideoElement>('video'))
-    .filter((video) => !video.closest('.ext-x-tg-download-btn') && isOnScreen(video) && mediaUrl(video));
-  videos.sort((a, b) => visibleMediaArea(b) - visibleMediaArea(a));
-  return videos[0] ?? null;
+// URL stream Telegram đã gán cho <video> trong viewer. Khi tải lỗi (vd. 408) Telegram xoá src
+// ("Empty src attribute") nên phải nhớ lại URL lúc còn thấy. Chỉ hợp lệ khi đúng phần tử <video>
+// đó vẫn còn trong viewer — sang video khác Telegram dựng phần tử mới nên URL cũ tự vô hiệu.
+let _rememberedStream: { url: string; element: HTMLVideoElement } | null = null;
+let _viewerOpenedAt = 0;
+// URL stream mới nhất từng được yêu cầu (PerformanceObserver không bị giới hạn bộ đệm 250 mục).
+const _streamRequests: StreamRequestRecord[] = [];
+
+try {
+  new PerformanceObserver((list) => {
+    for (const entry of list.getEntries()) {
+      if (isTelegramStreamUrl(entry.name)) _streamRequests.push({ url: entry.name, startTime: entry.startTime });
+    }
+    if (_streamRequests.length > 50) _streamRequests.splice(0, _streamRequests.length - 50);
+  }).observe({ type: 'resource', buffered: true });
+} catch {
+  // PerformanceObserver không hỗ trợ type 'resource' — bỏ qua, chỉ mất phương án dự phòng.
+}
+
+function viewerVideos(viewer: HTMLElement): HTMLVideoElement[] {
+  return Array.from(viewer.querySelectorAll<HTMLVideoElement>('video'))
+    .filter((video) => !video.closest('.ext-x-tg-download-btn'));
+}
+
+function rememberViewerStream(viewer: HTMLElement): void {
+  for (const video of viewerVideos(viewer)) {
+    const url = mediaUrl(video);
+    if (isTelegramStreamUrl(url)) _rememberedStream = { url, element: video };
+  }
+}
+
+/** Nguồn + phần tử của video đang chiếu trong viewer, kể cả khi <video> đang ẩn/vừa lỗi. */
+function findViewerVideoSource(viewer: HTMLElement): { url: string; element: HTMLElement } | null {
+  const videos = viewerVideos(viewer);
+  const withUrl = videos.filter((video) => mediaUrl(video));
+  // Ưu tiên video đang hiển thị; nếu Telegram đang ẩn <video> (opacity 0) lúc tải thì dùng cái còn lại.
+  const visible = withUrl.filter(isOnScreen).sort((a, b) => visibleMediaArea(b) - visibleMediaArea(a));
+  const chosen = visible[0] ?? withUrl[0];
+  if (chosen) return { url: mediaUrl(chosen), element: chosen };
+
+  if (_rememberedStream && viewer.contains(_rememberedStream.element)) return _rememberedStream;
+
+  const requested = pickLatestVideoStreamUrl(_streamRequests, _viewerOpenedAt);
+  return requested ? { url: requested, element: viewer } : null;
 }
 
 /** Viewer đang hiển thị 1 video (kể cả khi <video> chưa có nguồn/đang tải). */
@@ -263,11 +326,14 @@ function viewerShowsVideo(viewer: HTMLElement): boolean {
 }
 
 /** Video vừa mở thường cần vài trăm ms mới có nguồn — chờ thay vì rơi về thumbnail. */
-async function waitForViewerVideo(viewer: HTMLElement, timeoutMs = 3_000): Promise<HTMLVideoElement | null> {
+async function waitForViewerVideoSource(
+  viewer: HTMLElement,
+  timeoutMs = 2_500,
+): Promise<{ url: string; element: HTMLElement } | null> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
-    const video = findViewerVideo(viewer);
-    if (video || Date.now() >= deadline) return video;
+    const source = findViewerVideoSource(viewer);
+    if (source || Date.now() >= deadline) return source;
     await new Promise<void>((resolve) => window.setTimeout(resolve, 200));
   }
 }
@@ -304,13 +370,13 @@ async function handleViewerDownload(button: HTMLButtonElement, viewer: HTMLEleme
   // Viewer đang chiếu video: chỉ được tải VIDEO. Thumbnail (ảnh/canvas) nằm cùng khung và
   // có thể lớn hơn <video> nên tuyệt đối không dùng làm phương án dự phòng.
   if (viewerShowsVideo(viewer)) {
-    const video = await waitForViewerVideo(viewer);
-    if (!video) {
-      setButtonState(button, 'error', 'Video chưa sẵn sàng — chờ video tải xong rồi thử lại');
-      console.error('[ExtensionX] Telegram viewer shows a video but no <video> source is available yet');
+    const source = await waitForViewerVideoSource(viewer);
+    if (!source) {
+      setButtonState(button, 'error', 'Video chưa sẵn sàng — chờ video bắt đầu tải rồi thử lại');
+      console.error('[ExtensionX] Telegram viewer shows a video but no stream URL is available yet');
       return;
     }
-    await handleDownloadClick(button, video, 'video');
+    await handleDownloadClick(button, source.element, 'video', source.url);
     return;
   }
 
@@ -361,7 +427,14 @@ function ensureViewerButton(): HTMLButtonElement {
 
 /** Hiện/ẩn nút viewer theo trạng thái viewer, và gắn lại vào <body> nếu bị gỡ. */
 function syncViewerButton(): void {
-  const viewerOpen = activeViewer() !== null;
+  const viewer = activeViewer();
+  const viewerOpen = viewer !== null;
+  if (viewer) {
+    if (_viewerButton?.hidden !== false) _viewerOpenedAt = performance.now(); // vừa chuyển đóng → mở
+    rememberViewerStream(viewer);
+  } else {
+    _rememberedStream = null;
+  }
   if (!viewerOpen && !_viewerButton) return;
   const button = ensureViewerButton();
   if (viewerOpen && !button.isConnected) document.body.appendChild(button);

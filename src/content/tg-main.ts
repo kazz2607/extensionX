@@ -10,11 +10,11 @@
  * CustomEvent — không cần đi qua service worker của extension, nên không bị
  * giới hạn tuổi thọ SW khi video dài.
  */
-import { isTelegramStreamUrl, parseContentRange, streamFileExtension } from '../shared/telegram-media.ts';
+import { isRetryableChunkStatus, isTelegramStreamUrl, parseContentRange, streamFileExtension } from '../shared/telegram-media.ts';
 
 const REQUEST_EVENT = 'XMD_TG_STREAM_DOWNLOAD';
 const STATUS_EVENT = 'XMD_TG_STREAM_STATUS';
-const CHUNK_RETRIES = 3;
+const CHUNK_RETRIES = 6;
 
 interface StreamRequest {
   id: string;
@@ -46,7 +46,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-/** Tải 1 đoạn Range, thử lại khi lỗi mạng/5xx tạm thời. */
+/** Tải 1 đoạn Range, thử lại khi lỗi mạng hoặc HTTP tạm thời (408/425/429/5xx). */
 async function fetchChunk(url: string, offset: number): Promise<Response> {
   let lastError: Error = new Error('Không tải được đoạn video');
   for (let attempt = 0; attempt < CHUNK_RETRIES; attempt++) {
@@ -54,11 +54,12 @@ async function fetchChunk(url: string, offset: number): Promise<Response> {
       const res = await fetch(url, { headers: { Range: `bytes=${offset}-` } });
       if (res.status === 200 || res.status === 206) return res;
       lastError = new Error(`HTTP ${res.status}`);
-      if (res.status < 500) break; // 4xx: thử lại không giúp ích gì
+      // 408/425/429/5xx là tạm thời (Telegram trả 408 khi đoạn hết thời gian chờ); 4xx khác thì không.
+      if (!isRetryableChunkStatus(res.status)) break;
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
     }
-    await sleep(300 * (attempt + 1));
+    await sleep(500 * (attempt + 1));
   }
   throw lastError;
 }

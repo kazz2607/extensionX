@@ -1,6 +1,6 @@
 # ExtensionX — Kế hoạch nâng cấp sau rà soát mã nguồn
 
-> Phạm vi: ExtensionX v6.2.3 (Manifest V3)
+> Phạm vi: ExtensionX v6.2.4 (Manifest V3)
 > Rà soát ban đầu: 16-09-2026  
 > Cập nhật hiện trạng: 19-09-2026  
 > Mục tiêu: giảm lỗi khi X.com thay đổi, giữ giao diện phản hồi nhanh với phiên thu thập/tải lớn, giảm bề mặt tấn công, và tạo nền tảng để mở rộng tính năng.
@@ -9,7 +9,7 @@
 
 ## 1. Bảng tiến độ tổng quan (Progress Dashboard)
 
-Tính đến ngày **19-09-2026**, toàn bộ các pha kỹ thuật cốt lõi (Pha 0 → Pha 4), Pha 6 (Telegram) và roadmap mở rộng Pha 7 → Pha 15 đã hoàn thành và được phát hành trong **v6.2.0** (kèm các bản vá Telegram **v6.2.1**, **v6.2.2**, **v6.2.3**), vượt qua 100% các kiểm thử hồi quy:
+Tính đến ngày **19-09-2026**, toàn bộ các pha kỹ thuật cốt lõi (Pha 0 → Pha 4), Pha 6 (Telegram) và roadmap mở rộng Pha 7 → Pha 15 đã hoàn thành và được phát hành trong **v6.2.0** (kèm các bản vá Telegram **v6.2.1**, **v6.2.2**, **v6.2.3**, **v6.2.4**), vượt qua 100% các kiểm thử hồi quy:
 
 | Pha | Tên pha & Mục tiêu | Ưu tiên | Trạng thái | Commit tham chiếu |
 |---|---|---|---|---|
@@ -30,7 +30,7 @@ Tính đến ngày **19-09-2026**, toàn bộ các pha kỹ thuật cốt lõi (
 | **Pha 15** | Watch mode theo profile (thiết kế an toàn, không polling ngầm) — xem `ke-hoach-pha7-plus-2026-09.md` | P4 | ✅ **Hoàn tất** (cần smoke test tay trên Chrome thật) | |
 
 **Trạng thái kiểm thử hiện hành (`npm run check`):**
-- ✅ `21/21 unit tests` pass
+- ✅ `22/22 unit tests` pass
 - ✅ `2/2 e2e fixture regression tests` pass
 - ✅ `TypeScript (tsc --noEmit)` clean (không có lỗi typecheck)
 - ✅ `ESLint` clean
@@ -202,6 +202,7 @@ Chi tiết triển khai, các điểm thu hẹp phạm vi và quyết định th
 | **v6.2.1** (Telegram Private Group Video) | Pha 6 | Video stream của nhóm/chat riêng tư (`/k/stream/`, `/a/progressive/`) tải bằng Range fetch trong MAIN world thay vì `a[download]`. | ✅ **Đã hoàn thành** (cần xác nhận trên Telegram thật) |
 | **v6.2.2** (Telegram Viewer Button & Thumbnail) | Pha 6 | Không gắn nút tải ảnh lên thumbnail video; Media Viewer đang chiếu video thì chỉ tải video; nút viewer gắn ở `<body>` để không bị mất khi phóng to. | ✅ **Đã hoàn thành** (cần xác nhận trên Telegram thật) |
 | **v6.2.3** (Telegram Freeze Hotfix) | Pha 6 | Sửa vòng lặp gắn/xoá nút gây treo tab Telegram ở 6.2.2; quét DOM gộp theo khung hình; báo rõ khi cần F5 tab. | ✅ **Đã hoàn thành** (cần xác nhận trên Telegram thật) |
+| **v6.2.4** (Telegram Stream Resilience) | Pha 6 | Range-fetch thử lại 408/425/429/5xx; viewer nhớ URL stream của `<video>` và dự phòng bằng request stream mới nhất; tooltip hiện lý do lỗi. | ✅ **Đã hoàn thành** (cần xác nhận trên Telegram thật) |
 | **v6.3.0+** (Following Scanner / Type-Safety) | Backlog | Following Scanner Feature 1 (API scan + unfollow), dọn nốt type ở content script. | 📋 Đang lập kế hoạch |
 
 ---

@@ -1,8 +1,8 @@
 # Đề xuất tính năng mới cho ExtensionX
 
-> **Phiên bản hiện tại:** 6.2.3 | **Cập nhật:** 2026-09-19
+> **Phiên bản hiện tại:** 6.2.4 | **Cập nhật:** 2026-09-19
 
-Dựa trên phiên bản hiện tại (v6.2.3), đã hỗ trợ tải media từ X.com và Telegram Web, dưới đây là các ý tưởng mở rộng có thể cân nhắc cho những bản tiếp theo.
+Dựa trên phiên bản hiện tại (v6.2.4), đã hỗ trợ tải media từ X.com và Telegram Web, dưới đây là các ý tưởng mở rộng có thể cân nhắc cho những bản tiếp theo.
 
 > **Đã triển khai trong v6.2.0:** mục 4 (Rename Pattern) được hiện thực hoá dưới dạng *Template đặt tên file* (`{username} {tweetId} {date} {type} {ext} {index}`, có preview trong Options). Các tính năng Download Picker, Filter Preset, Queue pause/reorder/retry, Manifest export và Watch mode được theo dõi tại `ke-hoach-pha7-plus-2026-09.md`.
 
