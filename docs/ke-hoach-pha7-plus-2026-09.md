@@ -2,7 +2,7 @@
 
 > Kế hoạch kế tiếp của `ke-hoach-nang-cap-2026-09.md` — rà soát độc lập lại Pha 0-6 và lên roadmap cho backlog kỹ thuật + Phase 5+.
 >
-> **Trạng thái (2026-09-19): Pha 7 → Pha 15 đã hoàn tất và được phát hành trong v6.2.0** (xem `CHANGELOG.md`). Còn mở: smoke test thủ công trên Chrome thật, dọn nốt type ở content script, bảo trì dependency.
+> **Trạng thái (2026-09-19): Pha 7 → Pha 15 đã hoàn tất và được phát hành trong v6.2.0** (xem `CHANGELOG.md`); v6.2.1 là bản vá riêng cho tải video Telegram nhóm riêng tư (Range fetch trong MAIN world, `tg-main.ts`), ngoài phạm vi các Pha. Còn mở: smoke test thủ công trên Chrome thật, dọn nốt type ở content script, bảo trì dependency.
 
 ## Context
 

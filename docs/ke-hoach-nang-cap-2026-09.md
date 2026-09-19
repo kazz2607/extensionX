@@ -9,7 +9,7 @@
 
 ## 1. Bảng tiến độ tổng quan (Progress Dashboard)
 
-Tính đến ngày **19-09-2026**, toàn bộ các pha kỹ thuật cốt lõi (Pha 0 → Pha 4), Pha 6 (Telegram) và roadmap mở rộng Pha 7 → Pha 15 đã hoàn thành và được phát hành trong **v6.2.0**, vượt qua 100% các kiểm thử hồi quy:
+Tính đến ngày **19-09-2026**, toàn bộ các pha kỹ thuật cốt lõi (Pha 0 → Pha 4), Pha 6 (Telegram) và roadmap mở rộng Pha 7 → Pha 15 đã hoàn thành và được phát hành trong **v6.2.0** (kèm bản vá Telegram nhóm riêng tư **v6.2.1**), vượt qua 100% các kiểm thử hồi quy:
 
 | Pha | Tên pha & Mục tiêu | Ưu tiên | Trạng thái | Commit tham chiếu |
 |---|---|---|---|---|
@@ -30,13 +30,13 @@ Tính đến ngày **19-09-2026**, toàn bộ các pha kỹ thuật cốt lõi (
 | **Pha 15** | Watch mode theo profile (thiết kế an toàn, không polling ngầm) — xem `ke-hoach-pha7-plus-2026-09.md` | P4 | ✅ **Hoàn tất** (cần smoke test tay trên Chrome thật) | |
 
 **Trạng thái kiểm thử hiện hành (`npm run check`):**
-- ✅ `20/20 unit tests` pass
+- ✅ `21/21 unit tests` pass
 - ✅ `2/2 e2e fixture regression tests` pass
 - ✅ `TypeScript (tsc --noEmit)` clean (không có lỗi typecheck)
 - ✅ `ESLint` clean
 - ✅ `Vite build` thành công toàn bộ entrypoints
 
-**Còn mở:** smoke test thủ công trên Chrome thật cho các Pha 8–15 (môi trường phát triển không có trình duyệt tương tác; `npm run test:browser` timeout chờ Service Worker trong sandbox, đã xác minh có sẵn từ trước, không phải regression); dọn nốt `@ts-ignore`/`any` ở 5 content script (xem mục 12); bảo trì dependency định kỳ.
+**Còn mở:** smoke test thủ công trên Chrome thật cho các Pha 8–15 và cho tải video stream Telegram nhóm riêng tư (v6.2.1, mới chỉ kiểm chứng bằng harness Node) (môi trường phát triển không có trình duyệt tương tác; `npm run test:browser` timeout chờ Service Worker trong sandbox, đã xác minh có sẵn từ trước, không phải regression); dọn nốt `@ts-ignore`/`any` ở 5 content script (xem mục 12); bảo trì dependency định kỳ.
 
 ---
 
