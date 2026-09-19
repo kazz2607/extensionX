@@ -10,12 +10,8 @@ export interface I18nAPI {
   lang: string;
 }
 
-declare global {
-  interface Window {
-// @ts-ignore
-    i18n?: I18nAPI;
-  }
-}
+// window.i18n được khai báo trong types.ts (dùng chung I18nAPI này) — không
+// khai báo lại ở đây để tránh xung đột "subsequent property declarations".
 
 const TRANSLATIONS: Record<string, Record<string, string>> = {
   en: {
@@ -297,8 +293,7 @@ let _currentLang: string = 'en';
 // Load ngôn ngữ từ chrome.storage.local
 export async function loadI18n(): Promise<void> {
   try {
-    const res = await chrome.storage.local.get('lang');
-// @ts-ignore
+    const res = await chrome.storage.local.get('lang') as { lang?: string };
     _currentLang = res.lang || 'en';
   } catch (e) {
     _currentLang = 'en';

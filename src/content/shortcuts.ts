@@ -20,9 +20,7 @@
   'use strict';
 
   // Guard: chỉ chạy 1 lần
-  // @ts-ignore
   if (window.__XMD_SHORTCUTS_LOADED__) return;
-  // @ts-ignore
   window.__XMD_SHORTCUTS_LOADED__ = true;
 
   // ─── Default Config ──────────────────────────────────────────────────────────
@@ -36,6 +34,23 @@
     reverseSearch: { enabled: true, modifiers: 'ctrl+shift', key: 'g' },
   };
 
+  // Shape lưu trong chrome.storage.sync — mọi field đều optional vì người dùng
+  // có thể chưa từng chỉnh (đã merge với DEFAULT_SHORTCUTS ở loadConfig).
+  type StoredAction = Partial<typeof DEFAULT_SHORTCUTS.copyLink>;
+  interface StoredShortcutOptions {
+    options?: {
+      shortcuts?: {
+        enabled?: boolean;
+        showToast?: boolean;
+        copyLink?: StoredAction;
+        downloadMedia?: StoredAction;
+        copyImageUrl?: StoredAction;
+        openOriginal?: StoredAction;
+        reverseSearch?: StoredAction;
+      };
+    };
+  }
+
   // ─── State ────────────────────────────────────────────────────────────────────
   let config = { ...DEFAULT_SHORTCUTS };
   let mouseX = 0;
@@ -45,7 +60,7 @@
   // ─── Load Config ──────────────────────────────────────────────────────────────
   function loadConfig() {
     try {
-      chrome.storage.sync.get('options', (result: any) => {
+      chrome.storage.sync.get('options', (result: StoredShortcutOptions) => {
         const opts = result?.options || {};
         const sc = opts.shortcuts;
         if (sc) {
@@ -72,7 +87,7 @@
 
   // Lắng nghe config thay đổi realtime
   try {
-    chrome.storage.onChanged.addListener((changes: any, area: string) => {
+    chrome.storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageChange }, area: string) => {
       if (area === 'sync' && changes.options) {
         loadConfig();
       }

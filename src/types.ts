@@ -177,7 +177,9 @@ export interface QueueExportData {
 
 declare global {
   interface Window {
-    i18n?: any;
+    i18n?: import('./lib/i18n.ts').I18nAPI;
+    // Guard chống chạy shortcuts.ts nhiều lần trên cùng 1 trang
+    __XMD_SHORTCUTS_LOADED__?: boolean;
     // options.ts: exposé console-accessible cho debug thủ công (không được gọi
     // từ options.html — các nút thật đều wire qua addEventListener).
     exportSettings?: () => Promise<void>;
