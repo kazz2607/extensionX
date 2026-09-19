@@ -1,11 +1,11 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-09-19 | Phiên bản hiện tại: **6.2.1**
+> Cập nhật: 2026-09-19 | Phiên bản hiện tại: **6.2.2**
 
 ---
 
-## 1. Kiến Trúc Hiện Tại (v6.2.1)
+## 1. Kiến Trúc Hiện Tại (v6.2.2)
 
 ```text
 extensionX/
@@ -13,7 +13,7 @@ extensionX/
 ├── tsconfig.json                  # Cấu hình TypeScript (strict: true)
 ├── vite.config.ts                 # Cấu hình Vite bundler
 ├── src/
-│   ├── manifest.json              # Chrome Extension Manifest V3 (version 6.2.1)
+│   ├── manifest.json              # Chrome Extension Manifest V3 (version 6.2.2)
 │   ├── background/
 │   │   ├── service-worker.ts      # Service Worker: core logic, queue, date filter
 │   │   ├── tweet-api.ts           # Fallback API & User Session bypass CORS
@@ -154,6 +154,7 @@ File được lưu vào:
 - **v6.1.8** Telegram Reliability: xử lý `blob:`/`data:` trong tab nguồn, giữ đúng định dạng file, xác thực sender và bổ sung regression tests.
 - **v6.2.0** Product Features & Type-Safety: refactor popup/fab thành module, Download Picker, Filter Preset, queue pause/reorder/retry, resume đáng tin cậy, template tên file, Manifest export, Watch mode; dọn `@ts-ignore`/`any` ở 9 file (264 → 98 / 87 → 42).
 - **v6.2.1** Telegram Private Group Video: tải video stream `/k/stream/`, `/a/progressive/` bằng Range fetch trong MAIN world (`tg-main.ts`) thay cho `a[download]`.
+- **v6.2.2** Telegram Viewer Button & Thumbnail: không gắn nút tải ảnh lên thumbnail video; viewer đang chiếu video thì chỉ tải video; nút viewer gắn ở `<body>` để không bị mất khi mở video phóng to.
 
 ---
 
@@ -191,6 +192,7 @@ File được lưu vào:
 | v6.1.8 | **Telegram Reliability** — Sửa tải `blob:`/`data:`, phần mở rộng file, phản hồi UI và xác thực nguồn message |
 | v6.2.0 | **Product Features** — Download Picker, Filter Preset, Queue pause/reorder/retry, Resume đáng tin cậy, Template tên file, Manifest JSON/CSV, Watch mode (không polling ngầm) |
 | v6.2.1 | **Telegram Private Group Video** — Range fetch trong trang cho video stream của nhóm/chat riêng tư, có % tiến độ |
+| v6.2.2 | **Telegram Viewer Button & Thumbnail** — bấm tải video không ra ảnh bìa, nút không còn mất khi phóng to video |
 
 ---
 
@@ -575,6 +577,7 @@ v6.1.0  ── Telegram Web Integration                                         
 v6.1.8  ── Telegram Media Download Reliability                                            ✅ DONE
 v6.2.0  ── Product features (Pha 7-15) + dọn @ts-ignore/any ở 9 file                        ✅ DONE
 v6.2.1  ── Telegram private group video: Range fetch stream trong MAIN world               ✅ DONE
+v6.2.2  ── Telegram: không tải nhầm ảnh bìa, nút viewer không còn mất khi phóng to    ✅ DONE
 
 [TIẾP THEO]
 v6.3.0  ── Following Scanner Feature 1 (API scan + unfollow), dọn type nốt content script

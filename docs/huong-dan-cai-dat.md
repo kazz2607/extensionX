@@ -2,7 +2,7 @@
 
 > Extension Chrome cho phép tải toàn bộ ảnh, video và GIF từ profile bất kỳ trên X.com (Twitter) về máy tính, tự động lưu vào thư mục `{Downloads}/{username}/` (phân loại theo `images/`, `videos/`, `gifs/`).
 
-> **Phiên bản hiện tại:** 6.2.1 | Cập nhật: 2026-09-19
+> **Phiên bản hiện tại:** 6.2.2 | Cập nhật: 2026-09-19
 
 Từ v6.1.8, tiện ích còn hỗ trợ tải trực tiếp ảnh/video trên `https://web.telegram.org` bằng nút tải xuất hiện trên media của giao diện A/K.
 
@@ -120,7 +120,7 @@ Sau khi load, extension sẽ xuất hiện trong danh sách:
 
 ```
 ┌──────────────────────────────────────────┐
-│  ⬇ X Media Downloader          v6.2.1   │
+│  ⬇ X Media Downloader          v6.2.2   │
 │  Tải toàn bộ ảnh & video từ X.com...    │
 │                                          │
 │  [Details]  [Remove]           ● Enabled │
@@ -152,7 +152,7 @@ Click icon **⬇** trên toolbar Chrome. Popup sẽ hiển thị:
 
 ```
 ┌───────────────────────────────────────────┐
-│ ⬇ X Media Downloader        v6.2.1 ⚙☀🔄 │
+│ ⬇ X Media Downloader        v6.2.2 ⚙☀🔄 │
 ├───────────────────────────────────────────┤
 │ 👤 @NASA                             [47]│
 │    Profile đang được xem                 │
@@ -328,6 +328,7 @@ Khi có phiên bản mới:
 ### Video Telegram (nhóm/chat riêng tư) không tải được
 - Sau khi cập nhật/nạp lại extension, **tải lại (F5) tab Telegram Web** — script tải video stream chỉ được nạp khi trang mở.
 - Bấm nút tải xuống màu xanh trên video: nút nhấp nháy kèm **% tiến độ** trong tooltip; file được lưu khi đủ 100%. Video dài cần thời gian và bộ nhớ tương ứng dung lượng file.
+- Video **chưa phát** trong khung chat chỉ hiện ảnh bìa nên không có nút tải ảnh trên đó: hãy **mở video (phóng to / Media Viewer)** rồi bấm nút tải xanh ở góc trên bên phải. Nếu báo "Video chưa sẵn sàng", chờ video tải xong rồi bấm lại.
 - Nếu nút chuyển đỏ, mở DevTools (F12) → Console trên tab Telegram, tìm dòng `[ExtensionX] Telegram stream download failed` và gửi kèm khi báo lỗi.
 
 ### Profile private không tải được
@@ -499,4 +500,4 @@ Nếu gặp vấn đề, hãy kiểm tra:
 - **Hướng dẫn bắt đầu:** Khi mở popup mà chưa nhận ra profile X.com, hiển thị card 3 bước hướng dẫn.
 - **Auto-save feedback:** Trang Settings hiện `⏳ Saving...` ngay khi gõ, `✓ Saved` khi lưu xong.
 
-*Phiên bản: 6.2.1 | Cập nhật: 2026-09-19*
+*Phiên bản: 6.2.2 | Cập nhật: 2026-09-19*

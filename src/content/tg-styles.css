@@ -21,6 +21,10 @@
   opacity: 0.8;
 }
 
+.ext-x-tg-download-btn[hidden] {
+  display: none !important;
+}
+
 .ext-x-tg-download-btn:hover {
   background-color: rgba(29, 155, 240, 0.9);
   opacity: 1;
@@ -54,7 +58,7 @@
   position: fixed;
   right: 28px;
   top: 80px;
-  z-index: 100000;
+  z-index: 2147483647;
   width: 44px;
   height: 44px;
   opacity: 1;

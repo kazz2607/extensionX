@@ -1,6 +1,6 @@
 # Following Scanner & Inactive Unfollow - Implementation Plan
 
-> **Version**: ExtensionX 6.2.1 | Feature 0 ✅ DONE (v5.6.0+) | Feature 1 🟡 Planned (v6.3.0+)
+> **Version**: ExtensionX 6.2.2 | Feature 0 ✅ DONE (v5.6.0+) | Feature 1 🟡 Planned (v6.3.0+)
 > **Created**: 2026-07-24
 > **Updated**: 2026-09-19
 > **Status**: Feature 0 (Auto-Scroll + Following Panel) DONE. Feature 1 (API Scanner + Unfollow) Pending.

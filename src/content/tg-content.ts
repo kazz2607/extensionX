@@ -100,9 +100,9 @@ function downloadViaStream(button: HTMLButtonElement, url: string, filename: str
   });
 }
 
-function setButtonState(button: HTMLButtonElement, state: 'success' | 'error'): void {
+function setButtonState(button: HTMLButtonElement, state: 'success' | 'error', message?: string): void {
   button.dataset.state = state;
-  button.title = state === 'success' ? 'Đã bắt đầu tải xuống' : 'Không thể tải xuống';
+  button.title = message ?? (state === 'success' ? 'Đã bắt đầu tải xuống' : 'Không thể tải xuống');
   window.setTimeout(() => {
     delete button.dataset.state;
     button.title = 'Tải xuống (X Media Downloader)';
@@ -121,10 +121,7 @@ function findNativeDownloadButton(mediaElement: HTMLElement): HTMLElement | null
   return nativeBtn;
 }
 
-async function handleDownloadClick(event: MouseEvent, mediaElement: HTMLElement, kind: TelegramMediaKind): Promise<void> {
-  event.preventDefault();
-  event.stopPropagation();
-  const button = event.currentTarget as HTMLButtonElement;
+async function handleDownloadClick(button: HTMLButtonElement, mediaElement: HTMLElement, kind: TelegramMediaKind): Promise<void> {
   if (button.dataset.state === 'loading') return; // đang tải — bỏ qua click đúp
 
   try {
@@ -200,7 +197,11 @@ function attachButtonToMedia(container: HTMLElement, mediaElement: HTMLElement, 
   button.title = 'Tải xuống (X Media Downloader)';
   button.setAttribute('aria-label', kind === 'video' ? 'Tải video Telegram' : 'Tải ảnh Telegram');
   button.appendChild(createDownloadIcon());
-  button.addEventListener('click', (event) => void handleDownloadClick(event, mediaElement, kind));
+  button.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void handleDownloadClick(button, mediaElement, kind);
+  });
   container.appendChild(button);
 }
 
@@ -215,6 +216,49 @@ function visibleMediaArea(element: HTMLElement): number {
   const style = getComputedStyle(element);
   if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return 0;
   return rect.width * rect.height;
+}
+
+// Dấu hiệu 1 khối media là VIDEO (Web K: .video-time/.video-play; Web A: duration/play icon).
+// Khi video chưa phát, DOM chỉ có ảnh/canvas thumbnail — không có thẻ <video> để phân biệt.
+const VIDEO_HINT_SELECTOR = '.video-time, .video-play, .video-duration, .message-media-duration, .icon-large-play, .media-video, .ckin__player, .VideoPlayer';
+const VIDEO_UI_SELECTOR = `video, ${VIDEO_HINT_SELECTOR}`;
+const MEDIA_CONTAINER_SELECTOR = '.media-container, .media-inner, .album-item, .album-item-media, .message-media, .Media';
+
+/** Ảnh/canvas này là thumbnail của video (tải nó ra chỉ được 1 tấm ảnh). */
+function isVideoThumbnail(element: HTMLElement): boolean {
+  const container = element.closest(MEDIA_CONTAINER_SELECTOR) ?? element.parentElement;
+  return !!container?.querySelector(VIDEO_HINT_SELECTOR);
+}
+
+function isOnScreen(element: HTMLElement): boolean {
+  const rect = element.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return false;
+  if (rect.right < 0 || rect.left > window.innerWidth || rect.bottom < 0 || rect.top > window.innerHeight) return false;
+  const style = getComputedStyle(element);
+  return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity) !== 0;
+}
+
+/** <video> đang hiển thị trong viewer và đã có nguồn — luôn được ưu tiên hơn ảnh/canvas thumbnail. */
+function findViewerVideo(viewer: HTMLElement): HTMLVideoElement | null {
+  const videos = Array.from(viewer.querySelectorAll<HTMLVideoElement>('video'))
+    .filter((video) => !video.closest('.ext-x-tg-download-btn') && isOnScreen(video) && mediaUrl(video));
+  videos.sort((a, b) => visibleMediaArea(b) - visibleMediaArea(a));
+  return videos[0] ?? null;
+}
+
+/** Viewer đang hiển thị 1 video (kể cả khi <video> chưa có nguồn/đang tải). */
+function viewerShowsVideo(viewer: HTMLElement): boolean {
+  return Array.from(viewer.querySelectorAll<HTMLElement>(VIDEO_UI_SELECTOR)).some(isOnScreen);
+}
+
+/** Video vừa mở thường cần vài trăm ms mới có nguồn — chờ thay vì rơi về thumbnail. */
+async function waitForViewerVideo(viewer: HTMLElement, timeoutMs = 3_000): Promise<HTMLVideoElement | null> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const video = findViewerVideo(viewer);
+    if (video || Date.now() >= deadline) return video;
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 200));
+  }
 }
 
 function findViewerMedia(viewer: HTMLElement): HTMLElement | null {
@@ -243,32 +287,78 @@ function findViewerMedia(viewer: HTMLElement): HTMLElement | null {
   return backgrounds[0] || null;
 }
 
-function attachButtonToViewer(viewer: HTMLElement): void {
-  // React may re-render the viewer contents and destroy our button while keeping the wrapper.
-  // We MUST check if the button actually exists in the DOM instead of relying solely on dataset.
-  if (viewer.querySelector('.ext-x-tg-viewer-download-btn')) return;
-  viewer.dataset.extXTelegramViewerDownload = 'true';
+async function handleViewerDownload(button: HTMLButtonElement, viewer: HTMLElement): Promise<void> {
+  if (button.dataset.state === 'loading') return;
 
+  // Viewer đang chiếu video: chỉ được tải VIDEO. Thumbnail (ảnh/canvas) nằm cùng khung và
+  // có thể lớn hơn <video> nên tuyệt đối không dùng làm phương án dự phòng.
+  if (viewerShowsVideo(viewer)) {
+    const video = await waitForViewerVideo(viewer);
+    if (!video) {
+      setButtonState(button, 'error', 'Video chưa sẵn sàng — chờ video tải xong rồi thử lại');
+      console.error('[ExtensionX] Telegram viewer shows a video but no <video> source is available yet');
+      return;
+    }
+    await handleDownloadClick(button, video, 'video');
+    return;
+  }
+
+  const media = findViewerMedia(viewer);
+  if (!media) {
+    setButtonState(button, 'error');
+    console.error('[ExtensionX] No visible media found in Telegram viewer');
+    return;
+  }
+  await handleDownloadClick(button, media, media instanceof HTMLVideoElement ? 'video' : 'image');
+}
+
+// Nút của Media Viewer được gắn vào <body> chứ KHÔNG gắn vào container viewer của Telegram:
+// khi chuyển sang video, Telegram dựng lại/cắt (overflow, transform) nội dung viewer làm nút
+// bị xoá hoặc bị clip. Nút body-level không bị ảnh hưởng và chỉ hiện khi viewer đang mở.
+let _viewerButton: HTMLButtonElement | null = null;
+
+function activeViewer(): HTMLElement | null {
+  return Array.from(document.querySelectorAll<HTMLElement>(VIEWER_SELECTOR)).find(isOnScreen) ?? null;
+}
+
+function ensureViewerButton(): HTMLButtonElement {
+  if (_viewerButton) return _viewerButton;
   const button = document.createElement('button');
   button.className = 'ext-x-tg-download-btn ext-x-tg-viewer-download-btn';
   button.type = 'button';
+  button.hidden = true;
   button.title = 'Tải media đang xem (X Media Downloader)';
   button.setAttribute('aria-label', 'Tải media Telegram đang xem');
   button.appendChild(createDownloadIcon());
+  // Viewer có thể đóng khi nhận pointer/mouse event bên ngoài vùng nội dung — chặn cả chuỗi sự kiện.
+  for (const type of ['pointerdown', 'mousedown', 'mouseup', 'touchstart']) {
+    button.addEventListener(type, (event) => event.stopPropagation());
+  }
   button.addEventListener('click', (event) => {
-    const media = findViewerMedia(viewer);
-    if (!media) {
+    event.preventDefault();
+    event.stopPropagation();
+    const viewer = activeViewer();
+    if (!viewer) {
       setButtonState(button, 'error');
-      console.error('[ExtensionX] No visible media found in Telegram viewer');
       return;
     }
-    void handleDownloadClick(event, media, media instanceof HTMLVideoElement ? 'video' : 'image');
+    void handleViewerDownload(button, viewer);
   });
-  viewer.appendChild(button);
+  _viewerButton = button;
+  return button;
+}
+
+/** Hiện/ẩn nút viewer theo trạng thái viewer, và gắn lại vào <body> nếu bị gỡ. */
+function syncViewerButton(): void {
+  const viewerOpen = activeViewer() !== null;
+  if (!viewerOpen && !_viewerButton) return;
+  const button = ensureViewerButton();
+  if (viewerOpen && !button.isConnected) document.body.appendChild(button);
+  button.hidden = !viewerOpen;
 }
 
 function processDOM(): void {
-  document.querySelectorAll<HTMLElement>(VIEWER_SELECTOR).forEach(attachButtonToViewer);
+  syncViewerButton();
 
   const videos = document.querySelectorAll<HTMLVideoElement>(
     '.message video, .Message video, .message-media video, .media-viewer video, .MediaViewer video, .VideoPlayer video, video.media-video',
@@ -285,11 +375,17 @@ function processDOM(): void {
     if (image.closest(VIEWER_SELECTOR)) return;
     if (image.closest('.avatar, .Avatar, .emoji, .Emoji, .sticker, .Sticker')) return;
     if (image.naturalWidth > 0 && image.naturalHeight > 0 && (image.naturalWidth < 120 || image.naturalHeight < 120)) return;
+    // Thumbnail của video: nút "tải ảnh" ở đây chỉ tải ra tấm ảnh bìa. Video tải từ nút trong viewer.
+    if (isVideoThumbnail(image)) {
+      image.parentElement?.querySelector(':scope > .ext-x-tg-download-btn')?.remove();
+      return;
+    }
     if (image.parentElement) attachButtonToMedia(image.parentElement, image, 'image');
   });
 
   document.querySelectorAll<HTMLCanvasElement>('.message-media canvas, .Media canvas').forEach((canvas) => {
     if (canvas.closest(VIEWER_SELECTOR)) return;
+    if (isVideoThumbnail(canvas)) return;
     if (canvas.parentElement) attachButtonToMedia(canvas.parentElement, canvas, 'image');
   });
 }
@@ -300,3 +396,5 @@ const observer = new MutationObserver((mutations) => {
 
 observer.observe(document.body, { childList: true, subtree: true });
 processDOM();
+// Viewer mở/đóng chủ yếu đổi class/style (không thêm node) nên observer childList có thể bỏ sót.
+window.setInterval(syncViewerButton, 500);

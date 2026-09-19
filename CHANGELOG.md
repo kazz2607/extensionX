@@ -4,6 +4,17 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [6.2.2] — 2026-09-19 *(Telegram Viewer Button & Thumbnail Fix)*
+
+### 🐛 Sửa lỗi
+- **Bấm tải video nhưng nhận về ảnh:** khi video chưa phát, DOM chỉ có ảnh/canvas thumbnail chứ chưa có thẻ `<video>`; extension trước đây gắn nút "tải ảnh" vào thumbnail đó, và trong Media Viewer sẽ rơi về ảnh khi chưa thấy `<video>` (hoặc khi thumbnail lớn hơn video). Nay:
+  - Không gắn nút "tải ảnh" lên thumbnail của video (nhận diện qua dấu hiệu thời lượng/nút play của Web K/A); video được tải bằng nút trong Media Viewer.
+  - Viewer đang chiếu video thì **chỉ tải video**: tự chờ tối đa 3 giây để `<video>` có nguồn; nếu chưa có thì báo "Video chưa sẵn sàng — chờ video tải xong rồi thử lại" thay vì tải ảnh bìa. Ảnh thường và slide ảnh giữ nguyên.
+- **Mất nút tải khi phóng to xem video:** nút của Media Viewer trước đây được gắn *bên trong* container viewer của Telegram nên bị xoá/clip khi Telegram dựng lại nội dung viewer lúc chuyển sang video. Nút nay gắn ở `<body>` (z-index tối đa), chỉ hiện khi viewer đang mở, tự đồng bộ mỗi 500 ms và chặn các sự kiện pointer/mouse để không làm đóng viewer.
+- **Lưu ý:** việc nhận diện video/viewer dựa trên tên class DOM của Telegram Web (`VIDEO_HINT_SELECTOR`, `VIEWER_SELECTOR`), chưa thử được trên trang thật; nếu Telegram đổi class, hãy báo để cập nhật. Sau khi cập nhật cần tải lại tab Telegram.
+
+---
+
 ## [6.2.1] — 2026-09-19 *(Telegram Private Group Video Fix)*
 
 ### 🐛 Sửa lỗi
