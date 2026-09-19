@@ -62,6 +62,13 @@ interface StreamStatusDetail {
 
 let _streamSeq = 0;
 
+class StaleExtensionError extends Error {
+  constructor() {
+    super('Extension vừa được cập nhật — hãy tải lại (F5) tab Telegram rồi thử lại');
+    this.name = 'StaleExtensionError';
+  }
+}
+
 /** Tải video stream bằng Range fetch trong MAIN world; reject nếu thất bại để caller fallback. */
 function downloadViaStream(button: HTMLButtonElement, url: string, filename: string): Promise<void> {
   const id = `tg-${Date.now()}-${++_streamSeq}`;
@@ -103,10 +110,11 @@ function downloadViaStream(button: HTMLButtonElement, url: string, filename: str
 function setButtonState(button: HTMLButtonElement, state: 'success' | 'error', message?: string): void {
   button.dataset.state = state;
   button.title = message ?? (state === 'success' ? 'Đã bắt đầu tải xuống' : 'Không thể tải xuống');
+  // Thông báo tuỳ chỉnh (vd. cần F5 tab) cần thời gian đủ dài để đọc.
   window.setTimeout(() => {
     delete button.dataset.state;
     button.title = 'Tải xuống (X Media Downloader)';
-  }, 1500);
+  }, message ? 6_000 : 1500);
 }
 
 function findNativeDownloadButton(mediaElement: HTMLElement): HTMLElement | null {
@@ -170,6 +178,9 @@ async function handleDownloadClick(button: HTMLButtonElement, mediaElement: HTML
     if (url.startsWith('data:')) {
       downloadDataUrlLocal(url, filename);
     } else {
+      // Sau khi extension được tải lại/cập nhật, script cũ vẫn còn trên tab nhưng chrome.runtime
+      // đã bị vô hiệu (undefined) — báo rõ thay vì lỗi "Cannot read properties of undefined".
+      if (!chrome.runtime?.id) throw new StaleExtensionError();
       const message: ExtensionMessage = {
         type: 'TG_DOWNLOAD_MEDIA',
         payload: { url, filename, isVideo: kind === 'video' },
@@ -179,7 +190,7 @@ async function handleDownloadClick(button: HTMLButtonElement, mediaElement: HTML
     }
     setButtonState(button, 'success');
   } catch (error) {
-    setButtonState(button, 'error');
+    setButtonState(button, 'error', error instanceof StaleExtensionError ? error.message : undefined);
     console.error('[ExtensionX] Telegram download failed:', error);
   }
 }
@@ -376,10 +387,7 @@ function processDOM(): void {
     if (image.closest('.avatar, .Avatar, .emoji, .Emoji, .sticker, .Sticker')) return;
     if (image.naturalWidth > 0 && image.naturalHeight > 0 && (image.naturalWidth < 120 || image.naturalHeight < 120)) return;
     // Thumbnail của video: nút "tải ảnh" ở đây chỉ tải ra tấm ảnh bìa. Video tải từ nút trong viewer.
-    if (isVideoThumbnail(image)) {
-      image.parentElement?.querySelector(':scope > .ext-x-tg-download-btn')?.remove();
-      return;
-    }
+    if (isVideoThumbnail(image)) return;
     if (image.parentElement) attachButtonToMedia(image.parentElement, image, 'image');
   });
 
@@ -390,8 +398,27 @@ function processDOM(): void {
   });
 }
 
+function isOwnNode(node: Node): boolean {
+  return node instanceof Element && node.classList.contains('ext-x-tg-download-btn');
+}
+
+// Gộp nhiều đợt mutation vào 1 lần quét/khung hình, và bỏ qua mutation do chính nút của
+// extension gây ra — để không bao giờ tạo vòng lặp "gắn nút → mutation → quét lại".
+let _processScheduled = false;
+function scheduleProcessDOM(): void {
+  if (_processScheduled) return;
+  _processScheduled = true;
+  window.requestAnimationFrame(() => {
+    _processScheduled = false;
+    processDOM();
+  });
+}
+
 const observer = new MutationObserver((mutations) => {
-  if (mutations.some((mutation) => mutation.addedNodes.length > 0)) processDOM();
+  const hasForeignAddition = mutations.some((mutation) =>
+    Array.from(mutation.addedNodes).some((node) => !isOwnNode(node)),
+  );
+  if (hasForeignAddition) scheduleProcessDOM();
 });
 
 observer.observe(document.body, { childList: true, subtree: true });

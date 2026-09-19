@@ -4,6 +4,14 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [6.2.3] — 2026-09-19 *(Telegram Freeze Hotfix)*
+
+### 🐛 Sửa lỗi
+- **Tab Telegram bị treo (chỉ có ở 6.2.2):** khi thumbnail và `<video>` nằm chung một container, code nhận diện thumbnail ở 6.2.2 xoá nút tải mà nhánh `<video>` vừa gắn, nhánh `<video>` lại gắn lại → mỗi lần gắn kích hoạt `MutationObserver` quét lại → vòng lặp vô hạn làm đứng trang. Đã bỏ đoạn xoá nút đó; đồng thời quét DOM được gộp theo khung hình (`requestAnimationFrame`) và bỏ qua mutation do chính nút của extension gây ra, để không thể tái phát vòng lặp kiểu này. Đã kiểm chứng trên Chrome thật với trang giả lập cấu trúc Web K: bản 6.2.2 làm đứng trang, bản 6.2.3 chỉ gắn đúng 1 nút và phản hồi ngay.
+- **`Cannot read properties of undefined (reading 'sendMessage')`:** xảy ra khi extension vừa được tải lại/cập nhật nhưng tab Telegram chưa được F5 (script cũ mất `chrome.runtime`). Nút nay báo rõ "Extension vừa được cập nhật — hãy tải lại (F5) tab Telegram rồi thử lại" thay vì lỗi khó hiểu.
+
+---
+
 ## [6.2.2] — 2026-09-19 *(Telegram Viewer Button & Thumbnail Fix)*
 
 ### 🐛 Sửa lỗi
