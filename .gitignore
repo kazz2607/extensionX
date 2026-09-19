@@ -3,3 +3,5 @@ dist/
 .env
 x-media-downloader-*.zip
 .DS_Store
+# Extension tham khảo của bên thứ ba (không thuộc dự án)
+docs/ttp/
