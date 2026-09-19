@@ -805,7 +805,7 @@ async function buildManifest(username: string): Promise<{ json: string; csv: str
   const history = ((storedHistory.download_history as HistoryEntry[]) || []).filter((entry) => entry.username === username);
 
   const json = JSON.stringify({
-    _version: '6.1.8',
+    _version: '6.2.0',
     _exportedAt: new Date().toISOString(),
     username,
     history,

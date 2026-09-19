@@ -1,15 +1,15 @@
 # ExtensionX — Kế hoạch nâng cấp sau rà soát mã nguồn
 
-> Phạm vi: ExtensionX v6.1.8 (Manifest V3)
+> Phạm vi: ExtensionX v6.2.0 (Manifest V3)
 > Rà soát ban đầu: 16-09-2026  
-> Cập nhật hiện trạng: 17-09-2026  
+> Cập nhật hiện trạng: 19-09-2026  
 > Mục tiêu: giảm lỗi khi X.com thay đổi, giữ giao diện phản hồi nhanh với phiên thu thập/tải lớn, giảm bề mặt tấn công, và tạo nền tảng để mở rộng tính năng.
 
 ---
 
 ## 1. Bảng tiến độ tổng quan (Progress Dashboard)
 
-Tính đến ngày **17-09-2026**, toàn bộ 5 pha kỹ thuật cốt lõi (Pha 0 → Pha 4) đã hoàn thành và vượt qua 100% các kiểm thử hồi quy:
+Tính đến ngày **19-09-2026**, toàn bộ các pha kỹ thuật cốt lõi (Pha 0 → Pha 4), Pha 6 (Telegram) và roadmap mở rộng Pha 7 → Pha 15 đã hoàn thành và được phát hành trong **v6.2.0**, vượt qua 100% các kiểm thử hồi quy:
 
 | Pha | Tên pha & Mục tiêu | Ưu tiên | Trạng thái | Commit tham chiếu |
 |---|---|---|---|---|
@@ -30,11 +30,13 @@ Tính đến ngày **17-09-2026**, toàn bộ 5 pha kỹ thuật cốt lõi (Pha
 | **Pha 15** | Watch mode theo profile (thiết kế an toàn, không polling ngầm) — xem `ke-hoach-pha7-plus-2026-09.md` | P4 | ✅ **Hoàn tất** (cần smoke test tay trên Chrome thật) | |
 
 **Trạng thái kiểm thử hiện hành (`npm run check`):**
-- ✅ `15/15 unit tests` pass
+- ✅ `20/20 unit tests` pass
 - ✅ `2/2 e2e fixture regression tests` pass
 - ✅ `TypeScript (tsc --noEmit)` clean (không có lỗi typecheck)
 - ✅ `ESLint` clean
-- ✅ `Vite build` thành công toàn bộ 14 entrypoints
+- ✅ `Vite build` thành công toàn bộ entrypoints
+
+**Còn mở:** smoke test thủ công trên Chrome thật cho các Pha 8–15 (môi trường phát triển không có trình duyệt tương tác; `npm run test:browser` timeout chờ Service Worker trong sandbox, đã xác minh có sẵn từ trước, không phải regression); dọn nốt `@ts-ignore`/`any` ở 5 content script (xem mục 12); bảo trì dependency định kỳ.
 
 ---
 
@@ -170,17 +172,19 @@ Tính đến ngày **17-09-2026**, toàn bộ 5 pha kỹ thuật cốt lõi (Pha
 
 ---
 
-## 10. Đề xuất tính năng mới (Phase 5+)
+## 10. Đề xuất tính năng mới (Phase 5+) — ✅ đã triển khai trong v6.2.0
 
-| Ưu tiên | Tính năng | Giá trị người dùng | Điều kiện kỹ thuật |
-| --- | --- | --- | --- |
-| **Cao** | Interactive Download Picker | Xem preview thumbnail và chọn/bỏ chọn từng media cụ thể trước khi tải. | Tận dụng `download-preview` panel và danh sách media trong IndexedDB. |
-| **Cao** | Resume đáng tin cậy | Tiếp tục tải từ session trước sau khi đóng trình duyệt hoặc crash. | Đã có nền tảng `operationId` + `state machine` từ Pha 2. |
-| **Cao** | Download Recipe / Preset | Lưu cấu hình filter, thư mục, định dạng tên file riêng cho từng profile. | Tích hợp vào options migration. |
-| **Trung bình** | Quản lý hàng đợi nâng cao | Cho phép tạm dừng, đổi thứ tự (drag-drop/reorder), retry từng item trong queue. | Hoàn thiện UI Queue controls. |
-| **Trung bình** | Template đặt tên file linh hoạt | Cho phép template `{username}_{date}_{tweetId}_{index}.{ext}` kèm preview thời gian thực. | Sử dụng sanitizer whitelist đã có. |
-| **Trung bình** | Xuất Manifest JSON/CSV nâng cao | Báo cáo chi tiết các file đã tải kèm metadata (retweet, timestamp, resolution). | Mở rộng schema export từ Pha 0. |
-| **Thấp** | Chế độ theo dõi profile (Watch) | Kiểm tra và thông báo media mới theo chu kỳ người dùng chọn. | Cần cơ chế rate-limit chặt chẽ và UX consent. |
+Chi tiết triển khai, các điểm thu hẹp phạm vi và quyết định thiết kế nằm ở `ke-hoach-pha7-plus-2026-09.md`.
+
+| Ưu tiên | Tính năng | Giá trị người dùng | Điều kiện kỹ thuật | Trạng thái |
+| --- | --- | --- | --- | --- |
+| **Cao** | Interactive Download Picker | Xem preview thumbnail và chọn/bỏ chọn từng media cụ thể trước khi tải. | Tận dụng `download-preview` panel và danh sách media trong IndexedDB. | ✅ Pha 9 |
+| **Cao** | Resume đáng tin cậy | Tiếp tục tải từ session trước sau khi đóng trình duyệt hoặc crash. | Đã có nền tảng `operationId` + `state machine` từ Pha 2. | ✅ Pha 10 (dedupe đúng lần resume kế tiếp) |
+| **Cao** | Download Recipe / Preset | Lưu cấu hình filter, thư mục, định dạng tên file riêng cho từng profile. | Tích hợp vào options migration. | ✅ Pha 11 (thu hẹp: filter/ngày/từ khoá/skip-duplicates) |
+| **Trung bình** | Quản lý hàng đợi nâng cao | Cho phép tạm dừng, đổi thứ tự (drag-drop/reorder), retry từng item trong queue. | Hoàn thiện UI Queue controls. | ✅ Pha 12 (nút ▲/▼ thay vì kéo-thả) |
+| **Trung bình** | Template đặt tên file linh hoạt | Cho phép template `{username}_{date}_{tweetId}_{index}.{ext}` kèm preview thời gian thực. | Sử dụng sanitizer whitelist đã có. | ✅ Pha 13 |
+| **Trung bình** | Xuất Manifest JSON/CSV nâng cao | Báo cáo chi tiết các file đã tải kèm metadata (retweet, timestamp, resolution). | Mở rộng schema export từ Pha 0. | ✅ Pha 14 |
+| **Thấp** | Chế độ theo dõi profile (Watch) | Kiểm tra và thông báo media mới theo chu kỳ người dùng chọn. | Cần cơ chế rate-limit chặt chẽ và UX consent. | ✅ Pha 15 (không polling ngầm) |
 
 ---
 
@@ -193,24 +197,21 @@ Tính đến ngày **17-09-2026**, toàn bộ 5 pha kỹ thuật cốt lõi (Pha
 | **v6.0.0** (Performance & UI) | Pha 3 + Pha 4 | Giảm 50% observer overhead, rAF batching, phân trang history, design tokens, phase status bar, preview panel. | ✅ **Sẵn sàng phát hành** |
 | **v6.1.0** (Telegram Integration) | Pha 6 | Hỗ trợ tải trực tiếp ảnh/video từ Telegram Web (K & A versions). | ✅ **Đã hoàn thành** |
 | **v6.1.8** (Telegram Reliability) | Pha 6 | Sửa luồng `blob:`/`data:`, giữ đúng định dạng file, xác thực sender và bổ sung regression tests. | ✅ **Đã hoàn thành** |
-| **v6.2.0+** (Product Features) | Phase 5+ | Download picker (chọn từng ảnh/video), resume session sau crash, queue reordering. | 📋 Đang lập kế hoạch |
+| **v6.2.0** (Product Features & Type-Safety) | Pha 7 → Pha 15 | Refactor `popup.ts`/`fab.ts` thành module, Download Picker, Resume đáng tin cậy, Filter Preset, queue pause/reorder/retry, template tên file, Manifest export, Watch mode; dọn `@ts-ignore`/`any` ở 9 file. | ✅ **Đã hoàn thành** |
+| **v6.3.0+** (Following Scanner / Type-Safety) | Backlog | Following Scanner Feature 1 (API scan + unfollow), dọn nốt type ở content script. | 📋 Đang lập kế hoạch |
 
 ---
 
 ## 12. Backlog kỹ thuật và bảo trì định kỳ
 
-1. **Refactor cấu trúc module `popup.ts`**:
-   - Hiện tại `popup.ts` (~1.700 dòng). Đề xuất chia nhỏ thành các submodules chuyên trách:
-     - `popup-state.ts`: Quản lý reactive state & storage sync.
-     - `popup-messages.ts`: Xử lý `chrome.runtime.onMessage`.
-     - `popup-queue.ts`: Logic hiển thị và điều khiển Multi-Profile Queue.
-     - `popup-history.ts`: Logic phân trang và hiển thị Download History.
-     - `popup-ui.ts`: Render DOM, status bar, preview panel, error dialogs.
-2. **Modularize `fab.ts`**:
-   - Tách thành floating button view, drag gesture controller và collect bridge.
-3. **Nâng cao Type Safety**:
-   - Loại bỏ dần các annotation `@ts-ignore` và `any` còn lại trong `popup.ts` và content scripts; thay bằng type guards và `Window` interface mở rộng.
+1. ~~**Refactor cấu trúc module `popup.ts`**~~ ✅ Đã xong ở Pha 8 (v6.2.0): tách `status-bar`, `toast`, `donut-chart`, `history-panel`, `date-range`, `queue-panel` (+ `download-picker`, `presets`, `watch-list` ở Pha 9/11/15) theo pattern deps-object của `following-panel.ts`. `popup.ts` vẫn giữ message router và DOM ref cache (~1.330 dòng).
+2. ~~**Modularize `fab.ts`**~~ ✅ Đã xong ở Pha 8: entry 28 dòng + `fab-css/dom/drag/i18n/events`.
+3. **Nâng cao Type Safety** — đang thực hiện dở dang:
+   - Đã sạch `@ts-ignore`/`any`: `options.ts`, `messages.ts`, `indexeddb.ts`, `tweet-api.ts`, `hls-fetcher.ts`, `scraper.ts`, `downloader.ts`, `i18n.ts`, `shortcuts.ts`; `popup.ts` hết `@ts-ignore` (còn 9 `any` cố ý ở ranh giới response `sendBG`).
+   - Tổng: `@ts-ignore` 264 → 98, `any` 87 → 42.
+   - Còn lại (đều là content script chạy trong trang X.com, chưa có unit test nên cần rà kỹ từng file): `page-interceptor.ts` (32), `snackbar.ts` (19), `content.ts` (18), `dom-scanner.ts` (16), `tweet-btn.ts` (12). `lib/jszip.min.ts` (1) là thư viện vendor, không chỉnh sửa.
 4. **Bảo trì Dependencies**:
    - Kiểm tra định kỳ hàng tháng các bản cập nhật bảo mật của Vite, TypeScript, Rollup/Rolldown.
 5. **Khả năng thích ứng với thay đổi từ X.com**:
    - Duy trì song song cơ chế bắt GraphQL API (network interceptor) và cơ chế fallback quét DOM (`dom-scanner.ts`) để đảm bảo extension vẫn hoạt động ổn định khi X thay đổi cấu trúc giao diện hoặc query ID.
+6. **Smoke test thủ công trên Chrome thật** cho các Pha 8–15 trước khi publish lên Chrome Web Store.

@@ -2,7 +2,7 @@
 
 > Extension Chrome cho phép tải toàn bộ ảnh, video và GIF từ profile bất kỳ trên X.com (Twitter) về máy tính, tự động lưu vào thư mục `{Downloads}/{username}/` (phân loại theo `images/`, `videos/`, `gifs/`).
 
-> **Phiên bản hiện tại:** 6.1.8 | Cập nhật: 2026-09-17
+> **Phiên bản hiện tại:** 6.2.0 | Cập nhật: 2026-09-19
 
 Từ v6.1.8, tiện ích còn hỗ trợ tải trực tiếp ảnh/video trên `https://web.telegram.org` bằng nút tải xuất hiện trên media của giao diện A/K.
 
@@ -47,7 +47,7 @@ dist/                          ← Thư mục build (dùng thư mục này để
 │   └── offscreen.js
 ├── popup/
 │   ├── popup.html
-│   └── popup.js
+│   └── popup.js          # popup + các module con (queue, history, picker, presets, watch...) được Vite gộp vào
 ├── options/
 │   ├── options.html
 │   └── options.js
@@ -120,7 +120,7 @@ Sau khi load, extension sẽ xuất hiện trong danh sách:
 
 ```
 ┌──────────────────────────────────────────┐
-│  ⬇ X Media Downloader          v6.1.8   │
+│  ⬇ X Media Downloader          v6.2.0   │
 │  Tải toàn bộ ảnh & video từ X.com...    │
 │                                          │
 │  [Details]  [Remove]           ● Enabled │
@@ -152,7 +152,7 @@ Click icon **⬇** trên toolbar Chrome. Popup sẽ hiển thị:
 
 ```
 ┌───────────────────────────────────────────┐
-│ ⬇ X Media Downloader        v6.1.8 ⚙☀🔄 │
+│ ⬇ X Media Downloader        v6.2.0 ⚙☀🔄 │
 ├───────────────────────────────────────────┤
 │ 👤 @NASA                             [47]│
 │    Profile đang được xem                 │
@@ -240,6 +240,7 @@ Click biểu tượng **⚙** trên popup để mở trang cài đặt:
 | Số media tối đa | 0 (không giới hạn) | Giới hạn số media mỗi profile |
 | **🌙 Dark / ☀️ Light Mode** | Dark | Chuyển giao diện tối/sáng (nút ☀️/🌙 trên header) |
 | **📝 Tên file Username_TweetID** | Tắt | Lưu tên file theo `username_tweetId_serial.ext` |
+| **🧩 Mẫu đặt tên file** | (rỗng) | Template tuỳ chỉnh, token: `{username} {tweetId} {date} {type} {ext} {index}`; có preview khi gõ. Để trống = dùng tên mặc định (v6.2.0) |
 | **🔍 Smart Filters** | Bật | Tự động lọc avatar, banner, card preview; ảnh nhỏ hơn 150×150px bị bỏ qua |
 | **Min ảnh W × H** | 150 × 150 px | Ngưỡng kích thước tối thiểu (đặt 0 để tắt) |
 | **🔔 Snackbar tiến trình** | Bật | Hiển thị progress bar mini trên trang X.com khi đang tải (v4.0.0) |
@@ -406,6 +407,25 @@ Downloads/
 
 ---
 
+## 🌟 Tính Năng Mới (v6.2.0)
+
+### 🖼️ Download Picker
+Tab **Picker** trong popup hiện lưới thumbnail các media đã thu thập (tối đa 200 mục mỗi lần). Chọn/bỏ chọn từng mục hoặc tất cả, rồi bấm **Tải mục đã chọn**. Bộ lọc loại/ngày/từ khoá và bỏ qua trùng vẫn áp dụng. Nếu có nhiều hơn 200 mục, thu hẹp bằng Date Range/Keyword.
+
+### 💾 Filter Preset theo profile
+Trong panel **📅 Date Range**: bấm **💾 Lưu bộ lọc** để lưu loại media, bỏ qua trùng, khoảng ngày và từ khoá cho profile đang xem; lần sau bấm **📂 Nạp bộ lọc** để áp dụng lại. Preset không tự áp dụng khi đổi profile.
+
+### 📋 Điều khiển Queue nâng cao
+Mỗi mục **đang chờ** trong Queue có nút ⏸/▶ (tạm dừng/tiếp tục — mục tạm dừng bị bỏ qua khi chọn mục kế tiếp) và ▲/▼ (đổi thứ tự). Mục **lỗi** có nút ↻ để thử lại. Khi Service Worker bị restart giữa lúc tải, mục dở dang được resume và bỏ qua file đã tải.
+
+### 📤 Xuất Manifest
+Trong History panel (tab Stats): bấm **JSON** hoặc **CSV** để xuất danh sách file đã tải của profile hiện tại (URL, thời điểm tải, và tweetId/mediaKey/loại/ngày tweet nếu còn trong bộ nhớ), tối đa 10.000 dòng.
+
+### 👁 Theo dõi profile (Watch)
+Bấm nút 👁 trong profile card để theo dõi. Mỗi lần **bạn mở lại popup** trên profile đó, extension so sánh số media hiện có với lần xem trước và báo số media mới. Không polling ngầm, không thêm request nào tới X.com.
+
+---
+
 ## 🌟 Tính Năng Mới (v5.0.3)
 
 ### 📋 Multi-Profile Queue (v5.0.3)
@@ -474,4 +494,4 @@ Nếu gặp vấn đề, hãy kiểm tra:
 - **Hướng dẫn bắt đầu:** Khi mở popup mà chưa nhận ra profile X.com, hiển thị card 3 bước hướng dẫn.
 - **Auto-save feedback:** Trang Settings hiện `⏳ Saving...` ngay khi gõ, `✓ Saved` khi lưu xong.
 
-*Phiên bản: 6.1.8 | Cập nhật: 2026-09-17*
+*Phiên bản: 6.2.0 | Cập nhật: 2026-09-19*

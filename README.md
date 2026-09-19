@@ -2,7 +2,7 @@
 
 Extension Chrome mạnh mẽ cho phép bạn tải toàn bộ ảnh, video và GIF từ bất kỳ profile nào trên X.com (Twitter) với chất lượng gốc, hoàn toàn tự động và sắp xếp gọn gàng vào thư mục theo tên người dùng.
 
-> **Phiên bản hiện tại: 6.1.8** — hỗ trợ tải ảnh/video trực tiếp trên Telegram Web A/K với xử lý an toàn cho URL `blob:`, `data:` và HTTP(S).
+> **Phiên bản hiện tại: 6.2.0** — bổ sung Download Picker, Filter Preset, điều khiển Queue (tạm dừng/đổi thứ tự/thử lại), template đặt tên file, xuất Manifest và Watch mode; hỗ trợ tải ảnh/video trực tiếp trên Telegram Web A/K.
 
 ## ✨ Tính Năng Nổi Bật
 
@@ -15,7 +15,12 @@ Extension Chrome mạnh mẽ cho phép bạn tải toàn bộ ảnh, video và G
 - 🔔 **Progress Snackbar:** Thanh tiến trình glassmorphism xuất hiện ngay trên trang X.com khi download, không cần mở popup theo dõi.
 - 💾 **Session Restore:** Tự động lưu phiên thu thập và khôi phục sau khi browser tắt hoặc crash.
 - 🧹 **Smart Filters:** Tự động loại bỏ ảnh avatar, banner, card preview và ảnh nhỏ hơn ngưỡng tối thiểu.
-- 📄 **Xuất CSV:** Lưu danh sách các URL media đã quét được thành file `.csv` chỉ với 1 click.
+- 📄 **Xuất CSV & Manifest:** Lưu danh sách URL media đã quét thành `.csv`, hoặc xuất Manifest JSON/CSV các file đã tải theo từng profile.
+- 🖼️ **Download Picker:** Chọn/bỏ chọn từng ảnh/video qua lưới thumbnail trước khi tải.
+- 💾 **Filter Preset:** Lưu và nạp lại bộ lọc (loại media, khoảng ngày, từ khoá) cho từng profile.
+- 📋 **Queue nâng cao:** Tạm dừng, đổi thứ tự, thử lại từng mục; tự resume đúng cách sau khi Service Worker restart.
+- 🧩 **Template tên file:** Tự đặt tên file bằng `{username} {tweetId} {date} {type} {ext} {index}` kèm preview.
+- 👁 **Watch mode:** Báo media mới của profile theo dõi mỗi khi mở popup — không polling ngầm.
 - 🔒 **100% Xử lý cục bộ:** Toàn bộ quá trình quét, phân tích và tải xuống diễn ra trên máy của bạn, không có bất kỳ kết nối nào tới server bên thứ 3.
 - ✈️ **Telegram Web:** Chèn nút tải trực tiếp lên ảnh/video, hỗ trợ media từ URL HTTP(S), `blob:`, `data:` và canvas trên giao diện A/K.
 
@@ -46,6 +51,7 @@ Click vào nút ⚙ (Cài đặt) trên popup của extension để tuỳ chỉn
 - Chọn tải riêng lẻ Từng loại Ảnh / Video / GIF ở chất lượng gốc.
 - Bật/tắt Smart Filters, ngưỡng kích thước tối thiểu cho ảnh.
 - Bật/tắt Progress Snackbar trên trang khi đang tải.
+- Đặt mẫu tên file tuỳ chỉnh (token `{username} {tweetId} {date} {type} {ext} {index}`).
 
 ## 🔒 Quyền (Permissions) Giải Thích
 
@@ -57,4 +63,4 @@ Click vào nút ⚙ (Cài đặt) trên popup của extension để tuỳ chỉn
 
 ---
 
-*Phát triển nội bộ — Phiên bản **6.1.8** | Cập nhật: 2026-09-17*
+*Phát triển nội bộ — Phiên bản **6.2.0** | Cập nhật: 2026-09-19*

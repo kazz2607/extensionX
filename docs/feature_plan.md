@@ -1,8 +1,10 @@
 # Đề xuất tính năng mới cho ExtensionX
 
-> **Phiên bản hiện tại:** 6.1.8 | **Cập nhật:** 2026-09-17
+> **Phiên bản hiện tại:** 6.2.0 | **Cập nhật:** 2026-09-19
 
-Dựa trên phiên bản hiện tại (v6.1.8), đã hỗ trợ tải media từ X.com và Telegram Web, dưới đây là các ý tưởng mở rộng có thể cân nhắc cho những bản tiếp theo:
+Dựa trên phiên bản hiện tại (v6.2.0), đã hỗ trợ tải media từ X.com và Telegram Web, dưới đây là các ý tưởng mở rộng có thể cân nhắc cho những bản tiếp theo.
+
+> **Đã triển khai trong v6.2.0:** mục 4 (Rename Pattern) được hiện thực hoá dưới dạng *Template đặt tên file* (`{username} {tweetId} {date} {type} {ext} {index}`, có preview trong Options). Các tính năng Download Picker, Filter Preset, Queue pause/reorder/retry, Manifest export và Watch mode được theo dõi tại `ke-hoach-pha7-plus-2026-09.md`.
 
 ## 1. Bulk Download (Tải hàng loạt thông minh)
 - **Mô tả:** Thêm một nút trên giao diện Popup cho phép "Quét toàn bộ ảnh trên trang web hiện tại".
@@ -17,7 +19,7 @@ Dựa trên phiên bản hiện tại (v6.1.8), đã hỗ trợ tải media từ
 - **Mô tả:** Tích hợp thư viện JSZip. Sau khi quét hàng loạt ảnh, hệ thống không tải từng file lẻ tẻ (tránh việc tải 100 ảnh làm treo trình duyệt hoặc báo popup liên tục), mà sẽ nén lại thành 1 file `.zip` duy nhất.
 - **Tiện ích:** Gọn gàng thư mục tải về, dễ dàng quản lý theo tên chương/tên tác giả.
 
-## 4. Rename Pattern (Đổi tên file tự động theo quy tắc)
+## 4. Rename Pattern (Đổi tên file tự động theo quy tắc) — ✅ Đã có ở v6.2.0
 - **Mô tả:** Cho phép người dùng thiết lập cấu trúc tên file trước khi tải trong trang Settings.
 - **Ví dụ:** `[Tên_Web] - [Tên_Tác_Giả] - [Số_Thứ_Tự].jpg`
 - **Tiện ích:** Giúp người dùng tiết kiệm hàng giờ đồng hồ ngồi phân loại và đổi tên file sau khi tải về.

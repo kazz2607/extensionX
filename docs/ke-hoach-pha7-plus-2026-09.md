@@ -1,6 +1,8 @@
 # Rà soát toàn bộ Pha + Roadmap triển khai tiếp (Pha 7+)
 
 > Kế hoạch kế tiếp của `ke-hoach-nang-cap-2026-09.md` — rà soát độc lập lại Pha 0-6 và lên roadmap cho backlog kỹ thuật + Phase 5+.
+>
+> **Trạng thái (2026-09-19): Pha 7 → Pha 15 đã hoàn tất và được phát hành trong v6.2.0** (xem `CHANGELOG.md`). Còn mở: smoke test thủ công trên Chrome thật, dọn nốt type ở content script, bảo trì dependency.
 
 ## Context
 
@@ -107,7 +109,10 @@ Các nhánh đã verify kỹ và **đúng 100%** với code: message schema 256K
 - **Ngoài phạm vi**: không có panel quản lý danh sách đang theo dõi (chỉ toggle được khi đang xem đúng profile đó); không tùy chọn tần suất kiểm tra (vì không polling nền, không có "tần suất" để cấu hình).
 
 ### Ghi chú backlog không đưa vào pha riêng
-- **Dọn `any`/`@ts-ignore`** (340+ `@ts-ignore`, ~90 chỗ `any`): không làm big-bang pass. Chính sách: không thêm mới (đã có rule trong CLAUDE.md), dọn dần theo file mỗi khi pha nào đó chạm tới.
+- **Dọn `any`/`@ts-ignore`** — 🟡 đã thực hiện một phần sau Pha 15 (phát hành cùng v6.2.0), làm từng file một, mỗi file một commit riêng, mỗi commit đều qua `npm run check`:
+  - Kết quả: `@ts-ignore` 264 → 98, `any` 87 → 42. Đã sạch hoàn toàn: `options.ts`, `messages.ts`, `indexeddb.ts`, `tweet-api.ts`, `hls-fetcher.ts`, `scraper.ts`, `downloader.ts`, `i18n.ts`, `shortcuts.ts`; `popup.ts` hết `@ts-ignore` (còn 9 `any` cố ý ở ranh giới response `sendBG`).
+  - Kỹ thuật chính: helper cast không-null cho DOM id tĩnh (`el<T>()`, `$`/`$btn`/`$input`); `catch (err)` + `instanceof Error`; interface `Raw*` tối thiểu toàn field optional cho response X.com không có tài liệu; `Window.i18n` khai báo một chỗ duy nhất trong `types.ts` với kiểu `I18nAPI` (trước đó hai khai báo xung đột kiểu và bị `@ts-ignore` che đi); bổ sung `filenameTemplate/autoStop/autoStopAfter` vào `DEFAULT_OPTIONS` (bị `any` che khuất).
+  - **Còn lại**: `page-interceptor.ts` (32), `snackbar.ts` (19), `content.ts` (18), `dom-scanner.ts` (16), `tweet-btn.ts` (12) — đều là content script chạy trong trang X.com, không có unit test (chỉ có e2e fixture) nên chỉ làm khi có quyết định rõ ràng, rà từng file. `lib/jszip.min.ts` (1) là thư viện vendor, không chỉnh sửa.
 - **Bảo trì dependency định kỳ**: việc vận hành thủ công, ngoài phạm vi 1 pha code.
 
 ---

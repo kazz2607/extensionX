@@ -4,6 +4,28 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [6.2.0] — 2026-09-19 *(Product Features & Type-Safety)*
+
+### ✨ Tính năng mới
+- **Interactive Download Picker (Pha 9):** tab **Picker** mới trong popup hiển thị lưới thumbnail để chọn/bỏ chọn từng ảnh/video/GIF trước khi tải (tối đa 200 mục mỗi lần, có cảnh báo khi bị cắt bớt). Các bộ lọc loại/ngày/từ khoá và dedup vẫn áp dụng khi tải thật.
+- **Filter Preset theo profile (Pha 11):** nút **💾 Lưu bộ lọc / 📂 Nạp bộ lọc** trong panel Date Range, lưu loại media, bỏ qua trùng, khoảng ngày và từ khoá riêng cho từng profile.
+- **Quản lý hàng đợi nâng cao (Pha 12):** mỗi mục trong Queue có thể **tạm dừng/tiếp tục** (⏸/▶), **đổi thứ tự** (▲/▼) và **thử lại** (↻) khi lỗi.
+- **Template đặt tên file (Pha 13):** ô `Filename template` trong Options, hỗ trợ token `{username} {tweetId} {date} {type} {ext} {index}` kèm preview thời gian thực. Tên luôn được làm sạch và giữ đúng phần mở rộng file.
+- **Xuất Manifest JSON/CSV (Pha 14):** hai nút **JSON/CSV** trong History panel xuất danh sách file đã tải của profile (kèm thời điểm tải và metadata tweet nếu còn trong IndexedDB), tối đa 10.000 dòng.
+- **Watch mode (Pha 15):** nút 👁 trong profile card để theo dõi profile; popup báo số media mới mỗi khi bạn mở lại. Thiết kế an toàn: **không polling ngầm** và không thêm bất kỳ request nào tới X.com.
+
+### 🐛 Sửa lỗi
+- **Resume sau crash (Pha 10):** khi Service Worker restart hoặc import lại queue đang dở dang, mục bị gián đoạn được ép bỏ qua file đã tải đúng một lần chạy kế tiếp, tránh tải lại từ đầu mà không đổi tuỳ chọn đã lưu của bạn. Đồng thời sửa lỗi nhánh import không bao giờ kích hoạt cơ chế này (trạng thái bị chuẩn hoá trước khi kiểm tra).
+
+### 🔧 Cải tiến kỹ thuật
+- **Tách module (Pha 8):** `popup.ts` (1741 → 1330 dòng) tách thành `status-bar`, `toast`, `donut-chart`, `history-panel`, `date-range`, `queue-panel`, `download-picker`, `presets`, `watch-list`; `fab.ts` (671 dòng) tách thành entry 28 dòng + 5 module `fab-*`. Không đổi hành vi.
+- **Test coverage (Pha 7):** trích `normalizeUrlForDedup`, `normalizeMediaUrlToOrig`, `renderFilenameTemplate`, `wasInterrupted`, `findInterruptedIds` thành hàm thuần trong `src/shared/` và bổ sung unit test (15 → 20 test).
+- **Validation:** `selectedUrls` giới hạn 2000 URL và mỗi URL phải qua kiểm tra nguồn tin cậy; thêm kiểm tra kiểu `paused` khi import queue. Thêm message type `GET_MEDIA_ITEMS_FILTERED`, `RETRY_QUEUE_ITEM`, `TOGGLE_QUEUE_PAUSE`, `REORDER_QUEUE_ITEM`, `EXPORT_MANIFEST`.
+- **Type-safety:** gỡ toàn bộ `@ts-ignore`/`any` khỏi `options.ts`, `messages.ts`, `indexeddb.ts`, `tweet-api.ts`, `hls-fetcher.ts`, `scraper.ts`, `downloader.ts`, `i18n.ts`, `shortcuts.ts` và `@ts-ignore` khỏi `popup.ts`. Tổng `@ts-ignore` giảm 264 → 98, `any` giảm 87 → 42; `window.i18n` có kiểu `I18nAPI` thống nhất trên toàn dự án. Phần còn lại nằm ở các content script chạy trong trang X.com (`page-interceptor`, `snackbar`, `content`, `dom-scanner`, `tweet-btn`).
+- Bổ sung các trường `filenameTemplate`, `autoStop`, `autoStopAfter` vào `DEFAULT_OPTIONS` (trước đây bị `any` che khuất).
+
+---
+
 ## [6.1.8] — 2026-09-17 *(Viewer Media Detection Fix)*
 
 ### 🐛 Sửa lỗi
