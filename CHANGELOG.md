@@ -106,6 +106,7 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 - **Nút viewer đòi `<video>` phải đang hiển thị và có `src`** (chặt hơn 6.2.1) nên khi Telegram ẩn `<video>` lúc tải hoặc xoá `src` sau lỗi thì không thử tải, chỉ báo "Video chưa sẵn sàng". Nay extension: (1) dùng video có nguồn dù đang bị ẩn; (2) **ghi nhớ URL stream** mà Telegram đã gán cho `<video>` trong viewer (chỉ hợp lệ khi đúng phần tử `<video>` đó còn trong viewer); (3) dự phòng bằng URL video stream mới nhất được yêu cầu kể từ lúc mở viewer. Vì Range-fetch của extension độc lập với trình phát của Telegram nên vẫn tải được khi trình phát bị treo.
 - Tooltip nút hiện **lý do lỗi** (vd. "Không tải được video: HTTP 408") thay vì chỉ đổi màu đỏ.
 - Thêm `isRetryableChunkStatus`, `parseTelegramStreamInfo`, `pickLatestVideoStreamUrl` (có unit test, 21 → 22 test). Đã kiểm chứng trên Chrome thật với **đúng bản build `dist/`**: viewer giả lập, server trả 408 hai lần cho mỗi đoạn — 4 kịch bản (video hiển thị / bị ẩn / src bị xoá / không có src nhưng đã có request stream) tải ra file khớp từng byte; kịch bản không có nguồn báo lỗi đúng. Bản 6.2.3 thất bại ngay kịch bản đầu.
+- ✅ **Đã xác nhận trên Telegram Web thật** (trình duyệt Cốc Cốc, nhóm riêng tư, 19-09-2026): tải video hoạt động. Người dùng báo kết quả cho "bản 6.2.3"; bản build hiện hành khi test là 6.2.4 (gồm toàn bộ bản vá 6.2.1 → 6.2.4).
 - **Lưu ý:** URL dự phòng lấy theo request gần nhất nên với video chưa từng được Telegram yêu cầu sẽ báo chưa sẵn sàng; luôn cần **F5 tab Telegram** sau khi tải lại extension.
 
 ---
