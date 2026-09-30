@@ -1,6 +1,6 @@
 # Following Scanner Feature 1 — Kế hoạch triển khai
 
-> ExtensionX **6.2.7** | Cập nhật: 2026-09-30 | Trạng thái: **Planned**
+> ExtensionX **6.2.8** | Cập nhật: 2026-09-30 | Trạng thái: **Planned**
 
 Feature 0 (tự cuộn trang `/following`) đã hoàn thành từ v5.6.0 và được ghi nhận trong [`roadmap.md`](roadmap.md). File này chỉ còn mô tả phần chưa triển khai: quét API, phân tích tài khoản không hoạt động và unfollow có kiểm soát.
 

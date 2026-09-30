@@ -18,6 +18,7 @@ import { addDiagnosticEvent, emptyDiagnostics } from '../src/shared/diagnostics.
 import { filterMediaItems, isVideoThumbnailUrl } from '../src/shared/media-filter.ts';
 import { canTransitionCollectPhase } from '../src/shared/collect-state.ts';
 import { recoverQueueItemAfterRestart, transitionQueueItem, wasInterrupted, findInterruptedIds, resetDownloadingItemsAfterStop } from '../src/shared/queue-state.ts';
+import { DownloadCoordinator } from '../src/shared/download-coordinator.ts';
 import { renderFilenameTemplate } from '../src/shared/filename-template.ts';
 import {
   isRetryableChunkStatus,
@@ -91,6 +92,8 @@ test('rejects malformed or oversized queue imports atomically', () => {
   // Pha 12: paused field phải là boolean nếu có mặt
   assert.equal(parseQueueItems([{ ...valid[0], paused: true }])?.[0]?.paused, true);
   assert.equal(parseQueueItems([{ ...valid[0], paused: 'yes' }]), null);
+  assert.equal(parseQueueItems([{ ...valid[0], keyword: 'space' }])?.[0]?.keyword, 'space');
+  assert.equal(parseQueueItems([{ ...valid[0], keyword: 'x'.repeat(201) }]), null);
 });
 
 test('redacts raw download errors before they reach UI', () => {
@@ -123,8 +126,35 @@ test('collector state transitions cannot return from a stopped operation without
 
 test('queue recovery resets interrupted work but rejects invalid terminal transitions', () => {
   const item = { id: 'NASA_1', username: 'NASA', filterType: 'all', skipDuplicates: true, addedAt: 1, status: 'downloading' as const, mediaCount: 1 };
-  assert.equal(recoverQueueItemAfterRestart(item).status, 'waiting');
+  const recovered = recoverQueueItemAfterRestart(item);
+  assert.equal(recovered.status, 'waiting');
+  assert.equal(recovered.paused, true);
   assert.equal(transitionQueueItem({ ...item, status: 'done' }, 'waiting'), null);
+});
+
+test('download coordinator owns one operation and invalidates stale callbacks on stop', () => {
+  const coordinator = new DownloadCoordinator();
+  const first = coordinator.begin('NASA', 'queue', 'NASA_1');
+  assert.ok(first);
+  assert.equal(coordinator.phase, 'preparing');
+  assert.equal(coordinator.begin('SpaceX', 'queue', 'SpaceX_1'), null);
+  assert.equal(coordinator.markDownloading(first.id), true);
+  assert.equal(coordinator.phase, 'downloading');
+
+  const stopped = coordinator.requestStop();
+  assert.equal(stopped?.id, first.id);
+  assert.equal(stopped?.controller.signal.aborted, true);
+  assert.equal(coordinator.isCurrent(first.id), false);
+  assert.equal(coordinator.release(first.id), true);
+
+  const second = coordinator.begin('SpaceX', 'direct');
+  assert.ok(second);
+  assert.notEqual(second.id, first.id);
+  assert.equal(coordinator.settle(first.id, 'completed'), false);
+  assert.equal(coordinator.isCurrent(second.id), true);
+  assert.equal(coordinator.settle(second.id, 'completed'), true);
+  assert.equal(coordinator.release(second.id), true);
+  assert.equal(coordinator.phase, 'idle');
 });
 
 test('never treats X video thumbnails as standalone profile images', () => {

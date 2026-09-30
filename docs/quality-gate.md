@@ -1,10 +1,10 @@
 # Quality gate và baseline hiện hành
 
-> Áp dụng cho phiên bản **6.2.7** | Cập nhật: 2026-09-30
+> Áp dụng cho phiên bản **6.2.8** | Cập nhật: 2026-09-30
 
-## Baseline hiện hành (v6.2.7)
+## Baseline hiện hành (v6.2.8)
 
-`npm run check` xanh: typecheck sạch, ESLint sạch, **24/24** unit test, **2/2** e2e fixture regression, production build thành công. Unit test bao phủ reset Queue sau Stop và loại thumbnail video khỏi tập ảnh profile. `npm run test:browser` (Playwright) không nằm trong `check` và hiện timeout chờ Service Worker trong sandbox — đã xác minh là lỗi môi trường có sẵn từ trước, không phải regression.
+`npm run check` xanh: typecheck sạch, ESLint sạch, **25/25** unit test, **2/2** e2e fixture regression, production build thành công. Unit test bao phủ coordinator operation, stale callback sau Stop, paused recovery, reset Queue và loại thumbnail video. `npm run test:browser` chạy riêng nhưng fixture localhost hiện không qua sender binding nghiêm ngặt (`https://x.com`/`twitter.com`), nên media count dừng ở 0; cần sửa harness dùng origin X giả lập hợp lệ trước khi dùng suite này làm release gate.
 
 ## Lệnh bắt buộc
 

@@ -1,6 +1,6 @@
 # Kế hoạch nâng cấp ExtensionX
 
-> Baseline: **6.2.7** | Lập ngày: 2026-09-30 | Trạng thái: **Proposed**
+> Baseline: **6.2.8** | Lập ngày: 2026-09-30 | Trạng thái: **Proposed**
 
 Tài liệu này đề xuất lộ trình nâng cấp dựa trên mã nguồn hiện tại. Trọng tâm là độ tin cậy của Queue/download, hiệu năng với profile lớn, thu hẹp bề mặt bảo mật, hoàn thiện UI/UX và bổ sung tính năng có giá trị thực tế. Đây là kế hoạch triển khai, không phải danh sách lỗi đã được xác nhận; các mục cần đo hoặc tái hiện được ghi rõ là audit/benchmark.
 
@@ -26,6 +26,8 @@ Tài liệu này đề xuất lộ trình nâng cấp dựa trên mã nguồn hi
 - Mỗi phase phải có benchmark trước/sau, regression test và đường rollback độc lập.
 
 ## 3. P0 — Ổn định Queue và download (6.2.8)
+
+> Tiến độ: **Implemented, pending real-browser acceptance** — coordinator, paused recovery, dedupe-complete và unit regression đã hoàn thành; browser lifecycle/fault-injection vẫn cần xác nhận để đóng phase.
 
 ### 3.1 Chuẩn hóa state machine
 
@@ -211,4 +213,3 @@ Không gộp toàn bộ roadmap vào một release. Mỗi mốc nên có feature
 4. Đo popup/heap với fixture 1.000 và 10.000 media để có baseline.
 5. Audit permission/host và lập bảng lý do sử dụng.
 6. Prototype virtualized Queue/Picker; đo rồi mới áp dụng rộng.
-

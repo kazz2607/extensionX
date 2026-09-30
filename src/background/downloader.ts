@@ -1,8 +1,8 @@
 
-import { mediaStore, downloadedStore, tabState, downloadState, pendingHlsRequests, activeDownloads } from './state.ts';
+import { mediaStore, downloadedStore, tabState, downloadCoordinator, pendingHlsRequests, activeDownloads } from './state.ts';
 import { broadcastToPopup, broadcastToTab, sanitizeFolder, broadcastFABState } from './utils.ts';
 import { showDownloadNotification, fetchVideoForTweetWithRefresh, loadDownloadedUrls, isAlreadyDownloaded, markDownloaded, ensureMediaStoreLoaded } from './scraper.ts';
-import { startNextInQueue, profileQueue, persistQueue, broadcastQueueUpdate } from './queue.ts';
+import { startNextInQueue, profileQueue, persistQueueImmediately, broadcastQueueUpdate } from './queue.ts';
 import { DownloadOptions, MediaItem, HistoryEntry, ManifestItem } from '../types.ts';
 import { getMediaItems, getDownloadedUrlRecords } from './indexeddb.ts';
 import { isTrustedMediaUrl, sanitizeFilename } from '../shared/validation.ts';
@@ -311,29 +311,24 @@ async function handleDownloadTweet(tweetId: string, username: string | undefined
 // UI-01: Lưu last download context để Retry dùng lại
 let _lastDownloadUsername = '';
 let _lastDownloadOptions: DownloadOptions = {};
-let _activeDownloadOperationId: string | null = null;
-
-// Bug 2: Stop download flag — workers kiểm tra trước mỗi file
-let _stopRequested = false;
-
 // BUG-L2: Proper typed function signature
 async function startDownload(username: string, options: DownloadOptions = {}) {
-  if (downloadState.inProgress) return;
-  // Reserve the global slot before the first await so rapid Queue starts
-  // cannot launch multiple profiles while IndexedDB is being restored.
-  downloadState.inProgress = true;
+  const claimed = options._operationId
+    ? (downloadCoordinator.isCurrent(options._operationId) ? { id: options._operationId } : null)
+    : downloadCoordinator.begin(username, 'direct');
+  if (!claimed) return;
+  const operationId = claimed.id;
 
   const store = await ensureMediaStoreLoaded(username);
+  if (!downloadCoordinator.isCurrent(operationId)) return;
   if (!store?.size) {
-    downloadState.inProgress = false;
+    downloadCoordinator.settle(operationId, 'error');
+    downloadCoordinator.release(operationId);
     console.warn(`[SW] startDownload: Không tìm thấy media nào cho @${username}`);
     broadcastToPopup('DOWNLOAD_DONE', { username, success: 0, failed: 0, total: 0, skipped: 0, errors: ['Không tìm thấy media nào trong bộ nhớ để tải'] });
     return;
   }
-  const operationId = crypto.randomUUID();
-  _activeDownloadOperationId = operationId;
   activeErrors = [];
-  _stopRequested = false; // reset khi bắt đầu download mới
   _lastDownloadUsername = username;
   _lastDownloadOptions = options;
 
@@ -346,6 +341,7 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
     const stored = await chrome.storage.sync.get('options');
     opts = stored.options || {};
   } catch (_) {}
+  if (!downloadCoordinator.isCurrent(operationId)) return;
 
   // Lọc theo filter type
   // Old IndexedDB sessions may contain video posters collected by earlier versions.
@@ -390,6 +386,7 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
 
   // v4.1.0: Duplicate Detection — load downloaded URLs rồi lọc ra
   await loadDownloadedUrls(username);
+  if (!downloadCoordinator.isCurrent(operationId)) return;
   const skipDuplicates = options.skipDuplicates !== false; // mặc định bật
   let skipped = 0;
   if (skipDuplicates) {
@@ -400,16 +397,38 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
   }
 
   if (!items.length) {
-    downloadState.inProgress = false;
-    if (_activeDownloadOperationId === operationId) _activeDownloadOperationId = null;
+    downloadCoordinator.settle(operationId, 'completed');
     stopKeepAlive();
     // Thông báo nếu tất cả đã được tải rồi
     if (skipped > 0) {
       broadcastToPopup('DOWNLOAD_DONE', { username, success: 0, failed: 0, total: 0, skipped });
       showDownloadNotification(username, 0, 0, 0, skipped);
     }
+    if (options._fromQueue && options._queueId) {
+      const qItem = profileQueue.find(q => q.id === options._queueId);
+      const transitioned = qItem && transitionQueueItem(qItem, 'done');
+      if (qItem && transitioned) {
+        Object.assign(qItem, transitioned);
+        qItem.result = { success: 0, failed: 0, total: 0, skipped };
+        await persistQueueImmediately();
+        broadcastQueueUpdate();
+      }
+    }
+    downloadCoordinator.release(operationId);
+    if (options._fromQueue) setTimeout(() => void startNextInQueue(), 0);
     return;
   }
+
+  if (options._fromQueue && options._queueId) {
+    const qItem = profileQueue.find(q => q.id === options._queueId);
+    if (qItem) {
+      qItem.mediaCount = items.length;
+      await persistQueueImmediately();
+      broadcastQueueUpdate();
+    }
+  }
+
+  if (!downloadCoordinator.markDownloading(operationId)) return;
 
   // Thư mục lưu: {saveFolder}/{username}/{subfolder}/
   const saveFolder = sanitizeFolder(opts.saveFolder || '');
@@ -437,17 +456,17 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
         flatUsername: opts.flatUsername,
         filenameUsername,
         filenameTemplate: opts.filenameTemplate,
-      }, () => _activeDownloadOperationId !== operationId || _stopRequested, itemIndex.get(item));
+      }, () => !downloadCoordinator.isCurrent(operationId), itemIndex.get(item));
 
       // Stop/retry can start a new operation while an old Chrome download is
       // resolving. Never let the old callback mutate the new session.
-      if (_activeDownloadOperationId !== operationId) return;
+      if (!downloadCoordinator.isCurrent(operationId)) return;
 
       success++;
       // v4.1.0: Đánh dấu đã tải xong
       markDownloaded(username, item.url);
     } catch (err: unknown) {
-      if (_activeDownloadOperationId !== operationId) return;
+      if (!downloadCoordinator.isCurrent(operationId)) return;
       const errMsg = err instanceof Error ? err.message : String(err);
       failed++;
       activeErrors.push(formatDownloadError(err));
@@ -455,7 +474,7 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
       console.warn('[SW] Download failed:', item?.url, errMsg);
     }
 
-    if (_activeDownloadOperationId !== operationId) return;
+    if (!downloadCoordinator.isCurrent(operationId)) return;
 
     broadcastToPopup('DOWNLOAD_PROGRESS', {
       username,
@@ -503,7 +522,7 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
     const runWorker = async () => {
       while (queue.length > 0) {
         // Bug 2: Dừng worker nếu user yêu cầu stop
-        if (_stopRequested) { queue.length = 0; break; }
+        if (!downloadCoordinator.isCurrent(operationId)) { queue.length = 0; break; }
         const item = queue.shift();
         if (!item) break;
 
@@ -541,9 +560,7 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
   } catch (err: unknown) {
     console.error('[SW] Critical download error:', err);
   } finally {
-    if (_activeDownloadOperationId !== operationId) return;
-    downloadState.inProgress = false;
-    _activeDownloadOperationId = null;
+    if (!downloadCoordinator.isCurrent(operationId)) return;
     stopKeepAlive(); // BUG-2 FIX: Tắt keep-alive khi xong
     _fabProgressTimeByOp.delete(operationId); // P3: dọn per-operation throttle state
     // UI-01: Truyền errors array để popup có thể hiện chi tiết lỗi
@@ -571,16 +588,16 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
         const transitioned = transitionQueueItem(qItem, nextStatus);
         if (transitioned) Object.assign(qItem, transitioned);
         qItem.result = { success, failed, total, skipped };
-        persistQueue();
+        await persistQueueImmediately();
+        if (!downloadCoordinator.isCurrent(operationId)) return;
         broadcastQueueUpdate();
       }
     }
 
-    // v5.0.3: Chạy profile tiếp theo trong queue — CHỈ khi download từ queue
-    // Nếu download thường (bấm Download), KHÔNG tự kéo queue item tiếp theo
-    if (options._fromQueue) {
-      setTimeout(() => startNextInQueue(), 500);
-    }
+    downloadCoordinator.settle(operationId, failed === total && total > 0 ? 'error' : 'completed');
+    downloadCoordinator.release(operationId);
+    // Only a completed Queue job may advance the Queue, after releasing the slot.
+    if (options._fromQueue) setTimeout(() => void startNextInQueue(), 500);
   }
 }
 // ─── IDM Conflict Detection ───────────────────────────────────────────────────
@@ -813,7 +830,7 @@ async function buildManifest(username: string): Promise<{ json: string; csv: str
   const history = ((storedHistory.download_history as HistoryEntry[]) || []).filter((entry) => entry.username === username);
 
   const json = JSON.stringify({
-    _version: '6.2.7',
+    _version: '6.2.8',
     _exportedAt: new Date().toISOString(),
     username,
     history,
@@ -832,15 +849,15 @@ async function buildManifest(username: string): Promise<{ json: string; csv: str
 
 // UI-01: Retry bằng cách chạy lại download cuối — skipDuplicates tự bỏ qua file đã tải OK
 function retryLastDownload(): boolean {
-  if (downloadState.inProgress || !_lastDownloadUsername) return false;
-  startDownload(_lastDownloadUsername, _lastDownloadOptions);
+  if (downloadCoordinator.isBusy || !_lastDownloadUsername) return false;
+  void startDownload(_lastDownloadUsername, _lastDownloadOptions);
   return true;
 }
 
-// Bug 2: Dừng download đang chạy — hủy ngay và giải phóng downloadState
+// Stop the active coordinator operation and invalidate every stale callback.
 function stopDownload(): boolean {
-  _stopRequested = true;
-  _activeDownloadOperationId = null;
+  const operation = downloadCoordinator.requestStop();
+  if (!operation) return false;
   console.log('[SW] ⏹ stopDownload: yêu cầu dừng ngay lập tức');
 
   // Hủy các downloads đang chạy dở trong Chrome
@@ -865,17 +882,18 @@ function stopDownload(): boolean {
   });
   scheduleOffscreenClose();
 
-  downloadState.inProgress = false;
   stopKeepAlive();
 
   broadcastToPopup('DOWNLOAD_DONE', {
-    username: _lastDownloadUsername,
+    username: operation.username,
     success: 0,
     failed: 0,
     total: 0,
     skipped: 0,
     stopped: true,
   });
+
+  downloadCoordinator.release(operation.id);
 
   return true;
 }

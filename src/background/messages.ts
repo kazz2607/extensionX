@@ -1,4 +1,4 @@
-import { mediaStore, statsStore, tabState, downloadedStore, downloadState, pendingHlsRequests, setCsrfToken, dirtyMediaStore } from './state.ts';
+import { mediaStore, statsStore, tabState, downloadedStore, downloadCoordinator, pendingHlsRequests, setCsrfToken, dirtyMediaStore } from './state.ts';
 import { addMediaItems, ensureMediaStoreLoaded, applyOptionsFilter, checkAutoScroll, startCollecting, stopCollecting, clearSession, fetchVideoForTweetWithRefresh, loadDownloadedUrls } from './scraper.ts';
 import { startDownload, handleDownloadTweet, buildCSV, buildManifest, retryLastDownload, stopDownload } from './downloader.ts';
 import { profileQueue, setProfileQueue, persistQueue, startNextInQueue, broadcastQueueUpdate, exportQueue, importQueue, retryQueueItem, toggleQueuePause, moveQueueItem, resetDownloadingQueueItems } from './queue.ts';
@@ -227,7 +227,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (!isValidUsername(username) || (sender.tab && !isMatchingXTab(sender, username)) || !isValidDownloadOptions(options)) {
         sendResponse({ error: 'Invalid download request' }); return false;
       }
-      if (downloadState.inProgress) {
+      if (downloadCoordinator.isBusy) {
         sendResponse({ error: 'Download is already running' });
         return false;
       }
@@ -238,10 +238,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // ─── v5.0.3: Multi-Profile Queue ────────────────────────────────────────
     case 'ADD_TO_QUEUE': {
-      const { username, filterType, skipDuplicates } = payload || {};
-      if (!isValidUsername(username) || !['all', 'images', 'videos', 'gifs'].includes(String(filterType || 'all'))) { sendResponse({ error: 'Invalid queue item' }); return false; }
+      const { username, filterType, skipDuplicates, keyword } = payload || {};
+      if (!isValidUsername(username) || !['all', 'images', 'videos', 'gifs'].includes(String(filterType || 'all')) ||
+          (keyword !== undefined && (typeof keyword !== 'string' || keyword.length > 200))) { sendResponse({ error: 'Invalid queue item' }); return false; }
       // Không thêm trùng username (chỉ 1 entry mỗi username trong queue)
-      const exists = profileQueue.find(q => q.username === username && q.status === 'waiting');
+      const exists = profileQueue.find(q => q.username === username && (q.status === 'waiting' || q.status === 'downloading'));
       if (exists) { sendResponse({ error: 'Already in queue' }); return false; }
 
       const mediaCount = mediaStore.get(username)?.size || 0;
@@ -249,6 +250,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         id: `${username}_${Date.now()}`,
         username,
         filterType: filterType || 'all',
+        keyword: typeof keyword === 'string' ? keyword.trim() : '',
         skipDuplicates: skipDuplicates !== false,
         addedAt: Date.now(),
         status: 'waiting',
@@ -266,6 +268,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'REMOVE_FROM_QUEUE': {
       const { id } = payload;
       if (typeof id !== 'string' || !QUEUE_ID_PATTERN.test(id)) { sendResponse({ error: 'Invalid queue id' }); return false; }
+      if (profileQueue.some(q => q.id === id && q.status === 'downloading')) { sendResponse({ error: 'Stop the active download before removing it' }); return false; }
       setProfileQueue(profileQueue.filter(q => q.id !== id));
       persistQueue();
       broadcastQueueUpdate();
@@ -312,7 +315,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     case 'START_QUEUE': {
-      if (downloadState.inProgress) {
+      if (downloadCoordinator.isBusy) {
         sendResponse({ error: 'Download is already running' });
         return false;
       }
@@ -329,7 +332,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case 'GET_DOWNLOAD_STATE': {
       // BUG-8 FIX: Popup query trạng thái download khi mở lại
-      sendResponse({ isDownloading: downloadState.inProgress });
+      sendResponse({ isDownloading: downloadCoordinator.isBusy, phase: downloadCoordinator.phase });
       return true;
     }
 

@@ -1,5 +1,5 @@
 
-import { mediaStore, dirtyMediaStore, statsStore, tabState, downloadState, downloadedStore, userCsrfToken, setCsrfToken } from './state.ts';
+import { mediaStore, dirtyMediaStore, statsStore, tabState, downloadedStore, userCsrfToken, setCsrfToken } from './state.ts';
 import { fetchVideoForTweet } from './tweet-api.ts';
 import { updateBadge, broadcastToPopup, updateFAB, broadcastFABState, sleep, waitForTabLoad, sanitizeFolder } from './utils.ts';
 import { saveMediaItems, getMediaItems, clearMediaItems, getDownloadedUrls, saveDownloadedUrls, clearDownloadedUrls, pruneDownloadedUrls } from './indexeddb.ts';

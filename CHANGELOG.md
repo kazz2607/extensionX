@@ -4,6 +4,27 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [6.2.8] — 2026-09-30 *(Queue Lifecycle Coordinator)*
+
+### 🐛 Sửa lỗi
+- **Race condition Start/Stop/Resume:** thay bốn cờ trạng thái rời bằng `DownloadCoordinator` sở hữu duy nhất một operation toàn cục, có phase, operation ID và `AbortController`. Callback cũ không thể thay đổi job mới sau Stop/Retry.
+- **Service Worker restart/import giữa chừng:** item `downloading` được khôi phục thành **Tạm dừng**, persist ngay và chỉ chạy lại khi người dùng bấm ▶.
+- **Queue treo khi toàn bộ file đã tải:** job có kết quả dedupe 100% nay được đánh dấu hoàn tất và Queue tự chuyển sang profile kế tiếp.
+- **Bộ lọc từ khóa của Queue bị bỏ qua:** lưu/validate `keyword` trong Queue item và truyền đúng vào downloader.
+- **Xóa item đang tải qua message:** bị từ chối cho đến khi download được dừng, tránh tách job đang chạy khỏi Queue.
+- `mediaCount` của item đang chạy được cập nhật theo tập file thực sự còn tải sau filter, thumbnail exclusion và dedupe.
+
+### 🔧 Kỹ thuật
+- Transition quan trọng (`downloading`, recovery, stop, complete/error) được ghi Queue ngay thay vì chỉ chờ debounce.
+- `GET_DOWNLOAD_STATE` trả thêm phase hiện hành để UI/debug có thể phân biệt `preparing`, `downloading` và `stopping`.
+- Đồng bộ manifest, package, popup, Options, export schema và tài liệu lên `6.2.8`.
+
+### ✅ Kiểm chứng
+- `npm run check` thành công: TypeScript, ESLint, **25/25 unit tests**, **2/2 fixture e2e tests** và production build; bổ sung regression cho coordinator, stale operation và paused recovery.
+- Browser harness đã chạy bằng Playwright Chromium nhưng fixture localhost bị sender binding X.com từ chối (media count = 0); chưa dùng kết quả này để tuyên bố nghiệm thu Chrome thật.
+
+---
+
 ## [6.2.7] — 2026-09-30 *(Queue Stop/Resume & Video Thumbnail Fix)*
 
 ### 🐛 Sửa lỗi

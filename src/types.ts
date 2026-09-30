@@ -45,6 +45,7 @@ export interface QueueItem {
   id: string;
   username: string;
   filterType: string;
+  keyword?: string;
   skipDuplicates: boolean;
   addedAt: number;
   status: 'waiting' | 'downloading' | 'done' | 'error';
@@ -83,6 +84,7 @@ export interface DownloadOptions {
   // Internal queue tracking
   _fromQueue?: boolean;
   _queueId?: string;
+  _operationId?: string;
 }
 
 
@@ -96,10 +98,6 @@ export interface CollectState {
   ct0?: string;
   operationId?: string;
   phase?: import('./shared/collect-state.ts').CollectPhase;
-}
-
-export interface DownloadState {
-  inProgress: boolean;
 }
 
 export interface PendingHlsRequest {

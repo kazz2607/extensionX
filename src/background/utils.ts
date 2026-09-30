@@ -1,4 +1,4 @@
-import { tabState, downloadState, mediaStore } from './state.ts';
+import { tabState, mediaStore } from './state.ts';
 import { sanitizeFolderPath } from '../shared/validation.ts';
 
 // ─── FAB Helpers ──────────────────────────────────────────────────────────────

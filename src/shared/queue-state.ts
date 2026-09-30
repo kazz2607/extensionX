@@ -15,7 +15,7 @@ export function transitionQueueItem(item: QueueItem, to: QueueStatus): QueueItem
 
 /** A service-worker restart has no in-flight download to resume safely. */
 export function recoverQueueItemAfterRestart(item: QueueItem): QueueItem {
-  return item.status === 'downloading' ? { ...item, status: 'waiting' } : item;
+  return item.status === 'downloading' ? { ...item, status: 'waiting', paused: true } : item;
 }
 
 /**
