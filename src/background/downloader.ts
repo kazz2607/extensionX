@@ -346,9 +346,10 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
   // Lọc theo filter type
   // Old IndexedDB sessions may contain video posters collected by earlier versions.
   // They are previews, not standalone profile images, so never download them.
-  let items = Array.from(store.values()).filter(
-    item => item.type !== 'image' || !isVideoThumbnailUrl(item.url),
-  );
+  let items: MediaItem[] = [];
+  for (const item of store.values()) {
+    if (item.type !== 'image' || !isVideoThumbnailUrl(item.url)) items.push(item);
+  }
   if (options.filterType && options.filterType !== 'all') {
     if (options.filterType === 'images') items = items.filter(i => i.type === 'image');
     else if (options.filterType === 'videos') items = items.filter(i => i.type === 'video' || i.type === 'hls');
@@ -517,13 +518,13 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
     // BUG-4 FIX (corrected): Worker pool lazy — chỉ CONCURRENCY download chạy cùng lúc.
     // items.map() eager sẽ gọi chrome.downloads.download() cho TẤT CẢ item ngay lập tức
     // → phải dùng worker queue để download thực sự bị giới hạn đúng số CONCURRENCY.
-    const queue = [...items]; // shallow copy để không mutate array gốc
+    let cursor = 0;
 
     const runWorker = async () => {
-      while (queue.length > 0) {
+      while (cursor < items.length) {
         // Bug 2: Dừng worker nếu user yêu cầu stop
-        if (!downloadCoordinator.isCurrent(operationId)) { queue.length = 0; break; }
-        const item = queue.shift();
+        if (!downloadCoordinator.isCurrent(operationId)) { cursor = items.length; break; }
+        const item = items[cursor++];
         if (!item) break;
 
         // Mỗi item có timeout riêng ở cấp batch (ngoài timeout 90s của downloadOne)
@@ -830,7 +831,7 @@ async function buildManifest(username: string): Promise<{ json: string; csv: str
   const history = ((storedHistory.download_history as HistoryEntry[]) || []).filter((entry) => entry.username === username);
 
   const json = JSON.stringify({
-    _version: '6.2.8',
+    _version: '6.3.1',
     _exportedAt: new Date().toISOString(),
     username,
     history,

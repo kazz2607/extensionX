@@ -1,6 +1,6 @@
 # Tài liệu ExtensionX
 
-> Phiên bản tài liệu: **6.2.8** | Cập nhật: 2026-09-30
+> Phiên bản tài liệu: **6.3.1** | Cập nhật: 2026-09-30
 
 ## Dành cho người dùng
 
@@ -12,6 +12,8 @@
 - [Roadmap và backlog hiện hành](roadmap.md)
 - [Kế hoạch nâng cấp hiệu năng, bảo mật, UI, logic và tính năng](upgrade-plan.md)
 - [Quality gate](quality-gate.md)
+- [Baseline hiệu năng 6.3.0](performance-baseline.md)
+- [Audit bảo mật và quyền](security-permissions.md)
 - [Hướng dẫn đóng gói/phát hành](publish-guide.md)
 - [Kế hoạch Following Scanner Feature 1](following-scanner-plan.md)
 - [Lịch sử phát hành](../CHANGELOG.md)

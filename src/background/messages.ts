@@ -1,7 +1,7 @@
 import { mediaStore, statsStore, tabState, downloadedStore, downloadCoordinator, pendingHlsRequests, setCsrfToken, dirtyMediaStore } from './state.ts';
 import { addMediaItems, ensureMediaStoreLoaded, applyOptionsFilter, checkAutoScroll, startCollecting, stopCollecting, clearSession, fetchVideoForTweetWithRefresh, loadDownloadedUrls } from './scraper.ts';
 import { startDownload, handleDownloadTweet, buildCSV, buildManifest, retryLastDownload, stopDownload } from './downloader.ts';
-import { profileQueue, setProfileQueue, persistQueue, startNextInQueue, broadcastQueueUpdate, exportQueue, importQueue, retryQueueItem, toggleQueuePause, moveQueueItem, resetDownloadingQueueItems } from './queue.ts';
+import { profileQueue, setProfileQueue, persistQueue, startNextInQueue, broadcastQueueUpdate, exportQueue, importQueue, retryQueueItem, toggleQueuePause, resumePausedQueueItems, moveQueueItem, resetDownloadingQueueItems } from './queue.ts';
 import { updateBadge, broadcastToPopup, updateFAB } from './utils.ts';
 import { getMediaItems, clearDownloadedUrls, clearAllDownloadedUrls } from './indexeddb.ts';
 import { setDynamicBearer, setDynamicQueryId } from './tweet-api.ts';
@@ -319,6 +319,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ error: 'Download is already running' });
         return false;
       }
+      // The primary Queue action resumes all paused waiting items before starting.
+      resumePausedQueueItems();
       // Acknowledge immediately. Loading hundreds of records from IndexedDB can
       // exceed the popup's message timeout; queue progress/errors are delivered
       // through QUEUE_UPDATE instead of holding the message port open.

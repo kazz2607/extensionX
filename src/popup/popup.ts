@@ -763,7 +763,7 @@ function setupListeners() {
   // Queue Clear
   if (els.btnQueueClear) {
     els.btnQueueClear.addEventListener('click', async () => {
-      if (!confirm('Xóa toàn bộ hàng đợi (không xóa item đang tải)?')) return;
+      if (!await showConfirmModal('Xóa toàn bộ hàng đợi (không xóa item đang tải)?')) return;
       await sendBG('CLEAR_QUEUE', {});
       showToast('Đã xóa hàng đợi', 'info');
     });

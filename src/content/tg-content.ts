@@ -497,4 +497,6 @@ const observer = new MutationObserver((mutations) => {
 observer.observe(document.body, { childList: true, subtree: true });
 processDOM();
 // Viewer mở/đóng chủ yếu đổi class/style (không thêm node) nên observer childList có thể bỏ sót.
-window.setInterval(syncViewerButton, 500);
+// MutationObserver handles normal changes; the slower watchdog only catches
+// Telegram style/class toggles that do not add DOM nodes.
+window.setInterval(syncViewerButton, 2_000);

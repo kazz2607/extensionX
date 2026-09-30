@@ -414,7 +414,7 @@ async function exportSettings() {
     const stored = await chrome.storage.sync.get('options').catch(() => ({})) as { options?: Record<string, unknown> };
     const opts = stored.options || DEFAULT_OPTIONS;
     const exportData = {
-      _version: '6.2.8',
+      _version: '6.3.1',
       _exportedAt: new Date().toISOString(),
       options: opts,
     };

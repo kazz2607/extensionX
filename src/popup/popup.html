@@ -80,7 +80,7 @@
         </div>
         <div class="header-text">
           <h1 class="app-name">Media Downloader</h1>
-          <span class="app-version">v6.2.8</span>
+          <span class="app-version">v6.3.1</span>
         </div>
       </div>
       <button class="btn-icon btn-theme" id="btn-theme" title="Đổi giao diện">
@@ -407,9 +407,9 @@
             <span class="queue-count-badge" id="queue-count-badge" style="display:none">0</span>
           </div>
           <div class="queue-header-actions">
-            <button class="btn-text btn-queue-start" id="btn-queue-start" title="Bắt đầu queue">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-              Start
+            <button class="btn-text btn-queue-start" id="btn-queue-start" title="Bắt đầu hàng đợi" aria-label="Bắt đầu hàng đợi" data-action="disabled" disabled>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              <span class="queue-primary-label">Bắt đầu</span>
             </button>
             <button class="btn-queue-export" id="btn-queue-export" title="Xuất queue ra file JSON">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -423,6 +423,7 @@
             <button class="btn-text btn-queue-clear" id="btn-queue-clear">Clear</button>
           </div>
         </div>
+        <div class="queue-summary" id="queue-summary" role="status" aria-live="polite">0 đang tải · 0 chờ · 0 tạm dừng · 0 lỗi</div>
 
         <!-- Add current profile shortcut -->
         <div class="queue-add-bar" id="queue-add-bar">

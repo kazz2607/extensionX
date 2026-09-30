@@ -154,7 +154,7 @@ loadPersistedQueue().then(() => {
 
 function exportQueue(): QueueExportData {
   return {
-    _version: '6.2.8',
+    _version: '6.3.1',
     _exportedAt: new Date().toISOString(),
     queue: profileQueue,
   };
@@ -220,6 +220,20 @@ function toggleQueuePause(id: string): boolean {
   return true;
 }
 
+function resumePausedQueueItems(): number {
+  let resumed = 0;
+  profileQueue = profileQueue.map((item) => {
+    if (item.status !== 'waiting' || !item.paused) return item;
+    resumed++;
+    return { ...item, paused: false };
+  });
+  if (resumed > 0) {
+    persistQueue();
+    broadcastQueueUpdate();
+  }
+  return resumed;
+}
+
 function moveQueueItem(id: string, direction: 'up' | 'down'): boolean {
   const idx = profileQueue.findIndex(q => q.id === id);
   if (idx === -1) return false;
@@ -233,5 +247,5 @@ function moveQueueItem(id: string, direction: 'up' | 'down'): boolean {
 
 export {
   loadPersistedQueue, persistQueue, persistQueueImmediately, broadcastQueueUpdate, startNextInQueue, exportQueue, importQueue,
-  retryQueueItem, toggleQueuePause, moveQueueItem, resetDownloadingQueueItems,
+  retryQueueItem, toggleQueuePause, resumePausedQueueItems, moveQueueItem, resetDownloadingQueueItems,
 };

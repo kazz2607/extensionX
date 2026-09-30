@@ -1,10 +1,10 @@
 # Quality gate và baseline hiện hành
 
-> Áp dụng cho phiên bản **6.2.8** | Cập nhật: 2026-09-30
+> Áp dụng cho phiên bản **6.3.1** | Cập nhật: 2026-09-30
 
-## Baseline hiện hành (v6.2.8)
+## Baseline hiện hành (v6.3.1)
 
-`npm run check` xanh: typecheck sạch, ESLint sạch, **25/25** unit test, **2/2** e2e fixture regression, production build thành công. Unit test bao phủ coordinator operation, stale callback sau Stop, paused recovery, reset Queue và loại thumbnail video. `npm run test:browser` chạy riêng nhưng fixture localhost hiện không qua sender binding nghiêm ngặt (`https://x.com`/`twitter.com`), nên media count dừng ở 0; cần sửa harness dùng origin X giả lập hợp lệ trước khi dùng suite này làm release gate.
+Gate 6.3.1 gồm typecheck, ESLint, **26 unit test**, 2 e2e fixture và production build. Unit test bổ sung primary action Queue bên cạnh runtime boundary, coordinator, paused recovery và loại thumbnail video. `npm run test:browser` vẫn là gate riêng vì fixture localhost chưa qua sender binding nghiêm ngặt (`https://x.com`/`twitter.com`); cần sửa harness dùng origin X giả lập hợp lệ trước khi dùng suite này làm release gate.
 
 ## Lệnh bắt buộc
 

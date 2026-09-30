@@ -236,6 +236,7 @@
   let scanTimeout: ReturnType<typeof setTimeout> | null = null;
   const pendingRoots = new Set<Element>();
   const observer = new MutationObserver((mutations) => {
+    if (document.hidden) return;
     window.dispatchEvent(new CustomEvent('XMD_DIAGNOSTIC_METRIC', {
       detail: { name: 'observer.callback', value: 1 }
     }));
@@ -274,6 +275,11 @@
     observer.observe(root, { childList: true, subtree: true });
   }
 
+  function handleVisibilityChange() {
+    if (!document.hidden) scanDOM(getObserveRoot());
+  }
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+
   // An toàn: chờ document.body sẵn sàng
   if (document.body) {
     startObserver();
@@ -287,6 +293,7 @@
   window.__disconnectDOMScanner__ = function () {
     observer.disconnect();
     window.removeEventListener('scroll', onScroll);
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
     if (scanTimeout) { clearTimeout(scanTimeout); scanTimeout = null; }
     if (_scrollTimer) { clearTimeout(_scrollTimer); _scrollTimer = null; }
 // @ts-ignore

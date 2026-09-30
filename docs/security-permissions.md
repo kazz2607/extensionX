@@ -1,0 +1,38 @@
+# Audit bảo mật và quyền extension
+
+> Áp dụng từ **6.3.0** | Cập nhật: 2026-09-30
+
+## Quyền Manifest
+
+| Quyền | Chức năng | Quyết định |
+| --- | --- | --- |
+| `downloads` | Lưu ảnh/video/GIF và theo dõi kết quả tải | Giữ, chức năng cốt lõi |
+| `storage`, `unlimitedStorage` | Options, Queue, phiên, lịch sử và media profile lớn | Giữ; dữ liệu chỉ lưu cục bộ |
+| `tabs` | Gắn profile với tab X/Twitter và gửi trạng thái về đúng tab | Giữ; `activeTab` đã loại vì trùng phạm vi |
+| `scripting` | Khởi tạo bridge trong MAIN world khi cần | Giữ |
+| `offscreen` | Ghép HLS ngoài service worker | Giữ |
+| `alarms` | Watch mode và tác vụ có lịch | Giữ |
+| `notifications` | Báo hoàn tất/lỗi khi người dùng bật | Giữ |
+| `declarativeNetRequest` | Điều chỉnh CORS cho endpoint Syndication xác định | Giữ; rule chỉ áp dụng `cdn.syndication.twimg.com` |
+
+Host permissions chỉ bao phủ X/Twitter, các CDN media X cần tải và Telegram Web A/K. Không có host wildcard toàn Internet. `web_accessible_resources` tiếp tục giới hạn theo resource và origin trong manifest.
+
+## Biên tin nhắn runtime
+
+- Chỉ nhận message type nằm trong allowlist.
+- Mỗi type có allowlist field payload; field dư, envelope lạ, payload không phải object hoặc message trên 256 KB bị từ chối.
+- Background chỉ chấp nhận sender nội bộ extension; lệnh gắn username từ content script phải khớp tab X/Twitter tương ứng.
+- `HLS_DONE` có envelope riêng gồm `requestId`, `dataUrl` hoặc `error`; không chấp nhận field khác.
+- URL media, Telegram sender, Queue import và options vẫn qua validator theo domain trước khi thực thi.
+
+## Bề mặt cần theo dõi
+
+- MAIN-world bridge trên X chỉ chuyển dữ liệu cần thiết, không log bearer/cookie/query URL nhạy cảm.
+- Telegram private stream dùng URL ngắn hạn; không persist URL token vào diagnostic.
+- Offscreen HLS phải gắn request ID và bỏ qua callback của operation cũ.
+- Queue import có giới hạn byte/record và parse nguyên tử; tên file/thư mục được sanitize chống traversal.
+- Rule DNR phải được review lại nếu thay đổi host hoặc header.
+
+## Regression bắt buộc
+
+`test/validation.test.ts` kiểm tra type lạ, field payload/envelope dư, message quá lớn, host media sai, sender Telegram sai và Queue import không hợp lệ. Mọi thay đổi permission hoặc message schema phải cập nhật bảng này và chạy `npm run check`.

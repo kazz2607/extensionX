@@ -4,6 +4,41 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [6.3.1] — 2026-09-30 *(Queue UI & Accessibility)*
+
+### 🎨 UI/UX
+- Nút chính của Queue nay có một nguồn trạng thái và tự đổi **Bắt đầu / Tạm dừng / Tiếp tục**; global Resume mở lại các item đang pause trước khi chạy.
+- Thêm dòng tổng hợp đang tải/chờ/tạm dừng/lỗi, trạng thái disabled rõ ràng và màu riêng cho thao tác tạm dừng.
+- Queue responsive tốt hơn ở chiều rộng 320–360 px và hỗ trợ Windows forced-colors.
+- Thay xác nhận xóa Queue kiểu blocking bằng dialog có focus trap và trả focus về control ban đầu.
+
+### ♿ Accessibility
+- Bổ sung `aria-label` theo profile cho move, pause/resume, retry, remove/stop; progress có semantics `progressbar` và giá trị hiện hành.
+- Nút chính và thống kê Queue dùng label tiếng Việt nhất quán, `aria-live` cho thay đổi trạng thái; icon trang trí được ẩn khỏi screen reader.
+
+### ✅ Kiểm chứng
+- Thêm regression cho phép suy ra duy nhất primary action từ Queue state; tổng số unit test tăng lên **26**.
+
+---
+
+## [6.3.0] — 2026-09-30 *(Performance & Security Hardening)*
+
+### ⚡ Hiệu năng
+- Worker pool dùng cursor O(1) thay `queue.shift()` và lọc thumbnail video theo một lượt duyệt, giảm cấp phát/bản sao mảng ở profile lớn.
+- Queue chuyển sang event delegation và gộp progress bằng `requestAnimationFrame`, không còn gắn lại listener cho từng row hoặc cập nhật DOM nhiều lần trong một frame.
+- DOM scanner ngừng xử lý mutation khi tab ẩn và tự reconcile khi hiện lại; watchdog Telegram giảm từ 500 ms xuống 2 giây.
+
+### 🔒 Bảo mật
+- Runtime message có allowlist riêng cho type, envelope và field payload; message có field dư hoặc cấu trúc không hợp lệ bị từ chối trước handler.
+- Bổ sung regression cho field payload/envelope giả mạo và envelope HLS hợp lệ.
+- Audit quyền Manifest và loại `activeTab` vì đã trùng với quyền `tabs`; ghi rõ lý do giữ từng quyền/host trong tài liệu bảo mật.
+
+### 📚 Tài liệu
+- Thêm baseline/ngân sách đo hiệu năng và audit bảo mật/quyền; cập nhật roadmap, upgrade plan, quality gate và hướng dẫn phát hành cho 6.3.0.
+- Virtualization và IndexedDB cursor cho tập 10.000–50.000 media tiếp tục nằm trong backlog có benchmark, tránh thay đổi UI khi chưa có số đo Chrome thật.
+
+---
+
 ## [6.2.8] — 2026-09-30 *(Queue Lifecycle Coordinator)*
 
 ### 🐛 Sửa lỗi

@@ -27,7 +27,9 @@ export type ExtensionMessage =
 export interface ParsedRuntimeMessage {
   type: MessageType;
   payload?: any;
-  [key: string]: any;
+  requestId?: string;
+  dataUrl?: string;
+  error?: string;
 }
 
 const MAX_MESSAGE_BYTES = 256_000;
@@ -44,17 +46,45 @@ const MESSAGE_TYPES: ReadonlySet<string> = new Set<MessageType>([
   'START_FOLLOWING_SCROLL', 'STOP_FOLLOWING_SCROLL', 'GET_FOLLOWING_SCROLL_STATE', 'HLS_DONE', 'TG_DOWNLOAD_MEDIA',
 ]);
 
+const PAYLOAD_KEYS: Readonly<Record<MessageType, readonly string[]>> = {
+  MEDIA_FOUND: ['username', 'mediaItems', 'sourceUrl', 'pageUrl'],
+  PAGE_LOADED: ['username', 'ct0', 'url', 'isMediaPage'],
+  GET_MEDIA_COUNT: ['username'], GET_STATS: ['username'], GET_ALL_USERNAMES: [], GET_TAB_STATE: ['username'],
+  CLEAR_MEDIA: ['username'], START_COLLECTING: ['username'], STOP_COLLECTING: ['username'],
+  START_DOWNLOAD: ['username', 'options'], ADD_TO_QUEUE: ['username', 'filterType', 'skipDuplicates', 'keyword'],
+  REMOVE_FROM_QUEUE: ['id'], GET_QUEUE: [], CLEAR_QUEUE: [], START_QUEUE: [], GET_DOWNLOAD_STATE: [],
+  RETRY_QUEUE_ITEM: ['id'], TOGGLE_QUEUE_PAUSE: ['id'], REORDER_QUEUE_ITEM: ['id', 'direction'],
+  DIAGNOSTIC_METRIC: ['name', 'value'], EXPORT_LOCAL_DIAGNOSTICS: [], CLEAR_LOCAL_DIAGNOSTICS: [],
+  GET_MEDIA_COUNT_FILTERED: ['username', 'filterType', 'dateFrom', 'dateTo', 'keyword'],
+  GET_MEDIA_ITEMS_FILTERED: ['username', 'filterType', 'dateFrom', 'dateTo', 'keyword'],
+  GET_DOWNLOADED_COUNT: ['username'], CLEAR_DOWNLOADED: ['username'], CLEAR_ALL_DOWNLOADED: [],
+  EXPORT_CSV: ['username', 'filterType', 'offset'], EXPORT_MANIFEST: ['username'],
+  DOWNLOAD_TWEET: ['tweetId', 'username'], GET_SAVED_SESSION: [], RESTORE_SESSION: ['username'],
+  RESTORE_SESSION_CANCEL: ['username'], STOP_DOWNLOAD: [], RETRY_FAILED: [], UPDATE_BEARER: ['bearer'],
+  UPDATE_QUERY_ID: ['queryId', 'opName'], EXPORT_QUEUE: [], IMPORT_QUEUE: ['data'], SHORTCUT_DOWNLOAD: ['url'],
+  START_FOLLOWING_SCROLL: ['targetUrl'], STOP_FOLLOWING_SCROLL: [], GET_FOLLOWING_SCROLL_STATE: [],
+  HLS_DONE: [], TG_DOWNLOAD_MEDIA: ['url', 'filename', 'isVideo'],
+};
+
 /** Cheap boundary check before command-specific validation in the service worker. */
 export function parseExtensionMessage(value: unknown): ParsedRuntimeMessage | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const candidate = value as Record<string, unknown>;
   if (typeof candidate.type !== 'string' || !MESSAGE_TYPES.has(candidate.type)) return null;
+  const type = candidate.type as MessageType;
+  const allowedEnvelopeKeys = type === 'HLS_DONE'
+    ? new Set(['type', 'requestId', 'dataUrl', 'error'])
+    : new Set(['type', 'payload']);
+  if (Object.keys(candidate).some((key) => !allowedEnvelopeKeys.has(key))) return null;
   if (candidate.payload !== undefined && (candidate.payload === null || typeof candidate.payload !== 'object' || Array.isArray(candidate.payload))) return null;
-  if (candidate.payload && Object.keys(candidate.payload as Record<string, unknown>).length > 30) return null;
+  if (candidate.payload) {
+    const allowedPayloadKeys = new Set(PAYLOAD_KEYS[type]);
+    if (Object.keys(candidate.payload as Record<string, unknown>).some((key) => !allowedPayloadKeys.has(key))) return null;
+  }
   try {
     if (JSON.stringify(value).length > MAX_MESSAGE_BYTES) return null;
   } catch {
     return null;
   }
-  return candidate as ParsedRuntimeMessage;
+  return candidate as unknown as ParsedRuntimeMessage;
 }

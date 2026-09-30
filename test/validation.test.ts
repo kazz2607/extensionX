@@ -19,6 +19,7 @@ import { filterMediaItems, isVideoThumbnailUrl } from '../src/shared/media-filte
 import { canTransitionCollectPhase } from '../src/shared/collect-state.ts';
 import { recoverQueueItemAfterRestart, transitionQueueItem, wasInterrupted, findInterruptedIds, resetDownloadingItemsAfterStop } from '../src/shared/queue-state.ts';
 import { DownloadCoordinator } from '../src/shared/download-coordinator.ts';
+import { getQueuePresentation } from '../src/shared/queue-presentation.ts';
 import { renderFilenameTemplate } from '../src/shared/filename-template.ts';
 import {
   isRetryableChunkStatus,
@@ -44,6 +45,10 @@ test('binds profile messages to the X tab URL and rejects malformed envelopes', 
   assert.equal(isXProfileUrlForUsername('https://x.com/other/media', 'NASA'), false);
   assert.equal(isXProfileUrlForUsername('https://x.com.evil.test/NASA/media', 'NASA'), false);
   assert.equal(parseExtensionMessage({ type: 'MEDIA_FOUND', payload: { username: 'NASA' } })?.type, 'MEDIA_FOUND');
+  assert.equal(parseExtensionMessage({ type: 'GET_MEDIA_COUNT', payload: { username: 'NASA', injected: true } }), null);
+  assert.equal(parseExtensionMessage({ type: 'GET_QUEUE', payload: {}, injected: true }), null);
+  assert.equal(parseExtensionMessage({ type: 'HLS_DONE', requestId: 'req-1', dataUrl: 'blob:test' })?.type, 'HLS_DONE');
+  assert.equal(parseExtensionMessage({ type: 'HLS_DONE', requestId: 'req-1', unexpected: true }), null);
   assert.equal(parseExtensionMessage({ type: 'UNRECOGNIZED_COMMAND', payload: {} }), null);
   assert.equal(parseExtensionMessage({ type: 'bad-type!', payload: {} }), null);
   assert.equal(parseExtensionMessage({ type: 'MEDIA_FOUND', payload: 'not-an-object' }), null);
@@ -212,6 +217,17 @@ test('finds interrupted ids from raw import data before parseQueueItems normaliz
   assert.deepEqual(findInterruptedIds(raw), new Set(['A', 'C']));
   assert.deepEqual(findInterruptedIds('not-an-array'), new Set());
   assert.deepEqual(findInterruptedIds(undefined), new Set());
+});
+
+test('derives one accessible primary Queue action and summary from state', () => {
+  const base = { filterType: 'all', skipDuplicates: true, addedAt: 1, mediaCount: 10 };
+  const waiting = { ...base, id: 'w', username: 'wait', status: 'waiting' as const };
+  assert.deepEqual(getQueuePresentation([waiting]), {
+    action: 'start', label: 'Bắt đầu', title: 'Bắt đầu hàng đợi', waiting: 1, downloading: 0, paused: 0, error: 0, done: 0,
+  });
+  assert.equal(getQueuePresentation([{ ...waiting, paused: true }]).action, 'resume');
+  assert.equal(getQueuePresentation([{ ...waiting, status: 'downloading' }]).action, 'pause');
+  assert.equal(getQueuePresentation([{ ...waiting, status: 'done' }]).action, 'disabled');
 });
 
 test('renders filename template tokens without touching unknown text (Pha 13)', () => {

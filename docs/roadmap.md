@@ -1,6 +1,6 @@
 # X Media Downloader — Roadmap
 
-> Phiên bản hiện tại: **6.2.8** | Cập nhật: 2026-09-30
+> Phiên bản hiện tại: **6.3.1** | Cập nhật: 2026-09-30
 
 Tài liệu này là nguồn duy nhất cho trạng thái sản phẩm, phần việc đã hoàn thành và backlog. Chi tiết từng bản phát hành nằm trong [`CHANGELOG.md`](../CHANGELOG.md).
 
@@ -16,7 +16,7 @@ Extension đang dùng Manifest V3, TypeScript strict và Vite. Các luồng chí
 - Tải ảnh/video trực tiếp trên Telegram Web A/K, gồm Range-fetch cho stream riêng tư.
 - Following Scanner Feature 0: tự cuộn trang Following và hiển thị tiến độ.
 
-Quality gate hiện hành: TypeScript, ESLint, **25 unit tests**, **2 fixture e2e tests** và production build. Chi tiết tại [`quality-gate.md`](quality-gate.md).
+Quality gate hiện hành: TypeScript, ESLint, **26 unit tests**, **2 fixture e2e tests** và production build. Chi tiết tại [`quality-gate.md`](quality-gate.md).
 
 ## Kiến trúc chính
 
@@ -46,6 +46,8 @@ src/
 | v6.2.0 | Download Picker, Preset, Queue nâng cao, resume, filename template, Manifest, Watch |
 | v6.2.1–v6.2.4 | Range-fetch Telegram private stream, viewer/thumbnail và retry 408/5xx |
 | v6.2.5–v6.2.8 | Khôi phục Queue; sửa Start/Stop/Resume, thumbnail video và chuẩn hóa lifecycle bằng coordinator |
+| v6.3.0 | Tối ưu worker/Queue/observer; runtime message field allowlist và audit least-privilege |
+| v6.3.1 | Primary Queue action theo state, responsive 320–360 px và accessibility semantics |
 
 Các kế hoạch Pha 0–15 cũ đã hoàn thành và được hợp nhất vào bảng này; không còn duy trì file kế hoạch riêng.
 
@@ -71,10 +73,12 @@ Phần coordinator, paused recovery, dedupe-complete và unit regression đã ho
 
 Thiết kế chi tiết còn hoạt động tại [`following-scanner-plan.md`](following-scanner-plan.md).
 
-### P1 — Type safety còn lại
+### P1 — Hiệu năng và type safety còn lại
 
+- Đo fixture 1.000–50.000 media và triển khai virtualization khi số đo chứng minh cần thiết.
+- Chuyển truy vấn profile lớn sang IndexedDB cursor/batch và giới hạn cache RAM.
 - Dọn `any`/`@ts-ignore` còn lại trong content scripts chạy trong trang.
-- Chuẩn hóa message payload thành discriminated union đầy đủ.
+- Chuẩn hóa response và payload thành discriminated union đầy đủ theo domain.
 - Thêm kiểm thử cho các nhánh service-worker lifecycle và IndexedDB failure.
 
 ### P2 — Ý tưởng sản phẩm chưa cam kết

@@ -1099,6 +1099,7 @@ a:focus-visible {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
 }
 
 .btn-queue-start {
@@ -1118,6 +1119,24 @@ a:focus-visible {
 
 .btn-queue-start:hover {
   background: rgba(0, 186, 124, 0.22);
+}
+
+.btn-queue-start[data-action="pause"] {
+  background: var(--orange-bg);
+  color: var(--orange);
+  border-color: rgba(255, 122, 0, 0.35);
+}
+
+.btn-queue-start:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.queue-summary {
+  padding: 0 14px 7px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
 }
 
 .btn-queue-clear {
@@ -1389,6 +1408,44 @@ a:focus-visible {
 
 .queue-item.paused {
   opacity: 0.6;
+}
+
+@media (max-width: 360px) {
+  .queue-header {
+    align-items: flex-start;
+    gap: 6px;
+    padding-inline: 10px;
+  }
+
+  .queue-header-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .queue-add-bar {
+    margin-inline: 10px;
+  }
+
+  .queue-list {
+    padding-inline: 10px;
+  }
+
+  .queue-item {
+    gap: 6px;
+    padding-inline: 8px;
+  }
+
+  .queue-status {
+    padding-inline: 5px;
+  }
+}
+
+@media (forced-colors: active) {
+  .queue-item,
+  .btn-queue-start,
+  .queue-status {
+    border: 1px solid CanvasText;
+  }
 }
 
 /* Queue Add button in action row */

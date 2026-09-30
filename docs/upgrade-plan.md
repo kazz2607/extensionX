@@ -1,6 +1,6 @@
 # Kế hoạch nâng cấp ExtensionX
 
-> Baseline: **6.2.8** | Lập ngày: 2026-09-30 | Trạng thái: **Proposed**
+> Baseline: **6.3.1** | Lập ngày: 2026-09-30 | Trạng thái: **6.3.1 implemented; browser acceptance pending**
 
 Tài liệu này đề xuất lộ trình nâng cấp dựa trên mã nguồn hiện tại. Trọng tâm là độ tin cậy của Queue/download, hiệu năng với profile lớn, thu hẹp bề mặt bảo mật, hoàn thiện UI/UX và bổ sung tính năng có giá trị thực tế. Đây là kế hoạch triển khai, không phải danh sách lỗi đã được xác nhận; các mục cần đo hoặc tái hiện được ghi rõ là audit/benchmark.
 
@@ -61,6 +61,8 @@ Tài liệu này đề xuất lộ trình nâng cấp dựa trên mã nguồn hi
 
 ## 4. P1 — Hiệu năng và khả năng mở rộng (6.3.0)
 
+> Tiến độ: **Implemented core optimizations** — worker cursor, single-pass filtering, Queue event delegation/rAF batching, hidden-tab observer pause và Telegram watchdog 2 giây đã hoàn thành. Virtualization, IndexedDB cursor trực tiếp và benchmark Chrome fixture lớn chuyển sang backlog đo đạc tiếp theo.
+
 ### 4.1 Popup và UI list
 
 - Virtualize Queue, Picker, History và Following list khi vượt 100–200 phần tử.
@@ -92,6 +94,8 @@ Tài liệu này đề xuất lộ trình nâng cấp dựa trên mã nguồn hi
 
 ## 5. P1 — Bảo mật và quyền riêng tư (6.3.0)
 
+> Tiến độ: **Implemented boundary and permission audit** — runtime message có allowlist type/field/envelope, regression field dư và `activeTab` trùng lặp đã được loại. Discriminated response typing đầy đủ tiếp tục được thực hiện theo domain.
+
 ### 5.1 Message boundary
 
 - Chuyển `ExtensionMessage.payload: any` thành discriminated union cho toàn bộ message.
@@ -121,6 +125,8 @@ Tài liệu này đề xuất lộ trình nâng cấp dựa trên mã nguồn hi
 - Security regression xanh; diagnostic/export không chứa secret test fixtures.
 
 ## 6. P1 — UI/UX và accessibility (6.3.1)
+
+> Tiến độ: **Implemented core Queue UX** — primary action theo state, global resume, live summary, ARIA cho row actions/progress, responsive 320–360 px, forced-colors và confirm focus trap đã hoàn thành. Screenshot regression và kiểm tra screen reader/zoom trên Chrome thật vẫn cần nghiệm thu thủ công.
 
 ### 6.1 Hệ thống giao diện
 
