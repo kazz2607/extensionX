@@ -57,10 +57,23 @@ async function startNextInQueue(): Promise<boolean> {
   const next = profileQueue.find(item => item.status === 'waiting' && !item.paused);
   if (!next) return false; // Hàng đợi rỗng (hoặc chỉ còn item đang paused)
 
+  // Reflect the click immediately before potentially expensive IndexedDB I/O.
+  // This also prevents a second START_QUEUE click from selecting the same item.
+  const downloadingItem = transitionQueueItem(next, 'downloading');
+  if (!downloadingItem) return false;
+  Object.assign(next, downloadingItem);
+  persistQueue();
+  broadcastQueueUpdate();
+
   let store = mediaStore.get(next.username);
   if (!store?.size) {
     // Thử load từ IndexedDB nếu service worker vừa restart và store trống
-    const itemsArray = await getMediaItems(next.username) as any[];
+    let itemsArray: any[] = [];
+    try {
+      itemsArray = await getMediaItems(next.username) as any[];
+    } catch (err: unknown) {
+      console.error('[SW] Queue IndexedDB load failed:', err instanceof Error ? err.message : String(err));
+    }
     if (itemsArray && itemsArray.length > 0) {
       if (!mediaStore.has(next.username)) mediaStore.set(next.username, new Map());
       store = mediaStore.get(next.username);
@@ -80,9 +93,6 @@ async function startNextInQueue(): Promise<boolean> {
     return startNextInQueue();
   }
 
-  const downloadingItem = transitionQueueItem(next, 'downloading');
-  if (!downloadingItem) return false;
-  Object.assign(next, downloadingItem);
   // BUG-L6 FIX: Cập nhật mediaCount thực tế từ store — tránh hiển thị số cũ khi user scroll thêm sau khi add vào queue
   next.mediaCount = store.size;
   persistQueue();
@@ -113,7 +123,7 @@ loadPersistedQueue().then(() => {
 
 function exportQueue(): QueueExportData {
   return {
-    _version: '6.2.5',
+    _version: '6.2.6',
     _exportedAt: new Date().toISOString(),
     queue: profileQueue,
   };

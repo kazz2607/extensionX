@@ -4,14 +4,16 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
-## [6.2.4] — 2026-09-19 *(Telegram Stream Resilience)*
+## [6.2.6] — 2026-09-30 *(Queue Start Timeout Fix)*
 
 ### 🐛 Sửa lỗi
-- **Không tải được video khi Telegram đang tải chậm/lỗi** (Console: `Failed to load resource … 408 (Request timed out)`, `Empty src attribute`): Service Worker của Telegram trả `408` khi 1 đoạn video hết thời gian chờ, nhưng trình tải trước đây coi mọi lỗi 4xx là không thể thử lại nên bỏ cuộc ngay. Nay **408/425/429/5xx được thử lại** (tối đa 6 lần, giãn cách tăng dần); 4xx khác vẫn dừng ngay.
-- **Nút viewer đòi `<video>` phải đang hiển thị và có `src`** (chặt hơn 6.2.1) nên khi Telegram ẩn `<video>` lúc tải hoặc xoá `src` sau lỗi thì không thử tải, chỉ báo "Video chưa sẵn sàng". Nay extension: (1) dùng video có nguồn dù đang bị ẩn; (2) **ghi nhớ URL stream** mà Telegram đã gán cho `<video>` trong viewer (chỉ hợp lệ khi đúng phần tử `<video>` đó còn trong viewer); (3) dự phòng bằng URL video stream mới nhất được yêu cầu kể từ lúc mở viewer. Vì Range-fetch của extension độc lập với trình phát của Telegram nên vẫn tải được khi trình phát bị treo.
-- Tooltip nút hiện **lý do lỗi** (vd. "Không tải được video: HTTP 408") thay vì chỉ đổi màu đỏ.
-- Thêm `isRetryableChunkStatus`, `parseTelegramStreamInfo`, `pickLatestVideoStreamUrl` (có unit test, 21 → 22 test). Đã kiểm chứng trên Chrome thật với **đúng bản build `dist/`**: viewer giả lập, server trả 408 hai lần cho mỗi đoạn — 4 kịch bản (video hiển thị / bị ẩn / src bị xoá / không có src nhưng đã có request stream) tải ra file khớp từng byte; kịch bản không có nguồn báo lỗi đúng. Bản 6.2.3 thất bại ngay kịch bản đầu.
-- **Lưu ý:** URL dự phòng lấy theo request gần nhất nên với video chưa từng được Telegram yêu cầu sẽ báo chưa sẵn sàng; luôn cần **F5 tab Telegram** sau khi tải lại extension.
+- **`sendBG timeout (8000ms): START_QUEUE`:** background không còn giữ message port trong lúc đọc hàng trăm bản ghi IndexedDB. Lệnh Start được xác nhận ngay và queue tiếp tục chạy bất đồng bộ.
+- **Nút Start có thể chưa nhận click:** chuyển listener vào `queue-panel.ts` để gắn ngay khi panel khởi tạo, thay vì chờ toàn bộ chuỗi khởi tạo popup; chống gắn listener trùng và khóa nút trong lúc gửi lệnh.
+- **Queue không phản hồi trong lúc nạp dữ liệu:** item được chuyển sang `downloading` và broadcast trước thao tác IndexedDB; lỗi đọc dữ liệu được ghi log và chuyển item sang `error` thay vì treo im lặng.
+- Đồng bộ toàn bộ version và tài liệu lên `6.2.6`.
+
+### ✅ Kiểm chứng
+- TypeScript, ESLint, 22 unit tests, 2 fixture e2e tests và production build đều thành công.
 
 ---
 
@@ -24,6 +26,17 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ### ✅ Kiểm chứng
 - TypeScript, 22 unit tests và production build đều thành công.
+
+---
+
+## [6.2.4] — 2026-09-19 *(Telegram Stream Resilience)*
+
+### 🐛 Sửa lỗi
+- **Không tải được video khi Telegram đang tải chậm/lỗi** (Console: `Failed to load resource … 408 (Request timed out)`, `Empty src attribute`): Service Worker của Telegram trả `408` khi 1 đoạn video hết thời gian chờ, nhưng trình tải trước đây coi mọi lỗi 4xx là không thể thử lại nên bỏ cuộc ngay. Nay **408/425/429/5xx được thử lại** (tối đa 6 lần, giãn cách tăng dần); 4xx khác vẫn dừng ngay.
+- **Nút viewer đòi `<video>` phải đang hiển thị và có `src`** (chặt hơn 6.2.1) nên khi Telegram ẩn `<video>` lúc tải hoặc xoá `src` sau lỗi thì không thử tải, chỉ báo "Video chưa sẵn sàng". Nay extension: (1) dùng video có nguồn dù đang bị ẩn; (2) **ghi nhớ URL stream** mà Telegram đã gán cho `<video>` trong viewer (chỉ hợp lệ khi đúng phần tử `<video>` đó còn trong viewer); (3) dự phòng bằng URL video stream mới nhất được yêu cầu kể từ lúc mở viewer. Vì Range-fetch của extension độc lập với trình phát của Telegram nên vẫn tải được khi trình phát bị treo.
+- Tooltip nút hiện **lý do lỗi** (vd. "Không tải được video: HTTP 408") thay vì chỉ đổi màu đỏ.
+- Thêm `isRetryableChunkStatus`, `parseTelegramStreamInfo`, `pickLatestVideoStreamUrl` (có unit test, 21 → 22 test). Đã kiểm chứng trên Chrome thật với **đúng bản build `dist/`**: viewer giả lập, server trả 408 hai lần cho mỗi đoạn — 4 kịch bản (video hiển thị / bị ẩn / src bị xoá / không có src nhưng đã có request stream) tải ra file khớp từng byte; kịch bản không có nguồn báo lỗi đúng. Bản 6.2.3 thất bại ngay kịch bản đầu.
+- **Lưu ý:** URL dự phòng lấy theo request gần nhất nên với video chưa từng được Telegram yêu cầu sẽ báo chưa sẵn sàng; luôn cần **F5 tab Telegram** sau khi tải lại extension.
 
 ---
 

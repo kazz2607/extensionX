@@ -316,12 +316,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ error: 'Download is already running' });
         return false;
       }
-      startNextInQueue()
-        .then((started) => sendResponse(started
-          ? { ok: true }
-          : { error: 'Queue has no runnable items' }))
-        .catch(() => sendResponse({ error: 'Could not start queue' }));
-      return true;
+      // Acknowledge immediately. Loading hundreds of records from IndexedDB can
+      // exceed the popup's message timeout; queue progress/errors are delivered
+      // through QUEUE_UPDATE instead of holding the message port open.
+      sendResponse({ ok: true });
+      void startNextInQueue().catch((err: unknown) => {
+        console.error('[SW] START_QUEUE failed:', err instanceof Error ? err.message : String(err));
+        broadcastQueueUpdate();
+      });
+      return false;
     }
 
     case 'GET_DOWNLOAD_STATE': {

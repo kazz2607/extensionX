@@ -760,18 +760,6 @@ function setupListeners() {
     els.btnQueueAddBar.addEventListener('click', addCurrentToQueue);
   }
 
-  // Queue Start
-  if (els.btnQueueStart) {
-    els.btnQueueStart.addEventListener('click', async () => {
-      const res = await sendBG('START_QUEUE', {});
-      if (res?.ok) {
-        showToast('Hàng đợi đã bắt đầu', 'success');
-      } else {
-        showToast(res?.error || 'Không thể bắt đầu hàng đợi', 'error');
-      }
-    });
-  }
-
   // Queue Clear
   if (els.btnQueueClear) {
     els.btnQueueClear.addEventListener('click', async () => {

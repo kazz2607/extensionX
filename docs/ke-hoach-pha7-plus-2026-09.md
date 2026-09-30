@@ -2,7 +2,7 @@
 
 > Kế hoạch kế tiếp của `ke-hoach-nang-cap-2026-09.md` — rà soát độc lập lại Pha 0-6 và lên roadmap cho backlog kỹ thuật + Phase 5+.
 >
-> **Trạng thái (2026-09-30): Pha 7 → Pha 15 đã hoàn tất và được phát hành trong v6.2.0** (xem `CHANGELOG.md`); v6.2.1–v6.2.4 là các bản vá Telegram và v6.2.5 sửa độ tin cậy của nút Start trong Queue khi service worker khởi động. Còn mở: smoke test thủ công trên Chrome thật, dọn nốt type ở content script, bảo trì dependency.
+> **Trạng thái (2026-09-30): Pha 7 → Pha 15 đã hoàn tất và được phát hành trong v6.2.0** (xem `CHANGELOG.md`); v6.2.1–v6.2.4 là các bản vá Telegram, v6.2.5–v6.2.6 sửa độ tin cậy và timeout của nút Start trong Queue. Còn mở: smoke test thủ công trên Chrome thật, dọn nốt type ở content script, bảo trì dependency.
 
 ## Context
 

@@ -1,11 +1,11 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-09-30 | Phiên bản hiện tại: **6.2.5**
+> Cập nhật: 2026-09-30 | Phiên bản hiện tại: **6.2.6**
 
 ---
 
-## 1. Kiến Trúc Hiện Tại (v6.2.5)
+## 1. Kiến Trúc Hiện Tại (v6.2.6)
 
 ```text
 extensionX/
@@ -13,7 +13,7 @@ extensionX/
 ├── tsconfig.json                  # Cấu hình TypeScript (strict: true)
 ├── vite.config.ts                 # Cấu hình Vite bundler
 ├── src/
-│   ├── manifest.json              # Chrome Extension Manifest V3 (version 6.2.5)
+│   ├── manifest.json              # Chrome Extension Manifest V3 (version 6.2.6)
 │   ├── background/
 │   │   ├── service-worker.ts      # Service Worker: core logic, queue, date filter
 │   │   ├── tweet-api.ts           # Fallback API & User Session bypass CORS
@@ -158,6 +158,7 @@ File được lưu vào:
 - **v6.2.3** Telegram Freeze Hotfix: sửa vòng lặp gắn/xoá nút gây treo tab (6.2.2), quét DOM gộp theo khung hình, báo rõ khi cần F5 tab sau khi cập nhật extension.
 - **v6.2.4** Telegram Stream Resilience: thử lại 408/425/429/5xx khi Range-fetch, viewer ghi nhớ URL stream của `<video>` (dùng được khi Telegram xoá `src`), tooltip hiện lý do lỗi.
 - **v6.2.5** Queue Start Reliability Hotfix: chờ queue nạp xong sau khi service worker thức dậy, ngăn Start thoát im lặng và phản hồi đúng trạng thái cho popup.
+- **v6.2.6** Queue Start Timeout Fix: xác nhận `START_QUEUE` ngay, chạy nạp IndexedDB bất đồng bộ, cập nhật trạng thái item trước I/O và gắn listener Start ngay khi Queue panel khởi tạo.
 
 ---
 
@@ -199,6 +200,7 @@ File được lưu vào:
 | v6.2.3 | **Telegram Freeze Hotfix** — sửa vòng lặp MutationObserver gây treo tab Telegram (chỉ 6.2.2) |
 | v6.2.4 | **Telegram Stream Resilience** — tải video chịu được lỗi 408 và trình phát Telegram bị lỗi |
 | v6.2.5 | **Queue Start Reliability Hotfix** — sửa race condition khiến nút Start trong tab Queue không chạy download sau khi service worker khởi động |
+| v6.2.6 | **Queue Start Timeout Fix** — loại bỏ timeout 8 giây của `START_QUEUE`, hiển thị trạng thái ngay và xử lý lỗi IndexedDB rõ ràng |
 
 ---
 
@@ -587,6 +589,7 @@ v6.2.2  ── Telegram: không tải nhầm ảnh bìa, nút viewer không còn
 v6.2.3  ── Telegram: hotfix vòng lặp MutationObserver gây treo tab (6.2.2)            ✅ DONE
 v6.2.4  ── Telegram: retry 408/5xx, nhớ URL stream của viewer, hiện lý do lỗi           ✅ DONE
 v6.2.5  ── Queue: Start chờ storage sẵn sàng và phản hồi đúng trạng thái              ✅ DONE
+v6.2.6  ── Queue: bỏ timeout message, chạy IndexedDB async, bind Start sớm             ✅ DONE
 
 [TIẾP THEO]
 v6.3.0  ── Following Scanner Feature 1 (API scan + unfollow), dọn type nốt content script

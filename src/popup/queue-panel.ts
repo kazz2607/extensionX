@@ -21,12 +21,31 @@ export interface QueueProgressPayload {
 
 let _deps: QueuePanelDeps | null = null;
 let downloadQueue: QueueItem[] = [];
+let _startButtonBound = false;
 const queueProgressById = new Map<string, { current: number; total: number; percent: number }>();
 // P3: Cache chữ ký queue — tránh rebuild toàn bộ DOM nếu chỉ progress thay đổi
 let _lastQueueSignature = '';
 
 export function initQueuePanel(deps: QueuePanelDeps): void {
   _deps = deps;
+  if (_startButtonBound) return;
+  const startButton = document.getElementById('btn-queue-start') as HTMLButtonElement | null;
+  if (!startButton) return;
+  _startButtonBound = true;
+  startButton.addEventListener('click', async () => {
+    if (!_deps || startButton.disabled) return;
+    startButton.disabled = true;
+    try {
+      const res = await _deps.sendBG('START_QUEUE', {});
+      if (res?.ok) {
+        _deps.showToast('Hàng đợi đã bắt đầu', 'success');
+      } else {
+        _deps.showToast(res?.error || 'Không thể bắt đầu hàng đợi', 'error');
+      }
+    } finally {
+      startButton.disabled = false;
+    }
+  });
 }
 
 export async function loadQueue(): Promise<void> {
