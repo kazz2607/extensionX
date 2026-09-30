@@ -15,6 +15,18 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [6.2.5] — 2026-09-30 *(Queue Start Reliability Hotfix)*
+
+### 🐛 Sửa lỗi
+- **Bấm Start trong tab Queue nhưng không chạy download:** loại bỏ race condition khi service worker nhận `START_QUEUE` trước lúc danh sách queue được nạp xong từ `chrome.storage.local`. Queue hiện dùng chung một promise khởi tạo và `startNextInQueue()` luôn chờ dữ liệu sẵn sàng trước khi chọn mục tải.
+- **Thông báo Start sai trạng thái:** handler `START_QUEUE` nay chờ kết quả thực tế và trả lỗi khi đang có download hoặc không có mục queue có thể chạy; popup chỉ hiển thị thành công khi một mục thực sự bắt đầu.
+- **Đồng bộ phiên bản:** cập nhật manifest, package, popup, Options, dữ liệu export, tài liệu và kế hoạch lên `6.2.5`.
+
+### ✅ Kiểm chứng
+- TypeScript, 22 unit tests và production build đều thành công.
+
+---
+
 ## [6.2.3] — 2026-09-19 *(Telegram Freeze Hotfix)*
 
 ### 🐛 Sửa lỗi

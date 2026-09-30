@@ -2,7 +2,7 @@
 
 Extension Chrome mạnh mẽ cho phép bạn tải toàn bộ ảnh, video và GIF từ bất kỳ profile nào trên X.com (Twitter) với chất lượng gốc, hoàn toàn tự động và sắp xếp gọn gàng vào thư mục theo tên người dùng.
 
-> **Phiên bản hiện tại: 6.2.4** — tải video Telegram chịu được lỗi 408 và lấy được video kể cả khi trình phát của Telegram đang lỗi; 6.2.3 sửa lỗi treo tab (6.2.2); 6.2.2 sửa tải video ra ảnh bìa/mất nút khi phóng to; 6.2.1 sửa tải video nhóm/chat riêng tư (Range fetch trong trang). Bản 6.2.0 bổ sung Download Picker, Filter Preset, điều khiển Queue (tạm dừng/đổi thứ tự/thử lại), template đặt tên file, xuất Manifest và Watch mode; hỗ trợ tải ảnh/video trực tiếp trên Telegram Web A/K.
+> **Phiên bản hiện tại: 6.2.5** — sửa lỗi nút Start trong tab Queue không chạy download khi service worker còn đang nạp hàng đợi từ storage. Bản 6.2.4 tăng độ bền tải video Telegram khi gặp lỗi 408/5xx hoặc trình phát bị lỗi; các bản 6.2.1–6.2.3 ổn định tải media Telegram Web A/K.
 
 ## ✨ Tính Năng Nổi Bật
 
@@ -63,4 +63,4 @@ Click vào nút ⚙ (Cài đặt) trên popup của extension để tuỳ chỉn
 
 ---
 
-*Phát triển nội bộ — Phiên bản **6.2.4** | Cập nhật: 2026-09-19*
+*Phát triển nội bộ — Phiên bản **6.2.5** | Cập nhật: 2026-09-30*

@@ -763,8 +763,12 @@ function setupListeners() {
   // Queue Start
   if (els.btnQueueStart) {
     els.btnQueueStart.addEventListener('click', async () => {
-      await sendBG('START_QUEUE', {});
-      showToast('Hàng đợi đã bắt đầu', 'success');
+      const res = await sendBG('START_QUEUE', {});
+      if (res?.ok) {
+        showToast('Hàng đợi đã bắt đầu', 'success');
+      } else {
+        showToast(res?.error || 'Không thể bắt đầu hàng đợi', 'error');
+      }
     });
   }
 

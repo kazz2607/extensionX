@@ -14,18 +14,23 @@ export function setProfileQueue(q: QueueItem[]) { profileQueue = q; }
 // của item đó, không lưu trữ và không đổi preference skipDuplicates người dùng đã lưu.
 const _forceDedupOnNextRun = new Set<string>();
 
-async function loadPersistedQueue() {
-  try {
-    const data = await chrome.storage.local.get('profile_queue');
-    const saved: QueueItem[] = (data.profile_queue as QueueItem[]) || [];
-    for (const item of saved) {
-      if (wasInterrupted(item)) _forceDedupOnNextRun.add(item.id);
+let _queueLoadPromise: Promise<void> | null = null;
+function loadPersistedQueue(): Promise<void> {
+  if (_queueLoadPromise) return _queueLoadPromise;
+  _queueLoadPromise = (async () => {
+    try {
+      const data = await chrome.storage.local.get('profile_queue');
+      const saved: QueueItem[] = (data.profile_queue as QueueItem[]) || [];
+      for (const item of saved) {
+        if (wasInterrupted(item)) _forceDedupOnNextRun.add(item.id);
+      }
+      // Các item đang 'downloading' khi SW restart → đặt lại 'waiting'
+      profileQueue = saved.map(recoverQueueItemAfterRestart);
+    } catch (_) {
+      profileQueue = [];
     }
-    // Các item đang 'downloading' khi SW restart → đặt lại 'waiting'
-    profileQueue = saved.map(recoverQueueItemAfterRestart);
-  } catch (_) {
-    profileQueue = [];
-  }
+  })();
+  return _queueLoadPromise;
 }
 
 let _queuePersistTimer: ReturnType<typeof setTimeout> | null = null;
@@ -45,11 +50,12 @@ function broadcastQueueUpdate() {
   broadcastToPopup('QUEUE_UPDATE', { queue: profileQueue });
 }
 
-async function startNextInQueue() {
-  if (downloadState.inProgress) return; // Đang có download chạy — đợi
+async function startNextInQueue(): Promise<boolean> {
+  await loadPersistedQueue();
+  if (downloadState.inProgress) return false; // Đang có download chạy — đợi
   // Pha 12: bỏ qua item đang tạm dừng (paused) — không chọn làm next
   const next = profileQueue.find(item => item.status === 'waiting' && !item.paused);
-  if (!next) return; // Hàng đợi rỗng (hoặc chỉ còn item đang paused)
+  if (!next) return false; // Hàng đợi rỗng (hoặc chỉ còn item đang paused)
 
   let store = mediaStore.get(next.username);
   if (!store?.size) {
@@ -71,12 +77,11 @@ async function startNextInQueue() {
     next.result = { success: 0, failed: 0, total: 0, skipped: 0, error: 'No media found' };
     persistQueue();
     broadcastQueueUpdate();
-    startNextInQueue();
-    return;
+    return startNextInQueue();
   }
 
   const downloadingItem = transitionQueueItem(next, 'downloading');
-  if (!downloadingItem) return;
+  if (!downloadingItem) return false;
   Object.assign(next, downloadingItem);
   // BUG-L6 FIX: Cập nhật mediaCount thực tế từ store — tránh hiển thị số cũ khi user scroll thêm sau khi add vào queue
   next.mediaCount = store.size;
@@ -95,6 +100,7 @@ async function startNextInQueue() {
     _fromQueue: true,
     _queueId: next.id,
   });
+  return true;
 }
 
 // Khởi tải queue từ storage khi SW khởi động
@@ -107,7 +113,7 @@ loadPersistedQueue().then(() => {
 
 function exportQueue(): QueueExportData {
   return {
-    _version: '6.2.4',
+    _version: '6.2.5',
     _exportedAt: new Date().toISOString(),
     queue: profileQueue,
   };

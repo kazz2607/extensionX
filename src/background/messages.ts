@@ -312,9 +312,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     case 'START_QUEUE': {
-      if (!downloadState.inProgress) startNextInQueue();
-      sendResponse({ ok: true });
-      return false;
+      if (downloadState.inProgress) {
+        sendResponse({ error: 'Download is already running' });
+        return false;
+      }
+      startNextInQueue()
+        .then((started) => sendResponse(started
+          ? { ok: true }
+          : { error: 'Queue has no runnable items' }))
+        .catch(() => sendResponse({ error: 'Could not start queue' }));
+      return true;
     }
 
     case 'GET_DOWNLOAD_STATE': {

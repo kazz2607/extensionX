@@ -1,11 +1,11 @@
 # X Media Downloader — Roadmap & Lịch sử Phát triển
 
 > Tài liệu tổng hợp: kiến trúc hiện tại, những gì đã hoàn thành và định hướng phát triển tiếp theo.
-> Cập nhật: 2026-09-19 | Phiên bản hiện tại: **6.2.4**
+> Cập nhật: 2026-09-30 | Phiên bản hiện tại: **6.2.5**
 
 ---
 
-## 1. Kiến Trúc Hiện Tại (v6.2.4)
+## 1. Kiến Trúc Hiện Tại (v6.2.5)
 
 ```text
 extensionX/
@@ -13,7 +13,7 @@ extensionX/
 ├── tsconfig.json                  # Cấu hình TypeScript (strict: true)
 ├── vite.config.ts                 # Cấu hình Vite bundler
 ├── src/
-│   ├── manifest.json              # Chrome Extension Manifest V3 (version 6.2.4)
+│   ├── manifest.json              # Chrome Extension Manifest V3 (version 6.2.5)
 │   ├── background/
 │   │   ├── service-worker.ts      # Service Worker: core logic, queue, date filter
 │   │   ├── tweet-api.ts           # Fallback API & User Session bypass CORS
@@ -157,6 +157,7 @@ File được lưu vào:
 - **v6.2.2** Telegram Viewer Button & Thumbnail: không gắn nút tải ảnh lên thumbnail video; viewer đang chiếu video thì chỉ tải video; nút viewer gắn ở `<body>` để không bị mất khi mở video phóng to.
 - **v6.2.3** Telegram Freeze Hotfix: sửa vòng lặp gắn/xoá nút gây treo tab (6.2.2), quét DOM gộp theo khung hình, báo rõ khi cần F5 tab sau khi cập nhật extension.
 - **v6.2.4** Telegram Stream Resilience: thử lại 408/425/429/5xx khi Range-fetch, viewer ghi nhớ URL stream của `<video>` (dùng được khi Telegram xoá `src`), tooltip hiện lý do lỗi.
+- **v6.2.5** Queue Start Reliability Hotfix: chờ queue nạp xong sau khi service worker thức dậy, ngăn Start thoát im lặng và phản hồi đúng trạng thái cho popup.
 
 ---
 
@@ -197,6 +198,7 @@ File được lưu vào:
 | v6.2.2 | **Telegram Viewer Button & Thumbnail** — bấm tải video không ra ảnh bìa, nút không còn mất khi phóng to video |
 | v6.2.3 | **Telegram Freeze Hotfix** — sửa vòng lặp MutationObserver gây treo tab Telegram (chỉ 6.2.2) |
 | v6.2.4 | **Telegram Stream Resilience** — tải video chịu được lỗi 408 và trình phát Telegram bị lỗi |
+| v6.2.5 | **Queue Start Reliability Hotfix** — sửa race condition khiến nút Start trong tab Queue không chạy download sau khi service worker khởi động |
 
 ---
 
@@ -584,6 +586,7 @@ v6.2.1  ── Telegram private group video: Range fetch stream trong MAIN world
 v6.2.2  ── Telegram: không tải nhầm ảnh bìa, nút viewer không còn mất khi phóng to    ✅ DONE
 v6.2.3  ── Telegram: hotfix vòng lặp MutationObserver gây treo tab (6.2.2)            ✅ DONE
 v6.2.4  ── Telegram: retry 408/5xx, nhớ URL stream của viewer, hiện lý do lỗi           ✅ DONE
+v6.2.5  ── Queue: Start chờ storage sẵn sàng và phản hồi đúng trạng thái              ✅ DONE
 
 [TIẾP THEO]
 v6.3.0  ── Following Scanner Feature 1 (API scan + unfollow), dọn type nốt content script

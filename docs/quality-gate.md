@@ -1,8 +1,8 @@
 # Quality gate và baseline Pha 0
 
-> Áp dụng cho phiên bản **6.2.4** | Cập nhật: 2026-09-19
+> Áp dụng cho phiên bản **6.2.5** | Cập nhật: 2026-09-30
 
-## Baseline hiện hành (v6.2.4)
+## Baseline hiện hành (v6.2.5)
 
 `npm run check` xanh: typecheck sạch, ESLint sạch, **22/22** unit test, **2/2** e2e fixture regression, production build thành công. `npm run test:browser` (Playwright) không nằm trong `check` và hiện timeout chờ Service Worker trong sandbox — đã xác minh là lỗi môi trường có sẵn từ trước, không phải regression.
 
