@@ -4,6 +4,27 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [6.4.0] — 2026-09-30 *(Architecture, Migration & Release Reliability)*
+
+### 🧩 Kiến trúc
+- Tách runtime message router thành bốn domain `queue-messages`, `media-messages`, `following-messages` và `export-messages`; boundary chung vẫn kiểm tra sender và parse envelope trước khi dispatch.
+- Hoàn thiện discriminated request union, bỏ `payload: any` ở runtime boundary và siết `HLS_DONE` theo request ID/error; data URL lớn chỉ được nhận từ offscreen nội bộ cùng extension.
+- Thêm `MediaRepository` cho IndexedDB và adapter cho Chrome storage/download API để logic nghiệp vụ có thể dùng fake trong unit test.
+
+### 🗃️ Migration và diagnostics
+- Nâng IndexedDB schema lên v3 với metadata store và migration plan có thể kiểm thử; Queue chuyển sang snapshot schema v2 nhưng vẫn đọc được raw array cũ.
+- Options có schema version, import/load/reset đều đi qua migration giữ lại giá trị người dùng.
+- Diagnostic tiếp tục opt-in/local-only, dùng mã lỗi ổn định `DOWNLOAD_FAILED`/`HLS_FAILED`, counter và event ring buffer có giới hạn.
+
+### 📦 Quality/release
+- Thêm regression migration cho Queue, Options, IndexedDB và adapter/repository (**31 unit tests**).
+- Thêm performance budget cho tổng JS, bundle lớn nhất và số module; `npm run check` thất bại khi vượt ngưỡng.
+- Source map mặc định bị loại khỏi release; build nội bộ có thể bật hidden map bằng biến môi trường.
+- Mỗi build release sinh `dist/release-manifest.json` chứa danh sách file, kích thước và SHA-256 theo thứ tự ổn định.
+
+### ✅ Kiểm chứng
+- `npm run check`: TypeScript, ESLint, 31/31 unit tests, 2/2 fixture e2e, production build, performance budget và checksum manifest.
+
 ## [6.3.1] — 2026-09-30 *(Queue UI & Accessibility)*
 
 ### 🎨 UI/UX

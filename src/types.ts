@@ -101,8 +101,8 @@ export interface CollectState {
 }
 
 export interface PendingHlsRequest {
-  resolve: (val: any) => void;
-  reject: (err: any) => void;
+  resolve: (val: { dataUrl?: string }) => void;
+  reject: (err: unknown) => void;
   timeoutId: ReturnType<typeof setTimeout>;
 }
 
@@ -133,6 +133,7 @@ export interface ShortcutsOptions {
 }
 
 export interface Options {
+  schemaVersion?: number;
   saveFolder?: string;
   concurrency?: number;
   filenameUsername?: boolean;

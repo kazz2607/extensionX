@@ -2,7 +2,7 @@
 
 Tài liệu này hướng dẫn chi tiết các bước để chuẩn bị, đóng gói mã nguồn và đưa tiện ích **X Media Downloader** lên chợ ứng dụng Chrome Web Store (CWS).
 
-> Phiên bản hiện tại: **6.3.1** | Cập nhật: 2026-09-30
+> Phiên bản hiện tại: **6.4.0** | Cập nhật: 2026-09-30
 
 ---
 
@@ -39,8 +39,8 @@ Trước khi đóng gói, bạn cần loại bỏ các thư mục và tập tin 
 ## 2. Đóng Gói Tiện Ích (Tạo File ZIP)
 
 ```bash
-# Build production bundle trước
-npm run build
+# Chạy toàn bộ quality gate, build và tạo checksum manifest
+npm run check
 
 # Sau đó ZIP thư mục dist/
 ```
@@ -48,7 +48,7 @@ npm run build
 1. Mở thư mục `dist/` (output sau khi chạy `npm run build`).
 2. Chọn **tất cả** nội dung bên trong `dist/`.
 3. Click chuột phải, chọn **Compress to ZIP file** (Windows 11) hoặc **Send to > Compressed (zipped) folder** (Windows 10).
-4. Đặt tên file ZIP rõ ràng: `x-media-downloader-v6.3.1.zip`
+4. Xác minh `dist/release-manifest.json`, rồi đặt tên file ZIP rõ ràng: `x-media-downloader-v6.4.0.zip`
 
 > [!WARNING]
 > Đảm bảo file `manifest.json` nằm ở **thư mục gốc** bên trong file ZIP. Nếu giải nén file ZIP ra mà thấy một thư mục cha bọc ngoài (ví dụ `dist/manifest.json`), Google sẽ báo lỗi không hợp lệ.
@@ -68,7 +68,7 @@ Nếu bạn chưa có tài khoản Chrome Web Store Developer:
 ## 4. Tải Tiện Ích Lên (Upload)
 
 1. Tại Dashboard, nhấn nút **+ New Item** (Thêm mục mới).
-2. Kéo thả file `x-media-downloader-v6.3.1.zip` của bạn vào ô tải lên.
+2. Kéo thả file `x-media-downloader-v6.4.0.zip` của bạn vào ô tải lên.
 3. Chờ Google quét virus sơ bộ. Nếu hợp lệ, bạn sẽ được chuyển sang trang điền thông tin chi tiết (Store Listing).
 
 ---
@@ -95,7 +95,7 @@ Google kiểm duyệt rất gắt gao các quyền (permissions) mà extension y
 
 - `downloads`: Dùng để lưu file ảnh/video thông qua API `chrome.downloads` vào máy tính người dùng.
 - `storage`: Dùng để lưu cài đặt cấu hình (thư mục gốc, tuỳ chọn flat directory), lịch sử đã tải, session restore.
-- `scripting` & `activeTab`: Dùng để tiêm mã đọc giao diện (DOM scanner) vào trang X.com khi người dùng nhấn nút kích hoạt trên popup.
+- `scripting`: Dùng để chạy thao tác tải trong MAIN world của tab Telegram khi cần. Extension không yêu cầu `activeTab`.
 - `declarativeNetRequest`: Dùng để sửa đổi header CORS hỗ trợ fetch video.
 - `tabs`: Dùng để theo dõi URL tab hiện tại và điều hướng sang trang `/media` khi bắt đầu collect.
 - `alarms`: Dùng để duy trì Service Worker sống trong quá trình download dài.
@@ -106,7 +106,7 @@ Google kiểm duyệt rất gắt gao các quyền (permissions) mà extension y
 Khẳng định tiện ích chỉ phục vụ một mục đích duy nhất: "Giúp người dùng sao lưu, tải xuống media từ X.com và Telegram Web."
 
 **Data Usage (Sử dụng dữ liệu):**
-Đánh dấu xác nhận tiện ích của bạn KHÔNG thu thập dữ liệu cá nhân (PII), KHÔNG bán dữ liệu cho bên thứ ba và KHÔNG theo dõi hành vi duyệt web ngoài X.com.
+Đánh dấu xác nhận tiện ích của bạn KHÔNG thu thập dữ liệu cá nhân (PII), KHÔNG bán dữ liệu cho bên thứ ba và KHÔNG theo dõi hành vi duyệt web ngoài các origin X/Twitter và Telegram Web đã khai báo.
 
 ---
 
@@ -126,5 +126,4 @@ Khẳng định tiện ích chỉ phục vụ một mục đích duy nhất: "Gi
 
 ---
 
-🎉 **Chúc bạn phát hành X Media Downloader v6.3.1 thành công!**
-
+🎉 **Chúc bạn phát hành X Media Downloader v6.4.0 thành công!**

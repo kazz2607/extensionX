@@ -2,7 +2,7 @@
 
 Extension Chrome mạnh mẽ cho phép bạn tải toàn bộ ảnh, video và GIF từ bất kỳ profile nào trên X.com (Twitter) với chất lượng gốc, hoàn toàn tự động và sắp xếp gọn gàng vào thư mục theo tên người dùng.
 
-> **Phiên bản hiện tại: 6.3.1** — Queue có primary action Bắt đầu/Tạm dừng/Tiếp tục theo state, responsive tốt hơn và hoàn thiện semantics accessibility.
+> **Phiên bản hiện tại: 6.4.0** — Background đã được module hóa, storage có migration test và quy trình build có performance/checksum gate.
 
 ## ✨ Tính Năng Nổi Bật
 
@@ -57,10 +57,10 @@ Click vào nút ⚙ (Cài đặt) trên popup của extension để tuỳ chỉn
 
 - `downloads`: Để extension có thể lưu file tự động vào máy bạn.
 - `storage`: Lưu cấu hình cài đặt và session restore.
-- `scripting`, `activeTab`, `tabs`: Để nhúng mã thu thập (interceptor, dom scanner, fab) trực tiếp vào trang X.com.
+- `scripting`, `tabs`: Chạy thao tác cần MAIN world trên Telegram, xác định tab X/Twitter và gửi trạng thái về đúng tab. Extension không yêu cầu `activeTab`.
 - `alarms`: Keep-alive Service Worker khi đang tải nhiều file, tránh bị Chrome terminate.
 - `host_permissions` (`*.x.com`, `*.twitter.com`, `pbs.twimg.com`, `video.twimg.com`, `web.telegram.org`): Cho phép extension đọc media từ X/Twitter và gắn nút tải trên Telegram Web.
 
 ---
 
-*Phát triển nội bộ — Phiên bản **6.3.1** | Cập nhật: 2026-09-30*
+*Phát triển nội bộ — Phiên bản **6.4.0** | Cập nhật: 2026-09-30*

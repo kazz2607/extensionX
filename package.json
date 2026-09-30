@@ -1,6 +1,6 @@
 {
   "name": "extensionx",
-  "version": "6.3.1",
+  "version": "6.4.0",
   "description": "Extension Chrome mạnh mẽ cho phép bạn tải toàn bộ ảnh, video và GIF từ bất kỳ profile nào trên X.com (Twitter) với chất lượng gốc, hoàn toàn tự động và sắp xếp gọn gàng vào thư mục theo tên người dùng.",
   "main": "index.js",
   "directories": {
@@ -15,7 +15,9 @@
     "test": "node --test test/*.test.ts",
     "test:e2e": "node --test test/e2e/fixture-regression.test.ts",
     "test:browser": "npm run build && node --test test/e2e/chrome-extension.test.ts",
-    "check": "npm run typecheck && npm run lint && npm run test && npm run test:e2e && npm run build"
+    "budget": "node scripts/check-performance-budget.mjs",
+    "release:manifest": "node scripts/create-release-manifest.mjs",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run test:e2e && npm run build && npm run budget && npm run release:manifest"
   },
   "repository": {
     "type": "git",

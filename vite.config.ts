@@ -6,6 +6,9 @@ export default defineConfig({
   build: {
     outDir: "../dist",
     emptyOutDir: true,
+    // Public release artifacts never include source maps. Internal debugging can
+    // opt into hidden maps without exposing sourceMappingURL in shipped files.
+    sourcemap: process.env.EXTENSIONX_INTERNAL_SOURCEMAP === "true" ? "hidden" : false,
     // Extension pages run in their own execution world. Chromium forks such
     // as Cốc Cốc report Vite's generated cross-origin modulepreload links as
     // cross-world resource mismatches. Native ES module imports are enough.

@@ -1,16 +1,18 @@
 # Quality gate và baseline hiện hành
 
-> Áp dụng cho phiên bản **6.3.1** | Cập nhật: 2026-09-30
+> Áp dụng cho phiên bản **6.4.0** | Cập nhật: 2026-09-30
 
-## Baseline hiện hành (v6.3.1)
+## Baseline hiện hành (v6.4.0)
 
-Gate 6.3.1 gồm typecheck, ESLint, **26 unit test**, 2 e2e fixture và production build. Unit test bổ sung primary action Queue bên cạnh runtime boundary, coordinator, paused recovery và loại thumbnail video. `npm run test:browser` vẫn là gate riêng vì fixture localhost chưa qua sender binding nghiêm ngặt (`https://x.com`/`twitter.com`); cần sửa harness dùng origin X giả lập hợp lệ trước khi dùng suite này làm release gate.
+Gate 6.4.0 gồm typecheck, ESLint, **31 unit test**, 2 e2e fixture, production build, performance budget và release manifest SHA-256. Regression mới bao phủ migration Queue/Options/IndexedDB và khả năng thay Chrome storage/Media repository bằng fake. `npm run test:browser` là gate riêng trong browser job vì cần Chromium có hỗ trợ extension.
 
 ## Lệnh bắt buộc
 
-Chạy `npm run check` trước khi tạo PR. Lệnh này gồm TypeScript, ESLint cho mã mới/các helper dùng chung, unit test, regression test bằng fixture, và production build. CI GitHub chạy đúng lệnh này cho pull request và nhánh chính.
+Chạy `npm run check` trước khi tạo PR. Lệnh này gồm TypeScript, ESLint cho mã mới/các helper dùng chung, unit test, regression test bằng fixture, production build, kiểm tra budget và tạo `dist/release-manifest.json`. CI GitHub chạy đúng lệnh này cho pull request và nhánh chính.
 
-`npm run test:e2e` là regression tích hợp dùng fixture GraphQL đã khử dữ liệu nhận diện, kiểm tra filter/queue transition trên mọi máy và trong CI. `npm run test:browser` chạy Chrome với extension build thật và manifest test tạm thời chỉ mở quyền fixture localhost; nó kiểm tra content-script DOM fallback, tách state hai profile/tab, SPA navigation và luồng Telegram canvas/data URL. Manifest phát hành không bị thay đổi.
+Source map mặc định không được tạo trong artifact phát hành. Chỉ build nội bộ với `EXTENSIONX_INTERNAL_SOURCEMAP=true npm run build` mới sinh hidden source map.
+
+`npm run test:e2e` là regression tích hợp dùng fixture GraphQL đã khử dữ liệu nhận diện, kiểm tra filter/queue transition trên mọi máy và trong CI. `npm run test:browser` chạy extension build thật; Playwright route fixture trực tiếp trên origin tin cậy `https://x.com` và `https://web.telegram.org` để giữ nguyên sender validation. Suite kiểm tra DOM fallback, tách state hai profile/tab, SPA navigation và luồng Telegram canvas/data URL. Manifest phát hành không bị thay đổi.
 
 ## SLO khởi điểm
 
@@ -21,7 +23,7 @@ Chạy `npm run check` trước khi tạo PR. Lệnh này gồm TypeScript, ESLi
 | Gửi progress | chỉ tab/profile của download | regression đa profile (Pha 2) |
 | Khôi phục session | không treo sau service-worker restart | regression đa tab/restart (Pha 2) |
 
-Harness Chrome hiện dành cho regression luồng thu media. Để đưa `test:browser` vào CI, cần provisioning Chrome/Chromium trong runner; khi bổ sung fixture tải HLS và service-worker restart, cập nhật bảng bằng số đo CI thay vì đo thủ công.
+Harness Chrome hiện dành cho regression luồng thu media và chạy trong browser job có provisioning Chromium. Khi bổ sung fixture tải HLS và service-worker restart, cập nhật bảng bằng số đo CI thay vì đo thủ công.
 
 ## Diagnostic cục bộ, opt-in
 

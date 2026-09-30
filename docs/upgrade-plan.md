@@ -1,6 +1,6 @@
 # Kế hoạch nâng cấp ExtensionX
 
-> Baseline: **6.3.1** | Lập ngày: 2026-09-30 | Trạng thái: **6.3.1 implemented; browser acceptance pending**
+> Baseline: **6.4.0** | Cập nhật: 2026-09-30 | Trạng thái: **6.4.0 implemented; browser acceptance pending**
 
 Tài liệu này đề xuất lộ trình nâng cấp dựa trên mã nguồn hiện tại. Trọng tâm là độ tin cậy của Queue/download, hiệu năng với profile lớn, thu hẹp bề mặt bảo mật, hoàn thiện UI/UX và bổ sung tính năng có giá trị thực tế. Đây là kế hoạch triển khai, không phải danh sách lỗi đã được xác nhận; các mục cần đo hoặc tái hiện được ghi rõ là audit/benchmark.
 
@@ -14,7 +14,7 @@ Tài liệu này đề xuất lộ trình nâng cấp dựa trên mã nguồn hi
 | Storage | IndexedDB theo profile, lịch sử tải tối đa 50.000 URL | Đọc/ghi theo batch/cursor; không nhân đôi toàn bộ tập dữ liệu trong bộ nhớ |
 | Download | Worker pool 1–5, timeout và HLS offscreen | Stop phản hồi < 500 ms; retry có giới hạn; không tải thumbnail video |
 | Bảo mật | CSP, URL/sender validation và diagnostic redact đã có | Mọi message có payload typed; quyền/host có lý do; không có dữ liệu nhạy cảm trong log/export |
-| Chất lượng | 24 unit + 2 fixture e2e + browser workflow CI | Browser regression bắt buộc cho Queue, X DOM fallback và Telegram |
+| Chất lượng | 31 unit + 2 fixture e2e + browser workflow CI | Browser regression bắt buộc cho Queue, X DOM fallback và Telegram |
 
 ## 2. Nguyên tắc triển khai
 
@@ -157,6 +157,8 @@ Tài liệu này đề xuất lộ trình nâng cấp dựa trên mã nguồn hi
 
 ## 7. P2 — Kiến trúc, kiểm thử và vận hành (6.4.0)
 
+> Tiến độ: **Implemented** — message router đã tách theo domain; IndexedDB/Chrome storage có abstraction; Queue, Options và DB có migration regression; CI có performance budget; artifact phát hành có danh sách file và SHA-256. Typed response consumer và browser lifecycle sâu tiếp tục trong backlog.
+
 - Tách `messages.ts` theo domain (`queue-messages`, `media-messages`, `following-messages`, `export-messages`).
 - Tạo repository abstraction cho IndexedDB và adapter cho Chrome APIs để unit test không phụ thuộc global mock rời rạc.
 - Loại dần `any`/`@ts-ignore` còn lại, ưu tiên boundary content/page và response GraphQL.
@@ -213,9 +215,9 @@ Không gộp toàn bộ roadmap vào một release. Mỗi mốc nên có feature
 
 ## 11. Việc nên bắt đầu ngay
 
-1. Viết browser harness cho Queue Start/Stop/Resume và SW restart.
-2. Thiết kế `DownloadCoordinator` + state transition table trước khi sửa thêm cờ trạng thái.
-3. Hoàn thiện typed message map và chuyển nhóm message Queue trước.
-4. Đo popup/heap với fixture 1.000 và 10.000 media để có baseline.
-5. Audit permission/host và lập bảng lý do sử dụng.
-6. Prototype virtualized Queue/Picker; đo rồi mới áp dụng rộng.
+1. Mở rộng browser harness cho Queue Start/Stop/Resume và SW restart.
+2. Hoàn thiện typed response map cho popup/content consumer.
+3. Đo popup/heap với fixture 1.000, 10.000 và 50.000 media để có baseline runtime.
+4. Thêm fault injection thực tế cho IndexedDB, Chrome Downloads và HLS abort.
+5. Prototype virtualized Queue/Picker; chỉ áp dụng khi số đo vượt budget.
+6. Kiểm tra Chrome thật cho keyboard, zoom, screen reader và Queue lifecycle trước khi đóng browser acceptance.

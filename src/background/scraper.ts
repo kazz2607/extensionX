@@ -2,7 +2,7 @@
 import { mediaStore, dirtyMediaStore, statsStore, tabState, downloadedStore, userCsrfToken, setCsrfToken } from './state.ts';
 import { fetchVideoForTweet } from './tweet-api.ts';
 import { updateBadge, broadcastToPopup, updateFAB, broadcastFABState, sleep, waitForTabLoad, sanitizeFolder } from './utils.ts';
-import { saveMediaItems, getMediaItems, clearMediaItems, getDownloadedUrls, saveDownloadedUrls, clearDownloadedUrls, pruneDownloadedUrls } from './indexeddb.ts';
+import { mediaRepository } from './indexeddb.ts';
 import { MediaItem, Options, CollectState } from '../types.ts';
 import { filterMediaItems, isVideoThumbnailUrl } from '../shared/media-filter.ts';
 import { recordDiagnostic } from './diagnostics.ts';
@@ -94,7 +94,7 @@ async function ensureMediaStoreLoaded(username: string): Promise<Map<string, Med
   }
   // Thử nạp từ IndexedDB
   try {
-    const items = await getMediaItems(username);
+    const items = await mediaRepository.getMediaItems(username);
     if (Array.isArray(items) && items.length > 0) {
       if (!mediaStore.has(username)) mediaStore.set(username, new Map());
       if (!statsStore.has(username)) statsStore.set(username, { image: 0, video: 0, gif: 0, hls: 0 });
@@ -428,7 +428,7 @@ async function persistSession(username: string) {
       if (dirtyStore && dirtyStore.size > 0) {
         const dirtyItems = Array.from(dirtyStore.values());
         // v4.4.0: Lưu dirty items vào IndexedDB (Delta Write)
-        await saveMediaItems(username, dirtyItems);
+        await mediaRepository.saveMediaItems(username, dirtyItems);
         // Sau khi lưu thành công, clear dirty store của user này
         dirtyStore.clear();
       }
@@ -486,7 +486,7 @@ async function clearSession(username: string) {
     if (current.active_session_username === username) {
       await chrome.storage.local.remove('active_session_username');
     }
-    await clearMediaItems(username); // v4.4.0: Clear từ IndexedDB
+    await mediaRepository.clearMediaItems(username); // v4.4.0: Clear từ IndexedDB
     console.debug(`[SW] Session cleared: @${username}`);
   } catch (_) {}
 }
@@ -497,8 +497,8 @@ async function loadDownloadedUrls(username: string) {
   try {
     // Prune on load (rather than every completion) to keep hot download paths
     // fast while applying TTL/LRU when a profile is next used.
-    await pruneDownloadedUrls(username);
-    const urls = await getDownloadedUrls(username);
+    await mediaRepository.pruneDownloadedUrls(username);
+    const urls = await mediaRepository.getDownloadedUrls(username);
     if (urls.length > 0) {
       downloadedStore.set(username, new Set(urls));
       return;
@@ -509,7 +509,7 @@ async function loadDownloadedUrls(username: string) {
     const legacyUrls = Array.isArray(legacy[legacyKey]) ? legacy[legacyKey].filter((url): url is string => typeof url === 'string') : [];
     downloadedStore.set(username, new Set(legacyUrls));
     if (legacyUrls.length > 0) {
-      await saveDownloadedUrls(username, legacyUrls);
+      await mediaRepository.saveDownloadedUrls(username, legacyUrls);
       await chrome.storage.local.remove(legacyKey);
     }
   } catch (_) {
@@ -548,7 +548,7 @@ function scheduleDownloadedPersist(username: string, normalizedUrl: string): voi
     _downloadedPersistTimers.delete(username);
     try {
       const dirty = _dirtyDownloadedUrls.get(username);
-      if (dirty?.size) await saveDownloadedUrls(username, dirty);
+      if (dirty?.size) await mediaRepository.saveDownloadedUrls(username, dirty);
       _dirtyDownloadedUrls.delete(username);
     } catch (err) {
       console.debug('[SW] markDownloaded persist error:', err instanceof Error ? err.message : String(err));

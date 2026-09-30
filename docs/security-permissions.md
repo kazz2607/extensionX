@@ -1,17 +1,17 @@
 # Audit bảo mật và quyền extension
 
-> Áp dụng từ **6.3.0** | Cập nhật: 2026-09-30
+> Rà soát cho **6.4.0** | Cập nhật: 2026-09-30
 
 ## Quyền Manifest
 
 | Quyền | Chức năng | Quyết định |
 | --- | --- | --- |
 | `downloads` | Lưu ảnh/video/GIF và theo dõi kết quả tải | Giữ, chức năng cốt lõi |
-| `storage`, `unlimitedStorage` | Options, Queue, phiên, lịch sử và media profile lớn | Giữ; dữ liệu chỉ lưu cục bộ |
+| `storage` | Options, Queue, phiên, lịch sử và media theo profile | Giữ; dữ liệu chỉ lưu cục bộ |
 | `tabs` | Gắn profile với tab X/Twitter và gửi trạng thái về đúng tab | Giữ; `activeTab` đã loại vì trùng phạm vi |
 | `scripting` | Khởi tạo bridge trong MAIN world khi cần | Giữ |
 | `offscreen` | Ghép HLS ngoài service worker | Giữ |
-| `alarms` | Watch mode và tác vụ có lịch | Giữ |
+| `alarms` | Keep-alive có giới hạn trong lúc download dài | Giữ |
 | `notifications` | Báo hoàn tất/lỗi khi người dùng bật | Giữ |
 | `declarativeNetRequest` | Điều chỉnh CORS cho endpoint Syndication xác định | Giữ; rule chỉ áp dụng `cdn.syndication.twimg.com` |
 
@@ -20,9 +20,9 @@ Host permissions chỉ bao phủ X/Twitter, các CDN media X cần tải và Tel
 ## Biên tin nhắn runtime
 
 - Chỉ nhận message type nằm trong allowlist.
-- Mỗi type có allowlist field payload; field dư, envelope lạ, payload không phải object hoặc message trên 256 KB bị từ chối.
+- Mỗi type có allowlist field payload; field dư, envelope lạ, payload không phải object hoặc message thường trên 256 KB bị từ chối.
 - Background chỉ chấp nhận sender nội bộ extension; lệnh gắn username từ content script phải khớp tab X/Twitter tương ứng.
-- `HLS_DONE` có envelope riêng gồm `requestId`, `dataUrl` hoặc `error`; không chấp nhận field khác.
+- `HLS_DONE` có envelope riêng gồm `requestId`, `dataUrl` hoặc `error`; không chấp nhận field khác. Data URL từ offscreen nội bộ được miễn giới hạn 256 KB vì là nội dung video, nhưng vẫn yêu cầu sender cùng extension và request ID hợp lệ.
 - URL media, Telegram sender, Queue import và options vẫn qua validator theo domain trước khi thực thi.
 
 ## Bề mặt cần theo dõi

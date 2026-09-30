@@ -25,7 +25,7 @@ function updateBadge(username: string) {
 }
 
 // BUG-9 FIX: Không log lỗi khi popup đóng (expected behavior)
-function broadcastToPopup(type: string, payload: any) {
+function broadcastToPopup(type: string, payload: unknown) {
   chrome.runtime.sendMessage({ type, payload }).catch((_err) => {
     // Popup đóng = expected. Chỉ log nếu lỗi bất thường.
     // if (_err?.message && !_err.message.includes('Receiving end does not exist')) {
@@ -37,7 +37,7 @@ function broadcastToPopup(type: string, payload: any) {
 // Gửi message về tab đang active của username (dùng cho Snackbar)
 // BUG-E FIX: Ưu tiên tab đang collecting; nếu không có thì gửi tab cuối cùng
 // Tránh gửi đến TẤT CẢ tab cùng username khi mở nhiều tab → nhiều snackbar
-function broadcastToTab(username: string, type: string, payload: any) {
+function broadcastToTab(username: string, type: string, payload: unknown) {
   let targetTabId: number | null = null;
   // Ưu tiên tab đang actively collecting
   tabState.forEach((state, tabId) => {
@@ -67,7 +67,7 @@ function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
 function waitForTabLoad(tabId: number): Promise<void> {
   return new Promise(resolve => {
-    function listener(id: number, info: any) {
+    function listener(id: number, info: chrome.tabs.OnUpdatedInfo) {
       if (id === tabId && info.status === 'complete') {
         chrome.tabs.onUpdated.removeListener(listener);
         resolve();

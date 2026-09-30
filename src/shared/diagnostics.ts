@@ -1,5 +1,9 @@
 export const DIAGNOSTICS_VERSION = 1;
 export const MAX_DIAGNOSTIC_EVENTS = 200;
+export const DIAGNOSTIC_ERROR_CODES = {
+  downloadFailed: 'DOWNLOAD_FAILED',
+  hlsFailed: 'HLS_FAILED',
+} as const;
 export interface DiagnosticEvent { name: string; at: number; value?: number; code?: string; }
 export interface LocalDiagnostics { version: number; updatedAt: number; counters: Record<string, number>; events: DiagnosticEvent[]; }
 

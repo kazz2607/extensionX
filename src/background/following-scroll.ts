@@ -92,15 +92,20 @@ export async function startFollowingScroll(targetUrl: string): Promise<void> {
     let noNewCount = 0;
 
     while (!_stopRequested && _scrollState.scrollCount < MAX_SCROLLS) {
-      let scrollResult: any;
+      let scrollResult: {
+        error?: string;
+        users?: Array<{ username: string; displayName: string; bio: string }>;
+        reachedEnd?: boolean;
+        isHidden?: boolean;
+      } | undefined;
 
       try {
         scrollResult = await chrome.tabs.sendMessage(tabId, {
           type: 'SCROLL_FOLLOWING_PAGE',
           waitMs: SCROLL_DELAY_MS,
         });
-      } catch (err: any) {
-        console.warn('[following-scroll] sendMessage lỗi:', err.message);
+      } catch (err: unknown) {
+        console.warn('[following-scroll] sendMessage lỗi:', err instanceof Error ? err.message : String(err));
         break;
       }
 
@@ -170,10 +175,11 @@ export async function startFollowingScroll(targetUrl: string): Promise<void> {
 
     console.log(`[following-scroll] Xong: ${sortedUsers.length} users sau ${_scrollState.scrollCount} scrolls`);
 
-  } catch (err: any) {
-    console.error('[following-scroll] Lỗi:', err.message);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[following-scroll] Lỗi:', message);
     _scrollState.isScrolling = false;
-    broadcastToPopup('FOLLOWING_SCROLL_ERROR', { error: err.message });
+    broadcastToPopup('FOLLOWING_SCROLL_ERROR', { error: message });
   } finally {
     // BUG-L7 FIX: Đóng tab nếu extension tự tạo — tránh rác tab sau khi scroll xong
     if (createdNewTab) {

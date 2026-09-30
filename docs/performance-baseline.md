@@ -1,4 +1,4 @@
-# Baseline hiệu năng 6.3.0
+# Baseline hiệu năng và build budget 6.4.0
 
 > Cập nhật: 2026-09-30
 
@@ -20,9 +20,19 @@
 | Stop download | UI phản hồi dưới 500 ms |
 | 10.000 media | popup không bị khóa, không giữ thêm bản sao mảng không cần thiết |
 
+Build 6.4.0 bổ sung gate tự động trong `npm run check`:
+
+| Chỉ số build | Ngưỡng | Kết quả 6.4.0 |
+| --- | ---: | ---: |
+| Tổng JavaScript trong `dist/` | ≤ 300.000 byte | 236.809 byte |
+| JavaScript bundle lớn nhất | ≤ 90.000 byte | 66.475 byte |
+| Số module TypeScript trong `src/` | ≤ 80 | 62 |
+
+Ngưỡng nằm trong `performance-budget.json` và được kiểm tra bởi `scripts/check-performance-budget.mjs`.
+
 ## Cách đo
 
-Đo trên Chrome production build với fixture 100, 1.000, 10.000 và 50.000 media; chạy 5 lần sau một lượt warm-up. Ghi median/p95 cho mở popup, filter, render Queue, Start Queue và peak JS heap. Kết quả máy thật chưa được ghi vào repository cho đến khi browser harness chạy trên origin X hợp lệ; vì vậy các mục trên là budget, không phải số liệu đã đạt được.
+Đo runtime trên Chrome production build với fixture 100, 1.000, 10.000 và 50.000 media; chạy 5 lần sau một lượt warm-up. Ghi median/p95 cho mở popup, filter, render Queue, Start Queue và peak JS heap. Browser harness đã route fixture trên origin X/Telegram hợp lệ, nhưng bộ benchmark runtime lớn và lifecycle Queue vẫn chưa hoàn tất; vì vậy các mục runtime trên là budget, không phải số liệu đã đạt được.
 
 ## Phần tiếp tục
 

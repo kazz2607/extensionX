@@ -14,7 +14,7 @@ import {
 } from '../src/shared/validation.ts';
 import { formatDownloadError } from '../src/shared/download-errors.ts';
 import { parseExtensionMessage } from '../src/shared/messages.ts';
-import { addDiagnosticEvent, emptyDiagnostics } from '../src/shared/diagnostics.ts';
+import { addDiagnosticEvent, DIAGNOSTIC_ERROR_CODES, emptyDiagnostics } from '../src/shared/diagnostics.ts';
 import { filterMediaItems, isVideoThumbnailUrl } from '../src/shared/media-filter.ts';
 import { canTransitionCollectPhase } from '../src/shared/collect-state.ts';
 import { recoverQueueItemAfterRestart, transitionQueueItem, wasInterrupted, findInterruptedIds, resetDownloadingItemsAfterStop } from '../src/shared/queue-state.ts';
@@ -48,6 +48,8 @@ test('binds profile messages to the X tab URL and rejects malformed envelopes', 
   assert.equal(parseExtensionMessage({ type: 'GET_MEDIA_COUNT', payload: { username: 'NASA', injected: true } }), null);
   assert.equal(parseExtensionMessage({ type: 'GET_QUEUE', payload: {}, injected: true }), null);
   assert.equal(parseExtensionMessage({ type: 'HLS_DONE', requestId: 'req-1', dataUrl: 'blob:test' })?.type, 'HLS_DONE');
+  assert.equal(parseExtensionMessage({ type: 'HLS_DONE', requestId: 'req-1', dataUrl: `data:video/mp2t;base64,${'A'.repeat(300_000)}` })?.type, 'HLS_DONE');
+  assert.equal(parseExtensionMessage({ type: 'HLS_DONE', dataUrl: 'blob:test' }), null);
   assert.equal(parseExtensionMessage({ type: 'HLS_DONE', requestId: 'req-1', unexpected: true }), null);
   assert.equal(parseExtensionMessage({ type: 'UNRECOGNIZED_COMMAND', payload: {} }), null);
   assert.equal(parseExtensionMessage({ type: 'bad-type!', payload: {} }), null);
@@ -112,6 +114,7 @@ test('keeps diagnostic exports aggregated and redacted', () => {
   assert.equal(result.counters['hls.failed'], 1);
   assert.equal(result.events[0].code, 'HTTP_403_https___video.twimg.com__token_secret');
   assert.equal(JSON.stringify(result).includes('https://video.twimg.com/?token=secret'), false);
+  assert.equal(DIAGNOSTIC_ERROR_CODES.hlsFailed, 'HLS_FAILED');
 });
 
 test('applies media filters and max media deterministically', () => {

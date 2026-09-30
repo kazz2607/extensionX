@@ -1,6 +1,6 @@
 # Following Scanner Feature 1 — Kế hoạch triển khai
 
-> ExtensionX **6.3.1** | Cập nhật: 2026-09-30 | Trạng thái: **Planned**
+> ExtensionX **6.4.0** | Cập nhật: 2026-09-30 | Trạng thái: **Planned**
 
 Feature 0 (tự cuộn trang `/following`) đã hoàn thành từ v5.6.0 và được ghi nhận trong [`roadmap.md`](roadmap.md). File này chỉ còn mô tả phần chưa triển khai: quét API, phân tích tài khoản không hoạt động và unfollow có kiểm soát.
 
@@ -68,7 +68,7 @@ interface FollowingScanState {
 ## Phạm vi thay đổi dự kiến
 
 - `src/background/following-api.ts`: pagination, activity lookup và unfollow mutation.
-- `src/background/messages.ts`: message handlers và sender/payload validation.
+- `src/background/following-messages.ts`: handler theo domain; router `messages.ts` thực hiện sender/payload validation chung.
 - `src/background/state.ts`: state theo operation ID.
 - `src/shared/validation.ts`: schema/giới hạn dữ liệu.
 - `src/types.ts`: candidate và scan state.

@@ -4,11 +4,12 @@ import { broadcastToPopup, broadcastToTab, sanitizeFolder, broadcastFABState } f
 import { showDownloadNotification, fetchVideoForTweetWithRefresh, loadDownloadedUrls, isAlreadyDownloaded, markDownloaded, ensureMediaStoreLoaded } from './scraper.ts';
 import { startNextInQueue, profileQueue, persistQueueImmediately, broadcastQueueUpdate } from './queue.ts';
 import { DownloadOptions, MediaItem, HistoryEntry, ManifestItem } from '../types.ts';
-import { getMediaItems, getDownloadedUrlRecords } from './indexeddb.ts';
+import { mediaRepository } from './indexeddb.ts';
 import { isTrustedMediaUrl, sanitizeFilename } from '../shared/validation.ts';
 import { renderFilenameTemplate } from '../shared/filename-template.ts';
 import { formatDownloadError } from '../shared/download-errors.ts';
 import { recordDiagnostic } from './diagnostics.ts';
+import { DIAGNOSTIC_ERROR_CODES } from '../shared/diagnostics.ts';
 import { transitionQueueItem } from '../shared/queue-state.ts';
 import { isVideoThumbnailUrl } from '../shared/media-filter.ts';
 
@@ -471,7 +472,12 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
       const errMsg = err instanceof Error ? err.message : String(err);
       failed++;
       activeErrors.push(formatDownloadError(err));
-      void recordDiagnostic(item.type === 'hls' ? 'hls.failed' : 'download.failed');
+      const isHls = item.type === 'hls';
+      void recordDiagnostic(
+        isHls ? 'hls.failed' : 'download.failed',
+        undefined,
+        isHls ? DIAGNOSTIC_ERROR_CODES.hlsFailed : DIAGNOSTIC_ERROR_CODES.downloadFailed,
+      );
       console.warn('[SW] Download failed:', item?.url, errMsg);
     }
 
@@ -801,8 +807,8 @@ const MANIFEST_ITEM_LIMIT = 10_000; // đồng bộ với CSV_ROW_LIMIT
 
 async function buildManifest(username: string): Promise<{ json: string; csv: string; total: number; exported: number; truncated: boolean }> {
   const [downloadedRecords, mediaItems, storedHistory] = await Promise.all([
-    getDownloadedUrlRecords(username),
-    getMediaItems(username) as Promise<MediaItem[]>,
+    mediaRepository.getDownloadedUrlRecords(username),
+    mediaRepository.getMediaItems(username) as Promise<MediaItem[]>,
     chrome.storage.local.get('download_history').catch(() => ({})) as Promise<Record<string, unknown>>,
   ]);
 
@@ -831,7 +837,7 @@ async function buildManifest(username: string): Promise<{ json: string; csv: str
   const history = ((storedHistory.download_history as HistoryEntry[]) || []).filter((entry) => entry.username === username);
 
   const json = JSON.stringify({
-    _version: '6.3.1',
+    _version: '6.4.0',
     _exportedAt: new Date().toISOString(),
     username,
     history,

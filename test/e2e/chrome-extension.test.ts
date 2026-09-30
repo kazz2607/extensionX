@@ -1,14 +1,11 @@
 import assert from 'node:assert/strict';
-import { createServer } from 'node:http';
-import { existsSync } from 'node:fs';
-import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { chromium, type BrowserContext } from '@playwright/test';
 
-const localChromePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const chromePath = process.env.PLAYWRIGHT_CHROME_EXECUTABLE ?? (existsSync(localChromePath) ? localChromePath : chromium.executablePath());
+const chromePath = process.env.PLAYWRIGHT_CHROME_EXECUTABLE ?? chromium.executablePath();
 
 function mediaPage(username: string, suffix: string) {
   return `<!doctype html><html><head><title>${username}</title></head><body>
@@ -17,15 +14,9 @@ function mediaPage(username: string, suffix: string) {
   </body></html>`;
 }
 
-async function prepareTestExtension(baseUrl: string): Promise<string> {
+async function prepareTestExtension(): Promise<string> {
   const extensionDir = await mkdtemp(join(tmpdir(), 'extensionx-e2e-extension-'));
   await cp('dist', extensionDir, { recursive: true });
-  const manifestPath = join(extensionDir, 'manifest.json');
-  const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as Record<string, any>;
-  manifest.host_permissions = [...manifest.host_permissions, `${baseUrl}/*`];
-  for (const contentScript of manifest.content_scripts) contentScript.matches = [...contentScript.matches, `${baseUrl}/*`];
-  for (const resource of manifest.web_accessible_resources) resource.matches = [...resource.matches, `${baseUrl}/*`];
-  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   return extensionDir;
 }
 
@@ -44,32 +35,32 @@ async function waitForCount(getCount: () => Promise<number>, expected: number): 
 }
 
 test('Chrome extension fixture collects isolated media after SPA navigation', { timeout: 45_000 }, async (t) => {
-  const server = createServer((request, response) => {
-    const [, username = 'Alice'] = (request.url ?? '/Alice/media').split('/');
-    response.writeHead(200, { 'content-type': 'text/html' });
-    response.end(mediaPage(username, username.toLowerCase()));
-  });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const address = server.address();
-  assert.ok(address && typeof address !== 'string');
-  const baseUrl = `http://127.0.0.1:${address.port}`;
-  const extensionDir = await prepareTestExtension(baseUrl);
+  const extensionDir = await prepareTestExtension();
   const profileDir = await mkdtemp(join(tmpdir(), 'extensionx-e2e-profile-'));
   const context = await chromium.launchPersistentContext(profileDir, {
     executablePath: chromePath,
-    headless: true,
+    headless: process.env.PLAYWRIGHT_HEADED !== 'true',
     args: [`--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`, '--no-first-run'],
   });
   t.after(async () => {
     await context.close();
-    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     await rm(extensionDir, { recursive: true, force: true });
     await rm(profileDir, { recursive: true, force: true });
   });
+  await context.route('https://x.com/**', async (route) => {
+    const [, username = 'Alice'] = new URL(route.request().url()).pathname.split('/');
+    await route.fulfill({ status: 200, contentType: 'text/html', body: mediaPage(username, username.toLowerCase()) });
+  });
+  await context.route('https://web.telegram.org/**', (route) => route.fulfill({
+    status: 200,
+    contentType: 'text/html',
+    body: '<!doctype html><html><body></body></html>',
+  }));
+  await context.route('https://pbs.twimg.com/**', (route) => route.fulfill({ status: 200, contentType: 'image/jpeg', body: '' }));
   const id = await extensionId(context);
   const alice = await context.newPage();
   const bob = await context.newPage();
-  await Promise.all([alice.goto(`${baseUrl}/Alice/media`), bob.goto(`${baseUrl}/Bob/media`)]);
+  await Promise.all([alice.goto('https://x.com/Alice/media'), bob.goto('https://x.com/Bob/media')]);
 
   const options = await context.newPage();
   await options.goto(`chrome-extension://${id}/options/options.html`);
@@ -94,7 +85,7 @@ test('Chrome extension fixture collects isolated media after SPA navigation', { 
   // Telegram's canvas/data URL path must download inside the originating tab;
   // sending it through runtime messaging would exceed the message-size limit.
   const telegram = await context.newPage();
-  await telegram.goto(`${baseUrl}/Telegram/k`);
+  await telegram.goto('https://web.telegram.org/k/');
   await telegram.evaluate(() => {
     const wrapper = document.createElement('div');
     wrapper.className = 'message-media';

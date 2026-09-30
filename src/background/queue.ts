@@ -1,11 +1,13 @@
 import { mediaStore, downloadCoordinator } from './state.ts';
-import { getMediaItems } from './indexeddb.ts';
+import { mediaRepository } from './indexeddb.ts';
 import { startDownload } from './downloader.ts';
 import { broadcastToPopup } from './utils.ts';
 import { MediaItem, QueueItem, QueueExportData } from '../types.ts';
 import { parseQueueItems } from '../shared/validation.ts';
-import { recoverQueueItemAfterRestart, transitionQueueItem, wasInterrupted, findInterruptedIds, resetDownloadingItemsAfterStop } from '../shared/queue-state.ts';
+import { createQueueStorageSnapshot, migrateQueueStorage } from '../shared/storage-migrations.ts';
+import { recoverQueueItemAfterRestart, transitionQueueItem, findInterruptedIds, resetDownloadingItemsAfterStop } from '../shared/queue-state.ts';
 import { isVideoThumbnailUrl } from '../shared/media-filter.ts';
+import { chromeApi } from './chrome-api.ts';
 
 export let profileQueue: QueueItem[] = [];
 export function setProfileQueue(q: QueueItem[]) { profileQueue = q; }
@@ -20,14 +22,19 @@ function loadPersistedQueue(): Promise<void> {
   if (_queueLoadPromise) return _queueLoadPromise;
   _queueLoadPromise = (async () => {
     try {
-      const data = await chrome.storage.local.get('profile_queue');
-      const saved: QueueItem[] = (data.profile_queue as QueueItem[]) || [];
-      for (const item of saved) {
-        if (wasInterrupted(item)) _forceDedupOnNextRun.add(item.id);
-      }
+      const data = await chromeApi.storage.local.get('profile_queue');
+      const rawQueue = data.profile_queue;
+      const rawItems = Array.isArray(rawQueue)
+        ? rawQueue
+        : rawQueue && typeof rawQueue === 'object' && Array.isArray((rawQueue as { items?: unknown }).items)
+          ? (rawQueue as { items: unknown[] }).items
+          : [];
+      const interruptedIds = findInterruptedIds(rawItems);
+      const saved = migrateQueueStorage(rawQueue).items;
+      for (const id of interruptedIds) _forceDedupOnNextRun.add(id);
       // Các item đang 'downloading' khi SW restart → đặt lại 'waiting'
       profileQueue = saved.map(recoverQueueItemAfterRestart);
-      if (saved.some(wasInterrupted)) void persistQueueImmediately();
+      if (interruptedIds.size > 0) void persistQueueImmediately();
     } catch (_) {
       profileQueue = [];
     }
@@ -41,9 +48,9 @@ function persistQueue() {
   _queuePersistTimer = setTimeout(async () => {
     _queuePersistTimer = null;
     try {
-      await chrome.storage.local.set({ profile_queue: profileQueue });
-    } catch (err: any) {
-      console.debug('[SW] persistQueue error:', err.message);
+      await chromeApi.storage.local.set({ profile_queue: createQueueStorageSnapshot(profileQueue) });
+    } catch (err: unknown) {
+      console.debug('[SW] persistQueue error:', err instanceof Error ? err.message : String(err));
     }
   }, 500);
 }
@@ -75,7 +82,7 @@ async function startNextInQueue(): Promise<boolean> {
   if (!store?.size) {
     let itemsArray: unknown[] = [];
     try {
-      itemsArray = await getMediaItems(next.username) as unknown[];
+      itemsArray = await mediaRepository.getMediaItems(next.username) as unknown[];
     } catch (err: unknown) {
       console.error('[SW] Queue IndexedDB load failed:', err instanceof Error ? err.message : String(err));
     }
@@ -127,7 +134,7 @@ async function persistQueueImmediately(): Promise<void> {
     _queuePersistTimer = null;
   }
   try {
-    await chrome.storage.local.set({ profile_queue: profileQueue });
+    await chromeApi.storage.local.set({ profile_queue: createQueueStorageSnapshot(profileQueue) });
   } catch (err: unknown) {
     console.debug('[SW] persistQueueImmediately error:', err instanceof Error ? err.message : String(err));
   }
@@ -154,7 +161,7 @@ loadPersistedQueue().then(() => {
 
 function exportQueue(): QueueExportData {
   return {
-    _version: '6.3.1',
+    _version: '6.4.0',
     _exportedAt: new Date().toISOString(),
     queue: profileQueue,
   };

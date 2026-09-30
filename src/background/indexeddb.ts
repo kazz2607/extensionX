@@ -1,13 +1,47 @@
-import { MediaItem } from '../types.ts';
+import type { MediaItem } from '../types.ts';
+import type { MediaRepository } from './media-repository.ts';
 
 const DB_NAME = 'XMediaDownloaderDB';
-const DB_VERSION = 2;
+export const DB_VERSION = 3;
 const STORE_NAME = 'media_items';
 const DOWNLOADED_STORE_NAME = 'downloaded_urls';
+const META_STORE_NAME = 'schema_meta';
 const DOWNLOADED_HISTORY_MAX_ENTRIES = 50_000;
 const DOWNLOADED_HISTORY_TTL_MS = 180 * 24 * 60 * 60 * 1000;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
+
+export type DatabaseMigration = 1 | 2 | 3;
+
+/** Pure migration plan used by tests and by onupgradeneeded. */
+export function getDatabaseMigrationPlan(oldVersion: number): DatabaseMigration[] {
+  const steps: DatabaseMigration[] = [];
+  if (oldVersion < 1) steps.push(1);
+  if (oldVersion < 2) steps.push(2);
+  if (oldVersion < 3) steps.push(3);
+  return steps;
+}
+
+function applyDatabaseMigrations(db: IDBDatabase, transaction: IDBTransaction, oldVersion: number): void {
+  for (const step of getDatabaseMigrationPlan(oldVersion)) {
+    if (step === 1 && !db.objectStoreNames.contains(STORE_NAME)) {
+      const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+      store.createIndex('username', 'username', { unique: false });
+      store.createIndex('url', 'url', { unique: false });
+    }
+    if (step === 2 && !db.objectStoreNames.contains(DOWNLOADED_STORE_NAME)) {
+      const downloaded = db.createObjectStore(DOWNLOADED_STORE_NAME, { keyPath: 'id' });
+      downloaded.createIndex('username', 'username', { unique: false });
+      downloaded.createIndex('addedAt', 'addedAt', { unique: false });
+    }
+    if (step === 3) {
+      const meta = db.objectStoreNames.contains(META_STORE_NAME)
+        ? transaction.objectStore(META_STORE_NAME)
+        : db.createObjectStore(META_STORE_NAME, { keyPath: 'key' });
+      meta.put({ key: 'schemaVersion', value: DB_VERSION, migratedAt: Date.now() });
+    }
+  }
+}
 
 export function initDB(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
@@ -21,17 +55,8 @@ export function initDB(): Promise<IDBDatabase> {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-        // Create indexes for efficient querying
-        store.createIndex('username', 'username', { unique: false });
-        store.createIndex('url', 'url', { unique: false });
-      }
-      if (!db.objectStoreNames.contains(DOWNLOADED_STORE_NAME)) {
-        const downloaded = db.createObjectStore(DOWNLOADED_STORE_NAME, { keyPath: 'id' });
-        downloaded.createIndex('username', 'username', { unique: false });
-        downloaded.createIndex('addedAt', 'addedAt', { unique: false });
-      }
+      if (!request.transaction) throw new Error('IndexedDB upgrade transaction unavailable');
+      applyDatabaseMigrations(db, request.transaction, event.oldVersion);
     };
   });
 
@@ -216,3 +241,16 @@ export async function clearAllDownloadedUrls(): Promise<void> {
     tx.onerror = () => reject(tx.error);
   });
 }
+
+export const mediaRepository: MediaRepository = {
+  saveMediaItems,
+  getMediaItems,
+  clearMediaItems,
+  clearAllMediaItems,
+  getDownloadedUrls,
+  getDownloadedUrlRecords,
+  saveDownloadedUrls,
+  pruneDownloadedUrls,
+  clearDownloadedUrls,
+  clearAllDownloadedUrls,
+};

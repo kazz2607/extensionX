@@ -3,6 +3,7 @@
  * options.js — Logic trang Cài đặt (v5.7.0)
  */
 import { renderFilenameTemplate } from '../shared/filename-template.ts';
+import { migrateOptionsStorage, OPTIONS_SCHEMA_VERSION } from '../shared/storage-migrations.ts';
 
 // Mọi id dùng qua helper này đều trỏ tới input/select tĩnh có sẵn trong
 // options.html — cast trực tiếp thay vì ts-ignore từng dòng, không đổi hành vi.
@@ -51,7 +52,7 @@ const DEFAULT_OPTIONS = {
 // ─── Load ─────────────────────────────────────────────────────────────────────
 async function loadOptions() {
   const stored = await chrome.storage.sync.get('options').catch(() => ({})) as { options?: Record<string, unknown> };
-  const opts = { ...DEFAULT_OPTIONS, ...(stored.options || {}) };
+  const opts = { ...DEFAULT_OPTIONS, ...migrateOptionsStorage(stored.options) };
 
   el('opt-save-folder').value   = opts.saveFolder || '';
   el('opt-images').checked      = opts.mediaTypes?.images ?? true;
@@ -107,6 +108,7 @@ async function loadOptions() {
 // ─── Save ─────────────────────────────────────────────────────────────────────
 async function saveOptions() {
   const opts = {
+    schemaVersion: OPTIONS_SCHEMA_VERSION,
     saveFolder:  sanitizeFolder(el('opt-save-folder').value),
     mediaTypes: {
       images: el('opt-images').checked,
@@ -412,9 +414,9 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', asy
 async function exportSettings() {
   try {
     const stored = await chrome.storage.sync.get('options').catch(() => ({})) as { options?: Record<string, unknown> };
-    const opts = stored.options || DEFAULT_OPTIONS;
+    const opts = migrateOptionsStorage(stored.options || DEFAULT_OPTIONS);
     const exportData = {
-      _version: '6.3.1',
+      _version: '6.4.0',
       _exportedAt: new Date().toISOString(),
       options: opts,
     };
@@ -451,7 +453,8 @@ async function importSettings(event: Event): Promise<void> {
     }
 
     // Merge với DEFAULT_OPTIONS để đảm bảo các field bị thiếu được fill
-    const merged = { ...DEFAULT_OPTIONS, ...parsed.options };
+    const migrated = migrateOptionsStorage(parsed.options);
+    const merged = { ...DEFAULT_OPTIONS, ...migrated };
     if (parsed.options.smartFilters) {
       merged.smartFilters = { ...DEFAULT_OPTIONS.smartFilters, ...parsed.options.smartFilters };
     }
@@ -477,7 +480,7 @@ async function resetSettings() {
   if (!confirmed) return;
 
   try {
-    await chrome.storage.sync.set({ options: DEFAULT_OPTIONS });
+    await chrome.storage.sync.set({ options: { ...DEFAULT_OPTIONS, schemaVersion: OPTIONS_SCHEMA_VERSION } });
     showSaveStatus('✓ Reset! Reloading...');
     setTimeout(() => location.reload(), 600);
   } catch (err) {
