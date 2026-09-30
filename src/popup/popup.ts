@@ -7,7 +7,7 @@ import { initFollowingPanel, handleFollowingMessage } from './following-panel.js
 import { setStatus, showProgress } from './status-bar.ts';
 import { showToast } from './toast.ts';
 import { renderDonutChart } from './donut-chart.ts';
-import { initHistoryPanel, loadHistory, addToHistory, clearHistory } from './history-panel.ts';
+import { initHistoryPanel, loadHistory, clearHistory } from './history-panel.ts';
 import { initDateRange, getDateRange, setDateRange } from './date-range.ts';
 import { initPresets, type FilterPreset } from './presets.ts';
 import { initQueuePanel, loadQueue, addCurrentToQueue as queueAddCurrent, updateQueueItemProgress, setQueueFromUpdate } from './queue-panel.ts';
@@ -69,6 +69,7 @@ interface Els {
   btnQueueAdd: HTMLButtonElement;
   btnCsv: HTMLButtonElement;
   btnClear: HTMLButtonElement;
+  btnDownloadCenter: HTMLElement;
   btnSettings: HTMLElement;
   btnReload: HTMLElement;
   btnTheme: HTMLElement;
@@ -148,6 +149,7 @@ const els: Els = {
   btnQueueAdd:   $btn('btn-queue-add'),     // v5.0.3
   btnCsv:        $btn('btn-csv'),
   btnClear:      $btn('btn-clear'),
+  btnDownloadCenter: $('btn-download-center'),
   btnSettings:   $('btn-settings'),
   btnReload:     $('btn-reload'),
   btnTheme:      $('btn-theme'),
@@ -914,6 +916,12 @@ function setupListeners() {
   // Settings
   els.btnSettings.addEventListener('click', () => chrome.runtime.openOptionsPage());
 
+  // v7.0.0 Download Center
+  els.btnDownloadCenter.addEventListener('click', () => {
+    void chrome.tabs.create({ url: chrome.runtime.getURL('download-center/download-center.html') });
+    window.close();
+  });
+
   // Reload Tab
   if (els.btnReload) {
     els.btnReload.addEventListener('click', async () => {
@@ -1159,12 +1167,7 @@ function listenToMessages() {
           _lastErrors = [];
           els.errorDetails.style.display = 'none';
         }
-        addToHistory({
-          username: currentUsername || '',
-          count: success || 0,
-          filter: activeFilter,
-          date: new Date().toISOString(),
-        });
+        void loadHistory();
 
         // Refresh downloaded count
         if (currentUsername) {

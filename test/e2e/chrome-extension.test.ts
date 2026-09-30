@@ -58,6 +58,11 @@ test('Chrome extension fixture collects isolated media after SPA navigation', { 
   }));
   await context.route('https://pbs.twimg.com/**', (route) => route.fulfill({ status: 200, contentType: 'image/jpeg', body: '' }));
   const id = await extensionId(context);
+  const downloadCenter = await context.newPage();
+  await downloadCenter.goto(`chrome-extension://${id}/download-center/download-center.html`);
+  assert.equal(await downloadCenter.locator('h1').textContent(), 'Download Center');
+  await downloadCenter.locator('#summary-waiting').waitFor();
+
   const alice = await context.newPage();
   const bob = await context.newPage();
   await Promise.all([alice.goto('https://x.com/Alice/media'), bob.goto('https://x.com/Bob/media')]);

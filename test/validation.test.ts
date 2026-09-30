@@ -47,6 +47,10 @@ test('binds profile messages to the X tab URL and rejects malformed envelopes', 
   assert.equal(parseExtensionMessage({ type: 'MEDIA_FOUND', payload: { username: 'NASA' } })?.type, 'MEDIA_FOUND');
   assert.equal(parseExtensionMessage({ type: 'GET_MEDIA_COUNT', payload: { username: 'NASA', injected: true } }), null);
   assert.equal(parseExtensionMessage({ type: 'GET_QUEUE', payload: {}, injected: true }), null);
+  assert.equal(parseExtensionMessage({ type: 'GET_DOWNLOAD_CENTER', payload: {} })?.type, 'GET_DOWNLOAD_CENTER');
+  assert.equal(parseExtensionMessage({ type: 'GET_SAVED_JOBS', payload: {} })?.type, 'GET_SAVED_JOBS');
+  assert.equal(parseExtensionMessage({ type: 'DELETE_SAVED_JOB', payload: { id: 'job-1' } })?.type, 'DELETE_SAVED_JOB');
+  assert.equal(parseExtensionMessage({ type: 'DELETE_SAVED_JOB', payload: { id: 'job-1', injected: true } }), null);
   assert.equal(parseExtensionMessage({ type: 'HLS_DONE', requestId: 'req-1', dataUrl: 'blob:test' })?.type, 'HLS_DONE');
   assert.equal(parseExtensionMessage({ type: 'HLS_DONE', requestId: 'req-1', dataUrl: `data:video/mp2t;base64,${'A'.repeat(300_000)}` })?.type, 'HLS_DONE');
   assert.equal(parseExtensionMessage({ type: 'HLS_DONE', dataUrl: 'blob:test' }), null);

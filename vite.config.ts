@@ -19,6 +19,7 @@ export default defineConfig({
       manifest: "manifest.json",
       additionalInputs: [
         "offscreen/offscreen.html",
+        "download-center/download-center.html",
         "content/page-interceptor.ts",
         "content/dom-scanner.ts",
         "content/fab.ts",

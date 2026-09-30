@@ -3,7 +3,7 @@ import { mediaStore, downloadedStore, tabState, downloadCoordinator, pendingHlsR
 import { broadcastToPopup, broadcastToTab, sanitizeFolder, broadcastFABState } from './utils.ts';
 import { showDownloadNotification, fetchVideoForTweetWithRefresh, loadDownloadedUrls, isAlreadyDownloaded, markDownloaded, ensureMediaStoreLoaded } from './scraper.ts';
 import { startNextInQueue, profileQueue, persistQueueImmediately, broadcastQueueUpdate } from './queue.ts';
-import { DownloadOptions, MediaItem, HistoryEntry, ManifestItem } from '../types.ts';
+import { DownloadOptions, MediaItem, ManifestItem } from '../types.ts';
 import { mediaRepository } from './indexeddb.ts';
 import { isTrustedMediaUrl, sanitizeFilename } from '../shared/validation.ts';
 import { renderFilenameTemplate } from '../shared/filename-template.ts';
@@ -12,6 +12,7 @@ import { recordDiagnostic } from './diagnostics.ts';
 import { DIAGNOSTIC_ERROR_CODES } from '../shared/diagnostics.ts';
 import { transitionQueueItem } from '../shared/queue-state.ts';
 import { isVideoThumbnailUrl } from '../shared/media-filter.ts';
+import { listDownloadHistory, recordDownloadHistory } from './download-history.ts';
 
 // ─── BUG-2 FIX: Keep-alive alarm để SW không bị Chrome terminate ───────────────
 const KEEPALIVE_ALARM = 'sw-keepalive';
@@ -324,8 +325,9 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
   if (!downloadCoordinator.isCurrent(operationId)) return;
   if (!store?.size) {
     downloadCoordinator.settle(operationId, 'error');
-    downloadCoordinator.release(operationId);
     console.warn(`[SW] startDownload: Không tìm thấy media nào cho @${username}`);
+    await recordDownloadHistory(username, options.filterType ?? 'all', { success: 0, failed: 1, skipped: 0 }).catch(() => {});
+    downloadCoordinator.release(operationId);
     broadcastToPopup('DOWNLOAD_DONE', { username, success: 0, failed: 0, total: 0, skipped: 0, errors: ['Không tìm thấy media nào trong bộ nhớ để tải'] });
     return;
   }
@@ -337,10 +339,10 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
   startKeepAlive();
 
   // Đọc options từ storage (merged với options từ caller)
-  let opts: DownloadOptions = {};
+  let opts: DownloadOptions = { ...options };
   try {
     const stored = await chrome.storage.sync.get('options');
-    opts = stored.options || {};
+    opts = { ...(stored.options || {}), ...options };
   } catch (_) {}
   if (!downloadCoordinator.isCurrent(operationId)) return;
 
@@ -403,6 +405,7 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
     stopKeepAlive();
     // Thông báo nếu tất cả đã được tải rồi
     if (skipped > 0) {
+      await recordDownloadHistory(username, options.filterType ?? 'all', { success: 0, failed: 0, skipped }).catch(() => {});
       broadcastToPopup('DOWNLOAD_DONE', { username, success: 0, failed: 0, total: 0, skipped });
       showDownloadNotification(username, 0, 0, 0, skipped);
     }
@@ -570,6 +573,7 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
     if (!downloadCoordinator.isCurrent(operationId)) return;
     stopKeepAlive(); // BUG-2 FIX: Tắt keep-alive khi xong
     _fabProgressTimeByOp.delete(operationId); // P3: dọn per-operation throttle state
+    await recordDownloadHistory(username, options.filterType ?? 'all', { success, failed, skipped }).catch(() => {});
     // UI-01: Truyền errors array để popup có thể hiện chi tiết lỗi
     broadcastToPopup('DOWNLOAD_DONE', { username, success, failed, total, skipped, errors: activeErrors.slice(0, 20) });
     // v4.1.0: Hiện system notification
@@ -806,10 +810,10 @@ function buildCSV(username: string, filterType = 'all', offset = 0) {
 const MANIFEST_ITEM_LIMIT = 10_000; // đồng bộ với CSV_ROW_LIMIT
 
 async function buildManifest(username: string): Promise<{ json: string; csv: string; total: number; exported: number; truncated: boolean }> {
-  const [downloadedRecords, mediaItems, storedHistory] = await Promise.all([
+  const [downloadedRecords, mediaItems, allHistory] = await Promise.all([
     mediaRepository.getDownloadedUrlRecords(username),
     mediaRepository.getMediaItems(username) as Promise<MediaItem[]>,
-    chrome.storage.local.get('download_history').catch(() => ({})) as Promise<Record<string, unknown>>,
+    listDownloadHistory(),
   ]);
 
   // Ghép downloaded_urls (biết url nào đã tải, khi nào) với media_items (metadata
@@ -834,10 +838,10 @@ async function buildManifest(username: string): Promise<{ json: string; csv: str
     };
   });
 
-  const history = ((storedHistory.download_history as HistoryEntry[]) || []).filter((entry) => entry.username === username);
+  const history = allHistory.filter((entry) => entry.username === username);
 
   const json = JSON.stringify({
-    _version: '6.4.0',
+    _version: '7.0.0',
     _exportedAt: new Date().toISOString(),
     username,
     history,

@@ -1,5 +1,6 @@
 import { parseExtensionMessage } from '../shared/messages.ts';
 import { handleExportMessage } from './export-messages.ts';
+import { handleDownloadCenterMessage } from './download-center-messages.ts';
 import { handleFollowingMessage } from './following-messages.ts';
 import { isInternalSender, type DomainMessageHandler } from './message-handler.ts';
 import { handleMediaMessage } from './media-messages.ts';
@@ -7,6 +8,7 @@ import { handleQueueMessage } from './queue-messages.ts';
 
 const handlers: readonly DomainMessageHandler[] = [
   handleQueueMessage,
+  handleDownloadCenterMessage,
   handleExportMessage,
   handleFollowingMessage,
   handleMediaMessage,

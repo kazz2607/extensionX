@@ -1,6 +1,6 @@
 # X Media Downloader — Roadmap
 
-> Phiên bản hiện tại: **6.4.0** | Cập nhật: 2026-09-30
+> Phiên bản hiện tại: **7.0.0** | Cập nhật: 2026-09-30
 
 Tài liệu này là nguồn duy nhất cho trạng thái sản phẩm, phần việc đã hoàn thành và backlog. Chi tiết từng bản phát hành nằm trong [`CHANGELOG.md`](../CHANGELOG.md).
 
@@ -12,11 +12,12 @@ Extension đang dùng Manifest V3, TypeScript strict và Vite. Các luồng chí
 - Lưu media theo profile trong IndexedDB và khôi phục sau khi service worker ngủ.
 - Tải ảnh, video, GIF và HLS; hỗ trợ lọc, chống trùng và template tên file.
 - Queue nhiều profile với pause, reorder, retry, resume và progress trực tiếp.
+- Download Center toàn trang và Saved Jobs do người dùng chủ động chạy.
 - Download Picker, Filter Preset, Manifest export và Watch mode.
 - Tải ảnh/video trực tiếp trên Telegram Web A/K, gồm Range-fetch cho stream riêng tư.
 - Following Scanner Feature 0: tự cuộn trang Following và hiển thị tiến độ.
 
-Quality gate hiện hành: TypeScript, ESLint, **31 unit tests**, **2 fixture e2e tests**, production build, performance budget và release checksum manifest. Chi tiết tại [`quality-gate.md`](quality-gate.md).
+Quality gate hiện hành: TypeScript, ESLint, **33 unit tests**, **2 fixture e2e tests**, production build, performance budget và release checksum manifest. Chi tiết tại [`quality-gate.md`](quality-gate.md).
 
 ## Kiến trúc chính
 
@@ -25,6 +26,7 @@ src/
 ├── background/       Service worker, queue, downloader, IndexedDB, scraper
 ├── content/          X.com/Telegram content scripts, FAB, interceptor
 ├── popup/            Popup và các panel tách module
+├── download-center/  Trang quản lý Queue, Saved Jobs và history
 ├── options/          Cài đặt, import/export/reset
 ├── offscreen/        Ghép HLS
 ├── shared/           Validation và logic thuần có kiểm thử
@@ -49,6 +51,7 @@ src/
 | v6.3.0 | Tối ưu worker/Queue/observer; runtime message field allowlist và audit least-privilege |
 | v6.3.1 | Primary Queue action theo state, responsive 320–360 px và accessibility semantics |
 | v6.4.0 | Module hóa message handler, storage/Chrome adapter, migration regression, performance budget và reproducible release manifest |
+| v7.0.0 | Download Center, Saved Jobs và history schema v2 có đường migration/rollback |
 
 Các kế hoạch Pha 0–15 cũ đã hoàn thành và được hợp nhất vào bảng này; không còn duy trì file kế hoạch riêng.
 

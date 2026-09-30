@@ -1,4 +1,4 @@
-# Baseline hiệu năng và build budget 6.4.0
+# Baseline hiệu năng và build budget 7.0.0
 
 > Cập nhật: 2026-09-30
 
@@ -20,13 +20,13 @@
 | Stop download | UI phản hồi dưới 500 ms |
 | 10.000 media | popup không bị khóa, không giữ thêm bản sao mảng không cần thiết |
 
-Build 6.4.0 bổ sung gate tự động trong `npm run check`:
+Build 7.0.0 tiếp tục áp dụng gate tự động trong `npm run check` và tính cả entrypoint Download Center:
 
-| Chỉ số build | Ngưỡng | Kết quả 6.4.0 |
+| Chỉ số build | Ngưỡng | Kết quả 7.0.0 |
 | --- | ---: | ---: |
-| Tổng JavaScript trong `dist/` | ≤ 300.000 byte | 236.809 byte |
-| JavaScript bundle lớn nhất | ≤ 90.000 byte | 66.475 byte |
-| Số module TypeScript trong `src/` | ≤ 80 | 62 |
+| Tổng JavaScript trong `dist/` | ≤ 300.000 byte | 250.764 byte |
+| JavaScript bundle lớn nhất | ≤ 90.000 byte | 71.981 byte |
+| Số module TypeScript trong `src/` | ≤ 80 | 68 |
 
 Ngưỡng nằm trong `performance-budget.json` và được kiểm tra bởi `scripts/check-performance-budget.mjs`.
 

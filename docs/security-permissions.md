@@ -1,6 +1,6 @@
 # Audit bảo mật và quyền extension
 
-> Rà soát cho **6.4.0** | Cập nhật: 2026-09-30
+> Rà soát cho **7.0.0** | Cập nhật: 2026-09-30
 
 ## Quyền Manifest
 
@@ -17,6 +17,8 @@
 
 Host permissions chỉ bao phủ X/Twitter, các CDN media X cần tải và Telegram Web A/K. Không có host wildcard toàn Internet. `web_accessible_resources` tiếp tục giới hạn theo resource và origin trong manifest.
 
+Download Center và Saved Jobs không thêm permission hoặc host. Saved Jobs chỉ chạy sau thao tác rõ ràng của người dùng; không có alarm/polling mới. Dữ liệu cấu hình nằm trong `chrome.storage.local` tại `saved_jobs_v1`; lịch sử versioned nằm tại `download_history_v2` và mirror rollback giới hạn 20 mục tại `download_history`.
+
 ## Biên tin nhắn runtime
 
 - Chỉ nhận message type nằm trong allowlist.
@@ -24,6 +26,7 @@ Host permissions chỉ bao phủ X/Twitter, các CDN media X cần tải và Tel
 - Background chỉ chấp nhận sender nội bộ extension; lệnh gắn username từ content script phải khớp tab X/Twitter tương ứng.
 - `HLS_DONE` có envelope riêng gồm `requestId`, `dataUrl` hoặc `error`; không chấp nhận field khác. Data URL từ offscreen nội bộ được miễn giới hạn 256 KB vì là nội dung video, nhưng vẫn yêu cầu sender cùng extension và request ID hợp lệ.
 - URL media, Telegram sender, Queue import và options vẫn qua validator theo domain trước khi thực thi.
+- Các lệnh Download Center/Saved Jobs có allowlist field; job được validate lại tại background trước khi lưu hoặc chạy.
 
 ## Bề mặt cần theo dõi
 

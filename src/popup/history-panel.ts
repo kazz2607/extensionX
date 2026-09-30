@@ -1,9 +1,11 @@
 /**
  * history-panel.ts — Download History list + pagination (Pha 8 refactor).
  * Tách nguyên vẹn từ popup.ts, không đổi hành vi: phân trang 50 mục/lần với
- * nút "Xem thêm" (tối ưu từ Pha 3), lưu trong `chrome.storage.local['download_history']`.
+ * nút "Xem thêm" (tối ưu từ Pha 3), đọc mirror rollback
+ * `chrome.storage.local['download_history']` do background quản lý.
  */
 import type { HistoryEntry } from '../types.ts';
+import { migrateDownloadHistoryStorage } from '../shared/download-history.ts';
 
 export type { HistoryEntry };
 
@@ -24,20 +26,13 @@ export function initHistoryPanel(deps: HistoryPanelDeps): void {
 
 export async function loadHistory(): Promise<void> {
   const stored: any = await chrome.storage.local.get('download_history').catch(() => ({}));
-  downloadHistory = stored.download_history || [];
-  renderHistory();
-}
-
-export function addToHistory(entry: HistoryEntry): void {
-  downloadHistory.unshift(entry);
-  if (downloadHistory.length > 20) downloadHistory = downloadHistory.slice(0, 20);
-  chrome.storage.local.set({ download_history: downloadHistory });
+  downloadHistory = migrateDownloadHistoryStorage(stored.download_history).entries;
   renderHistory();
 }
 
 export async function clearHistory(): Promise<void> {
   downloadHistory = [];
-  await chrome.storage.local.remove('download_history');
+  await chrome.storage.local.remove(['download_history', 'download_history_v2']);
   renderHistory();
 }
 

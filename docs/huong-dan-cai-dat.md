@@ -1,6 +1,6 @@
 # Hướng dẫn cài đặt và sử dụng
 
-> X Media Downloader **6.4.0** | Cập nhật: 2026-09-30
+> X Media Downloader **7.0.0** | Cập nhật: 2026-09-30
 
 Extension tải ảnh, video và GIF từ X.com, đồng thời hỗ trợ tải media trực tiếp trên Telegram Web A/K.
 
@@ -24,7 +24,7 @@ Extension tải ảnh, video và GIF từ X.com, đồng thời hỗ trợ tải
 4. Mở `chrome://extensions`.
 5. Bật **Developer mode**.
 6. Chọn **Load unpacked** và trỏ tới thư mục `dist/`.
-7. Kiểm tra popup hiển thị version **6.4.0**.
+7. Kiểm tra popup hiển thị version **7.0.0**.
 
 ## Cập nhật extension
 
@@ -55,6 +55,8 @@ Queue chỉ tải ảnh bài viết độc lập. Ảnh bìa/thumbnail dùng đ�
 
 ## Các tính năng chính
 
+- **Download Center:** bấm biểu tượng tải xuống trên header popup để mở trang quản lý Queue, Saved Jobs và lịch sử; có thể tìm kiếm/lọc theo trạng thái.
+- **Saved Jobs:** lưu profile, filter, date range, thư mục và template tên file. Job chỉ chạy khi bấm **Chạy**, không tự polling.
 - **Download Picker:** chọn tối đa 200 thumbnail mỗi lần; kết hợp được với bộ lọc.
 - **Filter Preset:** lưu loại media, date range, keyword và tùy chọn chống trùng theo profile.
 - **Filename Template:** dùng token như `{username}`, `{tweetId}`, `{date}`, `{type}`, `{ext}`, `{index}`.
@@ -93,7 +95,7 @@ Các thay đổi được tự động lưu; kiểm tra trạng thái **Saved** 
 
 ### Queue không bắt đầu
 
-- Xác nhận popup và `dist/manifest.json` cùng version 6.4.0.
+- Xác nhận popup và `dist/manifest.json` cùng version 7.0.0.
 - Reload extension và mở lại popup.
 - Mục có `0 media` sẽ chuyển Error; kiểm tra profile khác còn dữ liệu hay không.
 - Mở Service Worker console và tìm `START_QUEUE`, `Queue IndexedDB load failed` hoặc lỗi download.
@@ -126,6 +128,7 @@ Các thay đổi được tự động lưu; kiểm tra trạng thái **Saved** 
 ## Quyền riêng tư
 
 - Dữ liệu media, queue, history và diagnostic nằm cục bộ trong trình duyệt.
+- Saved Jobs và lịch sử v7 được migrate tại chỗ; xem [hướng dẫn migration/rollback](v7-migration-rollback.md) trước khi hạ về v6.4.0.
 - Diagnostic mặc định tắt và không chứa username, URL hoặc token thô.
 - Extension chỉ dùng phiên đăng nhập hiện tại để truy cập nội dung người dùng đã có quyền xem.
 

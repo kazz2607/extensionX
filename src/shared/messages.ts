@@ -1,4 +1,4 @@
-import type { DownloadOptions, MediaItem } from '../types.ts';
+import type { DownloadOptions, MediaItem, SavedJobInput } from '../types.ts';
 
 export type MessageType =
   | 'MEDIA_FOUND' | 'PAGE_LOADED' | 'GET_MEDIA_COUNT' | 'GET_STATS' | 'GET_ALL_USERNAMES' | 'GET_TAB_STATE'
@@ -10,7 +10,8 @@ export type MessageType =
   | 'GET_DOWNLOADED_COUNT' | 'CLEAR_DOWNLOADED' | 'CLEAR_ALL_DOWNLOADED' | 'EXPORT_CSV' | 'EXPORT_MANIFEST' | 'DOWNLOAD_TWEET'
   | 'GET_SAVED_SESSION' | 'RESTORE_SESSION' | 'RESTORE_SESSION_CANCEL' | 'STOP_DOWNLOAD' | 'RETRY_FAILED'
   | 'UPDATE_BEARER' | 'UPDATE_QUERY_ID' | 'EXPORT_QUEUE' | 'IMPORT_QUEUE' | 'SHORTCUT_DOWNLOAD'
-  | 'START_FOLLOWING_SCROLL' | 'STOP_FOLLOWING_SCROLL' | 'GET_FOLLOWING_SCROLL_STATE' | 'HLS_DONE' | 'TG_DOWNLOAD_MEDIA';
+  | 'START_FOLLOWING_SCROLL' | 'STOP_FOLLOWING_SCROLL' | 'GET_FOLLOWING_SCROLL_STATE' | 'HLS_DONE' | 'TG_DOWNLOAD_MEDIA'
+  | 'GET_DOWNLOAD_CENTER' | 'GET_SAVED_JOBS' | 'SAVE_SAVED_JOB' | 'DELETE_SAVED_JOB' | 'RUN_SAVED_JOB';
 
 type UsernamePayload = { username: string };
 type MediaFilterPayload = UsernamePayload & { filterType?: 'all' | 'images' | 'videos' | 'gifs'; dateFrom?: string; dateTo?: string; keyword?: string };
@@ -18,7 +19,7 @@ type EmptyMessageType =
   | 'GET_ALL_USERNAMES' | 'GET_QUEUE' | 'CLEAR_QUEUE' | 'START_QUEUE' | 'GET_DOWNLOAD_STATE'
   | 'EXPORT_LOCAL_DIAGNOSTICS' | 'CLEAR_LOCAL_DIAGNOSTICS' | 'CLEAR_ALL_DOWNLOADED'
   | 'GET_SAVED_SESSION' | 'STOP_DOWNLOAD' | 'RETRY_FAILED' | 'EXPORT_QUEUE'
-  | 'STOP_FOLLOWING_SCROLL' | 'GET_FOLLOWING_SCROLL_STATE';
+  | 'STOP_FOLLOWING_SCROLL' | 'GET_FOLLOWING_SCROLL_STATE' | 'GET_DOWNLOAD_CENTER' | 'GET_SAVED_JOBS';
 
 export type ExtensionMessage =
   | { type: 'MEDIA_FOUND'; payload: { username: string; mediaItems: MediaItem[] } }
@@ -37,6 +38,8 @@ export type ExtensionMessage =
   | { type: 'IMPORT_QUEUE'; payload: { data: string } }
   | { type: 'SHORTCUT_DOWNLOAD'; payload: { url: string } }
   | { type: 'START_FOLLOWING_SCROLL'; payload: { targetUrl: string } }
+  | { type: 'SAVE_SAVED_JOB'; payload: { job: SavedJobInput } }
+  | { type: 'DELETE_SAVED_JOB' | 'RUN_SAVED_JOB'; payload: { id: string } }
   | { type: 'TG_DOWNLOAD_MEDIA'; payload: { url: string; filename: string; isVideo: boolean } }
   | { type: EmptyMessageType; payload?: Record<never, never> };
 
@@ -60,6 +63,7 @@ const MESSAGE_TYPES: ReadonlySet<string> = new Set<MessageType>([
   'GET_SAVED_SESSION', 'RESTORE_SESSION', 'RESTORE_SESSION_CANCEL', 'STOP_DOWNLOAD', 'RETRY_FAILED',
   'UPDATE_BEARER', 'UPDATE_QUERY_ID', 'EXPORT_QUEUE', 'IMPORT_QUEUE', 'SHORTCUT_DOWNLOAD',
   'START_FOLLOWING_SCROLL', 'STOP_FOLLOWING_SCROLL', 'GET_FOLLOWING_SCROLL_STATE', 'HLS_DONE', 'TG_DOWNLOAD_MEDIA',
+  'GET_DOWNLOAD_CENTER', 'GET_SAVED_JOBS', 'SAVE_SAVED_JOB', 'DELETE_SAVED_JOB', 'RUN_SAVED_JOB',
 ]);
 
 const PAYLOAD_KEYS: Readonly<Record<MessageType, readonly string[]>> = {
@@ -80,6 +84,8 @@ const PAYLOAD_KEYS: Readonly<Record<MessageType, readonly string[]>> = {
   UPDATE_QUERY_ID: ['queryId', 'opName'], EXPORT_QUEUE: [], IMPORT_QUEUE: ['data'], SHORTCUT_DOWNLOAD: ['url'],
   START_FOLLOWING_SCROLL: ['targetUrl'], STOP_FOLLOWING_SCROLL: [], GET_FOLLOWING_SCROLL_STATE: [],
   HLS_DONE: [], TG_DOWNLOAD_MEDIA: ['url', 'filename', 'isVideo'],
+  GET_DOWNLOAD_CENTER: [], GET_SAVED_JOBS: [], SAVE_SAVED_JOB: ['job'],
+  DELETE_SAVED_JOB: ['id'], RUN_SAVED_JOB: ['id'],
 };
 
 /** Cheap boundary check before command-specific validation in the service worker. */

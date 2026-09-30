@@ -27,6 +27,10 @@ export interface HistoryEntry {
   count: number;
   filter: string;
   date: string;
+  success?: number;
+  failed?: number;
+  skipped?: number;
+  status?: 'completed' | 'partial' | 'failed';
 }
 
 // Pha 14: 1 file đã tải, ghép từ downloaded_urls (đã tải khi nào) + media_items
@@ -173,6 +177,27 @@ export interface QueueExportData {
   _exportedAt: string;
   queue: QueueItem[];
 }
+
+export type MediaFilterType = 'all' | 'images' | 'videos' | 'gifs';
+
+/** User-triggered reusable download configuration introduced in v7.0.0. */
+export interface SavedJob {
+  schemaVersion: 1;
+  id: string;
+  name: string;
+  username: string;
+  filterType: MediaFilterType;
+  skipDuplicates: boolean;
+  keyword: string;
+  dateFrom: string;
+  dateTo: string;
+  saveFolder: string;
+  filenameTemplate: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type SavedJobInput = Omit<SavedJob, 'schemaVersion' | 'id' | 'createdAt' | 'updatedAt'> & { id?: string };
 
 declare global {
   interface Window {

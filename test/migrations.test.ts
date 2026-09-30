@@ -3,6 +3,8 @@ import test from 'node:test';
 import { createStorageAreaAdapter } from '../src/background/chrome-api.ts';
 import { DB_VERSION, getDatabaseMigrationPlan } from '../src/background/indexeddb.ts';
 import type { MediaRepository } from '../src/background/media-repository.ts';
+import { DOWNLOAD_HISTORY_SCHEMA_VERSION, migrateDownloadHistoryStorage } from '../src/shared/download-history.ts';
+import { migrateSavedJobsStorage, parseSavedJobInput, SAVED_JOBS_SCHEMA_VERSION } from '../src/shared/saved-jobs.ts';
 import { migrateOptionsStorage, migrateQueueStorage, OPTIONS_SCHEMA_VERSION, QUEUE_SCHEMA_VERSION } from '../src/shared/storage-migrations.ts';
 
 test('migrates legacy Options without losing user values', () => {
@@ -25,6 +27,30 @@ test('migrates Queue raw arrays and versioned snapshots to schema v2', () => {
   const current = migrateQueueStorage({ schemaVersion: 2, items: [{ ...legacyItem, status: 'waiting' }] });
   assert.equal(current.items.length, 1);
   assert.deepEqual(migrateQueueStorage({ schemaVersion: 99, items: 'broken' }).items, []);
+});
+
+test('migrates legacy download history without losing rollback-compatible entries', () => {
+  const legacy = [{ username: 'NASA', count: 4, filter: 'images', date: '2026-09-30T00:00:00.000Z' }];
+  const migrated = migrateDownloadHistoryStorage(legacy);
+  assert.equal(migrated.schemaVersion, DOWNLOAD_HISTORY_SCHEMA_VERSION);
+  assert.deepEqual(migrated.entries, legacy);
+  assert.deepEqual(migrateDownloadHistoryStorage({ schemaVersion: 2, entries: legacy }).entries, legacy);
+  assert.deepEqual(migrateDownloadHistoryStorage({ entries: [{ username: '../../bad' }] }).entries, []);
+});
+
+test('validates and migrates Saved Jobs into schema v1', () => {
+  const input = {
+    id: 'nasa-images', name: 'NASA images', username: 'NASA', filterType: 'images',
+    skipDuplicates: true, keyword: 'moon', dateFrom: '2026-01-01', dateTo: '2026-09-30',
+    saveFolder: '../NASA//images', filenameTemplate: '{username}_{tweetId}.{ext}',
+  };
+  assert.equal(parseSavedJobInput(input)?.saveFolder, '_/NASA/images');
+  assert.equal(parseSavedJobInput({ ...input, dateFrom: '2026-10-01' }), null);
+  assert.equal(parseSavedJobInput({ ...input, dateFrom: '2026-02-31' }), null);
+  const migrated = migrateSavedJobsStorage([{ ...input, schemaVersion: 1, createdAt: 10, updatedAt: 20 }]);
+  assert.equal(migrated.schemaVersion, SAVED_JOBS_SCHEMA_VERSION);
+  assert.equal(migrated.jobs[0]?.id, 'nasa-images');
+  assert.equal(migrated.jobs[0]?.updatedAt, 20);
 });
 
 test('IndexedDB migration plan is ordered and current', () => {

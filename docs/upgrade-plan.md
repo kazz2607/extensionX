@@ -1,6 +1,6 @@
 # Kế hoạch nâng cấp ExtensionX
 
-> Baseline: **6.4.0** | Cập nhật: 2026-09-30 | Trạng thái: **6.4.0 implemented; browser acceptance pending**
+> Baseline: **7.0.0** | Cập nhật: 2026-09-30 | Trạng thái: **7.0.0 implemented; browser acceptance pending**
 
 Tài liệu này đề xuất lộ trình nâng cấp dựa trên mã nguồn hiện tại. Trọng tâm là độ tin cậy của Queue/download, hiệu năng với profile lớn, thu hẹp bề mặt bảo mật, hoàn thiện UI/UX và bổ sung tính năng có giá trị thực tế. Đây là kế hoạch triển khai, không phải danh sách lỗi đã được xác nhận; các mục cần đo hoặc tái hiện được ghi rõ là audit/benchmark.
 
@@ -14,7 +14,7 @@ Tài liệu này đề xuất lộ trình nâng cấp dựa trên mã nguồn hi
 | Storage | IndexedDB theo profile, lịch sử tải tối đa 50.000 URL | Đọc/ghi theo batch/cursor; không nhân đôi toàn bộ tập dữ liệu trong bộ nhớ |
 | Download | Worker pool 1–5, timeout và HLS offscreen | Stop phản hồi < 500 ms; retry có giới hạn; không tải thumbnail video |
 | Bảo mật | CSP, URL/sender validation và diagnostic redact đã có | Mọi message có payload typed; quyền/host có lý do; không có dữ liệu nhạy cảm trong log/export |
-| Chất lượng | 31 unit + 2 fixture e2e + browser workflow CI | Browser regression bắt buộc cho Queue, X DOM fallback và Telegram |
+| Chất lượng | 33 unit + 2 fixture e2e + browser workflow CI | Browser regression bắt buộc cho Queue, Download Center, X DOM fallback và Telegram |
 
 ## 2. Nguyên tắc triển khai
 
@@ -169,14 +169,14 @@ Tài liệu này đề xuất lộ trình nâng cấp dựa trên mã nguồn hi
 
 ## 8. Đề xuất tính năng mới
 
+> Tiến độ v7.0.0: **Download Center và Saved Jobs đã hoàn thành**. Cả hai dùng coordinator hiện có, không thêm permission và không tạo polling nền. History chuyển sang schema v2 có migration và mirror tương thích v6.4.0; chi tiết tại [`v7-migration-rollback.md`](v7-migration-rollback.md).
+
 ### Nên ưu tiên sau khi hoàn thành P0/P1
 
-1. **Download Center:** trang đầy đủ thay popup nhỏ, tìm kiếm/lọc job, xem lỗi, retry phần lỗi và lịch sử theo profile.
-2. **Ước tính trước khi tải:** số file, loại media, dung lượng ước tính, file trùng và cảnh báo job lớn.
-3. **Saved Jobs:** lưu cấu hình profile + filter + cách đặt tên; người dùng chủ động chạy lại, không polling nền.
-4. **Rule-based organization:** template thư mục theo `{username}/{year}/{month}/{type}` với preview và sanitize.
-5. **Quản lý storage:** dung lượng theo profile, tuổi dữ liệu, dọn cache/history có preview và xác nhận.
-6. **Export báo cáo lỗi:** JSON/CSV đã redact gồm mã lỗi, loại media và số lần retry để hỗ trợ debug.
+1. **Ước tính trước khi tải:** số file, loại media, dung lượng ước tính, file trùng và cảnh báo job lớn.
+2. **Rule-based organization:** template thư mục theo `{username}/{year}/{month}/{type}` với preview và sanitize.
+3. **Quản lý storage:** dung lượng theo profile, tuổi dữ liệu, dọn cache/history có preview và xác nhận.
+4. **Export báo cáo lỗi:** JSON/CSV đã redact gồm mã lỗi, loại media và số lần retry để hỗ trợ debug.
 
 ### Có giá trị nhưng cần prototype/đánh giá chi phí
 
@@ -200,7 +200,7 @@ Tài liệu này đề xuất lộ trình nâng cấp dựa trên mã nguồn hi
 | 6.3.0 | Performance + typed messages + permission audit | Benchmark đạt mục tiêu, security regression xanh |
 | 6.3.1 | Queue UI, responsive, accessibility | Keyboard/zoom/contrast/screenshot checklist đạt |
 | 6.4.0 | Module hóa background, storage adapter, migration tests | Không đổi hành vi, coverage lifecycle tăng |
-| 7.0.0 | Download Center/Saved Jobs và schema ổn định mới | Migration tương thích, tài liệu và rollback đầy đủ |
+| 7.0.0 | Download Center/Saved Jobs và schema ổn định mới | **Implemented** — migration, tài liệu và rollback tương thích đã có |
 
 Không gộp toàn bộ roadmap vào một release. Mỗi mốc nên có feature flag hoặc commit tách biệt để bisect và rollback.
 

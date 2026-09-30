@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Download Center · ExtensionX</title>
+  <link rel="stylesheet" href="download-center.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">EXTENSIONX · v7.0.0</p>
+      <h1>Download Center</h1>
+      <p class="subtitle">Quản lý Queue, Saved Jobs và lịch sử tải tại một nơi.</p>
+    </div>
+    <div class="top-actions">
+      <button id="btn-refresh" class="button secondary" type="button">Làm mới</button>
+      <button id="btn-start-queue" class="button primary" type="button">Bắt đầu Queue</button>
+      <button id="btn-stop" class="button danger" type="button">Dừng tải</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="summary-grid" aria-label="Tổng quan">
+      <article class="summary-card"><span>Queue đang chờ</span><strong id="summary-waiting">0</strong></article>
+      <article class="summary-card"><span>Đang tải</span><strong id="summary-active">0</strong></article>
+      <article class="summary-card"><span>Saved Jobs</span><strong id="summary-jobs">0</strong></article>
+      <article class="summary-card"><span>Lượt tải gần đây</span><strong id="summary-history">0</strong></article>
+    </section>
+
+    <section class="toolbar" aria-label="Bộ lọc Download Center">
+      <label class="search-field">
+        <span>Tìm kiếm</span>
+        <input id="search" type="search" maxlength="80" placeholder="Tên job hoặc @username" autocomplete="off" />
+      </label>
+      <label>
+        <span>Trạng thái Queue</span>
+        <select id="status-filter">
+          <option value="all">Tất cả</option>
+          <option value="waiting">Đang chờ</option>
+          <option value="downloading">Đang tải</option>
+          <option value="done">Hoàn tất</option>
+          <option value="error">Lỗi</option>
+        </select>
+      </label>
+      <p id="connection-status" class="connection" role="status" aria-live="polite">Đang tải dữ liệu…</p>
+    </section>
+
+    <section class="panel" aria-labelledby="queue-heading">
+      <div class="panel-heading">
+        <div><p class="section-kicker">QUEUE</p><h2 id="queue-heading">Công việc tải</h2></div>
+      </div>
+      <div id="queue-list" class="item-list"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="jobs-heading">
+      <div class="panel-heading">
+        <div><p class="section-kicker">REUSABLE</p><h2 id="jobs-heading">Saved Jobs</h2></div>
+        <button id="btn-new-job" class="button primary" type="button">+ Lưu cấu hình</button>
+      </div>
+      <div id="jobs-list" class="item-list"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="history-heading">
+      <div class="panel-heading">
+        <div><p class="section-kicker">HISTORY</p><h2 id="history-heading">Lịch sử theo profile</h2></div>
+      </div>
+      <div id="history-list" class="item-list"></div>
+    </section>
+  </main>
+
+  <dialog id="job-dialog" aria-labelledby="job-dialog-title">
+    <form id="job-form" method="dialog">
+      <div class="dialog-heading">
+        <div><p class="section-kicker">SAVED JOB</p><h2 id="job-dialog-title">Lưu cấu hình tải</h2></div>
+        <button id="btn-close-dialog" class="icon-button" type="button" aria-label="Đóng">×</button>
+      </div>
+      <input id="job-id" type="hidden" />
+      <div class="form-grid">
+        <label><span>Tên job</span><input id="job-name" required maxlength="80" placeholder="Ảnh tháng này" /></label>
+        <label><span>Username</span><input id="job-username" required maxlength="50" pattern="[A-Za-z0-9_]+" placeholder="NASA" /></label>
+        <label><span>Loại media</span><select id="job-filter"><option value="all">Tất cả</option><option value="images">Ảnh</option><option value="videos">Video</option><option value="gifs">GIF</option></select></label>
+        <label><span>Từ khóa</span><input id="job-keyword" maxlength="200" placeholder="#launch" /></label>
+        <label><span>Từ ngày</span><input id="job-date-from" type="date" /></label>
+        <label><span>Đến ngày</span><input id="job-date-to" type="date" /></label>
+        <label class="wide"><span>Thư mục lưu</span><input id="job-folder" maxlength="500" placeholder="TwitterMedia" /></label>
+        <label class="wide"><span>Filename template</span><input id="job-template" maxlength="200" placeholder="{username}_{tweetId}.{ext}" /></label>
+        <label class="checkbox wide"><input id="job-dedup" type="checkbox" checked /><span>Bỏ qua file đã tải</span></label>
+      </div>
+      <p id="form-error" class="form-error" role="alert"></p>
+      <div class="dialog-actions">
+        <button id="btn-cancel-job" class="button secondary" type="button">Hủy</button>
+        <button class="button primary" type="submit">Lưu Saved Job</button>
+      </div>
+    </form>
+  </dialog>
+
+  <template id="empty-template"><div class="empty"><strong>Chưa có dữ liệu</strong><span></span></div></template>
+  <script type="module" src="download-center.ts"></script>
+</body>
+</html>

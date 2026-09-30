@@ -2,7 +2,7 @@
 
 Extension Chrome mạnh mẽ cho phép bạn tải toàn bộ ảnh, video và GIF từ bất kỳ profile nào trên X.com (Twitter) với chất lượng gốc, hoàn toàn tự động và sắp xếp gọn gàng vào thư mục theo tên người dùng.
 
-> **Phiên bản hiện tại: 6.4.0** — Background đã được module hóa, storage có migration test và quy trình build có performance/checksum gate.
+> **Phiên bản hiện tại: 7.0.0** — Có Download Center toàn trang, Saved Jobs và schema lịch sử tương thích rollback.
 
 ## ✨ Tính Năng Nổi Bật
 
@@ -19,6 +19,8 @@ Extension Chrome mạnh mẽ cho phép bạn tải toàn bộ ảnh, video và G
 - 🖼️ **Download Picker:** Chọn/bỏ chọn từng ảnh/video qua lưới thumbnail trước khi tải.
 - 💾 **Filter Preset:** Lưu và nạp lại bộ lọc (loại media, khoảng ngày, từ khoá) cho từng profile.
 - 📋 **Queue nâng cao:** Tạm dừng, đổi thứ tự, thử lại từng mục; tự resume đúng cách sau khi Service Worker restart.
+- 🧭 **Download Center:** Quản lý Queue, tìm kiếm/lọc trạng thái, xem lịch sử và lỗi trên một trang đầy đủ.
+- 💼 **Saved Jobs:** Lưu profile, bộ lọc, thư mục và template tên file để chủ động chạy lại khi cần, không polling nền.
 - 🧩 **Template tên file:** Tự đặt tên file bằng `{username} {tweetId} {date} {type} {ext} {index}` kèm preview.
 - 👁 **Watch mode:** Báo media mới của profile theo dõi mỗi khi mở popup — không polling ngầm.
 - 🔒 **100% Xử lý cục bộ:** Toàn bộ quá trình quét, phân tích và tải xuống diễn ra trên máy của bạn, không có bất kỳ kết nối nào tới server bên thứ 3.
@@ -63,4 +65,4 @@ Click vào nút ⚙ (Cài đặt) trên popup của extension để tuỳ chỉn
 
 ---
 
-*Phát triển nội bộ — Phiên bản **6.4.0** | Cập nhật: 2026-09-30*
+*Phát triển nội bộ — Phiên bản **7.0.0** | Cập nhật: 2026-09-30*

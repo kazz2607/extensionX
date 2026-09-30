@@ -4,6 +4,23 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [7.0.0] — 2026-09-30 *(Download Center & Saved Jobs)*
+
+### ✨ Tính năng mới
+- Thêm **Download Center** dạng trang đầy đủ để tìm kiếm/lọc Queue, theo dõi trạng thái tải, xem kết quả/lỗi, thử lại, tạm dừng, tiếp tục, dừng hoặc xóa job.
+- Thêm **Saved Jobs** lưu profile, loại media, từ khóa, khoảng ngày, chống trùng, thư mục và template tên file; job chỉ chạy khi người dùng chủ động bấm **Chạy**, không polling nền.
+- Có thể tạo nhanh Saved Job từ một mục lịch sử tải; lịch sử mới ghi rõ số thành công, lỗi, bỏ qua và trạng thái hoàn tất/một phần/thất bại.
+
+### 🗃️ Schema và tương thích
+- Saved Jobs dùng snapshot `saved_jobs_v1` có schema version, validation, giới hạn 100 job và migration từ raw array.
+- Lịch sử tải dùng snapshot `download_history_v2` tối đa 500 mục, tự migrate dữ liệu cũ và tiếp tục ghi mirror `download_history` để rollback về v6.4.0 vẫn đọc được lịch sử gần nhất.
+- Background là nguồn ghi lịch sử duy nhất, nên lượt tải từ Queue/Saved Job vẫn được ghi khi popup đã đóng.
+
+### ✅ Kiểm chứng
+- Bổ sung regression migration/validation cho Saved Jobs, history schema và runtime messages; tổng cộng **33 unit tests**.
+- Browser harness kiểm tra trang Download Center được đóng gói và khởi tạo; `npm run check` bao phủ typecheck, lint, unit/fixture e2e, build, budget và release manifest.
+- Không thêm permission, host permission hay tác vụ nền mới.
+
 ## [6.4.0] — 2026-09-30 *(Architecture, Migration & Release Reliability)*
 
 ### 🧩 Kiến trúc
