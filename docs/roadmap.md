@@ -95,6 +95,7 @@ Thiết kế chi tiết còn hoạt động tại [`following-scanner-plan.md`](
 ## Tài liệu liên quan
 
 - [`README.md`](README.md) — mục lục tài liệu.
+- [`upgrade-plan.md`](upgrade-plan.md) — kế hoạch nâng cấp kỹ thuật, UI/UX và tính năng theo các mốc 6.2.8–7.0.0.
 - [`huong-dan-cai-dat.md`](huong-dan-cai-dat.md) — cài đặt, sử dụng và xử lý sự cố.
 - [`quality-gate.md`](quality-gate.md) — kiểm thử và baseline chất lượng.
 - [`publish-guide.md`](publish-guide.md) — đóng gói và phát hành.

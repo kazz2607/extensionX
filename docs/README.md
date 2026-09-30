@@ -10,6 +10,7 @@
 ## Dành cho phát triển và phát hành
 
 - [Roadmap và backlog hiện hành](roadmap.md)
+- [Kế hoạch nâng cấp hiệu năng, bảo mật, UI, logic và tính năng](upgrade-plan.md)
 - [Quality gate](quality-gate.md)
 - [Hướng dẫn đóng gói/phát hành](publish-guide.md)
 - [Kế hoạch Following Scanner Feature 1](following-scanner-plan.md)
