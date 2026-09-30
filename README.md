@@ -26,7 +26,7 @@ Extension Chrome mạnh mẽ cho phép bạn tải toàn bộ ảnh, video và G
 
 ## 🛠 Hướng Dẫn Cài Đặt
 
-Vui lòng xem chi tiết tại: [Hướng Dẫn Cài Đặt](docs/huong-dan-cai-dat.md)
+Vui lòng xem [mục lục tài liệu](docs/README.md) hoặc [hướng dẫn cài đặt](docs/huong-dan-cai-dat.md).
 
 **Tóm tắt cài đặt:**
 1. Mở Chrome, truy cập `chrome://extensions`

@@ -1,4 +1,4 @@
-# Quality gate và baseline Pha 0
+# Quality gate và baseline hiện hành
 
 > Áp dụng cho phiên bản **6.2.6** | Cập nhật: 2026-09-30
 
@@ -30,4 +30,4 @@ Harness Chrome hiện dành cho regression luồng thu media. Để đưa `test:
 - Chỉ xuất counter/timestamp/mã lỗi đã lọc ký tự. URL, username, bearer token và raw exception không phải trường của schema export.
 - Có nút xuất JSON và xoá dữ liệu trong Settings.
 
-Các metric hiện có: `media.received`, `media.rejected`, `media.accepted`, `scan.duration_ms`, `observer.callback`, `download.failed`, `hls.failed`. Queue retry và HLS timeout sẽ được nối khi scheduler/HLS được chuẩn hoá ở Pha 2–3, để tránh thêm instrumentation thiếu tin cậy vào code cũ.
+Các metric hiện có: `media.received`, `media.rejected`, `media.accepted`, `scan.duration_ms`, `observer.callback`, `download.failed`, `hls.failed`. Metric mới chỉ được thêm khi có schema ổn định, giới hạn kích thước và kiểm thử đảm bảo không rò dữ liệu người dùng.

@@ -1,505 +1,130 @@
-# Hướng Dẫn Cài Đặt — X Media Downloader
+# Hướng dẫn cài đặt và sử dụng
 
-> Extension Chrome cho phép tải toàn bộ ảnh, video và GIF từ profile bất kỳ trên X.com (Twitter) về máy tính, tự động lưu vào thư mục `{Downloads}/{username}/` (phân loại theo `images/`, `videos/`, `gifs/`).
+> X Media Downloader **6.2.6** | Cập nhật: 2026-09-30
 
-> **Phiên bản hiện tại:** 6.2.6 | Cập nhật: 2026-09-30
+Extension tải ảnh, video và GIF từ X.com, đồng thời hỗ trợ tải media trực tiếp trên Telegram Web A/K.
 
-Từ v6.1.8, tiện ích còn hỗ trợ tải trực tiếp ảnh/video trên `https://web.telegram.org` bằng nút tải xuất hiện trên media của giao diện A/K.
+## Yêu cầu
 
----
+- Chrome hoặc trình duyệt Chromium hỗ trợ Manifest V3.
+- Node.js và npm nếu cài từ mã nguồn.
+- Tài khoản X.com/Telegram đã đăng nhập cho nội dung yêu cầu quyền truy cập.
 
-## 📋 Yêu Cầu
+## Cài đặt từ mã nguồn
 
-| Yêu cầu | Chi tiết |
-|---|---|
-| Trình duyệt | Google Chrome phiên bản **88 trở lên** |
-| Hệ điều hành | Windows / macOS / Linux |
-| Tài khoản X.com | Cần **đăng nhập** để tải media từ profile private |
-| Dung lượng ống đĩa | Tùy theo số lượng media tải về |
+1. Tải hoặc clone repository.
+2. Mở terminal tại thư mục dự án.
+3. Cài dependency và build:
 
----
-
-## 🚀 Cài Đặt Extension
-
-### Bước 1 — Tải mã nguồn
-
-Đảm bảo bạn đã có thư mục `extensionX` với cấu trúc đầy đủ:
-
-```
-dist/                          ← Thư mục build (dùng thư mục này để load)
-├── manifest.json
-├── rules.json
-├── popup.css
-├── i18n.js
-├── modulepreload-polyfill.js
-├── background/
-│   └── service-worker.js
-├── content/
-│   ├── content.js
-│   ├── page-interceptor.js
-│   ├── dom-scanner.js
-│   ├── fab.js
-│   ├── tweet-btn.js
-│   ├── shortcuts.js
-│   └── snackbar.js
-├── offscreen/
-│   ├── offscreen.html
-│   └── offscreen.js
-├── popup/
-│   ├── popup.html
-│   └── popup.js          # popup + các module con (queue, history, picker, presets, watch...) được Vite gộp vào
-├── options/
-│   ├── options.html
-│   └── options.js
-├── lib/
-│   ├── hls-fetcher.js
-│   ├── utils.js
-│   └── i18n.js
-├── _locales/
-│   ├── en/messages.json
-│   └── vi/messages.json
-└── icons/
-    ├── icon16.png
-    ├── icon48.png
-    └── icon128.png
-```
-
-> [!TIP]
-> Sau khi clone/tải source code, chạy `npm install` rồi `npm run build` để tạo thư mục `dist/`.
-> Sau đó load **thư mục `dist/`** (không phải `src/`) vào Chrome.
-
-### Bước 2 — Build extension
-
-```bash
-npm install
-npm run build
-```
-
-Vite sẽ tạo thư mục `dist/` chứa toàn bộ file đã được bundle.
-
-### Bước 3 — Mở trang Quản lý Extension
-
-1. Mở **Google Chrome**
-2. Trên thanh địa chỉ, gõ:
-   ```
-   chrome://extensions
-   ```
-   và nhấn **Enter**
-
-   ![Trang Extensions](chrome://extensions)
-
-### Bước 3 — Bật Developer Mode
-
-Ở góc **trên bên phải** của trang, bật công tắc **"Developer mode"**:
-
-```
-┌─────────────────────────────────────────┐
-│  Extensions              Developer mode ●│
-└─────────────────────────────────────────┘
-```
-
-> ⚠️ Nếu không thấy nút này, hãy đảm bảo bạn đang dùng Chrome (không phải Edge hay Brave với giao diện khác).
-
-### Bước 4 — Load Extension
-
-1. Click nút **"Load unpacked"** xuất hiện ở góc trên trái
-
-   ```
-   [ Load unpacked ]  [ Pack extension ]  [ Update ]
+   ```powershell
+   npm install
+   npm run build
    ```
 
-2. Cửa sổ File Explorer mở ra → **chọn thư mục** `extensionX`
-   - Đường dẫn mẫu: `D:\Xampp\htdocs\extensionX`
-   - Chọn **chính xác thư mục đó** (không chọn file bên trong)
+4. Mở `chrome://extensions`.
+5. Bật **Developer mode**.
+6. Chọn **Load unpacked** và trỏ tới thư mục `dist/`.
+7. Kiểm tra popup hiển thị version **6.2.6**.
 
-3. Click **"Select Folder"**
+## Cập nhật extension
 
-### Bước 5 — Xác nhận đã cài thành công
+1. Lấy source mới nhất và chạy lại `npm run build`.
+2. Mở `chrome://extensions` và bấm **Reload** trên extension.
+3. Tải lại các tab X.com/Telegram đang mở để content script mới được nạp.
 
-Sau khi load, extension sẽ xuất hiện trong danh sách:
+## Tải media từ X.com
 
-```
-┌──────────────────────────────────────────┐
-│  ⬇ X Media Downloader          v6.2.6   │
-│  Tải toàn bộ ảnh & video từ X.com...    │
-│                                          │
-│  [Details]  [Remove]           ● Enabled │
-└──────────────────────────────────────────┘
-```
+1. Mở trang profile, media, likes hoặc bookmarks được hỗ trợ.
+2. Mở popup và bấm **Start Collecting**.
+3. Chờ số media tăng; dừng khi đủ hoặc để Smart Auto-Stop kết thúc.
+4. Chọn loại media, date range, keyword hoặc preset nếu cần.
+5. Bấm **Download**, hoặc dùng tab **Picker** để chọn từng mục.
 
-Icon extension cũng xuất hiện trên thanh toolbar Chrome (góc phải trình duyệt).
+File được lưu dưới thư mục Downloads theo cấu hình, mặc định phân nhóm theo username và loại media.
 
-> 💡 Nếu không thấy icon trên toolbar, click vào biểu tượng **🧩 (Extensions)** → ghim extension lại.
+## Dùng Queue nhiều profile
 
----
+1. Thu thập media của một profile và bấm **Add to Queue**.
+2. Lặp lại với các profile khác.
+3. Mở tab **Queue** và bấm **Start**.
+4. Có thể pause/resume, đổi thứ tự, dừng hoặc retry từng mục.
 
-## 🎯 Hướng Dẫn Sử Dụng
+Từ v6.2.6, `START_QUEUE` được xác nhận ngay; item chuyển sang **Đang tải** trước khi đọc IndexedDB. Nếu dữ liệu profile không còn trong IndexedDB, item chuyển **Lỗi** và queue tiếp tục mục kế tiếp.
 
-### Cách 1 — Dùng Popup (Khuyên Dùng)
+## Các tính năng chính
 
-#### 1. Mở profile cần tải
-
-Truy cập X.com và vào trang media của người dùng:
-```
-https://x.com/[username]/media
-```
-
-Ví dụ: `https://x.com/NASA/media`
-
-#### 2. Mở Popup Extension
-
-Click icon **⬇** trên toolbar Chrome. Popup sẽ hiển thị:
-
-```
-┌───────────────────────────────────────────┐
-│ ⬇ X Media Downloader        v6.2.6 ⚙☀🔄 │
-├───────────────────────────────────────────┤
-│ 👤 @NASA                             [47]│
-│    Profile đang được xem                 │
-├───────────────────────────────────────────┤
-│ [ Tất cả 47 ][ 🖼 30 ][ 🎥 12 ][ GIF 5 ]│
-├───────────────────────────────────────────┤
-│ 📅 Date Range                        ›    │
-├───────────────────────────────────────────┤
-│ ● Sẵn sàng — @NASA                       │
-├───────────────────────────────────────────┤
-│ [ 🔍 Bắt đầu Thu Thập                   ]│
-│ [ ↓ Download (47) ][ + Queue ][ CSV ][ 🗑]│
-├───────────────────────────────────────────┤
-│ [ Main ]     [ Queue ]  [ Stats ][ 👥 ]│  ← Tab bar
-└───────────────────────────────────────────┘
-```
+- **Download Picker:** chọn tối đa 200 thumbnail mỗi lần; kết hợp được với bộ lọc.
+- **Filter Preset:** lưu loại media, date range, keyword và tùy chọn chống trùng theo profile.
+- **Filename Template:** dùng token như `{username}`, `{tweetId}`, `{date}`, `{type}`, `{ext}`, `{index}`.
+- **Manifest export:** xuất JSON/CSV cho lịch sử tải.
+- **Watch mode:** so sánh số media khi người dùng chủ động mở lại popup; không polling nền.
+- **FAB và nút tweet:** thao tác tải nhanh trực tiếp trên X.com.
+- **Following Scroll:** tự cuộn trang Following; API Scanner/Unfollow vẫn đang ở backlog.
 
-#### 3. Thu thập media
+## Tải media từ Telegram Web
 
-Click **"Bắt đầu Thu Thập"** — extension sẽ:
-- Tự động cuộn trang xuống để load thêm tweet
-- Bắt media từ các API request của X.com
-- Hiển thị số lượng media tìm được realtime
+- Extension hỗ trợ `https://web.telegram.org/a/` và `/k/`.
+- Ảnh/video có nút tải trực tiếp; video stream riêng tư được tải theo từng Range trong ngữ cảnh trang.
+- Sau khi reload/cập nhật extension, phải F5 tab Telegram.
+- Nếu video chưa có stream URL, hãy phát video hoặc chờ video sẵn sàng rồi thử lại.
 
-Khi muốn dừng → click **"Dừng Thu Thập"**
+## Cài đặt
 
-> ⏱ Thời gian thu thập phụ thuộc vào số lượng media trong profile. Profile nhiều ảnh (~1000+) có thể mất 5–15 phút.
+Trang Options cho phép cấu hình:
 
-#### 4. Tải về
+- Thư mục và cách phân loại file.
+- Số download đồng thời.
+- Bỏ qua file đã tải.
+- Template tên file.
+- Smart Auto-Stop, snackbar, notification và feature toggle.
+- Diagnostic cục bộ opt-in, export và xóa dữ liệu diagnostic.
 
-- Click **"Download"** để tải toàn bộ file về máy
-- Hoặc chọn tab **Ảnh / Video / GIF** rồi click Download để lọc theo loại
-- Click **"CSV"** để xuất danh sách URL ra file `.csv`
+Các thay đổi được tự động lưu; kiểm tra trạng thái **Saved** trước khi đóng trang.
 
-Các file sẽ được lưu vào thư mục Downloads theo cấu trúc:
-```
-Downloads/
-└── NASA/              ← tên username
-    ├── images/        ← ảnh JPG chất lượng gốc
-    ├── videos/        ← video MP4 bitrate cao nhất
-    └── gifs/          ← GIF (dạng MP4)
-```
+## Xử lý sự cố
 
-> 💡 Bạn có thể thêm thư mục cơ sở trong **Cài đặt** (ví dụ `X_Media`)
-> → File sẽ lưu vào `Downloads/X_Media/NASA/images/...`
+### Không tìm thấy media
 
----
+- Đảm bảo đang ở đúng profile/tab được hỗ trợ và đã đăng nhập.
+- Tải lại trang, bắt đầu collect rồi cuộn để X.com nạp thêm dữ liệu.
+- Với profile private, tài khoản hiện tại phải có quyền xem.
 
-### Cách 2 — Dùng FAB Widget (Nhanh hơn)
+### Queue không bắt đầu
 
-Khi vào trang X.com, một **nút tròn màu xanh** xuất hiện ở góc dưới bên phải màn hình:
+- Xác nhận popup và `dist/manifest.json` cùng version 6.2.6.
+- Reload extension và mở lại popup.
+- Mục có `0 media` sẽ chuyển Error; kiểm tra profile khác còn dữ liệu hay không.
+- Mở Service Worker console và tìm `START_QUEUE`, `Queue IndexedDB load failed` hoặc lỗi download.
 
-```
-                        ┌─────────────────────────┐
-                        │ Media thu thập      127 │
-                        │ Scroll              043 │
-                        │ ─────────────────────── │
-                        │ [▶ Thu Thập] [↓ Download]│
-                        └─────────────────────────┘
-                                          ⬇ ← Click để mở/đóng
-```
+### Download dừng hoặc lỗi
 
-- **Click vào nút** để mở/đóng panel
-- **"▶ Thu Thập"** → bắt đầu auto-scroll
-- **"↓ Download"** → download ngay khi thu thập xong
-- **Kéo handle (≡)** ở trên nút → di chuyển FAB lên/xuống để tránh che nút X.com (v3.9.0)
+- Kiểm tra mạng và quyền download của Chrome.
+- Giảm concurrency trong Options.
+- Dùng **Retry**; tùy chọn chống trùng sẽ bỏ qua file đã tải thành công.
+- Tắt tạm download manager bên thứ ba nếu nó đổi đường dẫn hoặc chặn nhiều file.
 
----
+### Telegram không tải được video
 
-## ⚙️ Cài Đặt (Options)
+- F5 tab Telegram sau mỗi lần reload extension.
+- Mở viewer/phát video để Telegram tạo stream URL.
+- Kiểm tra lỗi HTTP 401/403/408/429/5xx trong console.
 
-Click biểu tượng **⚙** trên popup để mở trang cài đặt:
+### Không thấy FAB hoặc nút tải
 
-| Cài đặt | Mặc định | Mô tả |
-|---|---|---|
-| **Thư mục cơ sở** | (rỗng) | Tên thư mục con trong Downloads. Ví dụ: `X_Media` → lưu vào `Downloads/X_Media/username/` |
-| **Lưu chung 1 thư mục** | Tắt | Nếu bật, không chia thư mục con (images, videos, gifs) |
-| Loại media | Ảnh + Video + GIF | Chọn loại cần thu thập |
-| Chất lượng ảnh | Gốc (Orig) | Kích thước ảnh tải về |
-| Tự động scroll | Tắt | Tự bắt đầu khi vào trang /media |
-| Tốc độ scroll | 2 giây | Delay giữa mỗi lần scroll |
-| Số scroll tối đa | 200 | 0 = không giới hạn |
-| Số file tải đồng thời | 3 | Tăng để tải nhanh hơn (1–5) |
-| Hỏi vị trí lưu | Tắt | Chrome hỏi nơi lưu từng file |
-| Số media tối đa | 0 (không giới hạn) | Giới hạn số media mỗi profile |
-| **🌙 Dark / ☀️ Light Mode** | Dark | Chuyển giao diện tối/sáng (nút ☀️/🌙 trên header) |
-| **📝 Tên file Username_TweetID** | Tắt | Lưu tên file theo `username_tweetId_serial.ext` |
-| **🧩 Mẫu đặt tên file** | (rỗng) | Template tuỳ chỉnh, token: `{username} {tweetId} {date} {type} {ext} {index}`; có preview khi gõ. Để trống = dùng tên mặc định (v6.2.0) |
-| **🔍 Smart Filters** | Bật | Tự động lọc avatar, banner, card preview; ảnh nhỏ hơn 150×150px bị bỏ qua |
-| **Min ảnh W × H** | 150 × 150 px | Ngưỡng kích thước tối thiểu (đặt 0 để tắt) |
-| **🔔 Snackbar tiến trình** | Bật | Hiển thị progress bar mini trên trang X.com khi đang tải (v4.0.0) |
-| **🔔 System Notification** | Bật | Thông báo hệ thống khi tải xong (v4.1.0) |
-| **📤 Export Settings** | — | Xuất toàn bộ cài đặt ra file JSON để backup (v5.0.3) |
-| **📥 Import Settings** | — | Nạp file JSON cài đặt đã export, tự động reload (v5.0.3) |
-| **🔄 Reset to Default** | — | Đặt lại tất cả cài đặt về mặc định (v5.0.3) |
+- Reload tab sau khi cập nhật extension.
+- Kiểm tra feature toggle trong Options.
+- Xác nhận extension có quyền chạy trên domain hiện tại.
 
----
+## Thu thập log khi báo lỗi
 
-## 🔄 Cập Nhật Extension
+1. Mở `chrome://extensions` → extension → **Service worker** → Console.
+2. Với lỗi popup: chuột phải popup → **Inspect** → Console.
+3. Gửi tên version, bước tái hiện và thông báo lỗi; không gửi bearer token, cookie hoặc URL có token.
 
-Khi có phiên bản mới:
+## Quyền riêng tư
 
-1. Sao chép files mới vào thư mục `extensionX` (ghi đè)
-2. Vào `chrome://extensions`
-3. Click **🔄 (Reload)** trên card của extension
+- Dữ liệu media, queue, history và diagnostic nằm cục bộ trong trình duyệt.
+- Diagnostic mặc định tắt và không chứa username, URL hoặc token thô.
+- Extension chỉ dùng phiên đăng nhập hiện tại để truy cập nội dung người dùng đã có quyền xem.
 
----
-
-## ❓ Xử Lý Sự Cố
-
-### Extension không tìm thấy media
-
-**Nguyên nhân:** X.com thay đổi API endpoint
-
-**Giải pháp:**
-1. Thử tải trang lại (`F5`)
-2. Scroll xuống thủ công một vài lần trước khi dùng Thu Thập
-3. Extension sẽ tự động dùng **DOM fallback** để quét thêm
-
----
-
-### Số badge không tăng khi scroll
-
-**Nguyên nhân:** Service worker có thể bị sleep (Manifest V3 limitation)
-
-**Giải pháp:**
-1. Click vào popup để "wake up" service worker
-2. Thử click **Dừng → Bắt đầu** lại
-3. Từ v3.5.1: Extension đã có keep-alive tự động — lỗi này ít xảy ra hơn trước
-
-### Download dừng giữa chừng
-
-**Nguyên nhân (trước v3.5.1):** Service Worker bị Chrome terminate sau ~5 phút tải.
-
-**Giải pháp:** Cập nhật lên v3.5.1 — đã có keep-alive tự động. Nếu vẫn gặp:
-1. Đảm bảo Chrome đang ở foreground (không minimize)
-2. Kiểm tra kết nối mạng ổn định
-
----
-
-### File ZIP tải về bị lỗi / trống
-
-**Nguyên nhân:** Media URL đã hết hạn hoặc bị chặn
-
-**Giải pháp:**
-1. Thu thập lại (media URL mới sẽ được tạo từ session hiện tại)
-2. Đảm bảo bạn đang **đăng nhập X.com**
-3. Kiểm tra trong console của Service Worker để xem chi tiết lỗi
-
----
-
-### Không thấy FAB widget trên X.com
-
-**Giải pháp:**
-1. Tải lại trang (`F5`)
-2. Kiểm tra extension đang **Enabled** trong `chrome://extensions`
-3. Thử reload extension (nút 🔄)
-
----
-
-### File tải về không vào đúng thư mục username (IDM conflict)
-
-**Nguyên nhân:** **IDM Integration Module** (của Internet Download Manager) đang bật. IDM hook vào Chrome Downloads API và tự quản lý việc lưu file, bỏ qua hoàn toàn thư mục `{username}/` mà extension chỉ định.
-
-**Giải pháp:**
-1. Mở IDM → menu **Downloads → Options → File Types**
-2. Tắt tuỳ chọn bắt file từ domain `pbs.twimg.com` và `video.twimg.com`
-3. Hoặc vào `chrome://extensions` → tắt **IDM Integration Module** khi dùng X Media Downloader
-4. Từ v3.5.3: Extension sẽ hiện cảnh báo màu cam 🟠 trong popup khi phát hiện IDM đang can thiệp
-
----
-
-### Video Telegram (nhóm/chat riêng tư) không tải được
-- Sau khi cập nhật/nạp lại extension, **tải lại (F5) tab Telegram Web** — script tải video stream chỉ được nạp khi trang mở.
-- Bấm nút tải xuống màu xanh trên video: nút nhấp nháy kèm **% tiến độ** trong tooltip; file được lưu khi đủ 100%. Video dài cần thời gian và bộ nhớ tương ứng dung lượng file.
-- Video **chưa phát** trong khung chat chỉ hiện ảnh bìa nên không có nút tải ảnh trên đó: hãy **mở video (phóng to / Media Viewer)** rồi bấm nút tải xanh ở góc trên bên phải. Nếu báo "Video chưa sẵn sàng", chờ video tải xong rồi bấm lại.
-- Nút báo **"Extension vừa được cập nhật — hãy tải lại (F5) tab Telegram"** (hoặc Console báo `Cannot read properties of undefined (reading 'sendMessage')`): bạn vừa tải lại extension nhưng tab Telegram vẫn chạy script cũ — nhấn F5.
-- Nút chuyển đỏ kèm lý do (vd. **"Không tải được video: HTTP 408"**): Telegram đang tải chậm/timeout. Extension tự thử lại tới 6 lần mỗi đoạn; nếu vẫn lỗi hãy đợi video bắt đầu chạy trong Telegram rồi bấm lại.
-- Nếu nút chuyển đỏ, mở DevTools (F12) → Console trên tab Telegram, tìm dòng `[ExtensionX] Telegram stream download failed` và gửi kèm khi báo lỗi.
-
-### Profile private không tải được
-
-**Nguyên nhân:** Cần quyền xem profile
-
-**Giải pháp:** Đăng nhập bằng tài khoản có quyền follow profile đó
-
----
-
-## 🔒 Bảo Mật & Quyền Riêng Tư
-
-- ✅ **100% xử lý cục bộ** — không gửi dữ liệu ra server ngoài
-- ✅ **Không lưu cookie hoặc password**
-- ✅ Chỉ yêu cầu các quyền tối thiểu cần thiết
-- ✅ Mã nguồn mở, có thể kiểm tra toàn bộ code
-
-### Giải thích các quyền extension yêu cầu:
-
-| Quyền | Lý do cần |
-|---|---|
-| `downloads` | Tải file về máy qua `chrome.downloads` |
-| `storage` | Lưu cài đặt và lịch sử |
-| `tabs` | Đọc URL tab hiện tại để biết username |
-| `scripting` | Inject scripts vào trang X.com |
-| `offscreen` | Ghép HLS segments thành video |
-| `alarms` | Keep-alive Service Worker khi đang tải nhiều file |
-| `host_permissions: x.com/*` | Chạy trên trang X.com |
-| `host_permissions: pbs.twimg.com/*` | Tải ảnh từ server Twitter |
-| `host_permissions: video.twimg.com/*` | Tải video từ server Twitter |
-| `host_permissions: web.telegram.org/*` | Hiển thị nút tải ảnh/video trên Telegram Web A/K |
-
----
-
-## 📁 Cấu Trúc File Tải Về
-
-```
-Downloads/
-└── [username]/                         ← tự động tạo theo tên profile
-    ├── images/
-    │   ├── 1234567890_abc12.jpg         ← {tweetId}_{random}.jpg
-    │   └── ...
-    ├── videos/
-    │   ├── 1234567891_def34.mp4
-    │   └── ...
-    └── gifs/
-        └── 1234567892_ghi56.mp4        ← GIF lưu dạng MP4
-```
-
-Nếu bật tuỳ chọn **Tên file theo Username_TweetID_Serial**, file sẽ được đặt tên kèm username:
-```
-Downloads/
-└── NASA/
-    ├── images/
-    │   └── NASA_1234567890_abc12.jpg    ← {username}_{tweetId}_{random}.jpg
-    ├── videos/
-    │   └── NASA_1234567891_def34.mp4
-    └── gifs/
-        └── NASA_1234567892_ghi56.mp4
-```
-
-Nếu bật tuỳ chọn **Lưu chung vào 1 thư mục theo Username** trong Settings, các file sẽ không bị chia vào thư mục con:
-```
-Downloads/
-└── [username]/
-    ├── 1234567890_abc12.jpg
-    ├── 1234567891_def34.mp4
-    └── 1234567892_ghi56.mp4
-```
-
-Nếu đã đặt **Thư mục cơ sở** là `X_Media` trong Settings:
-```
-Downloads/
-└── X_Media/
-    └── [username]/
-        ├── images/
-        ├── videos/
-        └── gifs/
-```
-
-> **Lưu ý**: Các file được tải **lần lượt** (không nén ZIP), bạn có thể xem tiến độ từng file ngay trong trình duyệt Chrome.
-
----
-
-## 🌟 Tính Năng Mới (v6.2.0)
-
-### 🖼️ Download Picker
-Tab **Picker** trong popup hiện lưới thumbnail các media đã thu thập (tối đa 200 mục mỗi lần). Chọn/bỏ chọn từng mục hoặc tất cả, rồi bấm **Tải mục đã chọn**. Bộ lọc loại/ngày/từ khoá và bỏ qua trùng vẫn áp dụng. Nếu có nhiều hơn 200 mục, thu hẹp bằng Date Range/Keyword.
-
-### 💾 Filter Preset theo profile
-Trong panel **📅 Date Range**: bấm **💾 Lưu bộ lọc** để lưu loại media, bỏ qua trùng, khoảng ngày và từ khoá cho profile đang xem; lần sau bấm **📂 Nạp bộ lọc** để áp dụng lại. Preset không tự áp dụng khi đổi profile.
-
-### 📋 Điều khiển Queue nâng cao
-Mỗi mục **đang chờ** trong Queue có nút ⏸/▶ (tạm dừng/tiếp tục — mục tạm dừng bị bỏ qua khi chọn mục kế tiếp) và ▲/▼ (đổi thứ tự). Mục **lỗi** có nút ↻ để thử lại. Khi Service Worker bị restart giữa lúc tải, mục dở dang được resume và bỏ qua file đã tải.
-
-### 📤 Xuất Manifest
-Trong History panel (tab Stats): bấm **JSON** hoặc **CSV** để xuất danh sách file đã tải của profile hiện tại (URL, thời điểm tải, và tweetId/mediaKey/loại/ngày tweet nếu còn trong bộ nhớ), tối đa 10.000 dòng.
-
-### 👁 Theo dõi profile (Watch)
-Bấm nút 👁 trong profile card để theo dõi. Mỗi lần **bạn mở lại popup** trên profile đó, extension so sánh số media hiện có với lần xem trước và báo số media mới. Không polling ngầm, không thêm request nào tới X.com.
-
----
-
-## 🌟 Tính Năng Mới (v5.0.3)
-
-### 📋 Multi-Profile Queue (v5.0.3)
-Thêm nhiều profile vào hàng đợi và extension tự động tải tuần tự mà không cần giám sát:
-1. Collect media của profile đầu tiên → click **"+Queue"** bên cạnh nút Download
-2. Chuyển sang profile khác → collect → click **"+Queue"** lần nữa
-3. Vào tab **Queue** → click **"Start"** → extension tự chạy lần lượt từng profile
-
-### 📅 Date Range Filter (v4.3.0)
-Lọc chỉ download media trong khoảng thời gian nhất định:
-1. Sau khi collect, click thanh **"📅 Date Range"** trong Main tab để mở filter
-2. Chọn ngày From / To hoặc dùng preset: **7 days / 30 days / 3 months / This year**
-3. Preview count hiển thị ngay số item khớp
-4. Click **Download** → chỉ tải media trong khoảng ngày đã chọn
-5. Xóa filter bằng nút **×** bên cạnh header
-
-### 📊 Tab Navigation v2 (v5.0.3)
-- **Tab Main**: Giao diện chính như cũ
-- **Tab Queue**: Danh sách hàng đợi profile với status badge
-- **Tab Stats**: Biểu đồ donut phân loại media + lịch sử tải
-
----
-
-## 🌟 Cải Tiến v5.1.0 (2026-06-04)
-
-### 🔧 Sửa Lỗi Quan Trọng
-- **Mini Button Download** (nút ↓ trên từng tweet) giờ bỏ qua file đã tải trước đó — nhất quán với tải batch
-- **Hàng đợi Queue** không còn bị trùng lặp dữ liệu nội bộ do xung đột biến `activeDownloads`
-- **Settings tải nhanh hơn nhiều** trong phiên thu thập lớn — options được cache 5 giây, không còn gọi storage mỗi lần có media mới
-
-### 🔒 Bảo Mật
-- Đường dẫn thư mục lưu file được kiểm tra chặt hơn — chặn các ký tự nguy hiểm `../`
-- Extension tự động capture bearer token từ X.com để không bị phụ thuộc token cố định (tự phục hồi khi X.com rotate API keys)
-- Dữ liệu media từ trang web được kiểm tra cấu trúc URL chặt hơn trước khi xử lý
-
----
-
-## 📞 Hỗ Trợ
-
-Nếu gặp vấn đề, hãy kiểm tra:
-
-1. **Console log**: `chrome://extensions` → click **"Service worker"** → xem tab Console
-2. **Inspect popup**: Chuột phải vào popup → **Inspect** → xem Console
-3. Đảm bảo Chrome đã được cập nhật lên phiên bản mới nhất
-
----
-
----
-
-## 🌟 Cải Tiến v5.2.0 (2026-06-04)
-
-### ⚡ Hiệu Năng
-- **Tải video HLS nhanh hơn:** Extension không còn kiểm tra lại trạng thái offscreen document trước mỗi video — giảm I/O không cần thiết khi tải hàng loạt HLS.
-- **Xuất CSV thông minh hơn:** Khi có hơn 10.000 media, CSV được chia thành các trang 10.000 dòng. Bấm nút CSV lần đầu để tải trang 1, bấm lại để tải trang 2... Tên file tự động thêm `_p2`, `_p3`.
-- **Cảnh báo bộ nhớ:** Khi thu thập vượt 50.000 media items, một thông báo cảnh báo màu vàng sẽ xuất hiện trong popup — nhắc bạn nên tải xuống trước khi thu thập thêm để tránh chậm máy.
-
----
-
-## 🌟 Cải Tiến v5.3.0 (2026-06-04)
-
-### 🎨 UI & Trải Nghiệm
-- **Chi tiết lỗi + Retry:** Khi download có file bị lỗi, popup hiện danh sách chi tiết từng lỗi và nút **Retry** để tải lại đúng các file đó (bỏ qua file đã tải OK).
-- **Biểu đồ donut realtime:** Tab Stats tự cập nhật biểu đồ khi đang thu thập — không cần chuyển tab qua lại.
-- **FAB hiện tiến độ %:** Nút Download trên FAB hiển thị `⏳ 45% (45/100)` khi đang tải hàng loạt.
-- **Queue có progress bar:** Item đang tải trong Queue tab hiển thị thanh tiến độ xanh realtime.
-- **Hướng dẫn bắt đầu:** Khi mở popup mà chưa nhận ra profile X.com, hiển thị card 3 bước hướng dẫn.
-- **Auto-save feedback:** Trang Settings hiện `⏳ Saving...` ngay khi gõ, `✓ Saved` khi lưu xong.
-
-*Phiên bản: 6.2.6 | Cập nhật: 2026-09-30*
+Xem thêm: [mục lục tài liệu](README.md), [quality gate](quality-gate.md) và [lịch sử phát hành](../CHANGELOG.md).
