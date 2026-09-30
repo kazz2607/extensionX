@@ -44,3 +44,17 @@ export function findInterruptedIds(rawItems: unknown): Set<string> {
   }
   return ids;
 }
+
+export function resetDownloadingItemsAfterStop(items: QueueItem[]): { queue: QueueItem[]; reset: number } {
+  let reset = 0;
+  const queue = items.map((item) => {
+    if (item.status !== 'downloading') return item;
+    const waitingItem = transitionQueueItem(item, 'waiting');
+    if (!waitingItem) return item;
+    reset++;
+    // A stopped item remains explicitly paused so the Queue renders a Resume
+    // button instead of looking like it will restart automatically.
+    return { ...waitingItem, paused: true, result: null };
+  });
+  return { queue, reset };
+}

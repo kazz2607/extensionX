@@ -1,6 +1,6 @@
 # Tài liệu ExtensionX
 
-> Phiên bản tài liệu: **6.2.6** | Cập nhật: 2026-09-30
+> Phiên bản tài liệu: **6.2.7** | Cập nhật: 2026-09-30
 
 ## Dành cho người dùng
 

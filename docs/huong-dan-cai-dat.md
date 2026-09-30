@@ -1,6 +1,6 @@
 # Hướng dẫn cài đặt và sử dụng
 
-> X Media Downloader **6.2.6** | Cập nhật: 2026-09-30
+> X Media Downloader **6.2.7** | Cập nhật: 2026-09-30
 
 Extension tải ảnh, video và GIF từ X.com, đồng thời hỗ trợ tải media trực tiếp trên Telegram Web A/K.
 
@@ -24,7 +24,7 @@ Extension tải ảnh, video và GIF từ X.com, đồng thời hỗ trợ tải
 4. Mở `chrome://extensions`.
 5. Bật **Developer mode**.
 6. Chọn **Load unpacked** và trỏ tới thư mục `dist/`.
-7. Kiểm tra popup hiển thị version **6.2.6**.
+7. Kiểm tra popup hiển thị version **6.2.7**.
 
 ## Cập nhật extension
 
@@ -49,7 +49,9 @@ File được lưu dưới thư mục Downloads theo cấu hình, mặc định 
 3. Mở tab **Queue** và bấm **Start**.
 4. Có thể pause/resume, đổi thứ tự, dừng hoặc retry từng mục.
 
-Từ v6.2.6, `START_QUEUE` được xác nhận ngay; item chuyển sang **Đang tải** trước khi đọc IndexedDB. Nếu dữ liệu profile không còn trong IndexedDB, item chuyển **Lỗi** và queue tiếp tục mục kế tiếp.
+Từ v6.2.7, `START_QUEUE` được xác nhận ngay; item chuyển sang **Đang tải** trước khi đọc IndexedDB. Nếu dữ liệu profile không còn trong IndexedDB, item chuyển **Lỗi** và queue tiếp tục mục kế tiếp. Khi bấm **Dừng**, item đang tải chuyển sang **Tạm dừng** và hiện nút **▶ Tiếp tục**.
+
+Queue chỉ tải ảnh bài viết độc lập. Ảnh bìa/thumbnail dùng để đại diện cho video (`ext_tw_video_thumb`, `amplify_video_thumb`) được bỏ qua; file video gốc vẫn được tải bình thường.
 
 ## Các tính năng chính
 
@@ -91,7 +93,7 @@ Các thay đổi được tự động lưu; kiểm tra trạng thái **Saved** 
 
 ### Queue không bắt đầu
 
-- Xác nhận popup và `dist/manifest.json` cùng version 6.2.6.
+- Xác nhận popup và `dist/manifest.json` cùng version 6.2.7.
 - Reload extension và mở lại popup.
 - Mục có `0 media` sẽ chuyển Error; kiểm tra profile khác còn dữ liệu hay không.
 - Mở Service Worker console và tìm `START_QUEUE`, `Queue IndexedDB load failed` hoặc lỗi download.

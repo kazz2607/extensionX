@@ -31,6 +31,7 @@
     return IMAGE_DOMAINS.some(d => src.includes(d)) &&
       !src.includes('profile_images') &&
       !src.includes('profile_banners') &&
+      !/\/(?:[^/]*_)?video_thumb\//i.test(src) &&
       !src.includes('emoji');
   }
 

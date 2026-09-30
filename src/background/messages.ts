@@ -1,7 +1,7 @@
 import { mediaStore, statsStore, tabState, downloadedStore, downloadState, pendingHlsRequests, setCsrfToken, dirtyMediaStore } from './state.ts';
 import { addMediaItems, ensureMediaStoreLoaded, applyOptionsFilter, checkAutoScroll, startCollecting, stopCollecting, clearSession, fetchVideoForTweetWithRefresh, loadDownloadedUrls } from './scraper.ts';
 import { startDownload, handleDownloadTweet, buildCSV, buildManifest, retryLastDownload, stopDownload } from './downloader.ts';
-import { profileQueue, setProfileQueue, persistQueue, startNextInQueue, broadcastQueueUpdate, exportQueue, importQueue, retryQueueItem, toggleQueuePause, moveQueueItem } from './queue.ts';
+import { profileQueue, setProfileQueue, persistQueue, startNextInQueue, broadcastQueueUpdate, exportQueue, importQueue, retryQueueItem, toggleQueuePause, moveQueueItem, resetDownloadingQueueItems } from './queue.ts';
 import { updateBadge, broadcastToPopup, updateFAB } from './utils.ts';
 import { getMediaItems, clearDownloadedUrls, clearAllDownloadedUrls } from './indexeddb.ts';
 import { setDynamicBearer, setDynamicQueryId } from './tweet-api.ts';
@@ -611,7 +611,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Bug 2: Dừng download đang chạy
     case 'STOP_DOWNLOAD': {
       const stopped = stopDownload();
-      sendResponse({ ok: stopped });
+      const resetQueueItems = resetDownloadingQueueItems();
+      sendResponse({ ok: stopped || resetQueueItems > 0, resetQueueItems });
       return false;
     }
 

@@ -1,5 +1,15 @@
 import type { MediaItem, Options } from '../types.ts';
 
+/** X video poster URLs are previews, not standalone profile images. */
+export function isVideoThumbnailUrl(url: string): boolean {
+  try {
+    const { hostname, pathname } = new URL(url);
+    return hostname === 'pbs.twimg.com' && /\/(?:[^/]*_)?video_thumb\//i.test(pathname);
+  } catch {
+    return /\/(?:[^/]*_)?video_thumb\//i.test(url);
+  }
+}
+
 /** A side-effect-free version of the collection filter, usable in regression tests. */
 export function filterMediaItems(items: readonly MediaItem[], options: Options, currentCount = 0): MediaItem[] {
   const mediaTypes = options.mediaTypes ?? {};
@@ -13,6 +23,7 @@ export function filterMediaItems(items: readonly MediaItem[], options: Options, 
     if (item.type === 'gif' && mediaTypes.gifs === false) return false;
     if ((item.type === 'video' || item.type === 'hls') && mediaTypes.videos === false) return false;
     if (item.type !== 'image') return true;
+    if (isVideoThumbnailUrl(item.url)) return false;
     if (filterAvatars && (item.url.includes('/profile_images/') || item.url.includes('/profile_banners/'))) return false;
     if (filterCardImages && item.url.includes('/card_img/')) return false;
     if (minImageWidth > 0 && (item.width ?? 0) > 0 && (item.width ?? 0) < minImageWidth) return false;

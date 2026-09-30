@@ -4,7 +4,8 @@ import { startDownload } from './downloader.ts';
 import { broadcastToPopup } from './utils.ts';
 import { QueueItem, QueueExportData } from '../types.ts';
 import { parseQueueItems } from '../shared/validation.ts';
-import { recoverQueueItemAfterRestart, transitionQueueItem, wasInterrupted, findInterruptedIds } from '../shared/queue-state.ts';
+import { recoverQueueItemAfterRestart, transitionQueueItem, wasInterrupted, findInterruptedIds, resetDownloadingItemsAfterStop } from '../shared/queue-state.ts';
+import { isVideoThumbnailUrl } from '../shared/media-filter.ts';
 
 export let profileQueue: QueueItem[] = [];
 export function setProfileQueue(q: QueueItem[]) { profileQueue = q; }
@@ -34,6 +35,8 @@ function loadPersistedQueue(): Promise<void> {
 }
 
 let _queuePersistTimer: ReturnType<typeof setTimeout> | null = null;
+let _queueStartPending = false;
+let _queueStartCancelled = false;
 function persistQueue() {
   if (_queuePersistTimer) clearTimeout(_queuePersistTimer);
   _queuePersistTimer = setTimeout(async () => {
@@ -52,7 +55,10 @@ function broadcastQueueUpdate() {
 
 async function startNextInQueue(): Promise<boolean> {
   await loadPersistedQueue();
-  if (downloadState.inProgress) return false; // Đang có download chạy — đợi
+  if (downloadState.inProgress || _queueStartPending) return false; // Đang có download chạy/khởi tạo — đợi
+  _queueStartPending = true;
+  _queueStartCancelled = false;
+  try {
   // Pha 12: bỏ qua item đang tạm dừng (paused) — không chọn làm next
   const next = profileQueue.find(item => item.status === 'waiting' && !item.paused);
   if (!next) return false; // Hàng đợi rỗng (hoặc chỉ còn item đang paused)
@@ -78,10 +84,13 @@ async function startNextInQueue(): Promise<boolean> {
       if (!mediaStore.has(next.username)) mediaStore.set(next.username, new Map());
       store = mediaStore.get(next.username);
       itemsArray.forEach((item: any) => {
+        if (item?.type === 'image' && isVideoThumbnailUrl(item.url)) return;
         if (item?.url && !store!.has(item.url)) store!.set(item.url, item);
       });
     }
   }
+
+  if (_queueStartCancelled) return false;
 
   if (!store?.size) {
     // Không có media → đánh dấu error và chuyển tiếp
@@ -90,7 +99,8 @@ async function startNextInQueue(): Promise<boolean> {
     next.result = { success: 0, failed: 0, total: 0, skipped: 0, error: 'No media found' };
     persistQueue();
     broadcastQueueUpdate();
-    return startNextInQueue();
+    setTimeout(() => void startNextInQueue(), 0);
+    return false;
   }
 
   // BUG-L6 FIX: Cập nhật mediaCount thực tế từ store — tránh hiển thị số cũ khi user scroll thêm sau khi add vào queue
@@ -111,6 +121,21 @@ async function startNextInQueue(): Promise<boolean> {
     _queueId: next.id,
   });
   return true;
+  } finally {
+    _queueStartPending = false;
+  }
+}
+
+function resetDownloadingQueueItems(): number {
+  _queueStartCancelled = true;
+  const result = resetDownloadingItemsAfterStop(profileQueue);
+  profileQueue = result.queue;
+  const { reset } = result;
+  if (reset > 0) {
+    persistQueue();
+    broadcastQueueUpdate();
+  }
+  return reset;
 }
 
 // Khởi tải queue từ storage khi SW khởi động
@@ -123,7 +148,7 @@ loadPersistedQueue().then(() => {
 
 function exportQueue(): QueueExportData {
   return {
-    _version: '6.2.6',
+    _version: '6.2.7',
     _exportedAt: new Date().toISOString(),
     queue: profileQueue,
   };
@@ -202,5 +227,5 @@ function moveQueueItem(id: string, direction: 'up' | 'down'): boolean {
 
 export {
   loadPersistedQueue, persistQueue, broadcastQueueUpdate, startNextInQueue, exportQueue, importQueue,
-  retryQueueItem, toggleQueuePause, moveQueueItem,
+  retryQueueItem, toggleQueuePause, moveQueueItem, resetDownloadingQueueItems,
 };

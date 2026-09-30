@@ -1,6 +1,6 @@
 # X Media Downloader — Roadmap
 
-> Phiên bản hiện tại: **6.2.6** | Cập nhật: 2026-09-30
+> Phiên bản hiện tại: **6.2.7** | Cập nhật: 2026-09-30
 
 Tài liệu này là nguồn duy nhất cho trạng thái sản phẩm, phần việc đã hoàn thành và backlog. Chi tiết từng bản phát hành nằm trong [`CHANGELOG.md`](../CHANGELOG.md).
 
@@ -16,7 +16,7 @@ Extension đang dùng Manifest V3, TypeScript strict và Vite. Các luồng chí
 - Tải ảnh/video trực tiếp trên Telegram Web A/K, gồm Range-fetch cho stream riêng tư.
 - Following Scanner Feature 0: tự cuộn trang Following và hiển thị tiến độ.
 
-Quality gate hiện hành: TypeScript, ESLint, **22 unit tests**, **2 fixture e2e tests** và production build. Chi tiết tại [`quality-gate.md`](quality-gate.md).
+Quality gate hiện hành: TypeScript, ESLint, **24 unit tests**, **2 fixture e2e tests** và production build. Chi tiết tại [`quality-gate.md`](quality-gate.md).
 
 ## Kiến trúc chính
 
@@ -45,17 +45,19 @@ src/
 | v6.1 | Telegram Web A/K và tăng độ tin cậy cho blob/data/stream |
 | v6.2.0 | Download Picker, Preset, Queue nâng cao, resume, filename template, Manifest, Watch |
 | v6.2.1–v6.2.4 | Range-fetch Telegram private stream, viewer/thumbnail và retry 408/5xx |
-| v6.2.5–v6.2.6 | Khôi phục Queue sau SW restart và loại bỏ timeout `START_QUEUE` |
+| v6.2.5–v6.2.7 | Khôi phục Queue sau SW restart; sửa Start/Stop/Resume, race condition và loại thumbnail video |
 
 Các kế hoạch Pha 0–15 cũ đã hoàn thành và được hợp nhất vào bảng này; không còn duy trì file kế hoạch riêng.
 
 ## Backlog đang hoạt động
 
-### P0 — Xác nhận thực tế Queue v6.2.6
+### P0 — Xác nhận thực tế Queue v6.2.7
 
 - Smoke test trên Chrome thật với queue có profile 0, vài trăm và hàng nghìn media.
 - Xác nhận item đổi sang `downloading` ngay, popup không còn timeout 8 giây.
 - Xác nhận item không có IndexedDB data chuyển `error` và queue tiếp tục mục kế tiếp.
+- Xác nhận **Dừng** đưa item đang tải về **Tạm dừng**, hiện nút **▶ Tiếp tục** và không còn nút Dừng bị treo.
+- Xác nhận profile có video chỉ tải video và ảnh bài viết độc lập, không tải `ext_tw_video_thumb`/`amplify_video_thumb`.
 - Bổ sung regression test chuyên biệt cho message `START_QUEUE` khi có harness service worker phù hợp.
 
 ### P1 — Following Scanner Feature 1

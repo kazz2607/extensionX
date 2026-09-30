@@ -10,6 +10,7 @@ import { renderFilenameTemplate } from '../shared/filename-template.ts';
 import { formatDownloadError } from '../shared/download-errors.ts';
 import { recordDiagnostic } from './diagnostics.ts';
 import { transitionQueueItem } from '../shared/queue-state.ts';
+import { isVideoThumbnailUrl } from '../shared/media-filter.ts';
 
 // ─── BUG-2 FIX: Keep-alive alarm để SW không bị Chrome terminate ───────────────
 const KEEPALIVE_ALARM = 'sw-keepalive';
@@ -318,14 +319,17 @@ let _stopRequested = false;
 // BUG-L2: Proper typed function signature
 async function startDownload(username: string, options: DownloadOptions = {}) {
   if (downloadState.inProgress) return;
+  // Reserve the global slot before the first await so rapid Queue starts
+  // cannot launch multiple profiles while IndexedDB is being restored.
+  downloadState.inProgress = true;
 
   const store = await ensureMediaStoreLoaded(username);
   if (!store?.size) {
+    downloadState.inProgress = false;
     console.warn(`[SW] startDownload: Không tìm thấy media nào cho @${username}`);
     broadcastToPopup('DOWNLOAD_DONE', { username, success: 0, failed: 0, total: 0, skipped: 0, errors: ['Không tìm thấy media nào trong bộ nhớ để tải'] });
     return;
   }
-  downloadState.inProgress = true;
   const operationId = crypto.randomUUID();
   _activeDownloadOperationId = operationId;
   activeErrors = [];
@@ -344,7 +348,11 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
   } catch (_) {}
 
   // Lọc theo filter type
-  let items = Array.from(store.values());
+  // Old IndexedDB sessions may contain video posters collected by earlier versions.
+  // They are previews, not standalone profile images, so never download them.
+  let items = Array.from(store.values()).filter(
+    item => item.type !== 'image' || !isVideoThumbnailUrl(item.url),
+  );
   if (options.filterType && options.filterType !== 'all') {
     if (options.filterType === 'images') items = items.filter(i => i.type === 'image');
     else if (options.filterType === 'videos') items = items.filter(i => i.type === 'video' || i.type === 'hls');
@@ -805,7 +813,7 @@ async function buildManifest(username: string): Promise<{ json: string; csv: str
   const history = ((storedHistory.download_history as HistoryEntry[]) || []).filter((entry) => entry.username === username);
 
   const json = JSON.stringify({
-    _version: '6.2.6',
+    _version: '6.2.7',
     _exportedAt: new Date().toISOString(),
     username,
     history,

@@ -4,7 +4,7 @@ import { fetchVideoForTweet } from './tweet-api.ts';
 import { updateBadge, broadcastToPopup, updateFAB, broadcastFABState, sleep, waitForTabLoad, sanitizeFolder } from './utils.ts';
 import { saveMediaItems, getMediaItems, clearMediaItems, getDownloadedUrls, saveDownloadedUrls, clearDownloadedUrls, pruneDownloadedUrls } from './indexeddb.ts';
 import { MediaItem, Options, CollectState } from '../types.ts';
-import { filterMediaItems } from '../shared/media-filter.ts';
+import { filterMediaItems, isVideoThumbnailUrl } from '../shared/media-filter.ts';
 import { recordDiagnostic } from './diagnostics.ts';
 import { canTransitionCollectPhase, type CollectPhase } from '../shared/collect-state.ts';
 import { normalizeUrlForDedup } from '../shared/validation.ts';
@@ -101,6 +101,7 @@ async function ensureMediaStoreLoaded(username: string): Promise<Map<string, Med
       const store = mediaStore.get(username)!;
       const stats = statsStore.get(username)!;
       items.forEach((item: MediaItem) => {
+        if (item.type === 'image' && isVideoThumbnailUrl(item.url)) return;
         if (!store.has(item.url)) {
           store.set(item.url, item);
           if (item.type === 'image') stats.image++;
@@ -128,6 +129,7 @@ function addMediaItems(username: string, items: MediaItem[]) {
   let newCount = 0;
 
   items.forEach((item: MediaItem) => {
+    if (item.type === 'image' && isVideoThumbnailUrl(item.url)) return;
     if (store.has(item.url)) return;
     // v4.3.0: Gắn tweetDate từ Snowflake ID
     const tweetDate = tweetDateFromId(item.tweetId);

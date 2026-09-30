@@ -15,9 +15,9 @@ import {
 import { formatDownloadError } from '../src/shared/download-errors.ts';
 import { parseExtensionMessage } from '../src/shared/messages.ts';
 import { addDiagnosticEvent, emptyDiagnostics } from '../src/shared/diagnostics.ts';
-import { filterMediaItems } from '../src/shared/media-filter.ts';
+import { filterMediaItems, isVideoThumbnailUrl } from '../src/shared/media-filter.ts';
 import { canTransitionCollectPhase } from '../src/shared/collect-state.ts';
-import { recoverQueueItemAfterRestart, transitionQueueItem, wasInterrupted, findInterruptedIds } from '../src/shared/queue-state.ts';
+import { recoverQueueItemAfterRestart, transitionQueueItem, wasInterrupted, findInterruptedIds, resetDownloadingItemsAfterStop } from '../src/shared/queue-state.ts';
 import { renderFilenameTemplate } from '../src/shared/filename-template.ts';
 import {
   isRetryableChunkStatus,
@@ -125,6 +125,42 @@ test('queue recovery resets interrupted work but rejects invalid terminal transi
   const item = { id: 'NASA_1', username: 'NASA', filterType: 'all', skipDuplicates: true, addedAt: 1, status: 'downloading' as const, mediaCount: 1 };
   assert.equal(recoverQueueItemAfterRestart(item).status, 'waiting');
   assert.equal(transitionQueueItem({ ...item, status: 'done' }, 'waiting'), null);
+});
+
+test('never treats X video thumbnails as standalone profile images', () => {
+  const thumbnails = [
+    'https://pbs.twimg.com/ext_tw_video_thumb/1234567890123456789/pu/img/a.jpg?name=small',
+    'https://pbs.twimg.com/amplify_video_thumb/1234567890123456789/img/a.jpg',
+  ];
+  assert.equal(isVideoThumbnailUrl(thumbnails[0]), true);
+  assert.equal(isVideoThumbnailUrl(thumbnails[1]), true);
+  assert.equal(isVideoThumbnailUrl('https://pbs.twimg.com/media/real-photo.jpg'), false);
+  assert.deepEqual(filterMediaItems([
+    { type: 'image', url: thumbnails[0] },
+    { type: 'image', url: thumbnails[1] },
+    { type: 'image', url: 'https://pbs.twimg.com/media/real-photo.jpg' },
+    { type: 'video', url: 'https://video.twimg.com/ext_tw_video/123/a.mp4' },
+  ], {}), [
+    { type: 'image', url: 'https://pbs.twimg.com/media/real-photo.jpg' },
+    { type: 'video', url: 'https://video.twimg.com/ext_tw_video/123/a.mp4' },
+  ]);
+});
+
+test('stopping a queue resets every downloading item and preserves other states', () => {
+  const base = { username: 'NASA', filterType: 'all', skipDuplicates: true, addedAt: 1, mediaCount: 1 };
+  const result = resetDownloadingItemsAfterStop([
+    { ...base, id: 'A', status: 'downloading', result: { success: 1, failed: 0, total: 2, skipped: 0 } },
+    { ...base, id: 'B', status: 'downloading', result: null },
+    { ...base, id: 'C', status: 'waiting', result: null },
+    { ...base, id: 'D', status: 'done', result: { success: 1, failed: 0, total: 1, skipped: 0 } },
+  ]);
+  assert.equal(result.reset, 2);
+  assert.deepEqual(result.queue.map((item) => item.status), ['waiting', 'waiting', 'waiting', 'done']);
+  assert.equal(result.queue[0]?.result, null);
+  assert.equal(result.queue[0]?.paused, true);
+  assert.equal(result.queue[1]?.paused, true);
+  assert.equal(result.queue[2]?.paused, undefined);
+  assert.equal(result.queue[3]?.result?.success, 1);
 });
 
 test('flags only downloading queue items as interrupted (Pha 10 resume dedup signal)', () => {

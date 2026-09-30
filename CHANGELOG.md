@@ -4,6 +4,20 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [6.2.7] — 2026-09-30 *(Queue Stop/Resume & Video Thumbnail Fix)*
+
+### 🐛 Sửa lỗi
+- **Dừng Queue nhưng nút Dừng bị treo:** mọi item còn ở trạng thái `downloading` được đưa về `waiting` + `paused`; giao diện hiển thị nút **▶ Tiếp tục** và không tự chạy lại ngoài ý muốn.
+- **Nhiều profile cùng chuyển sang Đang tải:** giữ chỗ download toàn cục trước thao tác bất đồng bộ và khóa giai đoạn khởi tạo Queue, loại bỏ race condition khi bấm Start nhanh hoặc nhiều lần.
+- **Dừng trong lúc Queue đang đọc IndexedDB:** hủy lượt khởi tạo đang chờ, không để profile bắt đầu tải sau khi người dùng đã bấm Dừng.
+- **Tải nhầm thumbnail của video như ảnh profile:** loại URL `ext_tw_video_thumb`/`amplify_video_thumb` tại DOM scanner, bộ lọc media, lúc khôi phục Queue và ngay trước download. Dữ liệu cũ trong IndexedDB cũng không còn tạo file ảnh bìa video.
+- Đồng bộ manifest, package, popup, Options, dữ liệu export và tài liệu lên `6.2.7`.
+
+### ✅ Kiểm chứng
+- TypeScript, ESLint, **24/24 unit tests**, **2/2 fixture e2e tests** và production build đều thành công.
+
+---
+
 ## [6.2.6] — 2026-09-30 *(Queue Start Timeout Fix)*
 
 ### 🐛 Sửa lỗi
