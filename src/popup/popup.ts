@@ -14,6 +14,7 @@ import { initQueuePanel, loadQueue, addCurrentToQueue as queueAddCurrent, update
 import { initDownloadPicker, loadPickerItems } from './download-picker.ts';
 import { isWatched, toggleWatch, checkWatchedProfile } from './watch-list.ts';
 import type { DownloadOptions } from '../types.ts';
+import type { MessageType, ResponseFor } from '../shared/messages.ts';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 let currentUsername: string | null = null;
@@ -358,7 +359,7 @@ async function addCurrentToQueue() {
 // ─── Session Restore ──────────────────────────────────────────────────────────
 async function checkSavedSession() {
   try {
-    const res: any = await sendBG('GET_SAVED_SESSION', {});
+    const res = await sendBG('GET_SAVED_SESSION', {});
     const session = res?.session;
     if (!session?.username || !session?.mediaCount) return;
 
@@ -385,7 +386,7 @@ function showRestoreBanner(username: string, count: number, scrolls: number, tim
   const btnRestore = document.getElementById('btn-restore');
   if (btnRestore) btnRestore.onclick = async () => {
     banner.style.display = 'none';
-    const res: any = await sendBG('RESTORE_SESSION', { username });
+    const res = await sendBG('RESTORE_SESSION', { username });
     if (res?.ok) {
       showToast(`✓ Đã khôi phục ${res.count} media của @${username}`, 'success');
       await setCurrentUser(username);
@@ -433,7 +434,7 @@ async function detectCurrentTab() {
     return;
   }
 
-  chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_INFO' }, (res: any) => {
+  chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_INFO' }, (res: { username?: string } | undefined) => {
     if (chrome.runtime.lastError || !res?.username) {
       updateOnboardingState(); // UI-04: trên X.com nhưng không nhận ra profile
       return;
@@ -493,7 +494,7 @@ async function setCurrentUser(username: string) {
   }
 
   // v4.1.0: Duplicate Detection UI
-  const dlCount = (downloadedRes as any)?.count || 0;
+  const dlCount = downloadedRes?.count || 0;
   _downloadedCount = dlCount;
   if (els.downloadedBadge) {
     if (dlCount > 0) {
@@ -526,7 +527,7 @@ async function setCurrentUser(username: string) {
   if (stateRes?.isCollecting) {
     isCollecting = true;
     els.scrollSec.style.display = 'block';
-    els.scrollCount.textContent = stateRes.scrollCount || 0;
+    els.scrollCount.textContent = String(stateRes.scrollCount || 0);
     const collectingTxt = window.i18n ? window.i18n.t('status_collecting') : 'Đang thu thập media...';
     setStatus('collecting', collectingTxt, '🔍');
   } else if (!dlStateRes?.isDownloading) {
@@ -774,7 +775,7 @@ function setupListeners() {
   // FEA-02: Queue Export
   if (els.btnQueueExport) {
     els.btnQueueExport.addEventListener('click', async () => {
-      const res: any = await sendBG('EXPORT_QUEUE', {});
+      const res = await sendBG('EXPORT_QUEUE', {});
       if (!res?.ok || !res.data) { showToast('Không có dữ liệu để xuất', 'error'); return; }
       const json = JSON.stringify(res.data, null, 2);
       const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -792,9 +793,9 @@ function setupListeners() {
       (e.target as HTMLInputElement).value = '';
       try {
         const text = await file.text();
-        const res: any = await sendBG('IMPORT_QUEUE', { data: text });
-        if (res?.error) {
-          showToast(`Import lỗi: ${res.error}`, 'error');
+        const res = await sendBG('IMPORT_QUEUE', { data: text });
+        if (!res || res.error) {
+          showToast(`Import lỗi: ${res?.error || 'Không có phản hồi'}`, 'error');
         } else {
           showToast(`✓ Đã import ${res.added} profile(s) (bỏ qua ${res.skipped})`, 'success');
         }
@@ -807,7 +808,7 @@ function setupListeners() {
   // CSV Export
   els.btnCsv.addEventListener('click', async () => {
     if (!currentUsername) return;
-    const res: any = await sendBG('EXPORT_CSV', {
+    const res = await sendBG('EXPORT_CSV', {
       username: currentUsername,
       filterType: activeFilter,
       offset: _csvOffset,  // PERF-04: pagination
@@ -828,19 +829,20 @@ function setupListeners() {
     if (res.truncated) {
       _csvOffset = res.nextOffset ?? 0; // chuẩn bị sẵn offset trang tiếp
       showToast(
-        `Đã xuất trang ${pageNum}: ${res.exported.toLocaleString()}/${res.total.toLocaleString()} URLs — bấm lại để xuất tiếp`,
+        `Đã xuất trang ${pageNum}: ${(res.exported ?? 0).toLocaleString()}/${(res.total ?? 0).toLocaleString()} URLs — bấm lại để xuất tiếp`,
         'warning'
       );
     } else {
       _csvOffset = 0; // reset sau khi xuất hết
-      showToast(`Đã xuất ${res.exported.toLocaleString()} URLs ra CSV`, 'success');
+      showToast(`Đã xuất ${(res.exported ?? 0).toLocaleString()} URLs ra CSV`, 'success');
     }
   });
 
   // Pha 14: Manifest export (lịch sử tải + metadata từng file cho profile hiện tại)
   const exportManifest = async (format: 'json' | 'csv') => {
     if (!currentUsername) return;
-    const res: any = await sendBG('EXPORT_MANIFEST', { username: currentUsername });
+    const res = await sendBG('EXPORT_MANIFEST', { username: currentUsername });
+    if (!res) { showToast('Không có phản hồi từ Service Worker', 'error'); return; }
     const body = format === 'json' ? res?.json : res?.csv;
     if (!body) { showToast('Không có dữ liệu để xuất', 'error'); return; }
 
@@ -852,8 +854,8 @@ function setupListeners() {
       filename: `${currentUsername}_manifest_${dateStr}.${format}`,
       saveAs: false,
     });
-    const truncatedNote = res.truncated ? ` (đã cắt còn ${res.exported.toLocaleString()}/${res.total.toLocaleString()})` : '';
-    showToast(`✓ Đã xuất manifest ${format.toUpperCase()}: ${res.exported.toLocaleString()} file${truncatedNote}`, 'success');
+    const truncatedNote = res.truncated ? ` (đã cắt còn ${(res.exported ?? 0).toLocaleString()}/${(res.total ?? 0).toLocaleString()})` : '';
+    showToast(`✓ Đã xuất manifest ${format.toUpperCase()}: ${(res.exported ?? 0).toLocaleString()} file${truncatedNote}`, 'success');
   };
   document.getElementById('btn-export-manifest-json')?.addEventListener('click', () => void exportManifest('json'));
   document.getElementById('btn-export-manifest-csv')?.addEventListener('click', () => void exportManifest('csv'));
@@ -1101,11 +1103,13 @@ function listenToMessages() {
         if (payload && payload.length > 0) {
           listEl.style.display = 'flex';
           const fragment = document.createDocumentFragment();
-          payload.forEach((item: any) => {
+          payload.forEach((rawItem: unknown) => {
+            if (!rawItem || typeof rawItem !== 'object') return;
+            const item = rawItem as { filename?: unknown; speedBps?: unknown; totalBytes?: unknown; bytesReceived?: unknown };
             const formatSize = (bytes: number) => (Math.max(0, Number(bytes) || 0) / 1024 / 1024).toFixed(1) + ' MB';
             const name = String(item.filename || '').slice(0, 255);
-            const speed = formatSize(item.speedBps) + '/s';
-            const percent = item.totalBytes ? Math.round((Number(item.bytesReceived) / Number(item.totalBytes)) * 100) + '%' : formatSize(item.bytesReceived);
+            const speed = formatSize(Number(item.speedBps)) + '/s';
+            const percent = item.totalBytes ? Math.round((Number(item.bytesReceived) / Number(item.totalBytes)) * 100) + '%' : formatSize(Number(item.bytesReceived));
             const row = document.createElement('div');
             row.className = 'active-download-item';
             const nameEl = document.createElement('span');
@@ -1172,13 +1176,14 @@ function listenToMessages() {
         // Refresh downloaded count
         if (currentUsername) {
           sendBG('GET_DOWNLOADED_COUNT', { username: currentUsername }).then(res => {
-            if (res?.count > 0 && els.skipWrap) {
-              _downloadedCount = (res as any).count;
+            const count = res?.count ?? 0;
+            if (count > 0 && els.skipWrap) {
+              _downloadedCount = count;
               updateDownloadPreview();
               els.skipWrap.style.display = 'flex';
               els.downloadedBadge.style.display = 'inline-block';
               const dTxt = window.i18n ? window.i18n.t('status_done') : 'downloaded';
-              els.downloadedBadge.textContent = `${(res as any).count} ${dTxt}`;
+              els.downloadedBadge.textContent = `${count} ${dTxt}`;
             }
           });
         }
@@ -1202,6 +1207,7 @@ function listenToMessages() {
       case 'FOLLOWING_SCROLL_PROGRESS':
       case 'FOLLOWING_SCROLL_DONE':
       case 'FOLLOWING_SCROLL_ERROR':
+      case 'FOLLOWING_SCAN_STATE':
         handleFollowingMessage(msg.type, payload, { showToast, sendBG });
         break;
     }
@@ -1244,10 +1250,8 @@ async function updateFolderDisplay(username: string) {
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 // BUG-L5 FIX: Thêm timeout 8s — tránh UI treo khi Service Worker bị Chrome terminate
-function sendBG<T extends import('../shared/messages.ts').MessageType>(type: T, payload?: Record<string, unknown>, timeoutMs?: number): Promise<import('../shared/messages.ts').ResponseFor<T> | null>;
-function sendBG(type: string, payload?: Record<string, unknown>, timeoutMs?: number): Promise<any>;
-function sendBG(type: string, payload: Record<string, unknown> = {}, timeoutMs = 8000): Promise<any> {
-  return new Promise((resolve) => {
+function sendBG<T extends MessageType>(type: T, payload: Record<string, unknown> = {}, timeoutMs = 8000): Promise<ResponseFor<T> | null> {
+  return new Promise<ResponseFor<T> | null>((resolve) => {
     const timer = setTimeout(() => {
       console.warn(`[popup] sendBG timeout (${timeoutMs}ms): ${type}`);
       resolve(null);
@@ -1257,7 +1261,7 @@ function sendBG(type: string, payload: Record<string, unknown> = {}, timeoutMs =
       chrome.runtime.sendMessage({ type, payload }, (res) => {
         clearTimeout(timer);
         if (chrome.runtime.lastError) resolve(null);
-        else resolve(res);
+        else resolve(res as ResponseFor<T>);
       });
     } catch (err) {
       clearTimeout(timer);

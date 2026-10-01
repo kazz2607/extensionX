@@ -5,11 +5,13 @@ import { handleFollowingMessage } from './following-messages.ts';
 import { isInternalSender, type DomainMessageHandler } from './message-handler.ts';
 import { handleMediaMessage } from './media-messages.ts';
 import { handleQueueMessage } from './queue-messages.ts';
+import { handleStorageMessage } from './storage-messages.ts';
 
 const handlers: readonly DomainMessageHandler[] = [
   handleQueueMessage,
   handleDownloadCenterMessage,
   handleExportMessage,
+  handleStorageMessage,
   handleFollowingMessage,
   handleMediaMessage,
 ];

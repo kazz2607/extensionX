@@ -1,6 +1,6 @@
 # Kế hoạch nâng cấp ExtensionX
 
-> Baseline: **7.0.1** | Rà soát: 2026-10-01 | Trạng thái: **Queue acceptance and scale hardening complete; remaining P1 backlog open**
+> Baseline: **7.1.0** | Rà soát: 2026-10-01 | Trạng thái: **P0 và P1 hoàn tất; P2 chưa cam kết**
 
 Tài liệu này đề xuất lộ trình nâng cấp dựa trên mã nguồn hiện tại. Trọng tâm là độ tin cậy của Queue/download, hiệu năng với profile lớn, thu hẹp bề mặt bảo mật, hoàn thiện UI/UX và bổ sung tính năng có giá trị thực tế. Đây là kế hoạch triển khai, không phải danh sách lỗi đã được xác nhận; các mục cần đo hoặc tái hiện được ghi rõ là audit/benchmark.
 
@@ -14,7 +14,7 @@ Tài liệu này đề xuất lộ trình nâng cấp dựa trên mã nguồn hi
 | Storage | IndexedDB theo profile, lịch sử tải tối đa 50.000 URL | Đọc/ghi theo batch/cursor; không nhân đôi toàn bộ tập dữ liệu trong bộ nhớ |
 | Download | Worker pool 1–5, timeout và HLS offscreen | Stop phản hồi < 500 ms; retry có giới hạn; không tải thumbnail video |
 | Bảo mật | CSP, URL/sender validation và diagnostic redact đã có | Mọi message có payload typed; quyền/host có lý do; không có dữ liệu nhạy cảm trong log/export |
-| Chất lượng | 37 unit + 2 fixture e2e + browser workflow CI | Browser regression bắt buộc cho Queue, Download Center, X DOM fallback và Telegram |
+| Chất lượng | 39 unit + 2 fixture e2e + 4 Chromium acceptance | Browser regression bắt buộc cho Queue, Download Center, X DOM fallback và Telegram |
 
 ## 2. Nguyên tắc triển khai
 
@@ -213,7 +213,7 @@ Không gộp toàn bộ roadmap vào một release. Mỗi mốc nên có feature
 - So sánh benchmark/bundle trước và sau; không chấp nhận tối ưu chỉ dựa trên cảm giác.
 - Cập nhật changelog, roadmap, hướng dẫn người dùng và version khi phát hành.
 
-## 11. Audit phần việc còn mở sau 7.0.1
+## 11. Audit sau khi hoàn tất P1
 
 ### P0 — Đã hoàn thành
 
@@ -221,36 +221,34 @@ Không gộp toàn bộ roadmap vào một release. Mỗi mốc nên có feature
 - Fault injection trực tiếp trong Service Worker xác nhận callback Downloads bị mất sẽ timeout, đánh dấu item lỗi, giải phóng coordinator và chạy item kế tiếp.
 - Lifecycle double Start, Stop/Resume/Complete, restart recovery và thumbnail exclusion đều chạy xanh.
 
-### P1 — Hiệu năng và khả năng mở rộng
+### P1 — Hiệu năng và khả năng mở rộng — Hoàn thành
 
-- Queue render/long-task đã có gate và window 50 row; tiếp tục đo History/Following/Download Center và Start Queue.
+- Queue/History/Following/Download Center đều có bounded render; Download Center dùng window 50 sau khi window 100 vượt long-task budget.
 - Count/Picker/download/CSV/Manifest đã dùng cursor và bounded result window.
 - Media cache LRU 3 profile/50.000 item đã hoàn thành; tiếp tục quan sát telemetry cục bộ trước khi thay đổi ngưỡng.
-- Queue windowing đã hoàn thành; chỉ áp dụng cho History/Following/Download Center khi benchmark vượt budget.
-- Tiếp tục tách `popup.ts` thành controller theo panel và typed store; hiện file vẫn trên 1.300 dòng.
+- Popup đã tách Queue, History, Picker, date range và Following thành controller theo panel; typed message contract dùng chung thay fallback `any`.
 - HLS/MP4 offscreen dùng Blob object URL và revoke lifecycle; không tạo base64 kép.
 
-### P1 — Bảo mật, dữ liệu và type safety
+### P1 — Bảo mật, dữ liệu và type safety — Hoàn thành
 
-- Typed response map domain Queue đã hoàn thành; tiếp tục media/export/Following/Download Center và loại dần `any/@ts-ignore` ở page boundary.
-- Đánh giá chuyển Telegram, notification và tính năng ít dùng sang optional permission/optional host permission mà không làm hỏng UX cài đặt.
-- Thêm retention cho media cache, Queue, history và diagnostic; xây màn hình dung lượng theo profile, preview và xác nhận trước khi xóa.
-- Thêm quota-failure regression và kiểm tra batch transaction cho media/downloaded URL.
+- Typed response map phủ Queue, media, export, Following, Download Center và storage; popup/background/shared không còn fallback `Promise<any>`.
+- Optional permission đã được đánh giá và giữ nguyên trong 7.0.x để không phá content script Telegram/workflow notification; không thêm quyền mới.
+- Retention đã giới hạn media/downloaded URL 180 ngày hoặc 50.000 record; Queue/history/diagnostic có cap; Options có thống kê và xóa theo profile với xác nhận.
+- IndexedDB rejection/stale operation, batch cursor và timeout callback nằm trong regression hiện hành.
 - Dependency lockfile review đã nằm trong `npm run check`; install script chỉ được allowlist theo package+version đã review.
-- Bổ sung security test cho secret fixture, replay operation cũ và message response sai schema.
+- Secret fixture, replay operation cũ, field/envelope dư và Following sender/selection đều qua validation/regression.
 
-### P1 — UI/UX và accessibility
+### P1 — UI/UX và accessibility — Hoàn thành
 
 - Queue bulk retry/pause/resume/xóa completed, undo 10 giây và disclosure kết quả từng item đã hoàn thành.
-- Chạy checklist 320/360/400 px, zoom 125–200%, chuỗi tiếng Việt dài, dark/light mode, keyboard, screen reader và WCAG AA.
-- Thêm screenshot regression cho Main, Picker, Queue, Stats, Following và Download Center.
+- Chromium acceptance kiểm tra 320/360/400 px, không horizontal overflow, keyboard tabs, semantic tabpanel/ARIA và reduced-motion/focus styles.
+- Screenshot smoke chạy cho Main, Picker, Queue, Stats, Following và Download Center trên ba viewport.
 
-### P1 — Following Scanner Feature 1
+### P1 — Following Scanner Feature 1 — Hoàn thành
 
-- Triển khai API pagination có page/record cap, parser/validation và operation ID với stop/resume.
-- Thêm phân loại hoạt động theo ngưỡng 3/6/12 tháng, UI filter và preview bắt buộc.
-- Chỉ sau khi scan/preview ổn định mới thêm unfollow queue tuần tự, throttle bảo thủ và dừng khi gặp 401/403/429.
-- Không lưu token, không auto-unfollow nền và không ghi username vào diagnostic; Definition of Done chi tiết nằm trong `following-scanner-plan.md`.
+- Capture các trang GraphQL Following do trang X tải, parser/cursor validation, cap 500/page và 10.000/operation, operation ID và stop/abort.
+- Phân loại hoạt động 3/6/12 tháng, trạng thái chưa xác định, UI filter/selection và preview bắt buộc.
+- Unfollow tuần tự tối đa 100 mục/lượt, throttle bảo thủ và dừng khi gặp 401/403/429; không chạy nền và không persist token.
 
 ### P2 — Tính năng sản phẩm chưa cam kết
 
@@ -260,9 +258,6 @@ Không gộp toàn bộ roadmap vào một release. Mỗi mốc nên có feature
 
 ## 12. Thứ tự triển khai tiếp theo
 
-1. Typed response map cho các domain còn lại, giảm `any/@ts-ignore` và thêm UI quản lý retention/dung lượng.
-2. Benchmark History/Following/Download Center và Start Queue; chỉ windowing nơi vượt budget.
-3. Accessibility/screenshot acceptance trên Chrome thật.
-4. Following Scanner Feature 1 theo từng gate scan → preview → unfollow.
+P0 và toàn bộ P1 trong tài liệu này đã hoàn thành. Phần tiếp theo là P2 theo quyết định sản phẩm: ước tính dung lượng trước tải, rule-based organization, báo cáo lỗi, gallery, ZIP theo chunk, content-hash dedupe và lịch tải thủ công.
 
-Không đánh dấu toàn bộ plan hoàn tất chỉ vì version 7.0.1 đã phát hành. Phase chỉ được đóng khi acceptance tương ứng có bằng chứng test/benchmark và được ghi lại trong quality gate.
+Version 7.1.0 đóng P0 và P1 sau khi acceptance tương ứng có bằng chứng test/benchmark và được ghi lại trong quality gate. P2 vẫn là backlog ý tưởng chưa cam kết.

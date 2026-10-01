@@ -25,7 +25,7 @@ export function initHistoryPanel(deps: HistoryPanelDeps): void {
 }
 
 export async function loadHistory(): Promise<void> {
-  const stored: any = await chrome.storage.local.get('download_history').catch(() => ({}));
+  const stored = await chrome.storage.local.get('download_history').catch(() => ({})) as { download_history?: unknown };
   downloadHistory = migrateDownloadHistoryStorage(stored.download_history).entries;
   renderHistory();
 }

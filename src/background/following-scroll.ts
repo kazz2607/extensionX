@@ -10,6 +10,7 @@
 
 import { broadcastToPopup, sleep, waitForTabLoad } from './utils.ts';
 import { FollowingUserEntry, FollowingScrollState } from '../types.ts';
+import { finishFollowingScan } from './following-scanner.ts';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 let _scrollState: FollowingScrollState = {
@@ -172,6 +173,7 @@ export async function startFollowingScroll(targetUrl: string): Promise<void> {
       reachedEnd: _scrollState.reachedEnd,
       stopped: _stopRequested,
     });
+    finishFollowingScan(_stopRequested);
 
     console.log(`[following-scroll] Xong: ${sortedUsers.length} users sau ${_scrollState.scrollCount} scrolls`);
 
@@ -180,6 +182,7 @@ export async function startFollowingScroll(targetUrl: string): Promise<void> {
     console.error('[following-scroll] Lỗi:', message);
     _scrollState.isScrolling = false;
     broadcastToPopup('FOLLOWING_SCROLL_ERROR', { error: message });
+    finishFollowingScan(false, message);
   } finally {
     // BUG-L7 FIX: Đóng tab nếu extension tự tạo — tránh rác tab sau khi scroll xong
     if (createdNewTab) {

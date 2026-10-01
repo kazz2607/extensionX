@@ -1,4 +1,4 @@
-import type { MediaItem } from '../types.ts';
+import type { MediaItem, StorageSummary } from '../types.ts';
 
 export interface DownloadedUrlEntry {
   url: string;
@@ -20,4 +20,5 @@ export interface MediaRepository {
   pruneDownloadedUrls(username: string, now?: number, maxEntries?: number, ttlMs?: number): Promise<number>;
   clearDownloadedUrls(username: string): Promise<void>;
   clearAllDownloadedUrls(): Promise<void>;
+  getStorageSummary(): Promise<StorageSummary>;
 }

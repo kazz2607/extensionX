@@ -1,3 +1,5 @@
+import { parseFollowingGraphqlPage } from '../shared/following-scanner.ts';
+
 /**
  * page-interceptor.js — Chạy trong PAGE CONTEXT (không phải isolated world)
  * Mục đích: Hook window.fetch + XHR để bắt URL video khi X.com tải video phát.
@@ -195,6 +197,12 @@
         reportResponseTime(duration);
         const clone = response.clone();
         clone.json().then(data => {
+          if (/\/graphql\/[A-Za-z0-9_-]+\/(Following|FollowingUsers)/.test(url)) {
+            const page = parseFollowingGraphqlPage(data);
+            if (page.candidates.length > 0) {
+              window.dispatchEvent(new CustomEvent('XMD_FOLLOWING_PAGE', { detail: page }));
+            }
+          }
 // @ts-ignore
           const mediaItems = [];
 // @ts-ignore

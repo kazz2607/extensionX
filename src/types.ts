@@ -229,3 +229,43 @@ export interface FollowingScrollState {
   reachedEnd: boolean;
   users: FollowingUserEntry[];
 }
+
+export interface StorageProfileSummary {
+  username: string;
+  mediaItems: number;
+  downloadedUrls: number;
+  approximateBytes: number;
+}
+
+export interface StorageSummary {
+  profiles: StorageProfileSummary[];
+  totalMediaItems: number;
+  totalDownloadedUrls: number;
+  approximateBytes: number;
+  quota?: number;
+  usage?: number;
+}
+
+export interface FollowingCandidate {
+  userId: string;
+  username: string;
+  displayName: string;
+  lastActiveAt: number | null;
+  followersCount?: number;
+  verified?: boolean;
+  protected?: boolean;
+  selected: boolean;
+}
+
+export interface FollowingScanState {
+  status: 'idle' | 'scanning' | 'ready' | 'unfollowing' | 'stopped' | 'error';
+  operationId?: string;
+  scanned: number;
+  total?: number;
+  cursor?: string;
+  candidates: FollowingCandidate[];
+  processed: number;
+  succeeded: number;
+  failed: number;
+  error?: string;
+}

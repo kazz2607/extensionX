@@ -1,4 +1,4 @@
-import type { MediaItem } from '../types.ts';
+import type { MediaItem, StorageProfileSummary, StorageSummary } from '../types.ts';
 import type { MediaRepository } from './media-repository.ts';
 
 const DB_NAME = 'XMediaDownloaderDB';
@@ -136,7 +136,8 @@ export async function pruneMediaItems(username: string, now = Date.now(), maxEnt
       const records = request.result as Array<MediaItem & { id: string; addedAt?: number }>;
       const expiresBefore = now - ttlMs;
       const expired = records.filter((record) => Number(record.addedAt) > 0 && Number(record.addedAt) < expiresBefore);
-      const retained = records.filter((record) => !expired.includes(record)).sort((a, b) => Number(a.addedAt || 0) - Number(b.addedAt || 0));
+      const expiredIds = new Set(expired.map((record) => record.id));
+      const retained = records.filter((record) => !expiredIds.has(record.id)).sort((a, b) => Number(a.addedAt || 0) - Number(b.addedAt || 0));
       const overflow = retained.slice(0, Math.max(0, retained.length - maxEntries));
       for (const record of [...expired, ...overflow]) { store.delete(record.id); removed++; }
     };
@@ -304,6 +305,52 @@ export async function clearAllDownloadedUrls(): Promise<void> {
   });
 }
 
+export async function getStorageSummary(): Promise<StorageSummary> {
+  const db = await initDB();
+  const profiles = new Map<string, StorageProfileSummary>();
+  const ensureProfile = (username: string): StorageProfileSummary => {
+    const current = profiles.get(username);
+    if (current) return current;
+    const created = { username, mediaItems: 0, downloadedUrls: 0, approximateBytes: 0 };
+    profiles.set(username, created);
+    return created;
+  };
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction([STORE_NAME, DOWNLOADED_STORE_NAME], 'readonly');
+    const visit = (storeName: string, kind: 'media' | 'downloaded') => {
+      const request = tx.objectStore(storeName).openCursor();
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) return;
+        const value = cursor.value as { username?: unknown };
+        if (typeof value.username === 'string') {
+          const profile = ensureProfile(value.username);
+          if (kind === 'media') profile.mediaItems++;
+          else profile.downloadedUrls++;
+          profile.approximateBytes += JSON.stringify(value).length * 2;
+        }
+        cursor.continue();
+      };
+      request.onerror = () => reject(request.error);
+    };
+    visit(STORE_NAME, 'media');
+    visit(DOWNLOADED_STORE_NAME, 'downloaded');
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error || new Error('Storage summary transaction aborted'));
+  });
+  const estimate: StorageEstimate = await navigator.storage?.estimate?.().catch(() => ({} as StorageEstimate)) ?? {};
+  const values = [...profiles.values()].sort((a, b) => b.approximateBytes - a.approximateBytes);
+  return {
+    profiles: values,
+    totalMediaItems: values.reduce((sum, item) => sum + item.mediaItems, 0),
+    totalDownloadedUrls: values.reduce((sum, item) => sum + item.downloadedUrls, 0),
+    approximateBytes: values.reduce((sum, item) => sum + item.approximateBytes, 0),
+    usage: estimate.usage,
+    quota: estimate.quota,
+  };
+}
+
 export const mediaRepository: MediaRepository = {
   saveMediaItems,
   getMediaItems,
@@ -318,4 +365,5 @@ export const mediaRepository: MediaRepository = {
   pruneDownloadedUrls,
   clearDownloadedUrls,
   clearAllDownloadedUrls,
+  getStorageSummary,
 };

@@ -4,6 +4,8 @@
  */
 import { renderFilenameTemplate } from '../shared/filename-template.ts';
 import { migrateOptionsStorage, OPTIONS_SCHEMA_VERSION } from '../shared/storage-migrations.ts';
+import type { ResponseFor } from '../shared/messages.ts';
+import type { StorageSummary } from '../types.ts';
 
 // Mọi id dùng qua helper này đều trỏ tới input/select tĩnh có sẵn trong
 // options.html — cast trực tiếp thay vì ts-ignore từng dòng, không đổi hành vi.
@@ -376,6 +378,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-clear-all-downloaded')?.addEventListener('click', clearAllDownloadedHistory);
   document.getElementById('btn-export-diagnostics')?.addEventListener('click', exportLocalDiagnostics);
   document.getElementById('btn-clear-diagnostics')?.addEventListener('click', clearLocalDiagnostics);
+  document.getElementById('btn-refresh-storage')?.addEventListener('click', refreshStorageSummary);
+  document.getElementById('btn-prune-storage')?.addEventListener('click', pruneStorage);
+  document.getElementById('storage-summary')?.addEventListener('click', handleStorageSummaryClick);
+  void refreshStorageSummary();
 });
 
 // ─── Theme ─────────────────────────────────────────────────────────────────
@@ -416,7 +422,7 @@ async function exportSettings() {
     const stored = await chrome.storage.sync.get('options').catch(() => ({})) as { options?: Record<string, unknown> };
     const opts = migrateOptionsStorage(stored.options || DEFAULT_OPTIONS);
     const exportData = {
-      _version: '7.0.1',
+      _version: '7.1.0',
       _exportedAt: new Date().toISOString(),
       options: opts,
     };
@@ -542,6 +548,65 @@ async function clearLocalDiagnostics() {
     console.error('[Options] clearLocalDiagnostics error:', err);
     alert(`Không thể xóa diagnostic: ${err instanceof Error ? err.message : 'Lỗi không xác định'}`);
   }
+}
+
+function formatBytes(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return '0 B';
+  const units = ['B', 'KiB', 'MiB', 'GiB'];
+  const index = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
+  return `${(value / (1024 ** index)).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+}
+
+function renderStorageSummary(summary: StorageSummary): void {
+  const root = document.getElementById('storage-summary');
+  if (!root) return;
+  root.replaceChildren();
+  const total = document.createElement('div');
+  total.textContent = `${summary.profiles.length} profile · ${summary.totalMediaItems.toLocaleString()} media · ${summary.totalDownloadedUrls.toLocaleString()} URL đã tải · khoảng ${formatBytes(summary.approximateBytes)}`;
+  root.append(total);
+  for (const profile of summary.profiles) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;align-items:center;justify-content:space-between;border-top:1px solid var(--border);padding:6px 0';
+    const label = document.createElement('span');
+    label.textContent = `@${profile.username}: ${profile.mediaItems.toLocaleString()} media, ${profile.downloadedUrls.toLocaleString()} URL (${formatBytes(profile.approximateBytes)})`;
+    const button = document.createElement('button');
+    button.className = 'btn-data btn-data--danger';
+    button.type = 'button';
+    button.dataset.clearProfile = profile.username;
+    button.textContent = 'Xóa';
+    button.setAttribute('aria-label', `Xóa dữ liệu profile @${profile.username}`);
+    row.append(label, button);
+    root.append(row);
+  }
+}
+
+async function refreshStorageSummary(): Promise<void> {
+  const root = document.getElementById('storage-summary');
+  if (root) root.textContent = 'Đang tính dung lượng…';
+  const response = await chrome.runtime.sendMessage({ type: 'GET_STORAGE_SUMMARY' }) as ResponseFor<'GET_STORAGE_SUMMARY'>;
+  if (!response.summary) {
+    if (root) root.textContent = response.error || 'Không đọc được dung lượng.';
+    return;
+  }
+  renderStorageSummary(response.summary);
+}
+
+async function pruneStorage(): Promise<void> {
+  if (!confirm('Dọn media và lịch sử duplicate quá 180 ngày hoặc vượt giới hạn lưu trữ?')) return;
+  const response = await chrome.runtime.sendMessage({ type: 'PRUNE_STORAGE' }) as ResponseFor<'PRUNE_STORAGE'>;
+  if (!response.ok || !response.summary) { alert(response.error || 'Không thể dọn dữ liệu'); return; }
+  renderStorageSummary(response.summary);
+  showSaveStatus(`✓ Đã dọn ${response.removed ?? 0} bản ghi`);
+}
+
+async function handleStorageSummaryClick(event: Event): Promise<void> {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-clear-profile]');
+  const username = button?.dataset.clearProfile;
+  if (!username || !confirm(`Xóa toàn bộ media và lịch sử duplicate của @${username}?`)) return;
+  const response = await chrome.runtime.sendMessage({ type: 'CLEAR_PROFILE_STORAGE', payload: { username } }) as ResponseFor<'CLEAR_PROFILE_STORAGE'>;
+  if (!response.ok || !response.summary) { alert(response.error || 'Không thể xóa dữ liệu profile'); return; }
+  renderStorageSummary(response.summary);
+  showSaveStatus(`✓ Đã xóa dữ liệu @${username}`);
 }
 
 window.exportSettings = exportSettings;

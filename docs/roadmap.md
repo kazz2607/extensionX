@@ -1,6 +1,6 @@
 # X Media Downloader — Roadmap
 
-> Phiên bản hiện tại: **7.0.1** | Cập nhật: 2026-10-01
+> Phiên bản hiện tại: **7.1.0** | Cập nhật: 2026-10-01
 
 Tài liệu này là nguồn duy nhất cho trạng thái sản phẩm, phần việc đã hoàn thành và backlog. Chi tiết từng bản phát hành nằm trong [`CHANGELOG.md`](../CHANGELOG.md).
 
@@ -15,9 +15,9 @@ Extension đang dùng Manifest V3, TypeScript strict và Vite. Các luồng chí
 - Download Center toàn trang và Saved Jobs do người dùng chủ động chạy.
 - Download Picker, Filter Preset, Manifest export và Watch mode.
 - Tải ảnh/video trực tiếp trên Telegram Web A/K, gồm Range-fetch cho stream riêng tư.
-- Following Scanner Feature 0: tự cuộn trang Following và hiển thị tiến độ.
+- Following Scanner: thu thập GraphQL có giới hạn, lọc hoạt động, preview và unfollow tuần tự có throttle.
 
-Quality gate hiện hành: TypeScript, ESLint, **37 unit tests**, **2 fixture e2e tests**, benchmark 100–50.000 media, dependency lockfile review, **3 Chromium acceptance tests** (Queue lifecycle/fault/DOM), production build, performance budget và release checksum manifest. Chi tiết tại [`quality-gate.md`](quality-gate.md).
+Quality gate hiện hành: TypeScript, ESLint, **39 unit tests**, **2 fixture e2e tests**, benchmark 100–50.000 media, dependency lockfile review, **4 Chromium acceptance tests** (Queue lifecycle/fault/DOM và responsive/keyboard/Download Center), production build, performance budget và release checksum manifest. Chi tiết tại [`quality-gate.md`](quality-gate.md).
 
 ## Kiến trúc chính
 
@@ -53,6 +53,7 @@ src/
 | v6.4.0 | Module hóa message handler, storage/Chrome adapter, migration regression, performance budget và reproducible release manifest |
 | v7.0.0 | Download Center, Saved Jobs và history schema v2 có đường migration/rollback |
 | v7.0.1 | Queue lifecycle/fault acceptance, cursor/cache bound, Queue windowing/bulk actions và pipeline Blob object URL |
+| v7.1.0 | Hoàn tất P1: typed response map, storage retention UI, Following Scanner và acceptance UI/heap mở rộng |
 
 Các kế hoạch Pha 0–15 cũ đã hoàn thành và được hợp nhất vào bảng này; không còn duy trì file kế hoạch riêng.
 
@@ -62,22 +63,13 @@ Các kế hoạch Pha 0–15 cũ đã hoàn thành và được hợp nhất và
 
 Automated Chromium acceptance đã xanh cho Queue profile rỗng, cold-load 100/1.000 media, loại thumbnail video, double Start, Stop → Paused → Resume → Complete, restart đúng phase `preparing` với fixture 20.000 record và Downloads callback timeout rồi tiếp tục item kế tiếp. Queue schema v3 dùng `paused` độc lập; IndexedDB reject/stale operation và HLS abort đều có regression.
 
-### P1 — Following Scanner Feature 1
+### P1 — Hoàn thành
 
-- Quét danh sách Following qua API với pagination và rate-limit an toàn.
-- Phân tích tài khoản không hoạt động theo ngưỡng do người dùng chọn.
-- Preview bắt buộc trước khi unfollow; throttle, stop/resume và báo cáo kết quả.
-- Không tự động unfollow nền và không lưu token nhạy cảm.
+- Typed messages, retention/storage UI, benchmark/list windowing, responsive/keyboard/screenshot acceptance đã hoàn thành.
+- Following Scanner thu GraphQL page có cap, phân tích hoạt động, preview bắt buộc và unfollow tuần tự có throttle/stop.
+- Không tự động unfollow nền, không persist token và dừng khi gặp lỗi xác thực/rate-limit.
 
 Thiết kế chi tiết còn hoạt động tại [`following-scanner-plan.md`](following-scanner-plan.md).
-
-### P1 — Hiệu năng và type safety còn lại
-
-- Chrome heap cho Picker/CSV/Manifest và DOM/long-task Queue đã có budget; Queue 500 item dùng cửa sổ 50 row sau khi full render vượt budget. Tiếp tục đo các list khác trước khi windowing.
-- Count/Picker/download/CSV/Manifest đã dùng IndexedDB cursor; media cache đã có LRU bound.
-- Dọn `any`/`@ts-ignore` còn lại trong content scripts chạy trong trang; response map domain Queue đã hoàn thành.
-- Mở rộng typed response map sang media, export, Following và Download Center consumer.
-- Thêm kiểm thử cho các nhánh service-worker lifecycle và IndexedDB failure.
 
 ### P2 — Ý tưởng sản phẩm chưa cam kết
 
@@ -99,7 +91,7 @@ Thiết kế chi tiết còn hoạt động tại [`following-scanner-plan.md`](
 ## Tài liệu liên quan
 
 - [`README.md`](README.md) — mục lục tài liệu.
-- [`upgrade-plan.md`](upgrade-plan.md) — kế hoạch nâng cấp kỹ thuật, UI/UX và tính năng theo các mốc 6.2.8–7.0.1.
+- [`upgrade-plan.md`](upgrade-plan.md) — kế hoạch nâng cấp kỹ thuật, UI/UX và tính năng theo các mốc 6.2.8–7.1.0.
 - [`huong-dan-cai-dat.md`](huong-dan-cai-dat.md) — cài đặt, sử dụng và xử lý sự cố.
 - [`quality-gate.md`](quality-gate.md) — kiểm thử và baseline chất lượng.
 - [`publish-guide.md`](publish-guide.md) — đóng gói và phát hành.

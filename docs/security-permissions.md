@@ -1,6 +1,6 @@
 # Audit bảo mật và quyền extension
 
-> Rà soát cho **7.0.1** | Cập nhật: 2026-10-01
+> Rà soát cho **7.1.0** | Cập nhật: 2026-10-01
 
 ## Quyền Manifest
 
@@ -19,6 +19,8 @@ Host permissions chỉ bao phủ X/Twitter, các CDN media X cần tải và Tel
 
 Download Center và Saved Jobs không thêm permission hoặc host. Saved Jobs chỉ chạy sau thao tác rõ ràng của người dùng; không có alarm/polling mới. Dữ liệu cấu hình nằm trong `chrome.storage.local` tại `saved_jobs_v1`; lịch sử versioned nằm tại `download_history_v2` và mirror rollback giới hạn 20 mục tại `download_history`.
 
+Đánh giá optional permission cho P1 đã hoàn tất: Telegram host và `notifications` tiếp tục là quyền bắt buộc trong nhánh 7.0.x vì content script Telegram được khai báo tĩnh và thông báo hoàn tất có thể xảy ra sau khi popup đóng; chuyển sang optional ngay sẽ tạo prompt giữa workflow và làm mất hành vi hiện có. Không mở rộng thêm host/quyền cho Following Scanner: scan dùng trang X đang đăng nhập, unfollow chỉ chạy sau preview/xác nhận và token phiên chỉ nằm trong RAM.
+
 ## Biên tin nhắn runtime
 
 - Chỉ nhận message type nằm trong allowlist.
@@ -27,6 +29,7 @@ Download Center và Saved Jobs không thêm permission hoặc host. Saved Jobs c
 - `HLS_DONE` có envelope riêng gồm `requestId`, `dataUrl` hoặc `error`; không chấp nhận field khác. Data URL từ offscreen nội bộ được miễn giới hạn 256 KB vì là nội dung video, nhưng vẫn yêu cầu sender cùng extension và request ID hợp lệ.
 - URL media, Telegram sender, Queue import và options vẫn qua validator theo domain trước khi thực thi.
 - Các lệnh Download Center/Saved Jobs có allowlist field; job được validate lại tại background trước khi lưu hoặc chạy.
+- `FOLLOWING_SCAN_PAGE` chỉ nhận từ tab X/Twitter, giới hạn 500 candidate mỗi page và 10.000 candidate mỗi operation; `START_UNFOLLOW` giới hạn 100 ID và yêu cầu `confirmed: true`.
 
 ## Bề mặt cần theo dõi
 

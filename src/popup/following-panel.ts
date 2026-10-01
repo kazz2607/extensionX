@@ -8,9 +8,12 @@
  */
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+import type { FollowingCandidate, FollowingScanState } from '../types.ts';
+import type { MessageType, ResponseFor } from '../shared/messages.ts';
+
 export type FollowingUser = { username: string; displayName: string; bio: string; order: number };
 export type ShowToastFn   = (msg: string, type?: string) => void;
-export type SendBGFn      = (type: string, payload?: Record<string, unknown>) => Promise<unknown>;
+export type SendBGFn      = <T extends MessageType>(type: T, payload?: Record<string, unknown>) => Promise<ResponseFor<T> | null>;
 
 export interface FollowingPanelDeps {
   showToast: ShowToastFn;
@@ -19,6 +22,7 @@ export interface FollowingPanelDeps {
 
 // ─── State ────────────────────────────────────────────────────────────────────
 let _users: FollowingUser[] = [];
+let _candidates: FollowingCandidate[] = [];
 
 // ─── HTML Template ────────────────────────────────────────────────────────────
 function getHTML(): string {
@@ -111,9 +115,70 @@ function getHTML(): string {
           </button>
         </div>
       </div>
+      <div class="cleanup-actions" style="padding:8px 0;flex-wrap:wrap">
+        <label class="following-label" for="following-inactive-filter">Hoạt động</label>
+        <select id="following-inactive-filter" class="cleanup-url-input" style="width:auto">
+          <option value="all">Tất cả</option><option value="3">Không hoạt động 3 tháng</option>
+          <option value="6">Không hoạt động 6 tháng</option><option value="12">Không hoạt động 12 tháng</option>
+          <option value="unknown">Chưa xác định</option>
+        </select>
+        <button class="btn-queue-export" id="btn-following-select-visible">Chọn đang hiển thị</button>
+        <button class="btn btn--stop-dl" id="btn-following-unfollow" disabled>Preview &amp; Unfollow</button>
+      </div>
       <ul class="cleanup-user-list" id="cleanup-user-list"></ul>
     </div>
   `;
+}
+
+function filteredCandidates(): FollowingCandidate[] {
+  const value = (document.getElementById('following-inactive-filter') as HTMLSelectElement | null)?.value || 'all';
+  if (value === 'all') return _candidates;
+  if (value === 'unknown') return _candidates.filter((item) => item.lastActiveAt === null);
+  const months = Number(value);
+  const cutoff = Date.now() - months * 30 * 24 * 60 * 60 * 1000;
+  return _candidates.filter((item) => item.lastActiveAt !== null && item.lastActiveAt < cutoff);
+}
+
+function renderFollowingCandidates(state: FollowingScanState): void {
+  _candidates = state.candidates;
+  const results = document.getElementById('cleanup-results');
+  const list = document.getElementById('cleanup-user-list');
+  const title = document.getElementById('cleanup-results-title');
+  if (!results || !list) return;
+  results.style.display = 'flex';
+  const visible = filteredCandidates();
+  const selectedCount = _candidates.filter((item) => item.selected).length;
+  if (title) title.textContent = `Following (${visible.length}/${_candidates.length}) · đã chọn ${selectedCount}`;
+  const unfollow = document.getElementById('btn-following-unfollow') as HTMLButtonElement | null;
+  if (unfollow) unfollow.disabled = selectedCount === 0 || state.status === 'unfollowing';
+  list.replaceChildren();
+  for (const candidate of visible.slice(0, 100)) {
+    const row = document.createElement('li');
+    row.className = 'cleanup-user-item';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = candidate.selected;
+    checkbox.dataset.followingId = candidate.userId;
+    checkbox.setAttribute('aria-label', `Chọn @${candidate.username}`);
+    const info = document.createElement('div');
+    info.className = 'cleanup-user-info';
+    const name = document.createElement('div');
+    name.className = 'cleanup-user-name';
+    name.textContent = candidate.displayName;
+    const handle = document.createElement('div');
+    handle.className = 'cleanup-user-handle';
+    const activity = candidate.lastActiveAt ? new Date(candidate.lastActiveAt).toLocaleDateString() : 'chưa xác định';
+    handle.textContent = `@${candidate.username} · hoạt động: ${activity}`;
+    info.append(name, handle);
+    row.append(checkbox, info);
+    list.append(row);
+  }
+  if (visible.length > 100) {
+    const more = document.createElement('li');
+    more.className = 'cleanup-user-item';
+    more.textContent = `Hiển thị 100/${visible.length}; dùng bộ lọc để thu hẹp.`;
+    list.append(more);
+  }
 }
 
 // ─── UI Helpers ───────────────────────────────────────────────────────────────
@@ -242,6 +307,9 @@ export function initFollowingPanel(deps: FollowingPanelDeps): void {
   const btnStop  = container.querySelector<HTMLButtonElement>('#btn-cleanup-stop');
   const btnCopy  = container.querySelector<HTMLButtonElement>('#btn-cleanup-copy');
   const btnCsv   = container.querySelector<HTMLButtonElement>('#btn-cleanup-csv');
+  const filter = container.querySelector<HTMLSelectElement>('#following-inactive-filter');
+  const selectVisible = container.querySelector<HTMLButtonElement>('#btn-following-select-visible');
+  const unfollow = container.querySelector<HTMLButtonElement>('#btn-following-unfollow');
 
   if (!urlInput || !btnStart) return;
 
@@ -262,7 +330,7 @@ export function initFollowingPanel(deps: FollowingPanelDeps): void {
     if (!rawUrl.startsWith('http')) rawUrl = 'https://' + rawUrl;
     if (!/\/following/.test(rawUrl)) rawUrl = rawUrl.replace(/\/?$/, '/following');
 
-    const res = await sendBG('START_FOLLOWING_SCROLL', { targetUrl: rawUrl }) as { error?: string } | null;
+    const res = await sendBG('START_FOLLOWING_SCAN', { targetUrl: rawUrl }) as { error?: string } | null;
     if (res?.error) { showToast(`Lỗi: ${res.error}`, 'error'); return; }
 
     const progressEl = document.getElementById('cleanup-progress');
@@ -272,8 +340,32 @@ export function initFollowingPanel(deps: FollowingPanelDeps): void {
   });
 
   btnStop?.addEventListener('click', async () => {
-    await sendBG('STOP_FOLLOWING_SCROLL', {});
-    showToast('⏹ Đang dừng scroll...', 'info');
+    await sendBG('STOP_FOLLOWING_SCAN', {});
+    showToast('⏹ Đang dừng scan...', 'info');
+  });
+
+  filter?.addEventListener('change', async () => {
+    const response = await sendBG('GET_FOLLOWING_SCAN_STATE', {}) as { state?: FollowingScanState } | null;
+    if (response?.state) renderFollowingCandidates(response.state);
+  });
+  container.querySelector('#cleanup-user-list')?.addEventListener('change', (event) => {
+    const input = event.target as HTMLInputElement;
+    const id = input.dataset.followingId;
+    const candidate = _candidates.find((item) => item.userId === id);
+    if (candidate) candidate.selected = input.checked;
+    renderFollowingCandidates({ status: 'ready', scanned: _candidates.length, candidates: _candidates, processed: 0, succeeded: 0, failed: 0 });
+  });
+  selectVisible?.addEventListener('click', () => {
+    for (const item of filteredCandidates()) item.selected = true;
+    renderFollowingCandidates({ status: 'ready', scanned: _candidates.length, candidates: _candidates, processed: 0, succeeded: 0, failed: 0 });
+  });
+  unfollow?.addEventListener('click', async () => {
+    const selected = _candidates.filter((item) => item.selected);
+    if (!selected.length) return;
+    const preview = selected.slice(0, 10).map((item) => `@${item.username}`).join(', ');
+    if (!confirm(`Unfollow ${selected.length} tài khoản?\n\n${preview}${selected.length > 10 ? '…' : ''}\n\nHành động này không thể tự động hoàn tác.`)) return;
+    const response = await sendBG('START_UNFOLLOW', { ids: selected.map((item) => item.userId), confirmed: true }) as { ok?: boolean; error?: string } | null;
+    if (!response?.ok) showToast(response?.error || 'Unfollow chưa hoàn tất', 'error');
   });
 
   btnCopy?.addEventListener('click', () => {
@@ -357,5 +449,16 @@ export function handleFollowingMessage(
       followingSetStatus('error', `Error: ${payload['error']}`);
       showToast(`Scroll lỗi: ${payload['error']}`, 'error');
       break;
+    case 'FOLLOWING_SCAN_STATE': {
+      const state = payload as unknown as FollowingScanState;
+      if (state.status === 'scanning') followingSetScrolling(true);
+      else followingSetScrolling(false);
+      renderFollowingCandidates(state);
+      const status = document.getElementById('cleanup-status-text');
+      if (status) status.textContent = state.status === 'unfollowing'
+        ? `Unfollow ${state.processed}/${state.processed + state.candidates.filter((item) => item.selected).length} · thành công ${state.succeeded} · lỗi ${state.failed}`
+        : `${state.status} · ${state.scanned} tài khoản`;
+      break;
+    }
   }
 }

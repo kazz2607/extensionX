@@ -1,5 +1,5 @@
-import type { DownloadOptions, MediaItem, SavedJobInput } from '../types.ts';
-import type { QueueItem } from '../types.ts';
+import type { CollectState, DownloadOptions, FollowingCandidate, FollowingScanState, FollowingScrollState, HistoryEntry, MediaItem, QueueExportData, QueueItem, SavedJob, SavedJobInput, Stats, StorageSummary } from '../types.ts';
+import type { LocalDiagnostics } from './diagnostics.ts';
 
 export type MessageType =
   | 'MEDIA_FOUND' | 'PAGE_LOADED' | 'GET_MEDIA_COUNT' | 'GET_STATS' | 'GET_ALL_USERNAMES' | 'GET_TAB_STATE'
@@ -13,7 +13,9 @@ export type MessageType =
   | 'GET_SAVED_SESSION' | 'RESTORE_SESSION' | 'RESTORE_SESSION_CANCEL' | 'STOP_DOWNLOAD' | 'RETRY_FAILED'
   | 'UPDATE_BEARER' | 'UPDATE_QUERY_ID' | 'EXPORT_QUEUE' | 'IMPORT_QUEUE' | 'SHORTCUT_DOWNLOAD'
   | 'START_FOLLOWING_SCROLL' | 'STOP_FOLLOWING_SCROLL' | 'GET_FOLLOWING_SCROLL_STATE' | 'HLS_DONE' | 'TG_DOWNLOAD_MEDIA'
-  | 'GET_DOWNLOAD_CENTER' | 'GET_SAVED_JOBS' | 'SAVE_SAVED_JOB' | 'DELETE_SAVED_JOB' | 'RUN_SAVED_JOB';
+  | 'START_FOLLOWING_SCAN' | 'FOLLOWING_SCAN_PAGE' | 'GET_FOLLOWING_SCAN_STATE' | 'STOP_FOLLOWING_SCAN' | 'START_UNFOLLOW'
+  | 'GET_DOWNLOAD_CENTER' | 'GET_SAVED_JOBS' | 'SAVE_SAVED_JOB' | 'DELETE_SAVED_JOB' | 'RUN_SAVED_JOB'
+  | 'GET_STORAGE_SUMMARY' | 'PRUNE_STORAGE' | 'CLEAR_PROFILE_STORAGE';
 
 type UsernamePayload = { username: string };
 type MediaFilterPayload = UsernamePayload & { filterType?: 'all' | 'images' | 'videos' | 'gifs'; dateFrom?: string; dateTo?: string; keyword?: string };
@@ -21,7 +23,9 @@ type EmptyMessageType =
   | 'GET_ALL_USERNAMES' | 'GET_QUEUE' | 'CLEAR_QUEUE' | 'START_QUEUE' | 'GET_DOWNLOAD_STATE'
   | 'EXPORT_LOCAL_DIAGNOSTICS' | 'CLEAR_LOCAL_DIAGNOSTICS' | 'CLEAR_ALL_DOWNLOADED'
   | 'GET_SAVED_SESSION' | 'STOP_DOWNLOAD' | 'RETRY_FAILED' | 'EXPORT_QUEUE'
-  | 'STOP_FOLLOWING_SCROLL' | 'GET_FOLLOWING_SCROLL_STATE' | 'GET_DOWNLOAD_CENTER' | 'GET_SAVED_JOBS';
+  | 'STOP_FOLLOWING_SCROLL' | 'GET_FOLLOWING_SCROLL_STATE' | 'GET_DOWNLOAD_CENTER' | 'GET_SAVED_JOBS'
+  | 'GET_STORAGE_SUMMARY' | 'PRUNE_STORAGE'
+  | 'GET_FOLLOWING_SCAN_STATE' | 'STOP_FOLLOWING_SCAN';
 
 export type ExtensionMessage =
   | { type: 'MEDIA_FOUND'; payload: { username: string; mediaItems: MediaItem[] } }
@@ -41,8 +45,12 @@ export type ExtensionMessage =
   | { type: 'IMPORT_QUEUE'; payload: { data: string } }
   | { type: 'SHORTCUT_DOWNLOAD'; payload: { url: string } }
   | { type: 'START_FOLLOWING_SCROLL'; payload: { targetUrl: string } }
+  | { type: 'START_FOLLOWING_SCAN'; payload: { targetUrl: string } }
+  | { type: 'FOLLOWING_SCAN_PAGE'; payload: { candidates: FollowingCandidate[]; cursor?: string } }
+  | { type: 'START_UNFOLLOW'; payload: { ids: string[]; confirmed: true } }
   | { type: 'SAVE_SAVED_JOB'; payload: { job: SavedJobInput } }
   | { type: 'DELETE_SAVED_JOB' | 'RUN_SAVED_JOB'; payload: { id: string } }
+  | { type: 'CLEAR_PROFILE_STORAGE'; payload: UsernamePayload }
   | { type: 'TG_DOWNLOAD_MEDIA'; payload: { url: string; filename: string; isVideo: boolean } }
   | { type: EmptyMessageType; payload?: Record<never, never> };
 
@@ -56,6 +64,23 @@ export type ParsedRuntimeMessage = ExtensionMessage | {
 };
 
 export interface MessageResponseMap {
+  GET_MEDIA_COUNT: { count?: number; error?: string };
+  GET_STATS: { stats?: Stats; error?: string };
+  GET_ALL_USERNAMES: { usernames: Array<{ username: string; count: number; stats?: Stats }> };
+  GET_TAB_STATE: { isCollecting?: boolean; scrollCount?: number; error?: string };
+  CLEAR_MEDIA: { ok?: boolean; error?: string };
+  START_COLLECTING: { ok?: boolean; error?: string };
+  STOP_COLLECTING: { ok?: boolean; error?: string };
+  START_DOWNLOAD: { ok?: boolean; error?: string };
+  GET_MEDIA_COUNT_FILTERED: { count?: number; error?: string };
+  GET_MEDIA_ITEMS_FILTERED: { items?: MediaItem[]; total?: number; truncated?: boolean; error?: string };
+  GET_DOWNLOADED_COUNT: { count?: number; error?: string };
+  CLEAR_DOWNLOADED: { ok?: boolean; count?: number; error?: string };
+  CLEAR_ALL_DOWNLOADED: { ok?: boolean; error?: string };
+  DOWNLOAD_TWEET: { ok?: boolean; error?: string };
+  GET_SAVED_SESSION: { session: (Partial<CollectState> & { username?: string; stats?: Stats; mediaCount?: number; savedAt?: number }) | null };
+  RESTORE_SESSION: { ok?: boolean; count?: number; error?: string };
+  RESTORE_SESSION_CANCEL: { ok?: boolean; error?: string };
   GET_QUEUE: { queue: QueueItem[] };
   ADD_TO_QUEUE: { ok?: boolean; queue?: QueueItem[]; error?: string };
   START_QUEUE: { ok?: boolean; error?: string };
@@ -64,11 +89,37 @@ export interface MessageResponseMap {
   TOGGLE_QUEUE_PAUSE: { ok: boolean };
   REORDER_QUEUE_ITEM: { ok: boolean };
   QUEUE_BULK_ACTION: { ok?: boolean; changed?: number; removed?: QueueItem[]; error?: string };
+  REMOVE_FROM_QUEUE: { ok?: boolean; error?: string };
+  CLEAR_QUEUE: { ok: boolean };
+  GET_DOWNLOAD_STATE: { isDownloading: boolean; phase: string };
+  RETRY_FAILED: { ok: boolean };
+  EXPORT_LOCAL_DIAGNOSTICS: { diagnostics: LocalDiagnostics };
+  CLEAR_LOCAL_DIAGNOSTICS: { ok: boolean };
+  EXPORT_CSV: { csv?: string; total?: number; exported?: number; truncated?: boolean; offset?: number; nextOffset?: number | null; error?: string };
+  EXPORT_MANIFEST: { json?: string; csv?: string; total?: number; exported?: number; truncated?: boolean; error?: string };
+  EXPORT_QUEUE: { ok: boolean; data: QueueExportData };
+  IMPORT_QUEUE: { ok?: boolean; added?: number; skipped?: number; error?: string };
+  START_FOLLOWING_SCROLL: { ok?: boolean; error?: string };
+  STOP_FOLLOWING_SCROLL: { ok: boolean };
+  GET_FOLLOWING_SCROLL_STATE: { state: FollowingScrollState };
+  START_FOLLOWING_SCAN: { ok?: boolean; state?: FollowingScanState; error?: string };
+  FOLLOWING_SCAN_PAGE: { ok: boolean; added?: number };
+  GET_FOLLOWING_SCAN_STATE: { state: FollowingScanState };
+  STOP_FOLLOWING_SCAN: { ok: boolean };
+  START_UNFOLLOW: { ok?: boolean; error?: string };
+  GET_DOWNLOAD_CENTER: { schemaVersion: 1; queue: QueueItem[]; jobs: SavedJob[]; history: HistoryEntry[]; download: { isDownloading: boolean; phase: string } };
+  GET_SAVED_JOBS: { jobs: SavedJob[] };
+  SAVE_SAVED_JOB: { ok?: boolean; job?: SavedJob; error?: string };
+  DELETE_SAVED_JOB: { ok?: boolean; error?: string };
+  RUN_SAVED_JOB: { ok?: boolean; username?: string; error?: string };
+  GET_STORAGE_SUMMARY: { summary?: StorageSummary; error?: string };
+  PRUNE_STORAGE: { ok?: boolean; removed?: number; summary?: StorageSummary; error?: string };
+  CLEAR_PROFILE_STORAGE: { ok?: boolean; summary?: StorageSummary; error?: string };
 }
 
 export type ResponseFor<T extends MessageType> = T extends keyof MessageResponseMap
   ? MessageResponseMap[T]
-  : any;
+  : unknown;
 
 const MAX_MESSAGE_BYTES = 256_000;
 const MESSAGE_TYPES: ReadonlySet<string> = new Set<MessageType>([
@@ -83,7 +134,9 @@ const MESSAGE_TYPES: ReadonlySet<string> = new Set<MessageType>([
   'GET_SAVED_SESSION', 'RESTORE_SESSION', 'RESTORE_SESSION_CANCEL', 'STOP_DOWNLOAD', 'RETRY_FAILED',
   'UPDATE_BEARER', 'UPDATE_QUERY_ID', 'EXPORT_QUEUE', 'IMPORT_QUEUE', 'SHORTCUT_DOWNLOAD',
   'START_FOLLOWING_SCROLL', 'STOP_FOLLOWING_SCROLL', 'GET_FOLLOWING_SCROLL_STATE', 'HLS_DONE', 'TG_DOWNLOAD_MEDIA',
+  'START_FOLLOWING_SCAN', 'FOLLOWING_SCAN_PAGE', 'GET_FOLLOWING_SCAN_STATE', 'STOP_FOLLOWING_SCAN', 'START_UNFOLLOW',
   'GET_DOWNLOAD_CENTER', 'GET_SAVED_JOBS', 'SAVE_SAVED_JOB', 'DELETE_SAVED_JOB', 'RUN_SAVED_JOB',
+  'GET_STORAGE_SUMMARY', 'PRUNE_STORAGE', 'CLEAR_PROFILE_STORAGE',
 ]);
 
 const PAYLOAD_KEYS: Readonly<Record<MessageType, readonly string[]>> = {
@@ -104,9 +157,11 @@ const PAYLOAD_KEYS: Readonly<Record<MessageType, readonly string[]>> = {
   RESTORE_SESSION_CANCEL: ['username'], STOP_DOWNLOAD: [], RETRY_FAILED: [], UPDATE_BEARER: ['bearer'],
   UPDATE_QUERY_ID: ['queryId', 'opName'], EXPORT_QUEUE: [], IMPORT_QUEUE: ['data'], SHORTCUT_DOWNLOAD: ['url'],
   START_FOLLOWING_SCROLL: ['targetUrl'], STOP_FOLLOWING_SCROLL: [], GET_FOLLOWING_SCROLL_STATE: [],
+  START_FOLLOWING_SCAN: ['targetUrl'], FOLLOWING_SCAN_PAGE: ['candidates', 'cursor'], GET_FOLLOWING_SCAN_STATE: [], STOP_FOLLOWING_SCAN: [], START_UNFOLLOW: ['ids', 'confirmed'],
   HLS_DONE: [], TG_DOWNLOAD_MEDIA: ['url', 'filename', 'isVideo'],
   GET_DOWNLOAD_CENTER: [], GET_SAVED_JOBS: [], SAVE_SAVED_JOB: ['job'],
   DELETE_SAVED_JOB: ['id'], RUN_SAVED_JOB: ['id'],
+  GET_STORAGE_SUMMARY: [], PRUNE_STORAGE: [], CLEAR_PROFILE_STORAGE: ['username'],
 };
 
 /** Cheap boundary check before command-specific validation in the service worker. */

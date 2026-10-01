@@ -415,8 +415,10 @@ test('P1 Queue DOM and long-task budget covers 500 rows', { timeout: 60_000 }, a
   assert.ok(renderMs < 300, `Queue render ${renderMs}ms exceeded 300ms`);
   assert.ok(metrics.maxLongTaskMs < 50, `Queue long task ${metrics.maxLongTaskMs}ms exceeded 50ms`);
   assert.ok(metrics.heap < 64 * 1024 * 1024, `Queue heap ${metrics.heap} exceeded 64 MiB`);
+  await popup.locator('#nav-queue').click();
+  await popup.locator('#panel-queue.active').waitFor();
   const secondRow = popup.locator('.queue-item').nth(1);
-  await secondRow.locator('.queue-select').check();
+  await secondRow.locator('.queue-select').check({ force: true });
   await popup.locator('[data-bulk-action="pause_selected"]').click();
   await popup.locator('.queue-item.status-paused').filter({ hasText: '@Bench1' }).waitFor();
   await popup.locator('[data-bulk-action="clear_completed"]').click();
@@ -433,4 +435,91 @@ test('P1 Queue DOM and long-task budget covers 500 rows', { timeout: 60_000 }, a
   assert.equal(restoredStatuses.includes('done'), true);
   assert.equal(await popup.locator('.queue-result-details').count() > 0, true);
   t.diagnostic(`Queue DOM: render=${renderMs}ms, maxLongTask=${metrics.maxLongTaskMs}ms, heap=${metrics.heap}`);
+});
+
+test('P1 responsive, keyboard and screenshot acceptance covers every primary surface', { timeout: 60_000 }, async (t) => {
+  const extensionDir = await prepareTestExtension();
+  const profileDir = await mkdtemp(join(tmpdir(), 'extensionx-a11y-profile-'));
+  const context = await chromium.launchPersistentContext(profileDir, {
+    executablePath: chromePath,
+    headless: process.env.PLAYWRIGHT_HEADED !== 'true',
+    args: [`--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`, '--no-first-run'],
+  });
+  t.after(async () => {
+    await context.close();
+    await rm(extensionDir, { recursive: true, force: true });
+    await rm(profileDir, { recursive: true, force: true });
+  });
+  const id = await extensionId(context);
+  const popup = await context.newPage({ viewport: { width: 400, height: 700 } });
+  await popup.goto(`chrome-extension://${id}/popup/popup.html`);
+  await popup.locator('#nav-main').waitFor();
+  const surfaces = [
+    ['main', '#nav-main', '#panel-main'],
+    ['picker', '#nav-picker', '#panel-picker'],
+    ['queue', '#nav-queue', '#panel-queue'],
+    ['stats', '#nav-stats', '#panel-stats'],
+    ['following', '#nav-cleanup', '#panel-cleanup'],
+  ] as const;
+  for (const width of [320, 360, 400]) {
+    await popup.setViewportSize({ width, height: 700 });
+    for (const [name, tab, panel] of surfaces) {
+      await popup.locator(tab).click();
+      assert.equal(await popup.locator(tab).getAttribute('aria-selected'), 'true');
+      assert.equal(await popup.locator(panel).getAttribute('role'), 'tabpanel');
+      const overflow = await popup.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      assert.ok(overflow <= 1, `${name} overflows horizontally at ${width}px by ${overflow}px`);
+      const screenshot = await popup.screenshot({ animations: 'disabled' });
+      assert.ok(screenshot.byteLength > 5_000, `${name} screenshot at ${width}px is unexpectedly empty`);
+    }
+  }
+  await popup.locator('#nav-main').focus();
+  await popup.keyboard.press('ArrowRight');
+  assert.equal(await popup.locator('#nav-picker').getAttribute('aria-selected'), 'true');
+  await popup.evaluate(async () => {
+    const queue = Array.from({ length: 500 }, (_, index) => ({
+      id: `bench_${index}`, username: `Bench${index}`, filterType: 'all', skipDuplicates: true,
+      addedAt: Date.now() - index, status: index % 5 === 0 ? 'done' : 'waiting', mediaCount: index, result: null,
+    }));
+    const entries = Array.from({ length: 500 }, (_, index) => ({
+      username: `Bench${index}`, count: index, filter: 'all', date: new Date(Date.now() - index * 1000).toISOString(), status: 'completed',
+    }));
+    await chrome.storage.local.set({
+      profile_queue: { schemaVersion: 3, items: queue },
+      download_history_v2: { schemaVersion: 2, entries },
+      download_history: entries.slice(0, 20),
+    });
+  });
+  await closeExtensionWorker(context, id, popup);
+  const center = await context.newPage({ viewport: { width: 360, height: 760 } });
+  await center.addInitScript(() => {
+    (globalThis as typeof globalThis & { __longTasks?: number[] }).__longTasks = [];
+    new PerformanceObserver((list) => {
+      (globalThis as typeof globalThis & { __longTasks?: number[] }).__longTasks?.push(...list.getEntries().map((entry) => entry.duration));
+    }).observe({ type: 'longtask', buffered: true });
+  });
+  const centerStarted = Date.now();
+  await center.goto(`chrome-extension://${id}/download-center/download-center.html`);
+  await center.locator('#queue-list .item').first().waitFor();
+  const centerRenderMs = Date.now() - centerStarted;
+  assert.equal(await center.locator('#queue-list .item').count(), 50);
+  assert.equal(await center.locator('#history-list .item').count(), 50);
+  assert.ok(centerRenderMs < 2_000, `Download Center initial render ${centerRenderMs}ms exceeds 2000ms navigation budget`);
+  await center.evaluate(() => { (globalThis as typeof globalThis & { __longTasks?: number[] }).__longTasks = []; });
+  await center.locator('#btn-refresh').click();
+  await center.waitForTimeout(500);
+  const maxCenterLongTask = await center.evaluate(() => Math.max(0, ...((globalThis as typeof globalThis & { __longTasks?: number[] }).__longTasks ?? [])));
+  assert.ok(maxCenterLongTask < 50, `Download Center long task ${maxCenterLongTask}ms exceeds 50ms`);
+  assert.ok((await center.screenshot({ animations: 'disabled' })).byteLength > 5_000);
+  const centerOverflow = await center.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  assert.ok(centerOverflow <= 1, `Download Center overflows horizontally by ${centerOverflow}px`);
+  const startQueueMs = await center.evaluate(async () => {
+    const started = performance.now();
+    await chrome.runtime.sendMessage({ type: 'START_QUEUE', payload: {} });
+    const elapsed = performance.now() - started;
+    await chrome.runtime.sendMessage({ type: 'STOP_DOWNLOAD', payload: {} });
+    return elapsed;
+  });
+  assert.ok(startQueueMs < 500, `START_QUEUE acknowledgement ${startQueueMs}ms exceeds 500ms`);
+  t.diagnostic(`Captured 15 popup screenshots; Download Center=${centerRenderMs}ms, maxLongTask=${maxCenterLongTask}ms, START_QUEUE=${startQueueMs}ms`);
 });

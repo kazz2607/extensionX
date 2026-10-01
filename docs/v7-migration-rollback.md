@@ -1,10 +1,10 @@
-# Migration và rollback v7.0.x
+# Migration và rollback v7.0.x–v7.1.0
 
-> Áp dụng cho nâng cấp từ **6.4.0/7.0.0** lên **7.0.1** | Cập nhật: 2026-10-01
+> Áp dụng cho nâng cấp từ **6.4.0/7.0.x** lên **7.1.0** | Cập nhật: 2026-10-01
 
 ## Thay đổi dữ liệu
 
-Nhánh v7.0.x không thay đổi permission hay host permission. v7.0.0 thêm Saved Jobs/history v2; v7.0.1 bổ sung Queue schema v3 có snapshot tương thích rollback. Các vùng dữ liệu cục bộ cần lưu ý:
+Nhánh v7.0.x–v7.1.0 không thay đổi permission hay host permission. v7.0.0 thêm Saved Jobs/history v2; v7.0.1 bổ sung Queue schema v3 có snapshot tương thích rollback; v7.1.0 thêm Following Scanner và giao diện quản lý retention nhưng không tăng phiên bản IndexedDB. Các vùng dữ liệu cục bộ cần lưu ý:
 
 | Storage key | Schema | Nội dung | Giới hạn |
 | --- | ---: | --- | ---: |

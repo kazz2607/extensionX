@@ -809,7 +809,7 @@ async function buildManifest(username: string): Promise<{ json: string; csv: str
   const history = allHistory.filter((entry) => entry.username === username);
 
   const json = JSON.stringify({
-    _version: '7.0.1',
+    _version: '7.1.0',
     _exportedAt: new Date().toISOString(),
     username,
     history,

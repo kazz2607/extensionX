@@ -10,6 +10,18 @@ Chưa có thay đổi.
 
 ---
 
+## [7.1.0] — 2026-10-01 *(P1 completion: Following, storage & accessibility)*
+
+### Hoàn thiện P1
+- Mở rộng typed response map cho toàn bộ Media, Export, Following, Download Center và Storage; các controller popup/background/shared không còn fallback `Promise<any>`.
+- Thêm màn hình dung lượng cục bộ theo profile trong Options, hỗ trợ làm mới, prune theo retention 180 ngày/50.000 bản ghi và xóa riêng profile có xác nhận.
+- Download Center dùng cửa sổ 50 Queue/history row sau khi benchmark 1.000 bản ghi; Chrome acceptance bản phát hành đạt 231 ms, không có long task ≥ 50 ms và START_QUEUE phản hồi khoảng 2,2 ms.
+- Hoàn tất responsive 320/360/400 px, keyboard tab navigation và screenshot smoke cho Main, Picker, Queue, Stats, Following và Download Center.
+- Triển khai Following Scanner Feature 1: thu các trang GraphQL Following đã sanitize, cap 10.000 record, state có operation ID/abort, lọc hoạt động 3/6/12 tháng, chọn/preview và unfollow tuần tự có throttle; dừng khi gặp 401/403/429.
+- Bổ sung parser/selection regression cho Following; tổng số unit test tăng lên **39**, Chromium acceptance tăng lên **4**.
+
+---
+
 ## [7.0.1] — 2026-10-01 *(Queue reliability & scale hardening)*
 
 ### Queue state và migration

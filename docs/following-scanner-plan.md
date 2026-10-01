@@ -1,8 +1,8 @@
 # Following Scanner Feature 1 — Kế hoạch triển khai
 
-> ExtensionX **7.0.1** | Cập nhật: 2026-10-01 | Trạng thái: **Planned**
+> ExtensionX **7.1.0** | Cập nhật: 2026-10-01 | Trạng thái: **Implemented**
 
-Feature 0 (tự cuộn trang `/following`) đã hoàn thành từ v5.6.0 và được ghi nhận trong [`roadmap.md`](roadmap.md). File này chỉ còn mô tả phần chưa triển khai: quét API, phân tích tài khoản không hoạt động và unfollow có kiểm soát.
+Feature 0 (tự cuộn trang `/following`) đã hoàn thành từ v5.6.0. Feature 1 hiện thu các response GraphQL Following do chính trang X tải trong lúc auto-scroll, normalize/validate tại boundary, phân tích hoạt động và cung cấp unfollow có kiểm soát. Không tự lưu hoặc phát lại cookie/token.
 
 ## Mục tiêu
 
@@ -19,14 +19,14 @@ Feature 0 (tự cuộn trang `/following`) đã hoàn thành từ v5.6.0 và đ�
 - Giới hạn tốc độ bảo thủ; dừng khi gặp 401/403/429 hoặc GraphQL schema thay đổi.
 - Mọi payload từ trang/API phải qua validation trước khi vào state/UI.
 
-## Kiến trúc đề xuất
+## Kiến trúc đã triển khai
 
 ```text
 Popup Cleanup tab
     │ START_FOLLOWING_SCAN / STOP_FOLLOWING_SCAN
     ▼
-Background following-api.ts
-    ├── pagination + query-id discovery
+Background following-scanner.ts
+    ├── page/record cap + operation ID
     ├── normalize/validate user records
     ├── activity classification
     └── progress events
@@ -41,7 +41,7 @@ Background unfollow queue
     └── result report
 ```
 
-## Data model dự kiến
+## Data model hiện hành
 
 ```ts
 interface FollowingCandidate {
@@ -65,9 +65,9 @@ interface FollowingScanState {
 }
 ```
 
-## Phạm vi thay đổi dự kiến
+## Phạm vi đã thay đổi
 
-- `src/background/following-api.ts`: pagination, activity lookup và unfollow mutation.
+- `src/background/following-scanner.ts`: state, cap, abort và unfollow queue; `tweet-api.ts` thực hiện mutation tuần tự.
 - `src/background/following-messages.ts`: handler theo domain; router `messages.ts` thực hiện sender/payload validation chung.
 - `src/background/state.ts`: state theo operation ID.
 - `src/shared/validation.ts`: schema/giới hạn dữ liệu.
@@ -75,14 +75,13 @@ interface FollowingScanState {
 - `src/popup/following-panel.ts`: scan, filter, preview, confirm và progress.
 - `test/`: parser, pagination, state transition, rate-limit và abort tests.
 
-## Thứ tự triển khai
+## Trạng thái nghiệm thu
 
-1. Xác minh endpoint/query ID hiện hành và tạo fixture đã khử dữ liệu nhạy cảm.
-2. Viết parser/validation thuần cùng unit tests.
-3. Thêm scan state machine có operation ID, abort và pagination cap.
-4. Xây UI kết quả + filter; chưa có unfollow ở bước này.
-5. Thêm preview/xác nhận và unfollow queue tuần tự.
-6. Thêm retry có giới hạn, diagnostic đã redact và smoke test Chrome thật.
+1. Parser GraphQL, cursor và candidate đã có fixture khử dữ liệu nhạy cảm.
+2. State machine có operation ID, abort, page cap 500 và operation cap 10.000.
+3. UI có filter 3/6/12 tháng, trạng thái chưa xác định, selection và preview bắt buộc.
+4. Unfollow chạy tuần tự, throttle 1,5–2,5 giây, tối đa 100 mục/lượt và dừng ở 401/403/429.
+5. Chromium smoke bao phủ surface Following/responsive; mutation thật không chạy tự động trong CI để tránh tác vụ phá hủy tài khoản.
 
 ## Definition of Done
 

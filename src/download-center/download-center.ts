@@ -1,4 +1,5 @@
 import type { HistoryEntry, QueueItem, SavedJob, SavedJobInput } from '../types.ts';
+import type { MessageType, ResponseFor } from '../shared/messages.ts';
 
 interface CenterData {
   queue: QueueItem[];
@@ -8,6 +9,9 @@ interface CenterData {
 }
 
 let data: CenterData = { queue: [], jobs: [], history: [], download: { isDownloading: false, phase: 'idle' } };
+const LIST_WINDOW = 50;
+let queueWindow = LIST_WINDOW;
+let historyWindow = LIST_WINDOW;
 
 const byId = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const search = byId<HTMLInputElement>('search');
@@ -15,8 +19,8 @@ const statusFilter = byId<HTMLSelectElement>('status-filter');
 const dialog = byId<HTMLDialogElement>('job-dialog');
 const form = byId<HTMLFormElement>('job-form');
 
-async function sendBG<T = Record<string, unknown>>(type: string, payload: Record<string, unknown> = {}): Promise<T | null> {
-  try { return await chrome.runtime.sendMessage({ type, payload }) as T; }
+async function sendBG<T extends MessageType>(type: T, payload: Record<string, unknown> = {}): Promise<ResponseFor<T> | null> {
+  try { return await chrome.runtime.sendMessage({ type, payload }) as ResponseFor<T>; }
   catch { return null; }
 }
 
@@ -60,7 +64,7 @@ function renderQueue(): void {
   const items = data.queue.filter((item) => (status === 'all' || item.status === status) && matchesQuery(item.username, item.keyword ?? '', item.status));
   if (!items.length) { list.replaceChildren(empty('Không có Queue item khớp bộ lọc.')); return; }
   const fragment = document.createDocumentFragment();
-  for (const item of items) {
+  for (const item of items.slice(0, queueWindow)) {
     const row = document.createElement('article'); row.className = 'item';
     const main = document.createElement('div');
     const title = document.createElement('h3'); title.className = 'item-title'; title.textContent = `@${item.username}`;
@@ -75,6 +79,7 @@ function renderQueue(): void {
     actions.append(button(item.status === 'downloading' ? 'Dừng' : 'Xóa', item.status === 'downloading' ? 'stop' : 'remove-queue', item.id, item.status === 'downloading'));
     row.append(main, detail, actions); fragment.append(row);
   }
+  if (items.length > queueWindow) fragment.append(button(`Hiển thị thêm (${items.length - queueWindow})`, 'more-queue', 'more'));
   list.replaceChildren(fragment);
 }
 
@@ -102,7 +107,7 @@ function renderHistory(): void {
   const history = data.history.filter((entry) => matchesQuery(entry.username, entry.filter, entry.status ?? ''));
   if (!history.length) { list.replaceChildren(empty('Chưa có lượt tải nào được ghi nhận.')); return; }
   const fragment = document.createDocumentFragment();
-  for (const entry of history.slice(0, 200)) {
+  for (const entry of history.slice(0, historyWindow)) {
     const row = document.createElement('article'); row.className = 'item';
     const main = document.createElement('div');
     const title = document.createElement('h3'); title.className = 'item-title'; title.textContent = `@${entry.username}`;
@@ -112,12 +117,13 @@ function renderHistory(): void {
     const actions = document.createElement('div'); actions.className = 'item-actions'; actions.append(button('Tạo Saved Job', 'job-from-history', entry.username));
     row.append(main, detail, actions); fragment.append(row);
   }
+  if (history.length > historyWindow) fragment.append(button(`Hiển thị thêm (${history.length - historyWindow})`, 'more-history', 'more'));
   list.replaceChildren(fragment);
 }
 
 async function refresh(): Promise<void> {
   byId('connection-status').textContent = 'Đang tải dữ liệu…';
-  const response = await sendBG<CenterData>('GET_DOWNLOAD_CENTER');
+  const response = await sendBG('GET_DOWNLOAD_CENTER');
   if (!response) { byId('connection-status').textContent = 'Không kết nối được Service Worker'; return; }
   data = response;
   render();
@@ -142,12 +148,14 @@ function openJobDialog(job?: SavedJob, username = ''): void {
 }
 
 async function handleAction(action: string, id: string): Promise<void> {
+  if (action === 'more-queue') { queueWindow += LIST_WINDOW; renderQueue(); return; }
+  if (action === 'more-history') { historyWindow += LIST_WINDOW; renderHistory(); return; }
   if (action === 'stop') await sendBG('STOP_DOWNLOAD');
   if (action === 'remove-queue') await sendBG('REMOVE_FROM_QUEUE', { id });
   if (action === 'retry-queue') await sendBG('RETRY_QUEUE_ITEM', { id });
   if (action === 'toggle-queue') await sendBG('TOGGLE_QUEUE_PAUSE', { id });
   if (action === 'run-job') {
-    const response = await sendBG<{ ok?: boolean; error?: string }>('RUN_SAVED_JOB', { id });
+    const response = await sendBG('RUN_SAVED_JOB', { id });
     byId('connection-status').textContent = response?.ok ? 'Saved Job đã bắt đầu' : response?.error ?? 'Không thể chạy Saved Job';
   }
   if (action === 'edit-job') openJobDialog(data.jobs.find((job) => job.id === id));
@@ -163,8 +171,8 @@ document.addEventListener('DOMContentLoaded', () => {
   byId('btn-new-job').addEventListener('click', () => openJobDialog());
   byId('btn-close-dialog').addEventListener('click', () => dialog.close());
   byId('btn-cancel-job').addEventListener('click', () => dialog.close());
-  search.addEventListener('input', render);
-  statusFilter.addEventListener('change', renderQueue);
+  search.addEventListener('input', () => { queueWindow = LIST_WINDOW; historyWindow = LIST_WINDOW; render(); });
+  statusFilter.addEventListener('change', () => { queueWindow = LIST_WINDOW; renderQueue(); });
   document.querySelector('main')?.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button[data-action]') : null;
     if (target?.dataset.action && target.dataset.id) void handleAction(target.dataset.action, target.dataset.id);
@@ -183,7 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
       filenameTemplate: byId<HTMLInputElement>('job-template').value,
       skipDuplicates: byId<HTMLInputElement>('job-dedup').checked,
     };
-    const response = await sendBG<{ ok?: boolean; error?: string }>('SAVE_SAVED_JOB', { job });
+    const response = await sendBG('SAVE_SAVED_JOB', { job });
     if (!response?.ok) { byId('form-error').textContent = response?.error ?? 'Không thể lưu Saved Job'; return; }
     dialog.close();
     await refresh();

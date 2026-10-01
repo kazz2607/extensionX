@@ -5,7 +5,8 @@
  */
 import type { MediaItem } from '../types.ts';
 
-export type SendBGFn = (type: string, payload?: Record<string, unknown>) => Promise<any>;
+import type { MessageType, ResponseFor } from '../shared/messages.ts';
+export type SendBGFn = <T extends MessageType>(type: T, payload?: Record<string, unknown>) => Promise<ResponseFor<T> | null>;
 export type ShowToastFn = (msg: string, type?: string) => void;
 
 export interface DownloadPickerDeps {
@@ -118,7 +119,7 @@ export async function loadPickerItems(): Promise<void> {
   if (!username || !_deps) return;
 
   const { dateFrom, dateTo, keyword } = _deps.getDateRange();
-  const res: any = await _deps.sendBG('GET_MEDIA_ITEMS_FILTERED', {
+  const res = await _deps.sendBG('GET_MEDIA_ITEMS_FILTERED', {
     username,
     filterType: _deps.getActiveFilter(),
     dateFrom,

@@ -123,7 +123,7 @@ loadPersistedQueue().then(() => {
 
 function exportQueue(): QueueExportData {
   return {
-    _version: '7.0.1',
+    _version: '7.1.0',
     _exportedAt: new Date().toISOString(),
     queue: profileQueue,
   };

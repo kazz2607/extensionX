@@ -12,6 +12,7 @@ import {
   sanitizeFilename,
   sanitizeFolderPath,
 } from '../src/shared/validation.ts';
+import { isInactiveCandidate, parseFollowingGraphqlPage, validateUnfollowSelection } from '../src/shared/following-scanner.ts';
 import { formatDownloadError } from '../src/shared/download-errors.ts';
 import { parseExtensionMessage } from '../src/shared/messages.ts';
 import { addDiagnosticEvent, DIAGNOSTIC_ERROR_CODES, emptyDiagnostics } from '../src/shared/diagnostics.ts';
@@ -365,4 +366,35 @@ test('treats Telegram SW timeouts as retryable and picks the newest viewer video
   assert.equal(pickLatestVideoStreamUrl(records.slice(0, 3), 400), records[1].url, 'skips non-video mime');
   assert.equal(pickLatestVideoStreamUrl(records, 800), null, 'nothing requested since the viewer opened');
   assert.equal(pickLatestVideoStreamUrl([], 0), null);
+});
+
+test('parses sanitized Following GraphQL users, activity and bottom cursor', () => {
+  const page = parseFollowingGraphqlPage({
+    data: { timeline: { instructions: [{ entries: [
+      { entryId: 'user-1', content: { itemContent: { user_results: { result: {
+        __typename: 'User', rest_id: '123', is_blue_verified: true,
+        legacy: { screen_name: 'example_user', name: 'Example', followers_count: 42, protected: false, status: { created_at: '2025-01-01T00:00:00.000Z' } },
+      } } } } },
+      { entryId: 'cursor-bottom-0', content: { value: 'cursor-next' } },
+    ] }] } },
+  });
+  assert.equal(page.candidates.length, 1);
+  assert.equal(page.candidates[0]?.userId, '123');
+  assert.equal(page.candidates[0]?.username, 'example_user');
+  assert.equal(page.candidates[0]?.followersCount, 42);
+  assert.equal(page.candidates[0]?.verified, true);
+  assert.equal(page.cursor, 'cursor-next');
+});
+
+test('classifies inactive Following candidates and validates an explicit bounded selection', () => {
+  const now = Date.UTC(2026, 9, 1);
+  const candidates = [
+    { userId: '1', username: 'old', displayName: 'Old', lastActiveAt: now - 400 * 86400000, selected: false },
+    { userId: '2', username: 'new', displayName: 'New', lastActiveAt: now - 10 * 86400000, selected: false },
+  ];
+  assert.equal(isInactiveCandidate(candidates[0]!, 12, now), true);
+  assert.equal(isInactiveCandidate(candidates[1]!, 3, now), false);
+  assert.deepEqual(validateUnfollowSelection(['1'], candidates)?.map((item) => item.userId), ['1']);
+  assert.equal(validateUnfollowSelection(['1', '1'], candidates), null);
+  assert.equal(validateUnfollowSelection(['missing'], candidates), null);
 });

@@ -30,20 +30,20 @@ function handleContextInvalidated() {
 }
 
 // Hàm gửi message an toàn, tự động bắt lỗi context bị huỷ
-function safeSendMessage(message: any): Promise<any> {
+function safeSendMessage(message: unknown): Promise<unknown> {
   if (_contextDead || !isExtensionValid()) {
     handleContextInvalidated();
     return Promise.reject(new Error('Extension context invalidated'));
   }
   try {
-    return chrome.runtime.sendMessage(message).catch((err: any) => {
-      if (err?.message?.includes('Extension context invalidated')) {
+    return chrome.runtime.sendMessage(message).catch((err: unknown) => {
+      if (err instanceof Error && err.message.includes('Extension context invalidated')) {
         handleContextInvalidated();
       }
       throw err;
     });
-  } catch (err: any) {
-    if (err?.message?.includes('Extension context invalidated')) {
+  } catch (err: unknown) {
+    if (err instanceof Error && err.message.includes('Extension context invalidated')) {
       handleContextInvalidated();
     }
     return Promise.reject(err);
@@ -80,7 +80,7 @@ async function injectAll() {
   injectScript('content/snackbar.js');
   
   // Đọc lang và gửi cho page (để i18n.js trong page update)
-  let stored: any = {};
+  let stored: Record<string, unknown> = {};
   try {
     stored = await chrome.storage.local.get('lang').catch(() => ({}));
   } catch (err) {
@@ -189,7 +189,7 @@ function validateMediaItem(item) {
 // ─── P3: Batch MEDIA_FOUND — gom items trong một rAF frame trước khi gửi SW ─
 // Tránh burst nhiều small message khi DOM scanner hoặc page-interceptor emit
 // nhiều event liên tiếp trong cùng một scroll event / GraphQL response.
-let _mediaBatch: any[] = [];
+let _mediaBatch: unknown[] = [];
 let _mediaBatchRaf: number | null = null;
 
 function flushMediaBatch() {
@@ -259,8 +259,8 @@ window.addEventListener('XMD_FAB_ACTION', (event) => {
 
 // ─── SEC-04: Relay bearer token được capture từ page-interceptor lên SW ─────
 let _lastBearerRelayed = '';
-window.addEventListener('XMD_BEARER_TOKEN', (event: any) => {
-  const { bearer } = event.detail || {};
+window.addEventListener('XMD_BEARER_TOKEN', (event: Event) => {
+  const { bearer } = (event as CustomEvent<{ bearer?: string }>).detail || {};
   if (bearer && bearer !== _lastBearerRelayed) {
     _lastBearerRelayed = bearer;
     safeSendMessage({ type: 'UPDATE_BEARER', payload: { bearer } }).catch(() => {});
@@ -269,12 +269,17 @@ window.addEventListener('XMD_BEARER_TOKEN', (event: any) => {
 
 // ─── Dynamic Query ID: relay từ page-interceptor lên SW ─────────────────────
 const _relayedQueryIds: Record<string, string> = {};
-window.addEventListener('XMD_QUERY_ID', (event: any) => {
-  const { queryId, opName } = event.detail || {};
+window.addEventListener('XMD_QUERY_ID', (event: Event) => {
+  const { queryId, opName } = (event as CustomEvent<{ queryId?: string; opName?: string }>).detail || {};
   if (!queryId || !opName) return;
   if (_relayedQueryIds[opName] === queryId) return; // dedup
   _relayedQueryIds[opName] = queryId;
   safeSendMessage({ type: 'UPDATE_QUERY_ID', payload: { queryId, opName } }).catch(() => {});
+});
+
+window.addEventListener('XMD_FOLLOWING_PAGE', (event: Event) => {
+  const detail = (event as CustomEvent<unknown>).detail;
+  safeSendMessage({ type: 'FOLLOWING_SCAN_PAGE', payload: detail }).catch(() => {});
 });
 
 // ─── 4b. Relay XMD_TWEET_DOWNLOAD → service worker ───────────────────────────

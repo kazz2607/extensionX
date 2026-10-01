@@ -84,6 +84,25 @@ function getBearerToken(): string {
   return _dynamicBearer || GUEST_BEARER;
 }
 
+export async function unfollowXUser(userId: string, csrfToken: string, signal?: AbortSignal): Promise<void> {
+  if (!/^\d{1,30}$/.test(userId) || !csrfToken || csrfToken.length > 512) throw new Error('INVALID_UNFOLLOW_REQUEST');
+  const body = new URLSearchParams({ user_id: userId });
+  const response = await fetch('https://api.x.com/1.1/friendships/destroy.json', {
+    method: 'POST',
+    credentials: 'include',
+    signal,
+    headers: {
+      authorization: getBearerToken(),
+      'x-csrf-token': csrfToken,
+      'content-type': 'application/x-www-form-urlencoded',
+      'x-twitter-auth-type': 'OAuth2Session',
+    },
+    body,
+  });
+  if ([401, 403, 429].includes(response.status)) throw new Error(`UNFOLLOW_STOP_${response.status}`);
+  if (!response.ok) throw new Error(`UNFOLLOW_HTTP_${response.status}`);
+}
+
 // ─── Dynamic Query IDs — được cập nhật từ page-interceptor ──────────────────
 // X.com rotate query hash thường xuyên → ta capture từ request thực của họ.
 // Fallback hardcoded chỉ dùng khi chưa capture được hash mới.

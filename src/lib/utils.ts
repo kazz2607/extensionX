@@ -138,30 +138,31 @@ export function sanitizeFolder(folder?: string): string {
  * @param {object} item
  * @returns {boolean}
  */
-export function validateMediaItem(item: any): boolean {
-  if (!item || typeof item !== 'object') return false;
+export function validateMediaItem(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const item = value as Record<string, unknown>;
 
   // type phải nằm trong whitelist
   const VALID_TYPES = ['image', 'video', 'gif', 'hls', 'video_placeholder'];
-  if (!VALID_TYPES.includes(item.type)) return false;
+  if (typeof item.type !== 'string' || !VALID_TYPES.includes(item.type)) return false;
 
   // video_placeholder chỉ cần tweetId hợp lệ
   if (item.type === 'video_placeholder') {
-    return /^\d{10,20}$/.test(item.tweetId || '');
+    return typeof item.tweetId === 'string' && /^\d{10,20}$/.test(item.tweetId);
   }
 
   // Các type còn lại phải có URL hợp lệ
-  const url = item.url || '';
+  const url = typeof item.url === 'string' ? item.url : '';
   if (!url.startsWith('https://pbs.twimg.com/') && !url.startsWith('https://video.twimg.com/')) {
     return false;
   }
 
   // tweetId nếu có phải là số
-  if (item.tweetId && !/^\d{10,20}$/.test(item.tweetId)) return false;
+  if (item.tweetId !== undefined && (typeof item.tweetId !== 'string' || !/^\d{10,20}$/.test(item.tweetId))) return false;
 
   // ext hợp lệ
   const VALID_EXT = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'ts', 'm3u8', 'mov'];
-  if (item.ext && !VALID_EXT.includes(item.ext.toLowerCase())) return false;
+  if (item.ext !== undefined && (typeof item.ext !== 'string' || !VALID_EXT.includes(item.ext.toLowerCase()))) return false;
 
   return true;
 }

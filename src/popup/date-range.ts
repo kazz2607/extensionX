@@ -3,7 +3,8 @@
  * Tách nguyên vẹn từ popup.ts, không đổi hành vi.
  */
 
-export type SendBGFn = (type: string, payload?: Record<string, unknown>) => Promise<any>;
+import type { MessageType, ResponseFor } from '../shared/messages.ts';
+export type SendBGFn = <T extends MessageType>(type: T, payload?: Record<string, unknown>) => Promise<ResponseFor<T> | null>;
 
 export interface DateRangeDeps {
   getUsername: () => string | null;
@@ -176,7 +177,7 @@ function updateDateRangeCount(els: DateRangeEls): void {
 
   clearTimeout(_countTimer);
   _countTimer = setTimeout(async () => {
-    const res: any = await _deps!.sendBG('GET_MEDIA_COUNT_FILTERED', {
+    const res = await _deps!.sendBG('GET_MEDIA_COUNT_FILTERED', {
       username,
       filterType: _deps!.getActiveFilter(),
       dateFrom,

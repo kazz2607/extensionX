@@ -1,10 +1,10 @@
 # Quality gate và baseline hiện hành
 
-> Áp dụng cho phiên bản **7.0.1** | Cập nhật: 2026-10-01
+> Áp dụng cho phiên bản **7.1.0** | Cập nhật: 2026-10-01
 
-## Baseline hiện hành (v7.0.1)
+## Baseline hiện hành (v7.1.0)
 
-Gate hiện hành gồm typecheck, ESLint, **37 unit test**, 2 e2e fixture, **3 browser acceptance**, benchmark media 100–50.000, Chrome heap/DOM/long-task budget, dependency lockfile review, production build, performance budget và release manifest SHA-256. Regression bao phủ Queue schema v3, migration/rollback, bulk/undo/windowing, IndexedDB reject/stale operation, callback download timeout, media query window, bounded LRU cache, cursor download/export, Options/IndexedDB/Saved Jobs/history và runtime messages. `npm run test:browser` là gate riêng trong browser job vì cần Chromium có hỗ trợ extension.
+Gate hiện hành gồm typecheck, ESLint, **39 unit test**, 2 e2e fixture, **4 browser acceptance**, benchmark media 100–50.000, Chrome heap/DOM/long-task budget, dependency lockfile review, production build, performance budget và release manifest SHA-256. Regression bao phủ Queue schema v3, migration/rollback, bulk/undo/windowing, IndexedDB reject/stale operation, callback download timeout, media query window, bounded LRU cache, cursor download/export, Following parser/selection, Options/IndexedDB/Saved Jobs/history và runtime messages. `npm run test:browser` là gate riêng trong browser job vì cần Chromium có hỗ trợ extension.
 
 ## Lệnh bắt buộc
 
@@ -20,6 +20,8 @@ Source map mặc định không được tạo trong artifact phát hành. Chỉ
 | --- | --- | --- |
 | Mở popup với 1.000 media | dưới 300 ms | Chrome Performance profile, median của 5 lần chạy fixture lớn |
 | Long task UI | không quá 50 ms | Chrome Performance profile khi cuộn và cập nhật queue |
+| Download Center 500 Queue + 500 history | dưới 2.000 ms, không long task | Chromium acceptance; lần đo gần nhất 231 ms/0 ms |
+| START_QUEUE acknowledgement | dưới 500 ms | Chromium acceptance; lần đo gần nhất khoảng 2,2 ms |
 | Gửi progress | chỉ tab/profile của download | regression đa profile (Pha 2) |
 | Khôi phục session | không treo sau service-worker restart | regression đa tab/restart (Pha 2) |
 
