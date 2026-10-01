@@ -8,6 +8,8 @@ const DOWNLOADED_STORE_NAME = 'downloaded_urls';
 const META_STORE_NAME = 'schema_meta';
 const DOWNLOADED_HISTORY_MAX_ENTRIES = 50_000;
 const DOWNLOADED_HISTORY_TTL_MS = 180 * 24 * 60 * 60 * 1000;
+const MEDIA_RETENTION_MAX_ENTRIES = 50_000;
+const MEDIA_RETENTION_TTL_MS = 180 * 24 * 60 * 60 * 1000;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -103,6 +105,47 @@ export async function getMediaItems(username: string): Promise<MediaItem[]> {
   });
 }
 
+/** Streams one profile through an IndexedDB cursor without creating a getAll() result array. */
+export async function visitMediaItems(username: string, visitor: (item: MediaItem) => void): Promise<void> {
+  const db = await initDB();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const request = tx.objectStore(STORE_NAME).index('username').openCursor(IDBKeyRange.only(username));
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) return;
+      const { id: _id, ...item } = cursor.value as MediaItem & { id: string };
+      visitor(item);
+      cursor.continue();
+    };
+    request.onerror = () => reject(request.error);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error || new Error('Media cursor transaction aborted'));
+  });
+}
+
+export async function pruneMediaItems(username: string, now = Date.now(), maxEntries = MEDIA_RETENTION_MAX_ENTRIES, ttlMs = MEDIA_RETENTION_TTL_MS): Promise<number> {
+  const db = await initDB();
+  return new Promise<number>((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const request = store.index('username').getAll(username);
+    let removed = 0;
+    request.onsuccess = () => {
+      const records = request.result as Array<MediaItem & { id: string; addedAt?: number }>;
+      const expiresBefore = now - ttlMs;
+      const expired = records.filter((record) => Number(record.addedAt) > 0 && Number(record.addedAt) < expiresBefore);
+      const retained = records.filter((record) => !expired.includes(record)).sort((a, b) => Number(a.addedAt || 0) - Number(b.addedAt || 0));
+      const overflow = retained.slice(0, Math.max(0, retained.length - maxEntries));
+      for (const record of [...expired, ...overflow]) { store.delete(record.id); removed++; }
+    };
+    tx.oncomplete = () => resolve(removed);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error || new Error('Media retention transaction aborted'));
+  });
+}
+
 // ─── Clear Session for a Username ─────────────────────────────────────────────
 export async function clearMediaItems(username: string): Promise<void> {
   const db = await initDB();
@@ -165,6 +208,25 @@ export async function getDownloadedUrlRecords(username: string): Promise<Array<{
     const request = tx.objectStore(DOWNLOADED_STORE_NAME).index('username').getAll(username);
     request.onsuccess = () => resolve((request.result as DownloadedUrlRecord[]).map((item) => ({ url: item.url, addedAt: item.addedAt })));
     request.onerror = () => reject(request.error);
+  });
+}
+
+export async function visitDownloadedUrlRecords(username: string, visitor: (entry: { url: string; addedAt: number }) => void): Promise<void> {
+  const db = await initDB();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(DOWNLOADED_STORE_NAME, 'readonly');
+    const request = tx.objectStore(DOWNLOADED_STORE_NAME).index('username').openCursor(IDBKeyRange.only(username));
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) return;
+      const record = cursor.value as DownloadedUrlRecord;
+      visitor({ url: record.url, addedAt: record.addedAt });
+      cursor.continue();
+    };
+    request.onerror = () => reject(request.error);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error || new Error('Downloaded URL cursor transaction aborted'));
   });
 }
 
@@ -245,10 +307,13 @@ export async function clearAllDownloadedUrls(): Promise<void> {
 export const mediaRepository: MediaRepository = {
   saveMediaItems,
   getMediaItems,
+  visitMediaItems,
+  pruneMediaItems,
   clearMediaItems,
   clearAllMediaItems,
   getDownloadedUrls,
   getDownloadedUrlRecords,
+  visitDownloadedUrlRecords,
   saveDownloadedUrls,
   pruneDownloadedUrls,
   clearDownloadedUrls,

@@ -1,12 +1,10 @@
-import { mediaStore, downloadCoordinator } from './state.ts';
-import { mediaRepository } from './indexeddb.ts';
+import { downloadCoordinator } from './state.ts';
 import { startDownload } from './downloader.ts';
 import { broadcastToPopup } from './utils.ts';
-import { MediaItem, QueueItem, QueueExportData } from '../types.ts';
+import { QueueItem, QueueExportData } from '../types.ts';
 import { parseQueueItems } from '../shared/validation.ts';
 import { createQueueStorageSnapshot, migrateQueueStorage } from '../shared/storage-migrations.ts';
 import { recoverQueueItemAfterRestart, transitionQueueItem, findInterruptedIds, resetDownloadingItemsAfterStop } from '../shared/queue-state.ts';
-import { isVideoThumbnailUrl } from '../shared/media-filter.ts';
 import { chromeApi } from './chrome-api.ts';
 
 export let profileQueue: QueueItem[] = [];
@@ -16,6 +14,8 @@ export function setProfileQueue(q: QueueItem[]) { profileQueue = q; }
 // giữa chừng) — chỉ dùng để ép skipDuplicates=true cho ĐÚNG 1 lần resume kế tiếp
 // của item đó, không lưu trữ và không đổi preference skipDuplicates người dùng đã lưu.
 const _forceDedupOnNextRun = new Set<string>();
+let _lastBulkRemoved: QueueItem[] = [];
+let _lastBulkRemovedAt = 0;
 
 let _queueLoadPromise: Promise<void> | null = null;
 function loadPersistedQueue(): Promise<void> {
@@ -63,7 +63,7 @@ async function startNextInQueue(): Promise<boolean> {
   await loadPersistedQueue();
   if (downloadCoordinator.isBusy) return false;
 
-  const next = profileQueue.find(item => item.status === 'waiting' && !item.paused);
+  const next = profileQueue.find(item => item.status === 'waiting');
   if (!next) return false;
 
   const operation = downloadCoordinator.begin(next.username, 'queue', next.id);
@@ -76,44 +76,6 @@ async function startNextInQueue(): Promise<boolean> {
   }
   Object.assign(next, downloadingItem);
   await persistQueueImmediately();
-  broadcastQueueUpdate();
-
-  let store = mediaStore.get(next.username);
-  if (!store?.size) {
-    let itemsArray: unknown[] = [];
-    try {
-      itemsArray = await mediaRepository.getMediaItems(next.username) as unknown[];
-    } catch (err: unknown) {
-      console.error('[SW] Queue IndexedDB load failed:', err instanceof Error ? err.message : String(err));
-    }
-    if (itemsArray.length > 0) {
-      if (!mediaStore.has(next.username)) mediaStore.set(next.username, new Map());
-      store = mediaStore.get(next.username);
-      for (const raw of itemsArray) {
-        const item = raw as { type?: unknown; url?: unknown };
-        if (item.type === 'image' && typeof item.url === 'string' && isVideoThumbnailUrl(item.url)) continue;
-        if (typeof item.url === 'string' && !store!.has(item.url)) store!.set(item.url, raw as MediaItem);
-      }
-    }
-  }
-
-  // Stop may have invalidated this operation while IndexedDB was loading.
-  if (!downloadCoordinator.isCurrent(operation.id)) return false;
-
-  if (!store?.size) {
-    const failedItem = transitionQueueItem(next, 'error');
-    if (failedItem) Object.assign(next, failedItem);
-    next.result = { success: 0, failed: 0, total: 0, skipped: 0, error: 'No media found' };
-    downloadCoordinator.settle(operation.id, 'error');
-    downloadCoordinator.release(operation.id);
-    await persistQueueImmediately();
-    broadcastQueueUpdate();
-    setTimeout(() => void startNextInQueue(), 0);
-    return false;
-  }
-
-  next.mediaCount = store.size;
-  persistQueue();
   broadcastQueueUpdate();
 
   const forceDedup = _forceDedupOnNextRun.delete(next.id);
@@ -161,7 +123,7 @@ loadPersistedQueue().then(() => {
 
 function exportQueue(): QueueExportData {
   return {
-    _version: '7.0.0',
+    _version: '7.0.1',
     _exportedAt: new Date().toISOString(),
     queue: profileQueue,
   };
@@ -180,7 +142,7 @@ function importQueue(items: unknown): { added: number; skipped: number; error?: 
 
   for (const item of parsedItems) {
     // Bỏ qua items đã done/error — không cần re-import
-    if (item.status === 'done' || item.status === 'error') {
+    if (item.status === 'done' || item.status === 'error' || item.status === 'cancelled') {
       skipped++;
       continue;
     }
@@ -191,7 +153,7 @@ function importQueue(items: unknown): { added: number; skipped: number; error?: 
     }
     // Reset downloading → waiting (SW đã tắt, không còn active)
     if (interruptedIds.has(item.id)) _forceDedupOnNextRun.add(item.id); // Pha 10
-    profileQueue.push({ ...item, status: 'waiting', paused: interruptedIds.has(item.id) ? true : item.paused });
+    profileQueue.push({ ...item, status: interruptedIds.has(item.id) ? 'paused' : item.status, paused: undefined });
     added++;
   }
 
@@ -217,9 +179,12 @@ function retryQueueItem(id: string): boolean {
 }
 
 function toggleQueuePause(id: string): boolean {
-  const idx = profileQueue.findIndex(q => q.id === id && q.status === 'waiting');
+  const idx = profileQueue.findIndex(q => q.id === id && (q.status === 'waiting' || q.status === 'paused'));
   if (idx === -1) return false;
-  profileQueue[idx] = { ...profileQueue[idx], paused: !profileQueue[idx].paused };
+  const target = profileQueue[idx].status === 'paused' ? 'waiting' : 'paused';
+  const transitioned = transitionQueueItem(profileQueue[idx], target);
+  if (!transitioned) return false;
+  profileQueue[idx] = transitioned;
   persistQueue();
   broadcastQueueUpdate();
   // Item vừa được resume (bỏ paused) có thể trở thành next — thử chạy ngay nếu rảnh
@@ -230,9 +195,9 @@ function toggleQueuePause(id: string): boolean {
 function resumePausedQueueItems(): number {
   let resumed = 0;
   profileQueue = profileQueue.map((item) => {
-    if (item.status !== 'waiting' || !item.paused) return item;
+    if (item.status !== 'paused') return item;
     resumed++;
-    return { ...item, paused: false };
+    return transitionQueueItem(item, 'waiting') ?? item;
   });
   if (resumed > 0) {
     persistQueue();
@@ -252,7 +217,51 @@ function moveQueueItem(id: string, direction: 'up' | 'down'): boolean {
   return true;
 }
 
+function bulkQueueAction(action: 'retry_errors' | 'pause_selected' | 'resume_selected' | 'clear_completed' | 'undo_clear_completed', ids: readonly string[] = []): { changed: number; removed: QueueItem[] } {
+  const selected = new Set(ids);
+  const removed: QueueItem[] = [];
+  let changed = 0;
+  if (action === 'undo_clear_completed') {
+    if (Date.now() - _lastBulkRemovedAt <= 10_000) {
+      for (const item of _lastBulkRemoved) {
+        if (!profileQueue.some((current) => current.id === item.id)) { profileQueue.push(item); changed++; }
+      }
+    }
+    _lastBulkRemoved = [];
+    _lastBulkRemovedAt = 0;
+  } else if (action === 'clear_completed') {
+    const retained = profileQueue.filter((item) => {
+      if (item.status !== 'done' && item.status !== 'cancelled') return true;
+      removed.push(item);
+      return false;
+    });
+    changed = removed.length;
+    setProfileQueue(retained);
+    _lastBulkRemoved = removed;
+    _lastBulkRemovedAt = Date.now();
+  } else {
+    profileQueue = profileQueue.map((item) => {
+      if (action !== 'retry_errors' && !selected.has(item.id)) return item;
+      const target = action === 'retry_errors' && item.status === 'error' ? 'waiting'
+        : action === 'pause_selected' && item.status === 'waiting' ? 'paused'
+          : action === 'resume_selected' && item.status === 'paused' ? 'waiting' : null;
+      if (!target) return item;
+      const transitioned = transitionQueueItem(item, target);
+      if (!transitioned) return item;
+      changed++;
+      return transitioned;
+    });
+  }
+  if (changed > 0) {
+    persistQueue();
+    broadcastQueueUpdate();
+    if (action === 'retry_errors' || action === 'resume_selected') void startNextInQueue();
+  }
+  return { changed, removed };
+}
+
 export {
   loadPersistedQueue, persistQueue, persistQueueImmediately, broadcastQueueUpdate, startNextInQueue, exportQueue, importQueue,
   retryQueueItem, toggleQueuePause, resumePausedQueueItems, moveQueueItem, resetDownloadingQueueItems,
+  bulkQueueAction,
 };

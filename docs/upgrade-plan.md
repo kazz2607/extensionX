@@ -1,6 +1,6 @@
 # Kế hoạch nâng cấp ExtensionX
 
-> Baseline: **7.0.0** | Rà soát: 2026-10-01 | Trạng thái: **Core implemented; acceptance, scale and hardening backlog open**
+> Baseline: **7.0.1** | Rà soát: 2026-10-01 | Trạng thái: **Queue acceptance and scale hardening complete; remaining P1 backlog open**
 
 Tài liệu này đề xuất lộ trình nâng cấp dựa trên mã nguồn hiện tại. Trọng tâm là độ tin cậy của Queue/download, hiệu năng với profile lớn, thu hẹp bề mặt bảo mật, hoàn thiện UI/UX và bổ sung tính năng có giá trị thực tế. Đây là kế hoạch triển khai, không phải danh sách lỗi đã được xác nhận; các mục cần đo hoặc tái hiện được ghi rõ là audit/benchmark.
 
@@ -8,13 +8,13 @@ Tài liệu này đề xuất lộ trình nâng cấp dựa trên mã nguồn hi
 
 | Nhóm | Baseline cần đo | Mục tiêu |
 | --- | --- | --- |
-| Queue | Start/Stop/Resume đã có unit test, chưa có browser lifecycle test đầy đủ | Không có item treo; một download toàn cục; phục hồi đúng sau SW restart |
+| Queue | Start/Stop/Resume và SW restart đã có Chromium lifecycle acceptance | Không có item treo; một download toàn cục; phục hồi đúng sau SW restart |
 | Popup | Queue đang tránh render lại khi chỉ đổi progress | Mở popup với 1.000 media < 300 ms; thao tác UI không có long task > 50 ms |
 | Thu thập | GraphQL + DOM fallback + MutationObserver | Không quét trùng subtree; CPU nền gần 0 khi trang ổn định |
 | Storage | IndexedDB theo profile, lịch sử tải tối đa 50.000 URL | Đọc/ghi theo batch/cursor; không nhân đôi toàn bộ tập dữ liệu trong bộ nhớ |
 | Download | Worker pool 1–5, timeout và HLS offscreen | Stop phản hồi < 500 ms; retry có giới hạn; không tải thumbnail video |
 | Bảo mật | CSP, URL/sender validation và diagnostic redact đã có | Mọi message có payload typed; quyền/host có lý do; không có dữ liệu nhạy cảm trong log/export |
-| Chất lượng | 33 unit + 2 fixture e2e + browser workflow CI | Browser regression bắt buộc cho Queue, Download Center, X DOM fallback và Telegram |
+| Chất lượng | 37 unit + 2 fixture e2e + browser workflow CI | Browser regression bắt buộc cho Queue, Download Center, X DOM fallback và Telegram |
 
 ## 2. Nguyên tắc triển khai
 
@@ -27,7 +27,7 @@ Tài liệu này đề xuất lộ trình nâng cấp dựa trên mã nguồn hi
 
 ## 3. P0 — Ổn định Queue và download (6.2.8)
 
-> Tiến độ: **Implemented, pending real-browser acceptance** — coordinator, paused recovery, dedupe-complete và unit regression đã hoàn thành; browser lifecycle/fault-injection vẫn cần xác nhận để đóng phase.
+> Tiến độ: **Hoàn thành** — Queue schema v3 có trạng thái `paused` độc lập. Browser regression đã qua profile rỗng, cold-load 100/1.000 media, double Start, Stop/Resume/Complete, restart đúng phase `preparing`, Service Worker recovery, thumbnail exclusion và Downloads callback timeout rồi tiếp tục Queue. IndexedDB reject, stale operation và HLS abort đều có regression.
 
 ### 3.1 Chuẩn hóa state machine
 
@@ -61,7 +61,7 @@ Tài liệu này đề xuất lộ trình nâng cấp dựa trên mã nguồn hi
 
 ## 4. P1 — Hiệu năng và khả năng mở rộng (6.3.0)
 
-> Tiến độ: **Implemented core optimizations** — worker cursor, single-pass filtering, Queue event delegation/rAF batching, hidden-tab observer pause và Telegram watchdog 2 giây đã hoàn thành. Virtualization, IndexedDB cursor trực tiếp và benchmark Chrome fixture lớn chuyển sang backlog đo đạc tiếp theo.
+> Tiến độ: **Data path, heap và Queue DOM bound implemented** — Count/Picker/download/CSV/Manifest dùng cursor; media cache có LRU bound; matcher/heap/DOM/long-task nằm trong quality gate. Queue áp dụng window 50 row sau khi benchmark 500-row full render vượt budget; các list khác tiếp tục đo trước khi thay đổi.
 
 ### 4.1 Popup và UI list
 
@@ -213,39 +213,35 @@ Không gộp toàn bộ roadmap vào một release. Mỗi mốc nên có feature
 - So sánh benchmark/bundle trước và sau; không chấp nhận tối ưu chỉ dựa trên cảm giác.
 - Cập nhật changelog, roadmap, hướng dẫn người dùng và version khi phát hành.
 
-## 11. Audit phần việc còn mở sau 7.0.0
+## 11. Audit phần việc còn mở sau 7.0.1
 
-### P0 — Bắt buộc để đóng browser acceptance
+### P0 — Đã hoàn thành
 
-- Mở rộng browser regression thành luồng Queue đầy đủ: Start → Downloading → Stop → Paused → Resume → Complete.
-- Kiểm tra hai lần bấm Start nhanh chỉ tạo một operation và callback operation cũ không thay đổi job mới.
-- Mô phỏng Service Worker restart tại `preparing` và `downloading`; xác nhận Queue phục hồi paused và không tự tải.
-- Thêm fault injection cho IndexedDB reject, `chrome.downloads.download` timeout và HLS abort.
-- Chạy smoke test Chrome thật với Queue rỗng, vài trăm và hàng nghìn media; xác nhận không tải thumbnail video.
-- Chuẩn hóa Queue schema: hiện vẫn dùng `status: waiting` kết hợp `paused: true`; cần migration sang trạng thái độc lập trước khi coi state machine hoàn tất.
+- Chromium acceptance bao phủ Queue profile rỗng, cold-load 100/1.000 media và fixture 20.000 record để giữ phase `preparing` khi restart.
+- Fault injection trực tiếp trong Service Worker xác nhận callback Downloads bị mất sẽ timeout, đánh dấu item lỗi, giải phóng coordinator và chạy item kế tiếp.
+- Lifecycle double Start, Stop/Resume/Complete, restart recovery và thumbnail exclusion đều chạy xanh.
 
 ### P1 — Hiệu năng và khả năng mở rộng
 
-- Tạo fixture 100, 1.000, 10.000 và 50.000 media; ghi median/p95 cho mở popup, filter, render, Start Queue, long task và peak heap.
-- Chuyển các đường đọc profile lớn còn dùng `Array.from(store.values())` sang IndexedDB cursor/batch và filter theo dòng.
-- Thiết kế giới hạn cache RAM/LRU theo profile active và giải phóng cache sau job.
-- Prototype virtualization cho Picker, History, Queue, Following và Download Center; chỉ áp dụng nơi benchmark vượt budget.
+- Queue render/long-task đã có gate và window 50 row; tiếp tục đo History/Following/Download Center và Start Queue.
+- Count/Picker/download/CSV/Manifest đã dùng cursor và bounded result window.
+- Media cache LRU 3 profile/50.000 item đã hoàn thành; tiếp tục quan sát telemetry cục bộ trước khi thay đổi ngưỡng.
+- Queue windowing đã hoàn thành; chỉ áp dụng cho History/Following/Download Center khi benchmark vượt budget.
 - Tiếp tục tách `popup.ts` thành controller theo panel và typed store; hiện file vẫn trên 1.300 dòng.
-- Thiết kế pipeline HLS/MP4 không giữ đồng thời Blob và base64 data URL cho file lớn.
+- HLS/MP4 offscreen dùng Blob object URL và revoke lifecycle; không tạo base64 kép.
 
 ### P1 — Bảo mật, dữ liệu và type safety
 
-- Hoàn thiện typed response map cho popup/content consumer; loại dần `Promise<any>`, cast `any` và `@ts-ignore` tại content/page boundary.
+- Typed response map domain Queue đã hoàn thành; tiếp tục media/export/Following/Download Center và loại dần `any/@ts-ignore` ở page boundary.
 - Đánh giá chuyển Telegram, notification và tính năng ít dùng sang optional permission/optional host permission mà không làm hỏng UX cài đặt.
 - Thêm retention cho media cache, Queue, history và diagnostic; xây màn hình dung lượng theo profile, preview và xác nhận trước khi xóa.
 - Thêm quota-failure regression và kiểm tra batch transaction cho media/downloaded URL.
-- Đưa `npm audit --omit=dev` hoặc dependency review tương đương vào CI; lập quy trình kiểm kê/cập nhật thư viện vendored như JSZip.
+- Dependency lockfile review đã nằm trong `npm run check`; install script chỉ được allowlist theo package+version đã review.
 - Bổ sung security test cho secret fixture, replay operation cũ và message response sai schema.
 
 ### P1 — UI/UX và accessibility
 
-- Bổ sung thao tác Queue hàng loạt: retry lỗi, pause/resume mục được chọn, xóa completed và undo ngắn sau xóa.
-- Thêm disclosure từng Queue item cho số đã tải/bỏ qua/lỗi và nguyên nhân lỗi; toast không được là nguồn trạng thái duy nhất.
+- Queue bulk retry/pause/resume/xóa completed, undo 10 giây và disclosure kết quả từng item đã hoàn thành.
 - Chạy checklist 320/360/400 px, zoom 125–200%, chuỗi tiếng Việt dài, dark/light mode, keyboard, screen reader và WCAG AA.
 - Thêm screenshot regression cho Main, Picker, Queue, Stats, Following và Download Center.
 
@@ -264,12 +260,9 @@ Không gộp toàn bộ roadmap vào một release. Mỗi mốc nên có feature
 
 ## 12. Thứ tự triển khai tiếp theo
 
-1. Browser Queue lifecycle, Service Worker restart và fault injection.
-2. Benchmark fixture 1.000–50.000 media và peak heap.
-3. IndexedDB cursor/batch, cache bound và pipeline file lớn.
-4. Typed response map, giảm `any/@ts-ignore`, retention và dependency audit.
-5. Virtualization dựa trên kết quả benchmark; hoàn thiện Queue bulk/detail UI.
-6. Accessibility/screenshot acceptance trên Chrome thật.
-7. Following Scanner Feature 1 theo từng gate scan → preview → unfollow.
+1. Typed response map cho các domain còn lại, giảm `any/@ts-ignore` và thêm UI quản lý retention/dung lượng.
+2. Benchmark History/Following/Download Center và Start Queue; chỉ windowing nơi vượt budget.
+3. Accessibility/screenshot acceptance trên Chrome thật.
+4. Following Scanner Feature 1 theo từng gate scan → preview → unfollow.
 
-Không đánh dấu toàn bộ plan hoàn tất chỉ vì version 7.0.0 đã phát hành. Phase chỉ được đóng khi acceptance tương ứng có bằng chứng test/benchmark và được ghi lại trong quality gate.
+Không đánh dấu toàn bộ plan hoàn tất chỉ vì version 7.0.1 đã phát hành. Phase chỉ được đóng khi acceptance tương ứng có bằng chứng test/benchmark và được ghi lại trong quality gate.

@@ -1,14 +1,27 @@
 // @ts-nocheck
 import { fetchHLS } from '../lib/hls-fetcher.js';
 
-// Chuyển Blob thành base64 data URL (string) để trả về service worker
-// Service worker sau đó dùng chrome.downloads.download(dataUrl) — không bị lỗi cross-context
-function blobToDataUrl(blob) {
+function downloadBlob(blob, filename, task) {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(blob);
+    const blobUrl = URL.createObjectURL(blob);
+    chrome.downloads.download({ url: blobUrl, filename, conflictAction: 'uniquify', saveAs: false }, (downloadId) => {
+      if (chrome.runtime.lastError || !downloadId) {
+        URL.revokeObjectURL(blobUrl);
+        reject(new Error(chrome.runtime.lastError?.message || 'No downloadId returned'));
+        return;
+      }
+      task.downloadId = downloadId;
+      const listener = (delta) => {
+        if (delta.id !== downloadId || !delta.state) return;
+        if (delta.state.current !== 'complete' && delta.state.current !== 'interrupted') return;
+        chrome.downloads.onChanged.removeListener(listener);
+        URL.revokeObjectURL(blobUrl);
+        task.downloadId = undefined;
+        if (delta.state.current === 'complete') resolve(downloadId);
+        else reject(new Error(delta.error?.current || 'Download interrupted'));
+      };
+      chrome.downloads.onChanged.addListener(listener);
+    });
   });
 }
 
@@ -20,8 +33,8 @@ const hlsQueue = [];
 const hlsTasks = new Map();
 let hlsRunning = 0;
 
-function enqueueHLS(requestId, url, username) {
-  const task = { requestId, url, username, controller: new AbortController() };
+function enqueueHLS(requestId, url, username, filename) {
+  const task = { requestId, url, username, filename, controller: new AbortController(), downloadId: undefined };
   hlsTasks.set(requestId, task);
   hlsQueue.push(task);
   drainHLSQueue();
@@ -39,7 +52,8 @@ function drainHLSQueue() {
   }
 }
 
-async function processHLSTask({ requestId, url, username, controller }) {
+async function processHLSTask(task) {
+  const { requestId, url, username, filename, controller } = task;
   try {
     const blob = await fetchHLS(url, (fetched, total) => {
       chrome.runtime.sendMessage({
@@ -49,12 +63,12 @@ async function processHLSTask({ requestId, url, username, controller }) {
     }, { signal: controller.signal });
 
     if (controller.signal.aborted) throw new DOMException('Download cancelled', 'AbortError');
-    const dataUrl = await blobToDataUrl(blob);
+    const downloadId = await downloadBlob(blob, filename, task);
 
     chrome.runtime.sendMessage({
       type: 'HLS_DONE',
       requestId,
-      dataUrl,
+      downloadId,
     }).catch(() => {});
   } catch (err) {
     chrome.runtime.sendMessage({
@@ -71,7 +85,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   if (msg.type === 'DOWNLOAD_HLS') {
     // Đẩy vào queue (không await, không block listener)
-    enqueueHLS(msg.requestId, msg.url, msg.username);
+    enqueueHLS(msg.requestId, msg.url, msg.username, msg.filename);
     // Xác nhận đã nhận để SW không bị timeout message
     sendResponse({ queued: true });
     return false;
@@ -81,6 +95,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const task = hlsTasks.get(msg.requestId);
     if (task) {
       task.controller.abort();
+      if (task.downloadId) chrome.downloads.cancel(task.downloadId).catch(() => {});
       const queuedIndex = hlsQueue.indexOf(task);
       if (queuedIndex >= 0) {
         hlsQueue.splice(queuedIndex, 1);
@@ -128,8 +143,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         }
 
         const blob = new Blob(chunks, { type: 'video/mp4' });
-        const dataUrl = await blobToDataUrl(blob);
-        sendResponse({ ok: true, dataUrl });
+        const task = { downloadId: undefined };
+        const downloadId = await downloadBlob(blob, msg.filename, task);
+        sendResponse({ ok: true, downloadId });
       } catch (err) {
         sendResponse({ error: err.message });
       }

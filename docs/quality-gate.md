@@ -1,10 +1,10 @@
 # Quality gate và baseline hiện hành
 
-> Áp dụng cho phiên bản **7.0.0** | Cập nhật: 2026-09-30
+> Áp dụng cho phiên bản **7.0.1** | Cập nhật: 2026-10-01
 
-## Baseline hiện hành (v7.0.0)
+## Baseline hiện hành (v7.0.1)
 
-Gate 7.0.0 gồm typecheck, ESLint, **33 unit test**, 2 e2e fixture, production build, performance budget và release manifest SHA-256. Regression bao phủ migration Queue/Options/IndexedDB/Saved Jobs/history, runtime message mới và khả năng thay Chrome storage/Media repository bằng fake. `npm run test:browser` là gate riêng trong browser job vì cần Chromium có hỗ trợ extension.
+Gate hiện hành gồm typecheck, ESLint, **37 unit test**, 2 e2e fixture, **3 browser acceptance**, benchmark media 100–50.000, Chrome heap/DOM/long-task budget, dependency lockfile review, production build, performance budget và release manifest SHA-256. Regression bao phủ Queue schema v3, migration/rollback, bulk/undo/windowing, IndexedDB reject/stale operation, callback download timeout, media query window, bounded LRU cache, cursor download/export, Options/IndexedDB/Saved Jobs/history và runtime messages. `npm run test:browser` là gate riêng trong browser job vì cần Chromium có hỗ trợ extension.
 
 ## Lệnh bắt buộc
 
@@ -12,7 +12,7 @@ Chạy `npm run check` trước khi tạo PR. Lệnh này gồm TypeScript, ESLi
 
 Source map mặc định không được tạo trong artifact phát hành. Chỉ build nội bộ với `EXTENSIONX_INTERNAL_SOURCEMAP=true npm run build` mới sinh hidden source map.
 
-`npm run test:e2e` là regression tích hợp dùng fixture GraphQL đã khử dữ liệu nhận diện, kiểm tra filter/queue transition trên mọi máy và trong CI. `npm run test:browser` chạy extension build thật; Playwright route fixture trực tiếp trên origin tin cậy `https://x.com` và `https://web.telegram.org` để giữ nguyên sender validation. Suite kiểm tra Download Center khởi tạo được từ artifact, DOM fallback, tách state hai profile/tab, SPA navigation và luồng Telegram canvas/data URL. Manifest phát hành không bị thay đổi.
+`npm run test:e2e` là regression tích hợp dùng fixture GraphQL đã khử dữ liệu nhận diện, kiểm tra filter/queue transition trên mọi máy và trong CI. `npm run test:browser` chạy extension build thật; Playwright route fixture trực tiếp trên origin tin cậy `https://x.com` và `https://web.telegram.org` để giữ nguyên sender validation. Suite kiểm tra Download Center, DOM fallback, thumbnail exclusion, tách state hai profile/tab, SPA navigation, Queue double-Start/Stop/Resume/Complete, Service Worker recovery và Telegram canvas/data URL. Manifest phát hành không bị thay đổi.
 
 ## SLO khởi điểm
 

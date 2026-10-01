@@ -52,9 +52,9 @@ export interface QueueItem {
   keyword?: string;
   skipDuplicates: boolean;
   addedAt: number;
-  status: 'waiting' | 'downloading' | 'done' | 'error';
+  status: 'waiting' | 'downloading' | 'paused' | 'done' | 'error' | 'cancelled';
   mediaCount: number;
-  // Pha 12: tạm dừng — chỉ có ý nghĩa khi status === 'waiting', không phải state riêng
+  /** @deprecated Chỉ đọc khi migrate Queue schema v1/v2; schema v3 dùng status='paused'. */
   paused?: boolean;
   // TS-03: Typed result thay vì any
   result?: {
@@ -105,7 +105,7 @@ export interface CollectState {
 }
 
 export interface PendingHlsRequest {
-  resolve: (val: { dataUrl?: string }) => void;
+  resolve: (val: { dataUrl?: string; downloadId?: number }) => void;
   reject: (err: unknown) => void;
   timeoutId: ReturnType<typeof setTimeout>;
 }

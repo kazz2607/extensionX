@@ -2,7 +2,7 @@ import type { QueueItem } from '../types.ts';
 import { parseQueueItems } from './validation.ts';
 
 export const OPTIONS_SCHEMA_VERSION = 2;
-export const QUEUE_SCHEMA_VERSION = 2;
+export const QUEUE_SCHEMA_VERSION = 3;
 
 export interface QueueStorageSnapshot {
   schemaVersion: typeof QUEUE_SCHEMA_VERSION;
@@ -35,5 +35,12 @@ export function migrateQueueStorage(value: unknown): QueueStorageSnapshot {
 }
 
 export function createQueueStorageSnapshot(items: readonly QueueItem[]): QueueStorageSnapshot {
-  return { schemaVersion: QUEUE_SCHEMA_VERSION, items: items.map((item) => ({ ...item })) };
+  // Keep the on-disk item representation readable by v6.4/v7.0 rollback builds.
+  // Current runtime state is explicit `paused`; older builds understand waiting+paused.
+  return {
+    schemaVersion: QUEUE_SCHEMA_VERSION,
+    items: items.map((item) => item.status === 'paused'
+      ? { ...item, status: 'waiting', paused: true }
+      : { ...item, paused: undefined }),
+  };
 }

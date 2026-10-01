@@ -5,8 +5,9 @@
  */
 import type { QueueItem } from '../types.ts';
 import { getQueuePresentation } from '../shared/queue-presentation.ts';
+import type { MessageType, ResponseFor } from '../shared/messages.ts';
 
-export type SendBGFn = (type: string, payload?: Record<string, unknown>) => Promise<any>;
+export type SendBGFn = <T extends MessageType>(type: T, payload?: Record<string, unknown>) => Promise<ResponseFor<T> | null>;
 export type ShowToastFn = (msg: string, type?: string) => void;
 
 export interface QueuePanelDeps {
@@ -27,17 +28,35 @@ let _listBound = false;
 let _pendingProgress: QueueProgressPayload | null = null;
 let _progressFrame: number | null = null;
 const queueProgressById = new Map<string, { current: number; total: number; percent: number }>();
+const selectedQueueIds = new Set<string>();
 // P3: Cache chữ ký queue — tránh rebuild toàn bộ DOM nếu chỉ progress thay đổi
 let _lastQueueSignature = '';
+const QUEUE_RENDER_WINDOW = 50;
+let queueRenderLimit = QUEUE_RENDER_WINDOW;
 
 export function initQueuePanel(deps: QueuePanelDeps): void {
   _deps = deps;
+  document.getElementById('queue-bulk-actions')?.addEventListener('click', async (event) => {
+    const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button[data-bulk-action]') : null;
+    if (!button || !_deps || !button.dataset.bulkAction) return;
+    const res = await _deps.sendBG('QUEUE_BULK_ACTION', { action: button.dataset.bulkAction, ids: [...selectedQueueIds] });
+    if (res?.ok) {
+      selectedQueueIds.clear();
+      _deps.showToast(`Đã cập nhật ${Number(res.changed) || 0} mục`, 'success');
+    } else _deps.showToast(res?.error || 'Không thể cập nhật Queue', 'error');
+  });
   const list = document.getElementById('queue-list');
   if (list && !_listBound) {
     _listBound = true;
     list.addEventListener('click', async (event) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
+      if (target.closest('.queue-load-more')) {
+        queueRenderLimit += QUEUE_RENDER_WINDOW;
+        _lastQueueSignature = '';
+        renderQueue();
+        return;
+      }
       const button = target.closest<HTMLButtonElement>('button[data-id]');
       if (!button || !list.contains(button) || button.disabled || !_deps) return;
       event.stopPropagation();
@@ -74,7 +93,7 @@ export function initQueuePanel(deps: QueuePanelDeps): void {
       if (res?.ok) {
         _deps.showToast(action === 'pause' ? 'Hàng đợi đã tạm dừng' : 'Hàng đợi đã bắt đầu', 'success');
       } else {
-        _deps.showToast(res?.error || (action === 'pause' ? 'Không thể tạm dừng hàng đợi' : 'Không thể bắt đầu hàng đợi'), 'error');
+        _deps.showToast((res && 'error' in res ? res.error : '') || (action === 'pause' ? 'Không thể tạm dừng hàng đợi' : 'Không thể bắt đầu hàng đợi'), 'error');
       }
     } finally {
       startButton.disabled = false;
@@ -83,7 +102,7 @@ export function initQueuePanel(deps: QueuePanelDeps): void {
 }
 
 export async function loadQueue(): Promise<void> {
-  const res: any = await _deps!.sendBG('GET_QUEUE', {});
+  const res = await _deps!.sendBG('GET_QUEUE', {});
   downloadQueue = res?.queue || [];
   renderQueue();
 }
@@ -94,10 +113,10 @@ export function setQueueFromUpdate(queue: QueueItem[]): void {
 }
 
 function getQueueSignature(queue: QueueItem[]): string {
-  // Signature = id+status+paused của từng item, theo đúng thứ tự mảng — không bao
+  // Signature = id+status của từng item, theo đúng thứ tự mảng — không bao
   // gồm progress để progress update không trigger rebuild. Thứ tự mảng nằm trong
   // signature nên đổi chỗ (Pha 12 reorder) cũng kích hoạt rebuild đúng lúc.
-  return queue.map((q) => `${q.id}:${q.status}:${q.paused ? 1 : 0}`).join('|');
+  return queue.map((q) => `${q.id}:${q.status}:${q.result?.success ?? ''}:${q.result?.failed ?? ''}:${q.result?.skipped ?? ''}:${q.result?.error ?? ''}`).join('|');
 }
 
 export function renderQueue(): void {
@@ -165,13 +184,16 @@ export function renderQueue(): void {
     return;
   }
 
-  const statusLabels: Record<string, string> = { waiting: 'Chờ', downloading: 'Đang tải', done: 'Xong', error: 'Lỗi' };
+  const statusLabels: Record<string, string> = { waiting: 'Chờ', downloading: 'Đang tải', paused: 'Tạm dừng', done: 'Xong', error: 'Lỗi', cancelled: 'Đã hủy' };
   const filterIcons: Record<string, string> = { all: '📦', images: '🖼️', videos: '🎬', gifs: '🎞️' };
 
   const fragment = document.createDocumentFragment();
-  downloadQueue.forEach((item, index) => {
+  const visibleEntries = downloadQueue.slice(0, queueRenderLimit).map((item, index) => ({ item, index }));
+  const activeIndex = downloadQueue.findIndex((item) => item.status === 'downloading');
+  if (activeIndex >= queueRenderLimit && activeIndex >= 0) visibleEntries.push({ item: downloadQueue[activeIndex], index: activeIndex });
+  visibleEntries.forEach(({ item, index }) => {
     const icon = filterIcons[item.filterType || 'all'] || '📦';
-    const isPaused = item.status === 'waiting' && !!item.paused;
+    const isPaused = item.status === 'paused';
     const statusLabel = isPaused ? 'Tạm dừng' : statusLabels[item.status] || String(item.status || '');
     const metaText = item.result
       ? (item.result.error ? String(item.result.error).slice(0, 500) : `${Number(item.result.success) || 0}/${Number(item.result.total) || 0} files`)
@@ -184,11 +206,22 @@ export function renderQueue(): void {
     row.className = `queue-item status-${safeStatus}${isPaused ? ' paused' : ''}`;
     row.dataset.id = id;
     row.setAttribute('aria-label', `@${username}: ${statusLabel}`);
+    const select = document.createElement('input');
+    select.type = 'checkbox'; select.className = 'queue-select'; select.checked = selectedQueueIds.has(id);
+    select.setAttribute('aria-label', `Chọn @${username}`);
+    select.addEventListener('change', () => select.checked ? selectedQueueIds.add(id) : selectedQueueIds.delete(id));
     const avatar = document.createElement('div'); avatar.className = 'queue-item-avatar'; avatar.textContent = username.slice(0, 2).toUpperCase();
     const info = document.createElement('div'); info.className = 'queue-item-info';
     const name = document.createElement('div'); name.className = 'queue-item-name'; name.textContent = `@${username}`;
     const meta = document.createElement('div'); meta.className = 'queue-item-meta'; meta.textContent = metaText;
     info.append(name, meta);
+    if (item.result) {
+      const details = document.createElement('details'); details.className = 'queue-result-details';
+      const detailsSummary = document.createElement('summary'); detailsSummary.textContent = 'Chi tiết';
+      const detailText = document.createElement('div');
+      detailText.textContent = `Thành công ${item.result.success} · Bỏ qua ${item.result.skipped} · Lỗi ${item.result.failed}${item.result.error ? ` · ${String(item.result.error).slice(0, 300)}` : ''}`;
+      details.append(detailsSummary, detailText); info.append(details);
+    }
     if (item.status === 'downloading') {
       const count = document.createElement('span'); count.className = 'queue-file-count'; count.id = `qfc-${id}`; count.textContent = '📥 đang tải...'; info.append(count);
     }
@@ -197,7 +230,7 @@ export function renderQueue(): void {
     // Pha 12: Quản lý hàng đợi nâng cao — pause/reorder/retry
     const actions = document.createElement('div');
     actions.className = 'queue-item-actions';
-    if (item.status === 'waiting') {
+    if (item.status === 'waiting' || item.status === 'paused') {
       const up = document.createElement('button');
       up.className = 'btn-queue-move'; up.dataset.id = id; up.dataset.dir = 'up';
       up.title = 'Di chuyển lên'; up.textContent = '▲'; up.disabled = index === 0;
@@ -224,9 +257,15 @@ export function renderQueue(): void {
     action.setAttribute('aria-label', `${canRemove ? 'Xóa khỏi hàng đợi' : 'Dừng tải'} @${username}`);
     actions.append(action);
 
-    row.append(avatar, info, status, actions);
+    row.append(select, avatar, info, status, actions);
     fragment.append(row);
   });
+  if (queueRenderLimit < downloadQueue.length) {
+    const more = document.createElement('li'); more.className = 'queue-load-more-row';
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'queue-load-more';
+    button.textContent = `Hiển thị thêm (${downloadQueue.length - queueRenderLimit})`;
+    more.append(button); fragment.append(more);
+  }
   list.replaceChildren(fragment);
 
   // Restore live progress bar nếu có item đang downloading
@@ -308,7 +347,7 @@ export async function addCurrentToQueue(input: AddToQueueInput): Promise<void> {
     _deps!.showToast('Chưa có media — hãy thu thập trước', 'error');
     return;
   }
-  const res: any = await _deps!.sendBG('ADD_TO_QUEUE', {
+  const res = await _deps!.sendBG('ADD_TO_QUEUE', {
     username: input.username,
     filterType: input.filterType,
     skipDuplicates: input.skipDuplicates,

@@ -1,10 +1,12 @@
 import type { DownloadOptions, MediaItem, SavedJobInput } from '../types.ts';
+import type { QueueItem } from '../types.ts';
 
 export type MessageType =
   | 'MEDIA_FOUND' | 'PAGE_LOADED' | 'GET_MEDIA_COUNT' | 'GET_STATS' | 'GET_ALL_USERNAMES' | 'GET_TAB_STATE'
   | 'CLEAR_MEDIA' | 'START_COLLECTING' | 'STOP_COLLECTING' | 'START_DOWNLOAD' | 'ADD_TO_QUEUE'
   | 'REMOVE_FROM_QUEUE' | 'GET_QUEUE' | 'CLEAR_QUEUE' | 'START_QUEUE' | 'GET_DOWNLOAD_STATE'
   | 'RETRY_QUEUE_ITEM' | 'TOGGLE_QUEUE_PAUSE' | 'REORDER_QUEUE_ITEM'
+  | 'QUEUE_BULK_ACTION'
   | 'DIAGNOSTIC_METRIC' | 'EXPORT_LOCAL_DIAGNOSTICS' | 'CLEAR_LOCAL_DIAGNOSTICS' | 'GET_MEDIA_COUNT_FILTERED'
   | 'GET_MEDIA_ITEMS_FILTERED'
   | 'GET_DOWNLOADED_COUNT' | 'CLEAR_DOWNLOADED' | 'CLEAR_ALL_DOWNLOADED' | 'EXPORT_CSV' | 'EXPORT_MANIFEST' | 'DOWNLOAD_TWEET'
@@ -30,6 +32,7 @@ export type ExtensionMessage =
   | { type: 'ADD_TO_QUEUE'; payload: UsernamePayload & { filterType?: string; skipDuplicates?: boolean; keyword?: string } }
   | { type: 'REMOVE_FROM_QUEUE' | 'RETRY_QUEUE_ITEM' | 'TOGGLE_QUEUE_PAUSE'; payload: { id: string } }
   | { type: 'REORDER_QUEUE_ITEM'; payload: { id: string; direction: 'up' | 'down' } }
+  | { type: 'QUEUE_BULK_ACTION'; payload: { action: 'retry_errors' | 'pause_selected' | 'resume_selected' | 'clear_completed' | 'undo_clear_completed'; ids?: string[] } }
   | { type: 'EXPORT_CSV'; payload: UsernamePayload & { filterType?: string; offset?: number } }
   | { type: 'DOWNLOAD_TWEET'; payload: { username: string; tweetId: string } }
   | { type: 'UPDATE_BEARER'; payload: { bearer: string } }
@@ -48,8 +51,24 @@ export type ParsedRuntimeMessage = ExtensionMessage | {
   payload?: never;
   requestId: string;
   dataUrl?: string;
+  downloadId?: number;
   error?: string;
 };
+
+export interface MessageResponseMap {
+  GET_QUEUE: { queue: QueueItem[] };
+  ADD_TO_QUEUE: { ok?: boolean; queue?: QueueItem[]; error?: string };
+  START_QUEUE: { ok?: boolean; error?: string };
+  STOP_DOWNLOAD: { ok: boolean; resetQueueItems?: number };
+  RETRY_QUEUE_ITEM: { ok: boolean };
+  TOGGLE_QUEUE_PAUSE: { ok: boolean };
+  REORDER_QUEUE_ITEM: { ok: boolean };
+  QUEUE_BULK_ACTION: { ok?: boolean; changed?: number; removed?: QueueItem[]; error?: string };
+}
+
+export type ResponseFor<T extends MessageType> = T extends keyof MessageResponseMap
+  ? MessageResponseMap[T]
+  : any;
 
 const MAX_MESSAGE_BYTES = 256_000;
 const MESSAGE_TYPES: ReadonlySet<string> = new Set<MessageType>([
@@ -57,6 +76,7 @@ const MESSAGE_TYPES: ReadonlySet<string> = new Set<MessageType>([
   'CLEAR_MEDIA', 'START_COLLECTING', 'STOP_COLLECTING', 'START_DOWNLOAD', 'ADD_TO_QUEUE',
   'REMOVE_FROM_QUEUE', 'GET_QUEUE', 'CLEAR_QUEUE', 'START_QUEUE', 'GET_DOWNLOAD_STATE',
   'RETRY_QUEUE_ITEM', 'TOGGLE_QUEUE_PAUSE', 'REORDER_QUEUE_ITEM',
+  'QUEUE_BULK_ACTION',
   'DIAGNOSTIC_METRIC', 'EXPORT_LOCAL_DIAGNOSTICS', 'CLEAR_LOCAL_DIAGNOSTICS', 'GET_MEDIA_COUNT_FILTERED',
   'GET_MEDIA_ITEMS_FILTERED',
   'GET_DOWNLOADED_COUNT', 'CLEAR_DOWNLOADED', 'CLEAR_ALL_DOWNLOADED', 'EXPORT_CSV', 'EXPORT_MANIFEST', 'DOWNLOAD_TWEET',
@@ -74,6 +94,7 @@ const PAYLOAD_KEYS: Readonly<Record<MessageType, readonly string[]>> = {
   START_DOWNLOAD: ['username', 'options'], ADD_TO_QUEUE: ['username', 'filterType', 'skipDuplicates', 'keyword'],
   REMOVE_FROM_QUEUE: ['id'], GET_QUEUE: [], CLEAR_QUEUE: [], START_QUEUE: [], GET_DOWNLOAD_STATE: [],
   RETRY_QUEUE_ITEM: ['id'], TOGGLE_QUEUE_PAUSE: ['id'], REORDER_QUEUE_ITEM: ['id', 'direction'],
+  QUEUE_BULK_ACTION: ['action', 'ids'],
   DIAGNOSTIC_METRIC: ['name', 'value'], EXPORT_LOCAL_DIAGNOSTICS: [], CLEAR_LOCAL_DIAGNOSTICS: [],
   GET_MEDIA_COUNT_FILTERED: ['username', 'filterType', 'dateFrom', 'dateTo', 'keyword'],
   GET_MEDIA_ITEMS_FILTERED: ['username', 'filterType', 'dateFrom', 'dateTo', 'keyword'],
@@ -97,11 +118,12 @@ export function parseExtensionMessage(value: unknown): ParsedRuntimeMessage | nu
   if (type === 'HLS_DONE' && (
     typeof candidate.requestId !== 'string' || candidate.requestId.length < 1 || candidate.requestId.length > 160 ||
     (candidate.dataUrl !== undefined && typeof candidate.dataUrl !== 'string') ||
+    (candidate.downloadId !== undefined && (!Number.isInteger(candidate.downloadId) || Number(candidate.downloadId) <= 0)) ||
     (candidate.error !== undefined && (typeof candidate.error !== 'string' || candidate.error.length > 1_000))
   )) return null;
   if (type !== 'HLS_DONE' && PAYLOAD_KEYS[type].length > 0 && candidate.payload === undefined) return null;
   const allowedEnvelopeKeys = type === 'HLS_DONE'
-    ? new Set(['type', 'requestId', 'dataUrl', 'error'])
+    ? new Set(['type', 'requestId', 'dataUrl', 'downloadId', 'error'])
     : new Set(['type', 'payload']);
   if (Object.keys(candidate).some((key) => !allowedEnvelopeKeys.has(key))) return null;
   if (candidate.payload !== undefined && (candidate.payload === null || typeof candidate.payload !== 'object' || Array.isArray(candidate.payload))) return null;

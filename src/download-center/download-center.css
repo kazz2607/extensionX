@@ -52,6 +52,7 @@ input:focus, select:focus, button:focus-visible { border-color: var(--accent); b
 .danger, .mini-button.danger { color: #fecdd3; border-color: rgba(251,113,133,.3); background: rgba(251,113,133,.12); }
 .status { display: inline-flex; margin-left: 7px; padding: 3px 8px; border-radius: 999px; font-size: 10px; font-weight: 800; text-transform: uppercase; background: rgba(145,164,183,.14); color: var(--muted); }
 .status.downloading { color: var(--accent-2); background: rgba(69,182,255,.13); }
+.status.paused, .status.cancelled { color: var(--warning); background: rgba(251,191,36,.12); }
 .status.done, .status.completed { color: var(--success); background: rgba(74,222,128,.12); }
 .status.error, .status.failed { color: var(--danger); background: rgba(251,113,133,.12); }
 .status.partial { color: var(--warning); background: rgba(251,191,36,.12); }

@@ -64,14 +64,14 @@ function renderQueue(): void {
     const row = document.createElement('article'); row.className = 'item';
     const main = document.createElement('div');
     const title = document.createElement('h3'); title.className = 'item-title'; title.textContent = `@${item.username}`;
-    const badge = document.createElement('span'); badge.className = `status ${item.status}`; badge.textContent = item.paused ? 'paused' : item.status; title.append(badge);
+    const badge = document.createElement('span'); badge.className = `status ${item.status}`; badge.textContent = item.status; title.append(badge);
     const meta = document.createElement('p'); meta.className = 'item-meta'; meta.textContent = `${item.mediaCount} media · ${item.filterType}${item.keyword ? ` · “${item.keyword}”` : ''}`;
     main.append(title, meta);
     const detail = document.createElement('div'); detail.className = 'item-detail';
     detail.textContent = item.result ? `${item.result.success}/${item.result.total} thành công · ${item.result.failed} lỗi · ${item.result.skipped} bỏ qua` : new Date(item.addedAt).toLocaleString('vi-VN');
     const actions = document.createElement('div'); actions.className = 'item-actions';
     if (item.status === 'error') actions.append(button('Thử lại', 'retry-queue', item.id));
-    if (item.status === 'waiting') actions.append(button(item.paused ? 'Tiếp tục' : 'Tạm dừng', 'toggle-queue', item.id));
+    if (item.status === 'waiting' || item.status === 'paused') actions.append(button(item.status === 'paused' ? 'Tiếp tục' : 'Tạm dừng', 'toggle-queue', item.id));
     actions.append(button(item.status === 'downloading' ? 'Dừng' : 'Xóa', item.status === 'downloading' ? 'stop' : 'remove-queue', item.id, item.status === 'downloading'));
     row.append(main, detail, actions); fragment.append(row);
   }

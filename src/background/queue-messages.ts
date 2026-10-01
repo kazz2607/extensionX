@@ -4,6 +4,8 @@ import { isValidUsername } from '../shared/validation.ts';
 import { downloadCoordinator, mediaStore } from './state.ts';
 import {
   broadcastQueueUpdate,
+  bulkQueueAction,
+  loadPersistedQueue,
   moveQueueItem,
   persistQueue,
   profileQueue,
@@ -27,7 +29,7 @@ export const handleQueueMessage: DomainMessageHandler = (message, _sender, sendR
           (keyword !== undefined && (typeof keyword !== 'string' || keyword.length > 200))) {
         sendResponse({ error: 'Invalid queue item' }); return false;
       }
-      const exists = profileQueue.find(q => q.username === username && (q.status === 'waiting' || q.status === 'downloading'));
+      const exists = profileQueue.find(q => q.username === username && ['waiting', 'paused', 'downloading'].includes(q.status));
       if (exists) { sendResponse({ error: 'Already in queue' }); return false; }
 
       const item: QueueItem = {
@@ -79,8 +81,17 @@ export const handleQueueMessage: DomainMessageHandler = (message, _sender, sendR
       sendResponse({ ok: moveQueueItem(id, direction) });
       return false;
     }
+    case 'QUEUE_BULK_ACTION': {
+      const { action, ids = [] } = payload || {};
+      if (!['retry_errors', 'pause_selected', 'resume_selected', 'clear_completed', 'undo_clear_completed'].includes(String(action)) ||
+          !Array.isArray(ids) || ids.length > 500 || ids.some((id) => typeof id !== 'string' || !QUEUE_ID_PATTERN.test(id))) {
+        sendResponse({ error: 'Invalid Queue bulk action' }); return false;
+      }
+      sendResponse({ ok: true, ...bulkQueueAction(action as 'retry_errors' | 'pause_selected' | 'resume_selected' | 'clear_completed' | 'undo_clear_completed', ids) });
+      return false;
+    }
     case 'GET_QUEUE':
-      sendResponse({ queue: profileQueue });
+      void loadPersistedQueue().then(() => sendResponse({ queue: profileQueue }));
       return true;
     case 'CLEAR_QUEUE':
       setProfileQueue(profileQueue.filter(q => q.status === 'downloading'));

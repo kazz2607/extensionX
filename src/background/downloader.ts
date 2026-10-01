@@ -1,11 +1,13 @@
 
-import { mediaStore, downloadedStore, tabState, downloadCoordinator, pendingHlsRequests, activeDownloads } from './state.ts';
+import { mediaStore, downloadedStore, tabState, downloadCoordinator, pendingHlsRequests, activeDownloads, trimMediaCache } from './state.ts';
 import { broadcastToPopup, broadcastToTab, sanitizeFolder, broadcastFABState } from './utils.ts';
 import { showDownloadNotification, fetchVideoForTweetWithRefresh, loadDownloadedUrls, isAlreadyDownloaded, markDownloaded, ensureMediaStoreLoaded } from './scraper.ts';
 import { startNextInQueue, profileQueue, persistQueueImmediately, broadcastQueueUpdate } from './queue.ts';
 import { DownloadOptions, MediaItem, ManifestItem } from '../types.ts';
 import { mediaRepository } from './indexeddb.ts';
+import { createTimedSettlement } from '../shared/timed-settlement.ts';
 import { isTrustedMediaUrl, sanitizeFilename } from '../shared/validation.ts';
+import { createMediaMatcher } from '../shared/media-query.ts';
 import { renderFilenameTemplate } from '../shared/filename-template.ts';
 import { formatDownloadError } from '../shared/download-errors.ts';
 import { recordDiagnostic } from './diagnostics.ts';
@@ -199,7 +201,9 @@ async function downloadSingleItem(
       });
     }).finally(scheduleOffscreenClose);
     if (isCancelled()) throw new Error('Download cancelled');
-    await downloadFile((res as { dataUrl: string }).dataUrl, filename, username);
+    const hlsResult = res as { dataUrl?: string; downloadId?: number };
+    if (!hlsResult.downloadId && hlsResult.dataUrl) await downloadFile(hlsResult.dataUrl, filename, username);
+    else if (!hlsResult.downloadId) throw new Error('HLS download did not return a download id');
   } else {
     if (isCancelled()) throw new Error('Download cancelled');
     await downloadFile(item.url, filename, username);
@@ -321,16 +325,6 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
   if (!claimed) return;
   const operationId = claimed.id;
 
-  const store = await ensureMediaStoreLoaded(username);
-  if (!downloadCoordinator.isCurrent(operationId)) return;
-  if (!store?.size) {
-    downloadCoordinator.settle(operationId, 'error');
-    console.warn(`[SW] startDownload: Không tìm thấy media nào cho @${username}`);
-    await recordDownloadHistory(username, options.filterType ?? 'all', { success: 0, failed: 1, skipped: 0 }).catch(() => {});
-    downloadCoordinator.release(operationId);
-    broadcastToPopup('DOWNLOAD_DONE', { username, success: 0, failed: 0, total: 0, skipped: 0, errors: ['Không tìm thấy media nào trong bộ nhớ để tải'] });
-    return;
-  }
   activeErrors = [];
   _lastDownloadUsername = username;
   _lastDownloadOptions = options;
@@ -346,46 +340,34 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
   } catch (_) {}
   if (!downloadCoordinator.isCurrent(operationId)) return;
 
-  // Lọc theo filter type
-  // Old IndexedDB sessions may contain video posters collected by earlier versions.
-  // They are previews, not standalone profile images, so never download them.
+  // Cold profiles stream from IndexedDB and retain only download candidates;
+  // they are not promoted into the global RAM cache.
   let items: MediaItem[] = [];
-  for (const item of store.values()) {
-    if (item.type !== 'image' || !isVideoThumbnailUrl(item.url)) items.push(item);
-  }
-  if (options.filterType && options.filterType !== 'all') {
-    if (options.filterType === 'images') items = items.filter(i => i.type === 'image');
-    else if (options.filterType === 'videos') items = items.filter(i => i.type === 'video' || i.type === 'hls');
-    else if (options.filterType === 'gifs') items = items.filter(i => i.type === 'gif');
-  }
-
-  // Pha 9: Interactive Download Picker — chỉ tải các URL người dùng đã chọn
-  // (vẫn để date/keyword/dedup filter phía dưới áp dụng tiếp lên phần đã chọn)
-  if (options.selectedUrls?.length) {
-    const selected = new Set(options.selectedUrls);
-    items = items.filter(i => selected.has(i.url));
-  }
-
-  // v4.3.0: Lọc theo Date Range
-  const dateFrom = options.dateFrom ? new Date(options.dateFrom).getTime() : 0;
-  const dateTo   = options.dateTo   ? new Date(options.dateTo + 'T23:59:59Z').getTime() : Infinity;
-  if (options.dateFrom || options.dateTo) {
-    const beforeDate = items.length;
-    items = items.filter(item => {
-      const d = item.tweetDate || 0;
-      return d >= dateFrom && d <= dateTo;
-    });
-    const dateFiltered = beforeDate - items.length;
-    if (dateFiltered > 0) console.log(`[SW] Date filter: ${dateFiltered} items ngoài khoảng ngày — bỏ qua`);
-  }
-
-  // v4.8.0: Lọc theo Keyword
-  if (options.keyword && options.keyword.trim()) {
-    const kw = options.keyword.toLowerCase().trim();
-    const beforeKw = items.length;
-    items = items.filter(item => (item.tweetText || '').toLowerCase().includes(kw));
-    const kwFiltered = beforeKw - items.length;
-    if (kwFiltered > 0) console.log(`[SW] Keyword filter: ${kwFiltered} items không chứa keyword — bỏ qua`);
+  const matches = createMediaMatcher(options);
+  const selected = options.selectedUrls?.length ? new Set(options.selectedUrls) : null;
+  const collect = (item: MediaItem) => {
+    if (item.type === 'image' && isVideoThumbnailUrl(item.url)) return;
+    if (matches(item) && (!selected || selected.has(item.url))) items.push(item);
+  };
+  try {
+    const cached = mediaStore.get(username);
+    if (cached) for (const item of cached.values()) collect(item);
+    else await mediaRepository.visitMediaItems(username, collect);
+  } catch (error) {
+    if (!downloadCoordinator.isCurrent(operationId)) return;
+    const qItem = options._queueId ? profileQueue.find((item) => item.id === options._queueId) : undefined;
+    const transitioned = qItem && transitionQueueItem(qItem, 'error');
+    if (qItem && transitioned) {
+      Object.assign(qItem, transitioned);
+      qItem.result = { success: 0, failed: 0, total: 0, skipped: 0, error: 'Media storage unavailable' };
+      await persistQueueImmediately();
+      broadcastQueueUpdate();
+    }
+    downloadCoordinator.settle(operationId, 'error');
+    downloadCoordinator.release(operationId);
+    console.warn('[SW] Download media cursor failed:', error instanceof Error ? error.message : String(error));
+    if (options._fromQueue) setTimeout(() => void startNextInQueue(), 0);
+    return;
   }
 
   // v4.1.0: Duplicate Detection — load downloaded URLs rồi lọc ra
@@ -401,7 +383,8 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
   }
 
   if (!items.length) {
-    downloadCoordinator.settle(operationId, 'completed');
+    const emptyIsError = skipped === 0;
+    downloadCoordinator.settle(operationId, emptyIsError ? 'error' : 'completed');
     stopKeepAlive();
     // Thông báo nếu tất cả đã được tải rồi
     if (skipped > 0) {
@@ -411,15 +394,16 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
     }
     if (options._fromQueue && options._queueId) {
       const qItem = profileQueue.find(q => q.id === options._queueId);
-      const transitioned = qItem && transitionQueueItem(qItem, 'done');
+      const transitioned = qItem && transitionQueueItem(qItem, emptyIsError ? 'error' : 'done');
       if (qItem && transitioned) {
         Object.assign(qItem, transitioned);
-        qItem.result = { success: 0, failed: 0, total: 0, skipped };
+        qItem.result = { success: 0, failed: 0, total: 0, skipped, ...(emptyIsError ? { error: 'No media found' } : {}) };
         await persistQueueImmediately();
         broadcastQueueUpdate();
       }
     }
     downloadCoordinator.release(operationId);
+    trimMediaCache();
     if (options._fromQueue) setTimeout(() => void startNextInQueue(), 0);
     return;
   }
@@ -607,6 +591,7 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
 
     downloadCoordinator.settle(operationId, failed === total && total > 0 ? 'error' : 'completed');
     downloadCoordinator.release(operationId);
+    trimMediaCache();
     // Only a completed Queue job may advance the Queue, after releasing the slot.
     if (options._fromQueue) setTimeout(() => void startNextInQueue(), 500);
   }
@@ -639,32 +624,15 @@ function downloadFile(url: string, filename: string, username: string): Promise<
   if (!url.startsWith('data:') && !isTrustedMediaUrl(url)) {
     return Promise.reject(new Error('Blocked untrusted download URL'));
   }
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const startTime = Date.now();
+  const settlement = createTimedSettlement<number>(
+    DOWNLOAD_TIMEOUT_MS,
+    () => new Error(`Download timeout (90s): ${filename.split('/').pop()}`),
+  );
+  const startTime = Date.now();
+  const safeResolve = (value: number) => { settlement.resolve(value); };
+  const safeReject = (error: Error) => { settlement.reject(error); };
 
-    // Timeout 90 giây
-    const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      reject(new Error(`Download timeout (90s): ${filename.split('/').pop()}`));
-    }, DOWNLOAD_TIMEOUT_MS);
-
-    function safeResolve(val: number) {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      resolve(val);
-    }
-
-    function safeReject(err: Error) {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      reject(err);
-    }
-
-    chrome.downloads.download(
+  chrome.downloads.download(
       { url, filename, conflictAction: 'uniquify', saveAs: false },
       (downloadId) => {
         if (chrome.runtime.lastError) {
@@ -709,8 +677,8 @@ function downloadFile(url: string, filename: string, username: string): Promise<
           }
         });
       }
-    );
-  });
+  );
+  return settlement.promise;
 }
 
 // ─── Build Download Path ─────────────────────────────────────────────────────────
@@ -778,17 +746,18 @@ function buildFilename(item: MediaItem, username = '', filenameUsername = false,
 // Trả về metadata để popup biết có bị truncate hay không.
 const CSV_ROW_LIMIT = 10_000;
 
-function buildCSV(username: string, filterType = 'all', offset = 0) {
-  const store = mediaStore.get(username);
-  if (!store) return { csv: '', total: 0, exported: 0, truncated: false };
-
-  let items = Array.from(store.values());
-  if (filterType === 'images') items = items.filter(i => i.type === 'image');
-  else if (filterType === 'videos') items = items.filter(i => i.type === 'video' || i.type === 'hls');
-  else if (filterType === 'gifs') items = items.filter(i => i.type === 'gif');
-
-  const total = items.length;
-  const page = items.slice(offset, offset + CSV_ROW_LIMIT);
+async function buildCSV(username: string, filterType = 'all', offset = 0) {
+  const page: MediaItem[] = [];
+  let total = 0;
+  const accept = (item: MediaItem) => filterType === 'all' ||
+    (filterType === 'images' && item.type === 'image') ||
+    (filterType === 'videos' && (item.type === 'video' || item.type === 'hls')) ||
+    (filterType === 'gifs' && item.type === 'gif');
+  await mediaRepository.visitMediaItems(username, (item) => {
+    if (!accept(item)) return;
+    if (total >= offset && page.length < CSV_ROW_LIMIT) page.push(item);
+    total++;
+  });
   const truncated = total > offset + CSV_ROW_LIMIT;
 
   const header = 'url,type,ext,tweetId,mediaKey,tweetDate,addedAt\n';
@@ -810,19 +779,18 @@ function buildCSV(username: string, filterType = 'all', offset = 0) {
 const MANIFEST_ITEM_LIMIT = 10_000; // đồng bộ với CSV_ROW_LIMIT
 
 async function buildManifest(username: string): Promise<{ json: string; csv: string; total: number; exported: number; truncated: boolean }> {
-  const [downloadedRecords, mediaItems, allHistory] = await Promise.all([
-    mediaRepository.getDownloadedUrlRecords(username),
-    mediaRepository.getMediaItems(username) as Promise<MediaItem[]>,
-    listDownloadHistory(),
-  ]);
-
-  // Ghép downloaded_urls (biết url nào đã tải, khi nào) với media_items (metadata
-  // tweet nếu item đó vẫn còn trong IndexedDB tại thời điểm export — có thể đã bị
-  // dọn nếu người dùng Clear Media sau khi tải).
-  const mediaByUrl = new Map<string, MediaItem>(mediaItems.map((item) => [item.url, item]));
-
-  const total = downloadedRecords.length;
-  const page = downloadedRecords.slice(0, MANIFEST_ITEM_LIMIT);
+  const page: Array<{ url: string; addedAt: number }> = [];
+  let total = 0;
+  await mediaRepository.visitDownloadedUrlRecords(username, (record) => {
+    total++;
+    if (page.length < MANIFEST_ITEM_LIMIT) page.push(record);
+  });
+  const requestedUrls = new Set(page.map((record) => record.url));
+  const mediaByUrl = new Map<string, MediaItem>();
+  await mediaRepository.visitMediaItems(username, (item) => {
+    if (requestedUrls.has(item.url)) mediaByUrl.set(item.url, item);
+  });
+  const allHistory = await listDownloadHistory();
   const truncated = total > MANIFEST_ITEM_LIMIT;
 
   const items: ManifestItem[] = page.map((record) => {
@@ -841,7 +809,7 @@ async function buildManifest(username: string): Promise<{ json: string; csv: str
   const history = allHistory.filter((entry) => entry.username === username);
 
   const json = JSON.stringify({
-    _version: '7.0.0',
+    _version: '7.0.1',
     _exportedAt: new Date().toISOString(),
     username,
     history,

@@ -9,11 +9,26 @@ import type { ParsedRuntimeMessage } from '../shared/messages.ts';
 import { recordDiagnostic } from './diagnostics.ts';
 import { isTelegramWebUrl } from '../shared/telegram-media.ts';
 import type { Stats, MediaItem } from '../types.ts';
+import { collectMediaMatches, createMediaMatcher, type MediaQueryCriteria } from '../shared/media-query.ts';
 
 const MAX_MEDIA_BATCH = 200;
 const MEDIA_PROCESS_CONCURRENCY = 4;
 const PICKER_ITEM_LIMIT = 200; // Pha 9: Interactive Download Picker — cap số item trả về để hiển thị
 const ALLOWED_DIAGNOSTIC_METRICS = new Set(['scan.duration_ms', 'observer.callback']);
+
+async function queryProfileMedia(username: string, criteria: MediaQueryCriteria, limit = Infinity): Promise<{ items: MediaItem[]; total: number }> {
+  const cached = mediaStore.get(username);
+  if (cached) return collectMediaMatches(cached.values(), criteria, limit);
+  const matches = createMediaMatcher(criteria);
+  const items: MediaItem[] = [];
+  let total = 0;
+  await mediaRepository.visitMediaItems(username, (item) => {
+    if (!matches(item)) return;
+    total++;
+    if (items.length < limit) items.push(item);
+  });
+  return { items, total };
+}
 
 async function runWithConcurrency<T>(items: readonly T[], limit: number, worker: (item: T) => Promise<void>): Promise<void> {
   let cursor = 0;
@@ -47,7 +62,7 @@ export function handleMediaMessage(
       clearTimeout(pending.timeoutId);
       pendingHlsRequests.delete(message.requestId);
       if (message.error) pending.reject(new Error(message.error));
-      else pending.resolve({ dataUrl: message.dataUrl });
+      else pending.resolve({ dataUrl: message.dataUrl, downloadId: message.downloadId });
     }
     return false;
   }
@@ -246,34 +261,8 @@ export function handleMediaMessage(
           (keyword !== undefined && (typeof keyword !== 'string' || keyword.length > 1_000))) {
           sendResponse({ error: 'Invalid media filter' }); return;
         }
-        const store = await ensureMediaStoreLoaded(username);
-        if (!store) { sendResponse({ count: 0 }); return; }
-
-        let items = Array.from(store.values());
-
-        // Filter theo type
-        if (filterType && filterType !== 'all') {
-          if (filterType === 'images') items = items.filter(i => i.type === 'image');
-          else if (filterType === 'videos') items = items.filter(i => i.type === 'video' || i.type === 'hls');
-          else if (filterType === 'gifs') items = items.filter(i => i.type === 'gif');
-        }
-
-        // Filter theo date range
-        if (dateFrom || dateTo) {
-          const from = dateFrom ? new Date(dateFrom).getTime() : 0;
-          const to   = dateTo  ? new Date(dateTo + 'T23:59:59Z').getTime() : Infinity;
-          items = items.filter(item => {
-            const d = item.tweetDate || 0;
-            return d >= from && d <= to;
-          });
-        }
-        // v4.8.0: Filter theo keyword
-        if (keyword && keyword.trim()) {
-          const kw = keyword.toLowerCase().trim();
-          items = items.filter(item => (item.tweetText || '').toLowerCase().includes(kw));
-        }
-
-        sendResponse({ count: items.length });
+        const result = await queryProfileMedia(username, { filterType, dateFrom, dateTo, keyword });
+        sendResponse({ count: result.total });
       })();
       return true;
     }
@@ -288,36 +277,8 @@ export function handleMediaMessage(
           (keyword !== undefined && (typeof keyword !== 'string' || keyword.length > 1_000))) {
           sendResponse({ error: 'Invalid media filter' }); return;
         }
-        const store = await ensureMediaStoreLoaded(username);
-        if (!store) { sendResponse({ items: [], total: 0, truncated: false }); return; }
-
-        let items = Array.from(store.values());
-
-        // Filter theo type
-        if (filterType && filterType !== 'all') {
-          if (filterType === 'images') items = items.filter(i => i.type === 'image');
-          else if (filterType === 'videos') items = items.filter(i => i.type === 'video' || i.type === 'hls');
-          else if (filterType === 'gifs') items = items.filter(i => i.type === 'gif');
-        }
-
-        // Filter theo date range
-        if (dateFrom || dateTo) {
-          const from = dateFrom ? new Date(dateFrom).getTime() : 0;
-          const to   = dateTo  ? new Date(dateTo + 'T23:59:59Z').getTime() : Infinity;
-          items = items.filter(item => {
-            const d = item.tweetDate || 0;
-            return d >= from && d <= to;
-          });
-        }
-        // Filter theo keyword
-        if (keyword && keyword.trim()) {
-          const kw = keyword.toLowerCase().trim();
-          items = items.filter(item => (item.tweetText || '').toLowerCase().includes(kw));
-        }
-
-        const total = items.length;
-        const truncated = total > PICKER_ITEM_LIMIT;
-        sendResponse({ items: items.slice(0, PICKER_ITEM_LIMIT), total, truncated });
+        const result = await queryProfileMedia(username, { filterType, dateFrom, dateTo, keyword }, PICKER_ITEM_LIMIT);
+        sendResponse({ items: result.items, total: result.total, truncated: result.total > PICKER_ITEM_LIMIT });
       })();
       return true;
     }

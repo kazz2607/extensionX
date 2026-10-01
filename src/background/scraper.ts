@@ -1,5 +1,5 @@
 
-import { mediaStore, dirtyMediaStore, statsStore, tabState, downloadedStore, userCsrfToken, setCsrfToken } from './state.ts';
+import { mediaStore, dirtyMediaStore, statsStore, tabState, downloadedStore, userCsrfToken, setCsrfToken, touchMediaCache, trimMediaCache } from './state.ts';
 import { fetchVideoForTweet } from './tweet-api.ts';
 import { updateBadge, broadcastToPopup, updateFAB, broadcastFABState, sleep, waitForTabLoad, sanitizeFolder } from './utils.ts';
 import { mediaRepository } from './indexeddb.ts';
@@ -85,11 +85,13 @@ function tweetDateFromId(tweetId: string | number | undefined) {
 // ─── Add Media Items ──────────────────────────────────────────────────────────
 const MEMORY_WARN_THRESHOLD = 50_000;
 const _warnedUsers = new Set<string>(); // tránh spam warning mỗi item
+const _mediaRetentionChecked = new Set<string>();
 
 // Đảm bảo mediaStore và statsStore được nạp từ IndexedDB nếu SW vừa restart
 async function ensureMediaStoreLoaded(username: string): Promise<Map<string, MediaItem>> {
   if (!username) return new Map();
   if (mediaStore.has(username) && mediaStore.get(username)!.size > 0) {
+    touchMediaCache(username);
     return mediaStore.get(username)!;
   }
   // Thử nạp từ IndexedDB
@@ -110,6 +112,8 @@ async function ensureMediaStoreLoaded(username: string): Promise<Map<string, Med
           else stats.video++;
         }
       });
+      touchMediaCache(username);
+      trimMediaCache();
       return store;
     }
   } catch (err) {
@@ -117,6 +121,8 @@ async function ensureMediaStoreLoaded(username: string): Promise<Map<string, Med
   }
   if (!mediaStore.has(username)) mediaStore.set(username, new Map());
   if (!statsStore.has(username)) statsStore.set(username, { image: 0, video: 0, gif: 0, hls: 0 });
+  touchMediaCache(username);
+  trimMediaCache();
   return mediaStore.get(username)!;
 }
 
@@ -126,6 +132,7 @@ function addMediaItems(username: string, items: MediaItem[]) {
 
   const store = mediaStore.get(username)!;
   const stats = statsStore.get(username)!;
+  touchMediaCache(username);
   let newCount = 0;
 
   items.forEach((item: MediaItem) => {
@@ -429,6 +436,10 @@ async function persistSession(username: string) {
         const dirtyItems = Array.from(dirtyStore.values());
         // v4.4.0: Lưu dirty items vào IndexedDB (Delta Write)
         await mediaRepository.saveMediaItems(username, dirtyItems);
+        if (!_mediaRetentionChecked.has(username)) {
+          _mediaRetentionChecked.add(username);
+          await mediaRepository.pruneMediaItems(username).catch(() => 0);
+        }
         // Sau khi lưu thành công, clear dirty store của user này
         dirtyStore.clear();
       }
@@ -464,6 +475,7 @@ async function persistSession(username: string) {
       const dataToPersist: Record<string, unknown> = { [key]: sessionData };
       if (!hasOtherActiveCollection) dataToPersist.active_session_username = username;
       await chrome.storage.local.set(dataToPersist);
+      trimMediaCache();
       console.debug(`[SW] Session saved: @${username} — ${store.size} items, scroll=${scrollCount}`);
     } catch (err) {
       console.warn('[SW] persistSession error:', err instanceof Error ? err.message : String(err));

@@ -2,7 +2,7 @@
 
 Tài liệu này hướng dẫn chi tiết các bước để chuẩn bị, đóng gói mã nguồn và đưa tiện ích **X Media Downloader** lên chợ ứng dụng Chrome Web Store (CWS).
 
-> Phiên bản hiện tại: **7.0.0** | Cập nhật: 2026-09-30
+> Phiên bản hiện tại: **7.0.1** | Cập nhật: 2026-10-01
 
 ---
 
@@ -49,7 +49,7 @@ npm run check
 1. Mở thư mục `dist/` (output sau khi chạy `npm run build`).
 2. Chọn **tất cả** nội dung bên trong `dist/`.
 3. Click chuột phải, chọn **Compress to ZIP file** (Windows 11) hoặc **Send to > Compressed (zipped) folder** (Windows 10).
-4. Xác minh `dist/release-manifest.json`, rồi đặt tên file ZIP rõ ràng: `x-media-downloader-v7.0.0.zip`
+4. Xác minh `dist/release-manifest.json`, rồi đặt tên file ZIP rõ ràng: `x-media-downloader-v7.0.1.zip`
 
 > [!WARNING]
 > Đảm bảo file `manifest.json` nằm ở **thư mục gốc** bên trong file ZIP. Nếu giải nén file ZIP ra mà thấy một thư mục cha bọc ngoài (ví dụ `dist/manifest.json`), Google sẽ báo lỗi không hợp lệ.
@@ -69,7 +69,7 @@ Nếu bạn chưa có tài khoản Chrome Web Store Developer:
 ## 4. Tải Tiện Ích Lên (Upload)
 
 1. Tại Dashboard, nhấn nút **+ New Item** (Thêm mục mới).
-2. Kéo thả file `x-media-downloader-v7.0.0.zip` của bạn vào ô tải lên.
+2. Kéo thả file `x-media-downloader-v7.0.1.zip` của bạn vào ô tải lên.
 3. Chờ Google quét virus sơ bộ. Nếu hợp lệ, bạn sẽ được chuyển sang trang điền thông tin chi tiết (Store Listing).
 
 ---
@@ -127,4 +127,4 @@ Khẳng định tiện ích chỉ phục vụ một mục đích duy nhất: "Gi
 
 ---
 
-🎉 **Chúc bạn phát hành X Media Downloader v7.0.0 thành công!**
+🎉 **Chúc bạn phát hành X Media Downloader v7.0.1 thành công!**

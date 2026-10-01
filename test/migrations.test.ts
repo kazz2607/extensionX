@@ -5,7 +5,7 @@ import { DB_VERSION, getDatabaseMigrationPlan } from '../src/background/indexedd
 import type { MediaRepository } from '../src/background/media-repository.ts';
 import { DOWNLOAD_HISTORY_SCHEMA_VERSION, migrateDownloadHistoryStorage } from '../src/shared/download-history.ts';
 import { migrateSavedJobsStorage, parseSavedJobInput, SAVED_JOBS_SCHEMA_VERSION } from '../src/shared/saved-jobs.ts';
-import { migrateOptionsStorage, migrateQueueStorage, OPTIONS_SCHEMA_VERSION, QUEUE_SCHEMA_VERSION } from '../src/shared/storage-migrations.ts';
+import { createQueueStorageSnapshot, migrateOptionsStorage, migrateQueueStorage, OPTIONS_SCHEMA_VERSION, QUEUE_SCHEMA_VERSION } from '../src/shared/storage-migrations.ts';
 
 test('migrates legacy Options without losing user values', () => {
   const migrated = migrateOptionsStorage({ _version: '5.7.0', concurrency: 5, localDiagnostics: true });
@@ -15,17 +15,22 @@ test('migrates legacy Options without losing user values', () => {
   assert.equal('_version' in migrated, false);
 });
 
-test('migrates Queue raw arrays and versioned snapshots to schema v2', () => {
+test('migrates Queue raw arrays and versioned snapshots to schema v3', () => {
   const legacyItem = {
     id: 'NASA_1', username: 'NASA', filterType: 'all', skipDuplicates: true,
     addedAt: 1, status: 'downloading', mediaCount: 2, result: null,
   };
   const legacy = migrateQueueStorage([legacyItem]);
   assert.equal(legacy.schemaVersion, QUEUE_SCHEMA_VERSION);
-  assert.equal(legacy.items[0]?.status, 'waiting');
+  assert.equal(legacy.items[0]?.status, 'paused');
 
-  const current = migrateQueueStorage({ schemaVersion: 2, items: [{ ...legacyItem, status: 'waiting' }] });
+  const current = migrateQueueStorage({ schemaVersion: 2, items: [{ ...legacyItem, status: 'waiting', paused: true }] });
   assert.equal(current.items.length, 1);
+  assert.equal(current.items[0]?.status, 'paused');
+  assert.equal(current.items[0]?.paused, undefined);
+  const rollbackCompatible = createQueueStorageSnapshot(current.items);
+  assert.equal(rollbackCompatible.items[0]?.status, 'waiting');
+  assert.equal(rollbackCompatible.items[0]?.paused, true);
   assert.deepEqual(migrateQueueStorage({ schemaVersion: 99, items: 'broken' }).items, []);
 });
 

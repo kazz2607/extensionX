@@ -1,6 +1,5 @@
 import type { DomainMessageHandler } from './message-handler.ts';
 import { isValidUsername } from '../shared/validation.ts';
-import { ensureMediaStoreLoaded } from './scraper.ts';
 import { buildCSV, buildManifest } from './downloader.ts';
 import { exportQueue, importQueue } from './queue.ts';
 import { clearLocalDiagnostics, exportLocalDiagnostics } from './diagnostics.ts';
@@ -20,8 +19,7 @@ export const handleExportMessage: DomainMessageHandler = (message, _sender, send
           (payload.offset !== undefined && (!Number.isInteger(payload.offset) || payload.offset < 0 || payload.offset > 1_000_000))) {
           sendResponse({ error: 'Invalid CSV request' }); return;
         }
-        await ensureMediaStoreLoaded(payload.username);
-        sendResponse(buildCSV(payload.username, payload.filterType, payload.offset || 0));
+        sendResponse(await buildCSV(payload.username, payload.filterType, payload.offset || 0));
       })();
       return true;
     case 'EXPORT_MANIFEST':

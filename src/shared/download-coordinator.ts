@@ -16,6 +16,7 @@ export class DownloadCoordinator {
 
   get phase(): DownloadPhase { return this.active?.phase ?? 'idle'; }
   get operationId(): string | null { return this.active?.id ?? null; }
+  get username(): string | null { return this.active?.username ?? null; }
   get signal(): AbortSignal | null { return this.active?.controller.signal ?? null; }
   get isBusy(): boolean { return this.active !== null; }
 

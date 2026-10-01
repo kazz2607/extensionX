@@ -1244,7 +1244,9 @@ async function updateFolderDisplay(username: string) {
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 // BUG-L5 FIX: Thêm timeout 8s — tránh UI treo khi Service Worker bị Chrome terminate
-function sendBG(type: string, payload: any, timeoutMs = 8000): Promise<any> {
+function sendBG<T extends import('../shared/messages.ts').MessageType>(type: T, payload?: Record<string, unknown>, timeoutMs?: number): Promise<import('../shared/messages.ts').ResponseFor<T> | null>;
+function sendBG(type: string, payload?: Record<string, unknown>, timeoutMs?: number): Promise<any>;
+function sendBG(type: string, payload: Record<string, unknown> = {}, timeoutMs = 8000): Promise<any> {
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
       console.warn(`[popup] sendBG timeout (${timeoutMs}ms): ${type}`);

@@ -2,7 +2,12 @@ import type { QueueItem } from '../types.ts';
 
 export type QueueStatus = QueueItem['status'];
 const transitions: Readonly<Record<QueueStatus, readonly QueueStatus[]>> = {
-  waiting: ['downloading'], downloading: ['waiting', 'done', 'error'], done: [], error: ['waiting'],
+  waiting: ['downloading', 'paused', 'cancelled'],
+  downloading: ['paused', 'done', 'error', 'cancelled'],
+  paused: ['waiting', 'cancelled'],
+  done: [],
+  error: ['waiting', 'cancelled'],
+  cancelled: [],
 };
 
 export function canTransitionQueueStatus(from: QueueStatus, to: QueueStatus): boolean {
@@ -15,7 +20,7 @@ export function transitionQueueItem(item: QueueItem, to: QueueStatus): QueueItem
 
 /** A service-worker restart has no in-flight download to resume safely. */
 export function recoverQueueItemAfterRestart(item: QueueItem): QueueItem {
-  return item.status === 'downloading' ? { ...item, status: 'waiting', paused: true } : item;
+  return item.status === 'downloading' ? { ...item, status: 'paused', paused: undefined } : item;
 }
 
 /**
@@ -49,12 +54,12 @@ export function resetDownloadingItemsAfterStop(items: QueueItem[]): { queue: Que
   let reset = 0;
   const queue = items.map((item) => {
     if (item.status !== 'downloading') return item;
-    const waitingItem = transitionQueueItem(item, 'waiting');
-    if (!waitingItem) return item;
+    const pausedItem = transitionQueueItem(item, 'paused');
+    if (!pausedItem) return item;
     reset++;
     // A stopped item remains explicitly paused so the Queue renders a Resume
     // button instead of looking like it will restart automatically.
-    return { ...waitingItem, paused: true, result: null };
+    return { ...pausedItem, paused: undefined, result: null };
   });
   return { queue, reset };
 }

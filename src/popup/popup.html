@@ -80,7 +80,7 @@
         </div>
         <div class="header-text">
           <h1 class="app-name">Media Downloader</h1>
-          <span class="app-version">v7.0.0</span>
+          <span class="app-version">v7.0.1</span>
         </div>
       </div>
       <button class="btn-icon btn-theme" id="btn-theme" title="Đổi giao diện">
@@ -430,6 +430,14 @@
           </div>
         </div>
         <div class="queue-summary" id="queue-summary" role="status" aria-live="polite">0 đang tải · 0 chờ · 0 tạm dừng · 0 lỗi</div>
+
+        <div class="queue-bulk-actions" id="queue-bulk-actions" aria-label="Thao tác hàng loạt">
+          <button type="button" data-bulk-action="retry_errors">Thử lại lỗi</button>
+          <button type="button" data-bulk-action="pause_selected">Tạm dừng chọn</button>
+          <button type="button" data-bulk-action="resume_selected">Tiếp tục chọn</button>
+          <button type="button" data-bulk-action="clear_completed">Xóa hoàn tất</button>
+          <button type="button" data-bulk-action="undo_clear_completed">Hoàn tác</button>
+        </div>
 
         <!-- Add current profile shortcut -->
         <div class="queue-add-bar" id="queue-add-bar">

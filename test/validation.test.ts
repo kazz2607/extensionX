@@ -20,6 +20,10 @@ import { canTransitionCollectPhase } from '../src/shared/collect-state.ts';
 import { recoverQueueItemAfterRestart, transitionQueueItem, wasInterrupted, findInterruptedIds, resetDownloadingItemsAfterStop } from '../src/shared/queue-state.ts';
 import { DownloadCoordinator } from '../src/shared/download-coordinator.ts';
 import { getQueuePresentation } from '../src/shared/queue-presentation.ts';
+import { prepareQueueMedia } from '../src/shared/queue-prepare.ts';
+import { createTimedSettlement } from '../src/shared/timed-settlement.ts';
+import { collectMediaMatches } from '../src/shared/media-query.ts';
+import { selectCacheEvictions } from '../src/shared/bounded-cache.ts';
 import { renderFilenameTemplate } from '../src/shared/filename-template.ts';
 import {
   isRetryableChunkStatus,
@@ -52,6 +56,8 @@ test('binds profile messages to the X tab URL and rejects malformed envelopes', 
   assert.equal(parseExtensionMessage({ type: 'DELETE_SAVED_JOB', payload: { id: 'job-1' } })?.type, 'DELETE_SAVED_JOB');
   assert.equal(parseExtensionMessage({ type: 'DELETE_SAVED_JOB', payload: { id: 'job-1', injected: true } }), null);
   assert.equal(parseExtensionMessage({ type: 'HLS_DONE', requestId: 'req-1', dataUrl: 'blob:test' })?.type, 'HLS_DONE');
+  assert.equal(parseExtensionMessage({ type: 'HLS_DONE', requestId: 'req-1', downloadId: 42 })?.type, 'HLS_DONE');
+  assert.equal(parseExtensionMessage({ type: 'HLS_DONE', requestId: 'req-1', downloadId: 0 }), null);
   assert.equal(parseExtensionMessage({ type: 'HLS_DONE', requestId: 'req-1', dataUrl: `data:video/mp2t;base64,${'A'.repeat(300_000)}` })?.type, 'HLS_DONE');
   assert.equal(parseExtensionMessage({ type: 'HLS_DONE', dataUrl: 'blob:test' }), null);
   assert.equal(parseExtensionMessage({ type: 'HLS_DONE', requestId: 'req-1', unexpected: true }), null);
@@ -100,8 +106,9 @@ test('rejects malformed or oversized queue imports atomically', () => {
   assert.equal(parseQueueItems(valid)?.length, 1);
   assert.equal(parseQueueItems([{ ...valid[0], username: '../../evil' }]), null);
   assert.equal(parseQueueItems([...valid, valid[0]]), null);
-  // Pha 12: paused field phải là boolean nếu có mặt
-  assert.equal(parseQueueItems([{ ...valid[0], paused: true }])?.[0]?.paused, true);
+  // Queue schema v3 migrates the legacy waiting+paused flag to a real status.
+  assert.equal(parseQueueItems([{ ...valid[0], paused: true }])?.[0]?.status, 'paused');
+  assert.equal(parseQueueItems([{ ...valid[0], paused: true }])?.[0]?.paused, undefined);
   assert.equal(parseQueueItems([{ ...valid[0], paused: 'yes' }]), null);
   assert.equal(parseQueueItems([{ ...valid[0], keyword: 'space' }])?.[0]?.keyword, 'space');
   assert.equal(parseQueueItems([{ ...valid[0], keyword: 'x'.repeat(201) }]), null);
@@ -139,8 +146,8 @@ test('collector state transitions cannot return from a stopped operation without
 test('queue recovery resets interrupted work but rejects invalid terminal transitions', () => {
   const item = { id: 'NASA_1', username: 'NASA', filterType: 'all', skipDuplicates: true, addedAt: 1, status: 'downloading' as const, mediaCount: 1 };
   const recovered = recoverQueueItemAfterRestart(item);
-  assert.equal(recovered.status, 'waiting');
-  assert.equal(recovered.paused, true);
+  assert.equal(recovered.status, 'paused');
+  assert.equal(recovered.paused, undefined);
   assert.equal(transitionQueueItem({ ...item, status: 'done' }, 'waiting'), null);
 });
 
@@ -167,6 +174,50 @@ test('download coordinator owns one operation and invalidates stale callbacks on
   assert.equal(coordinator.settle(second.id, 'completed'), true);
   assert.equal(coordinator.release(second.id), true);
   assert.equal(coordinator.phase, 'idle');
+});
+
+test('streams media query matches while retaining only the requested picker window', () => {
+  const items = Array.from({ length: 1_000 }, (_, index) => ({
+    type: index % 2 ? 'image' as const : 'video' as const,
+    url: `https://pbs.twimg.com/media/${index}.jpg`,
+    tweetDate: Date.UTC(2026, 0, 1),
+    tweetText: index % 10 === 0 ? 'space mission' : 'other',
+  }));
+  const result = collectMediaMatches(items, { filterType: 'videos', keyword: 'space' }, 20);
+  assert.equal(result.total, 100);
+  assert.equal(result.items.length, 20);
+  assert.equal(result.items.every((item) => item.type === 'video'), true);
+});
+
+test('evicts least-recently-used media caches without touching protected profiles', () => {
+  const evicted = selectCacheEvictions([
+    { key: 'active', size: 40_000, lastAccess: 1, protected: true },
+    { key: 'old', size: 8_000, lastAccess: 2, protected: false },
+    { key: 'recent', size: 8_000, lastAccess: 4, protected: false },
+    { key: 'dirty', size: 8_000, lastAccess: 3, protected: true },
+  ], 3, 50_000);
+  assert.deepEqual(evicted, ['old', 'recent']);
+});
+
+test('Queue preparation contains IndexedDB rejection and stale async results', async () => {
+  const rejected = await prepareQueueMedia(
+    async () => { throw new Error('IndexedDB unavailable'); },
+    () => true,
+  );
+  assert.deepEqual(rejected, { status: 'error', items: [], error: 'IndexedDB unavailable' });
+
+  let current = true;
+  const stale = await prepareQueueMedia(
+    async () => { current = false; return [{ type: 'image', url: 'https://pbs.twimg.com/media/a.jpg' }]; },
+    () => current,
+  );
+  assert.deepEqual(stale, { status: 'stale', items: [] });
+});
+
+test('callback-style downloads reject on timeout and ignore late completion', async () => {
+  const settlement = createTimedSettlement<number>(5, () => new Error('Download timeout'));
+  await assert.rejects(settlement.promise, /Download timeout/);
+  assert.equal(settlement.resolve(42), false);
 });
 
 test('never treats X video thumbnails as standalone profile images', () => {
@@ -197,10 +248,10 @@ test('stopping a queue resets every downloading item and preserves other states'
     { ...base, id: 'D', status: 'done', result: { success: 1, failed: 0, total: 1, skipped: 0 } },
   ]);
   assert.equal(result.reset, 2);
-  assert.deepEqual(result.queue.map((item) => item.status), ['waiting', 'waiting', 'waiting', 'done']);
+  assert.deepEqual(result.queue.map((item) => item.status), ['paused', 'paused', 'waiting', 'done']);
   assert.equal(result.queue[0]?.result, null);
-  assert.equal(result.queue[0]?.paused, true);
-  assert.equal(result.queue[1]?.paused, true);
+  assert.equal(result.queue[0]?.paused, undefined);
+  assert.equal(result.queue[1]?.paused, undefined);
   assert.equal(result.queue[2]?.paused, undefined);
   assert.equal(result.queue[3]?.result?.success, 1);
 });
@@ -232,7 +283,7 @@ test('derives one accessible primary Queue action and summary from state', () =>
   assert.deepEqual(getQueuePresentation([waiting]), {
     action: 'start', label: 'Bắt đầu', title: 'Bắt đầu hàng đợi', waiting: 1, downloading: 0, paused: 0, error: 0, done: 0,
   });
-  assert.equal(getQueuePresentation([{ ...waiting, paused: true }]).action, 'resume');
+  assert.equal(getQueuePresentation([{ ...waiting, status: 'paused' }]).action, 'resume');
   assert.equal(getQueuePresentation([{ ...waiting, status: 'downloading' }]).action, 'pause');
   assert.equal(getQueuePresentation([{ ...waiting, status: 'done' }]).action, 'disabled');
 });

@@ -1,6 +1,6 @@
 # X Media Downloader — Roadmap
 
-> Phiên bản hiện tại: **7.0.0** | Cập nhật: 2026-09-30
+> Phiên bản hiện tại: **7.0.1** | Cập nhật: 2026-10-01
 
 Tài liệu này là nguồn duy nhất cho trạng thái sản phẩm, phần việc đã hoàn thành và backlog. Chi tiết từng bản phát hành nằm trong [`CHANGELOG.md`](../CHANGELOG.md).
 
@@ -17,7 +17,7 @@ Extension đang dùng Manifest V3, TypeScript strict và Vite. Các luồng chí
 - Tải ảnh/video trực tiếp trên Telegram Web A/K, gồm Range-fetch cho stream riêng tư.
 - Following Scanner Feature 0: tự cuộn trang Following và hiển thị tiến độ.
 
-Quality gate hiện hành: TypeScript, ESLint, **33 unit tests**, **2 fixture e2e tests**, production build, performance budget và release checksum manifest. Chi tiết tại [`quality-gate.md`](quality-gate.md).
+Quality gate hiện hành: TypeScript, ESLint, **37 unit tests**, **2 fixture e2e tests**, benchmark 100–50.000 media, dependency lockfile review, **3 Chromium acceptance tests** (Queue lifecycle/fault/DOM), production build, performance budget và release checksum manifest. Chi tiết tại [`quality-gate.md`](quality-gate.md).
 
 ## Kiến trúc chính
 
@@ -52,21 +52,15 @@ src/
 | v6.3.1 | Primary Queue action theo state, responsive 320–360 px và accessibility semantics |
 | v6.4.0 | Module hóa message handler, storage/Chrome adapter, migration regression, performance budget và reproducible release manifest |
 | v7.0.0 | Download Center, Saved Jobs và history schema v2 có đường migration/rollback |
+| v7.0.1 | Queue lifecycle/fault acceptance, cursor/cache bound, Queue windowing/bulk actions và pipeline Blob object URL |
 
 Các kế hoạch Pha 0–15 cũ đã hoàn thành và được hợp nhất vào bảng này; không còn duy trì file kế hoạch riêng.
 
 ## Backlog đang hoạt động
 
-### P0 — Xác nhận thực tế Queue v6.2.8
+### P0 — Hoàn thành
 
-- Smoke test trên Chrome thật với queue có profile 0, vài trăm và hàng nghìn media.
-- Xác nhận item đổi sang `downloading` ngay, popup không còn timeout 8 giây.
-- Xác nhận item không có IndexedDB data chuyển `error` và queue tiếp tục mục kế tiếp.
-- Xác nhận **Dừng** đưa item đang tải về **Tạm dừng**, hiện nút **▶ Tiếp tục** và không còn nút Dừng bị treo.
-- Xác nhận profile có video chỉ tải video và ảnh bài viết độc lập, không tải `ext_tw_video_thumb`/`amplify_video_thumb`.
-- Bổ sung regression test chuyên biệt cho message `START_QUEUE` khi có harness service worker phù hợp.
-
-Phần coordinator, paused recovery, dedupe-complete và unit regression đã hoàn thành trong v6.2.8. Smoke test lifecycle trên Chrome thật và fault injection IndexedDB/Chrome Downloads/HLS tiếp tục là điều kiện xác nhận thực tế trước khi đóng P0 hoàn toàn.
+Automated Chromium acceptance đã xanh cho Queue profile rỗng, cold-load 100/1.000 media, loại thumbnail video, double Start, Stop → Paused → Resume → Complete, restart đúng phase `preparing` với fixture 20.000 record và Downloads callback timeout rồi tiếp tục item kế tiếp. Queue schema v3 dùng `paused` độc lập; IndexedDB reject/stale operation và HLS abort đều có regression.
 
 ### P1 — Following Scanner Feature 1
 
@@ -79,10 +73,10 @@ Thiết kế chi tiết còn hoạt động tại [`following-scanner-plan.md`](
 
 ### P1 — Hiệu năng và type safety còn lại
 
-- Đo fixture 1.000–50.000 media và triển khai virtualization khi số đo chứng minh cần thiết.
-- Chuyển truy vấn profile lớn sang IndexedDB cursor/batch và giới hạn cache RAM.
-- Dọn `any`/`@ts-ignore` còn lại trong content scripts chạy trong trang.
-- Mở rộng typed response map từ request union hiện có sang toàn bộ popup/content consumer.
+- Chrome heap cho Picker/CSV/Manifest và DOM/long-task Queue đã có budget; Queue 500 item dùng cửa sổ 50 row sau khi full render vượt budget. Tiếp tục đo các list khác trước khi windowing.
+- Count/Picker/download/CSV/Manifest đã dùng IndexedDB cursor; media cache đã có LRU bound.
+- Dọn `any`/`@ts-ignore` còn lại trong content scripts chạy trong trang; response map domain Queue đã hoàn thành.
+- Mở rộng typed response map sang media, export, Following và Download Center consumer.
 - Thêm kiểm thử cho các nhánh service-worker lifecycle và IndexedDB failure.
 
 ### P2 — Ý tưởng sản phẩm chưa cam kết
@@ -105,7 +99,7 @@ Thiết kế chi tiết còn hoạt động tại [`following-scanner-plan.md`](
 ## Tài liệu liên quan
 
 - [`README.md`](README.md) — mục lục tài liệu.
-- [`upgrade-plan.md`](upgrade-plan.md) — kế hoạch nâng cấp kỹ thuật, UI/UX và tính năng theo các mốc 6.2.8–7.0.0.
+- [`upgrade-plan.md`](upgrade-plan.md) — kế hoạch nâng cấp kỹ thuật, UI/UX và tính năng theo các mốc 6.2.8–7.0.1.
 - [`huong-dan-cai-dat.md`](huong-dan-cai-dat.md) — cài đặt, sử dụng và xử lý sự cố.
 - [`quality-gate.md`](quality-gate.md) — kiểm thử và baseline chất lượng.
 - [`publish-guide.md`](publish-guide.md) — đóng gói và phát hành.

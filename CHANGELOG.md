@@ -4,6 +4,36 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ---
 
+## [Unreleased]
+
+Chưa có thay đổi.
+
+---
+
+## [7.0.1] — 2026-10-01 *(Queue reliability & scale hardening)*
+
+### Queue state và migration
+- Nâng Queue storage schema lên v3; runtime dùng trạng thái `paused` độc lập thay cho `waiting + paused`, đồng thời snapshot vẫn mã hóa tương thích để rollback về v6.4/v7.0 đọc được.
+- Service Worker restart và Stop chuyển item `downloading` sang `paused`; resume đi qua transition hợp lệ về `waiting` trước khi claim operation mới.
+- Tách boundary chuẩn bị media để IndexedDB rejection và callback operation cũ được xử lý xác định, không làm Queue treo.
+
+### Regression
+- Browser workflow thật bao phủ X DOM collection, loại thumbnail video, double Start chỉ có một active job, Stop → Paused → Resume → Complete và hai lần Service Worker termination/recovery.
+- Hoàn tất P0 acceptance trên Chromium: Queue profile rỗng, cold-load 100/1.000 media, restart đúng phase `preparing` với 20.000 record và `chrome.downloads.download` không callback; timeout đánh dấu lỗi rồi tiếp tục item kế tiếp.
+- Bổ sung regression Queue schema v2 → v3, rollback-compatible snapshot, IndexedDB rejection, stale async result và callback download timeout; tổng số unit test tăng lên **37**.
+
+### P1 hiệu năng
+- Count và Download Picker dùng IndexedDB cursor khi profile chưa nằm trong RAM; filter theo từng record và Picker chỉ giữ tối đa 200 kết quả thay vì `getAll()` cùng nhiều bản sao mảng.
+- Download cold-cache, CSV và Manifest chuyển sang IndexedDB cursor; CSV/Manifest chỉ giữ cửa sổ tối đa 10.000 record thay vì materialize toàn profile.
+- Giới hạn media cache RAM bằng LRU tối đa 3 profile/50.000 item; không eviction profile đang collect/download hoặc còn dirty delta.
+- Thêm matcher một lượt, Chrome heap budget với fixture 20.000 media và benchmark bắt buộc 100–50.000 media; tổng số unit test tăng lên **37**.
+- Queue 500 item dùng cửa sổ DOM 50 row và nút hiển thị thêm; browser budget cuối xác nhận render **0,5 ms**, không có long task và heap **1.876.811 byte**.
+- HLS/MP4 offscreen tải Blob bằng object URL, revoke sau khi hoàn tất/lỗi và không còn tạo thêm bản sao base64 cho file lớn.
+- Thêm Queue bulk retry/pause/resume/xóa completed, undo 10 giây và disclosure kết quả từng item; `GET_QUEUE` chờ storage hydrate để tránh popup rỗng khi Service Worker vừa thức dậy.
+- Typed response map đã phủ domain Queue; media retention giới hạn 50.000 item/180 ngày và dependency review lockfile được đưa vào quality gate.
+
+---
+
 ## [7.0.0] — 2026-09-30 *(Download Center & Saved Jobs)*
 
 ### ✨ Tính năng mới

@@ -1320,6 +1320,20 @@ a:focus-visible {
   color: var(--text-muted);
 }
 
+.queue-bulk-actions { display: flex; gap: 4px; padding: 0 14px 8px; overflow-x: auto; }
+.queue-bulk-actions button { flex: 0 0 auto; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text-muted); padding: 4px 7px; font-size: 10px; cursor: pointer; }
+.queue-select { accent-color: var(--accent); }
+.queue-result-details { margin-top: 3px; font-size: 10px; color: var(--text-muted); }
+.queue-result-details summary { cursor: pointer; }
+.queue-load-more-row { list-style: none; padding: 8px 14px; text-align: center; }
+.queue-load-more { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--accent); padding: 6px 12px; cursor: pointer; }
+
+.queue-status.paused,
+.queue-status.cancelled {
+  background: var(--orange-bg);
+  color: var(--orange);
+}
+
 .queue-status.downloading {
   background: rgba(29, 155, 240, 0.15);
   color: var(--accent);

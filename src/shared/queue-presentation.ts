@@ -23,7 +23,7 @@ export function getQueuePresentation(queue: QueueItem[]): QueuePresentation {
     if (item.status === 'downloading') downloading++;
     else if (item.status === 'error') error++;
     else if (item.status === 'done') done++;
-    else if (item.paused) paused++;
+    else if (item.status === 'paused') paused++;
     else waiting++;
   }
   const action: QueuePrimaryAction = downloading > 0 ? 'pause' : paused > 0 ? 'resume' : waiting > 0 ? 'start' : 'disabled';

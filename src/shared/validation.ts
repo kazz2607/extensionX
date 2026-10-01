@@ -4,7 +4,7 @@ export const USERNAME_PATTERN = /^(?:[A-Za-z0-9_]{1,50}|_bookmarks_|[A-Za-z0-9_]
 const MEDIA_TYPES = new Set<MediaItem['type']>(['image', 'video', 'gif', 'hls', 'video_placeholder']);
 const MEDIA_HOSTS = new Set(['pbs.twimg.com', 'video.twimg.com']);
 const FILE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'ts', 'm3u8', 'mov']);
-const QUEUE_STATUSES = new Set<QueueItem['status']>(['waiting', 'downloading', 'done', 'error']);
+const QUEUE_STATUSES = new Set<QueueItem['status']>(['waiting', 'downloading', 'paused', 'done', 'error', 'cancelled']);
 const FILTER_TYPES = new Set(['all', 'images', 'videos', 'gifs']);
 const MAX_SELECTED_URLS = 2_000; // Pha 9: Interactive Download Picker
 
@@ -140,11 +140,12 @@ export function parseQueueItems(value: unknown, maxItems = 500): QueueItem[] | n
     if (typeof item.skipDuplicates !== 'boolean' || typeof item.addedAt !== 'number' || !Number.isFinite(item.addedAt) || typeof item.mediaCount !== 'number' || !Number.isInteger(item.mediaCount) || item.mediaCount < 0) return null;
     if (item.paused !== undefined && typeof item.paused !== 'boolean') return null; // Pha 12
     ids.add(item.id);
-    parsed.push({
-      ...(item as QueueItem),
-      status: item.status === 'downloading' ? 'waiting' : item.status!,
-      result: item.result ?? null,
-    });
+    const status = item.status === 'downloading' || (item.status === 'waiting' && item.paused)
+      ? 'paused'
+      : item.status!;
+    const normalized = { ...(item as QueueItem), status, result: item.result ?? null };
+    delete normalized.paused;
+    parsed.push(normalized);
   }
   return parsed;
 }
