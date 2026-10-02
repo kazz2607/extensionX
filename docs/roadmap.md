@@ -1,6 +1,6 @@
 # X Media Downloader — Roadmap
 
-> Phiên bản hiện tại: **7.2.1** | Cập nhật: 2026-10-02
+> Phiên bản hiện tại: **7.2.2** | Cập nhật: 2026-10-02
 
 Tài liệu này là nguồn duy nhất cho trạng thái sản phẩm, phần việc đã hoàn thành và backlog. Chi tiết từng bản phát hành nằm trong [`CHANGELOG.md`](../CHANGELOG.md).
 
@@ -56,6 +56,7 @@ src/
 | v7.1.0 | Hoàn tất P1: typed response map, storage retention UI, Following Scanner và acceptance UI/heap mở rộng |
 | v7.2.0 | Hoàn tất P2: estimate, folder rules, Gallery, ZIP chunk/hash dedupe, lịch Saved Job, Notification Center và Queue UI mới |
 | v7.2.1 | Ổn định thu thập thủ công, dọn retention quy mô lớn và popup 440 px |
+| v7.2.2 | Xử lý retention legacy, xóa toàn bộ media có xác nhận và sửa layout Options |
 
 Các kế hoạch Pha 0–15 cũ đã hoàn thành và được hợp nhất vào bảng này; không còn duy trì file kế hoạch riêng.
 
@@ -64,6 +65,8 @@ Các kế hoạch Pha 0–15 cũ đã hoàn thành và được hợp nhất và
 Hiện không còn backlog đã được phê duyệt. P0, P1 và phạm vi P2 đều đã hoàn thành; mốc tiếp theo chỉ được mở sau khi chốt phạm vi sản phẩm mới.
 
 Bản vá v7.2.1 đã khép lại các lỗi hậu phát hành của P2: Start Collecting xác nhận đúng tab/profile, auto-collect có công tắc rõ ràng mặc định tắt, prune storage chạy bounded concurrency và popup có chiều rộng nội tại ổn định.
+
+Bản vá v7.2.2 hoàn thiện quản lý dữ liệu cục bộ: legacy record thiếu timestamp có thể được prune, thao tác xóa sạch media/duplicate URL tách riêng với xác nhận, và Options có regression responsive riêng.
 
 ### P0 — Hoàn thành
 

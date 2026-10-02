@@ -380,6 +380,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-clear-diagnostics')?.addEventListener('click', clearLocalDiagnostics);
   document.getElementById('btn-refresh-storage')?.addEventListener('click', refreshStorageSummary);
   document.getElementById('btn-prune-storage')?.addEventListener('click', pruneStorage);
+  document.getElementById('btn-clear-all-storage')?.addEventListener('click', clearAllProfileStorage);
   document.getElementById('storage-summary')?.addEventListener('click', handleStorageSummaryClick);
   void refreshStorageSummary();
 });
@@ -422,7 +423,7 @@ async function exportSettings() {
     const stored = await chrome.storage.sync.get('options').catch(() => ({})) as { options?: Record<string, unknown> };
     const opts = migrateOptionsStorage(stored.options || DEFAULT_OPTIONS);
     const exportData = {
-      _version: '7.2.1',
+      _version: '7.2.2',
       _exportedAt: new Date().toISOString(),
       options: opts,
     };
@@ -604,6 +605,24 @@ async function pruneStorage(): Promise<void> {
   } catch (error) {
     console.error('[Options] pruneStorage error:', error);
     alert(`Không thể dọn dữ liệu: ${error instanceof Error ? error.message : 'Lỗi không xác định'}`);
+  } finally {
+    if (button) { button.disabled = false; button.textContent = originalLabel; }
+  }
+}
+
+async function clearAllProfileStorage(): Promise<void> {
+  if (!confirm('Xóa TOÀN BỘ media đã thu thập và lịch sử chống trùng của tất cả profile? Hành động này không thể hoàn tác.')) return;
+  const button = document.getElementById('btn-clear-all-storage') as HTMLButtonElement | null;
+  const originalLabel = button?.textContent || 'Xóa toàn bộ dữ liệu media';
+  if (button) { button.disabled = true; button.textContent = 'Đang xóa…'; }
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'CLEAR_ALL_PROFILE_STORAGE' }) as ResponseFor<'CLEAR_ALL_PROFILE_STORAGE'>;
+    if (!response?.ok || !response.summary) throw new Error(response?.error || 'Không thể xóa toàn bộ dữ liệu');
+    renderStorageSummary(response.summary);
+    showSaveStatus('✓ Đã xóa toàn bộ dữ liệu media cục bộ');
+  } catch (error) {
+    console.error('[Options] clearAllProfileStorage error:', error);
+    alert(`Không thể xóa toàn bộ dữ liệu: ${error instanceof Error ? error.message : 'Lỗi không xác định'}`);
   } finally {
     if (button) { button.disabled = false; button.textContent = originalLabel; }
   }

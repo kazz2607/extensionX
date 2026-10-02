@@ -55,6 +55,8 @@ test('binds profile messages to the X tab URL and rejects malformed envelopes', 
   assert.equal(parseExtensionMessage({ type: 'GET_QUEUE', payload: {}, injected: true }), null);
   assert.equal(parseExtensionMessage({ type: 'GET_DOWNLOAD_CENTER', payload: {} })?.type, 'GET_DOWNLOAD_CENTER');
   assert.equal(parseExtensionMessage({ type: 'GET_SAVED_JOBS', payload: {} })?.type, 'GET_SAVED_JOBS');
+  assert.equal(parseExtensionMessage({ type: 'CLEAR_ALL_PROFILE_STORAGE', payload: {} })?.type, 'CLEAR_ALL_PROFILE_STORAGE');
+  assert.equal(parseExtensionMessage({ type: 'CLEAR_ALL_PROFILE_STORAGE', payload: { injected: true } }), null);
   assert.equal(parseExtensionMessage({ type: 'DELETE_SAVED_JOB', payload: { id: 'job-1' } })?.type, 'DELETE_SAVED_JOB');
   assert.equal(parseExtensionMessage({ type: 'DELETE_SAVED_JOB', payload: { id: 'job-1', injected: true } }), null);
   assert.equal(parseExtensionMessage({ type: 'HLS_DONE', requestId: 'req-1', dataUrl: 'blob:test' })?.type, 'HLS_DONE');

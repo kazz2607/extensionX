@@ -100,6 +100,16 @@
     .option-label strong { display: block; font-size: 13px; font-weight: 500; }
     .option-label span { display: block; font-size: 11px; color: var(--text-sec); margin-top: 3px; line-height: 1.5; }
 
+    .storage-management-row { display: block; }
+    .storage-heading { display: grid; gap: 12px; }
+    .storage-copy { min-width: 0; }
+    .storage-actions { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 8px; }
+    #storage-summary { width: 100%; overflow-wrap: anywhere; }
+
+    @media (max-width: 560px) {
+      .storage-actions .btn-data { flex: 1 1 auto; }
+    }
+
     /* ── Folder Input ── */
     .folder-input-wrap {
       display: flex; align-items: center; gap: 8px;
@@ -759,15 +769,20 @@
         <button class="btn-data btn-data--danger" id="btn-clear-all-downloaded">🗑️ Xóa toàn bộ lịch sử</button>
       </div>
 
-      <div class="option-row" style="align-items:flex-start">
+      <div class="option-row storage-management-row">
         <div class="option-label">
-          <strong>💾 Dung lượng dữ liệu cục bộ</strong>
-          <span>Xem dữ liệu theo profile, dọn bản ghi quá 180 ngày/vượt giới hạn hoặc xóa riêng từng profile sau khi xác nhận.</span>
+          <div class="storage-heading">
+            <div class="storage-copy">
+              <strong>💾 Dung lượng dữ liệu cục bộ</strong>
+              <span>Xem dữ liệu theo profile, dọn bản ghi quá 180 ngày/vượt giới hạn hoặc xóa riêng từng profile sau khi xác nhận.</span>
+            </div>
+            <div class="storage-actions">
+              <button class="btn-data" id="btn-refresh-storage">Làm mới</button>
+              <button class="btn-data btn-data--danger" id="btn-prune-storage">Dọn dữ liệu cũ</button>
+              <button class="btn-data btn-data--danger" id="btn-clear-all-storage">Xóa toàn bộ dữ liệu media</button>
+            </div>
+          </div>
           <div id="storage-summary" role="status" aria-live="polite" style="margin-top:10px;line-height:1.6">Chưa tải thống kê.</div>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
-          <button class="btn-data" id="btn-refresh-storage">Làm mới</button>
-          <button class="btn-data btn-data--danger" id="btn-prune-storage">Dọn dữ liệu cũ</button>
         </div>
       </div>
 
@@ -800,7 +815,7 @@
     <span class="save-status" id="save-status" data-i18n="save_success">✓ Saved successfully</span>
   </div>
 
-  <p class="version-tag">X Media Downloader v7.2.1</p>
+  <p class="version-tag">X Media Downloader v7.2.2</p>
 
   <script type="module" src="../lib/i18n.ts"></script>
   <script type="module" src="options.ts"></script>

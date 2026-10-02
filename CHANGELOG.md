@@ -10,6 +10,17 @@ Chưa có thay đổi.
 
 ---
 
+## [7.2.2] — 2026-10-02 *(Storage cleanup & Options layout fix)*
+
+### Sửa lỗi
+
+- Sửa **Dọn dữ liệu cũ** không xóa được media legacy thiếu `addedAt`; thao tác retention thủ công nay xem các bản ghi không có timestamp là dữ liệu cũ.
+- Thêm nút **Xóa toàn bộ dữ liệu media** có xác nhận để xóa toàn bộ media, URL chống trùng và cache của mọi profile; kết quả được kiểm chứng về 0 bằng Chromium acceptance với fixture hơn 20.000 media.
+- Sửa layout khối dung lượng trong Options: phần mô tả/thống kê dùng toàn bộ chiều rộng, nhóm nút nằm trên hàng riêng và tự wrap ở viewport nhỏ.
+- Bổ sung validation regression cho message xóa toàn bộ và screenshot/overflow regression Options tại 400/620 px.
+
+---
+
 ## [7.2.1] — 2026-10-02 *(Collection, storage cleanup & popup fixes)*
 
 ### Sửa lỗi

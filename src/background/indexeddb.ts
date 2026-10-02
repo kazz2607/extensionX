@@ -135,7 +135,13 @@ export async function pruneMediaItems(username: string, now = Date.now(), maxEnt
     request.onsuccess = () => {
       const records = request.result as Array<MediaItem & { id: string; addedAt?: number }>;
       const expiresBefore = now - ttlMs;
-      const expired = records.filter((record) => Number(record.addedAt) > 0 && Number(record.addedAt) < expiresBefore);
+      // Records created before retention metadata existed have no reliable
+      // timestamp. An explicit manual prune treats those legacy records as
+      // old; otherwise they can never be removed by the retention tool.
+      const expired = records.filter((record) => {
+        const addedAt = Number(record.addedAt);
+        return !Number.isFinite(addedAt) || addedAt <= 0 || addedAt < expiresBefore;
+      });
       const expiredIds = new Set(expired.map((record) => record.id));
       const retained = records.filter((record) => !expiredIds.has(record.id)).sort((a, b) => Number(a.addedAt || 0) - Number(b.addedAt || 0));
       const overflow = retained.slice(0, Math.max(0, retained.length - maxEntries));

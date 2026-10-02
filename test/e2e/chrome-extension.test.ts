@@ -368,6 +368,12 @@ test('P0 Queue acceptance covers scale, preparing restart, and Downloads callbac
   await waitForQueueStatus(async () => (await queueItem(timeoutId))?.status ?? null, 'error', 15_000);
   await waitForQueueStatus(async () => (await queueItem(followingEmptyId))?.status ?? null, 'error', 15_000);
   assert.equal((await queueItem(timeoutId))?.result?.failed, 1);
+
+  const clearedStorage = await options.evaluate(() => chrome.runtime.sendMessage({ type: 'CLEAR_ALL_PROFILE_STORAGE', payload: {} }));
+  assert.equal(clearedStorage.ok, true);
+  assert.equal(clearedStorage.summary.totalMediaItems, 0);
+  assert.equal(clearedStorage.summary.totalDownloadedUrls, 0);
+  assert.equal(clearedStorage.summary.profiles.length, 0);
 });
 
 test('P1 Queue DOM and long-task budget covers 500 rows', { timeout: 60_000 }, async (t) => {
@@ -534,5 +540,20 @@ test('P1 responsive, keyboard and screenshot acceptance covers every primary sur
     return elapsed;
   });
   assert.ok(startQueueMs < 500, `START_QUEUE acknowledgement ${startQueueMs}ms exceeds 500ms`);
-  t.diagnostic(`Captured 15 popup screenshots; Download Center=${centerRenderMs}ms, maxLongTask=${maxCenterLongTask}ms, START_QUEUE=${startQueueMs}ms`);
+  const optionsPage = await context.newPage({ viewport: { width: 620, height: 760 } });
+  await optionsPage.goto(`chrome-extension://${id}/options/options.html`);
+  await optionsPage.locator('#btn-clear-all-storage').waitFor();
+  for (const width of [400, 620]) {
+    await optionsPage.setViewportSize({ width, height: 760 });
+    const metrics = await optionsPage.evaluate(() => ({
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      copyWidth: document.querySelector('.storage-copy')?.getBoundingClientRect().width ?? 0,
+      summaryWidth: document.getElementById('storage-summary')?.getBoundingClientRect().width ?? 0,
+    }));
+    assert.ok(metrics.overflow <= 1, `Options storage section overflows at ${width}px by ${metrics.overflow}px`);
+    assert.ok(metrics.copyWidth >= width - 90, `Options storage copy is squeezed to ${metrics.copyWidth}px at ${width}px`);
+    assert.ok(metrics.summaryWidth >= width - 90, `Options storage summary is squeezed to ${metrics.summaryWidth}px at ${width}px`);
+    assert.ok((await optionsPage.screenshot({ animations: 'disabled' })).byteLength > 5_000);
+  }
+  t.diagnostic(`Captured 15 popup + 2 Options screenshots; Download Center=${centerRenderMs}ms, maxLongTask=${maxCenterLongTask}ms, START_QUEUE=${startQueueMs}ms`);
 });

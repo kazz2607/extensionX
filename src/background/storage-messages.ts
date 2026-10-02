@@ -66,6 +66,23 @@ export const handleStorageMessage: DomainMessageHandler = (message, _sender, sen
       })();
       return true;
     }
+    case 'CLEAR_ALL_PROFILE_STORAGE':
+      void (async () => {
+        try {
+          await Promise.all([
+            mediaRepository.clearAllMediaItems(),
+            mediaRepository.clearAllDownloadedUrls(),
+          ]);
+          mediaStore.clear();
+          statsStore.clear();
+          downloadedStore.clear();
+          dirtyMediaStore.clear();
+          sendResponse({ ok: true, summary: await mediaRepository.getStorageSummary() });
+        } catch {
+          sendResponse({ error: 'Unable to clear local media storage' });
+        }
+      })();
+      return true;
     default:
       return undefined;
   }
