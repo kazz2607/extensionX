@@ -1,4 +1,4 @@
-# Baseline hiệu năng và build budget 7.2.0
+# Baseline hiệu năng và build budget 7.2.1
 
 > Cập nhật: 2026-10-02
 
@@ -20,11 +20,11 @@
 | Stop download | UI phản hồi dưới 500 ms |
 | 10.000 media | popup không bị khóa, không giữ thêm bản sao mảng không cần thiết |
 
-Build 7.2.0 tiếp tục áp dụng gate tự động trong `npm run check` và tính cả entrypoint Download Center:
+Build 7.2.1 tiếp tục áp dụng gate tự động trong `npm run check` và tính cả entrypoint Download Center:
 
-| Chỉ số build | Ngưỡng | Kết quả 7.2.0 |
+| Chỉ số build | Ngưỡng | Kết quả 7.2.1 |
 | --- | ---: | ---: |
-| Tổng JavaScript trong `dist/` | ≤ 400.000 byte | 381.276 byte |
+| Tổng JavaScript trong `dist/` | ≤ 400.000 byte | 382.708 byte |
 | JavaScript bundle lớn nhất | ≤ 110.000 byte | 103.015 byte |
 | Số module TypeScript trong `src/` | ≤ 85 | 78 |
 
@@ -44,25 +44,25 @@ Chạy `npm run benchmark:media` với 7 lượt trên môi trường phát tri�
 
 | Fixture | Median | p95 |
 | ---: | ---: | ---: |
-| 100 | 0,027 ms | 0,084 ms |
-| 1.000 | 0,116 ms | 1,455 ms |
-| 10.000 | 0,816 ms | 1,228 ms |
-| 50.000 | 2,325 ms | 15,214 ms |
+| 100 | 0,031 ms | 0,095 ms |
+| 1.000 | 0,192 ms | 1,292 ms |
+| 10.000 | 1,169 ms | 1,813 ms |
+| 50.000 | 3,630 ms | 22,277 ms |
 
 Budget CI ban đầu cho matcher 50.000 media là p95 ≤ 250 ms. Count/Picker cold-cache nay quét IndexedDB bằng cursor và chỉ giữ cửa sổ Picker tối đa 200 item. Queue windowing được quyết định bằng Chrome DOM/heap benchmark riêng, không dựa trên benchmark CPU này.
 
 ## Chrome heap benchmark 2026-10-02
 
-Browser acceptance dùng Chromium với `--enable-precise-memory-info`, fixture IndexedDB 20.000 media, rồi chạy Picker, CSV và Manifest trên cold-cache. Kết quả bản phát hành: heap tăng **8.313.665 byte** (từ 1.059.164 lên 9.372.829 byte). Gate bắt buộc giữ heap tuyệt đối ≤ 128 MiB và delta ≤ 32 MiB.
+Browser acceptance dùng Chromium với `--enable-precise-memory-info`, fixture IndexedDB 20.000 media, rồi chạy Picker, CSV và Manifest trên cold-cache. Kết quả bản phát hành: heap tăng **8.314.501 byte** (từ 1.059.642 lên 9.374.143 byte). Gate bắt buộc giữ heap tuyệt đối ≤ 128 MiB và delta ≤ 32 MiB.
 
 Download/CSV/Manifest cold-cache nay đọc bằng cursor. Picker giữ 200 item; CSV và Manifest giữ tối đa 10.000 record. Media cache RAM dùng LRU tối đa 3 profile hoặc 50.000 item và bảo vệ profile đang collect/download hoặc còn dirty delta.
 
 ## Chrome DOM/long-task benchmark 2026-10-02
 
-Queue fixture 500 item ban đầu render toàn bộ mất 796 ms, vượt budget 300 ms. Window 100 row còn 320 ms theo phép đo end-to-end, vì vậy Queue áp dụng cửa sổ 50 row và nút hiển thị thêm. Lần acceptance cuối đo trong renderer đạt **101,5 ms**, không có long task ≥ 50 ms và heap **1.876.326 byte**. Item đang download luôn được giữ trong DOM kể cả nằm ngoài cửa sổ đầu.
+Queue fixture 500 item ban đầu render toàn bộ mất 796 ms, vượt budget 300 ms. Window 100 row còn 320 ms theo phép đo end-to-end, vì vậy Queue áp dụng cửa sổ 50 row và nút hiển thị thêm. Lần acceptance cuối đo trong renderer đạt **3,3 ms**, không có long task ≥ 50 ms và heap **1.917.522 byte**. Item đang download luôn được giữ trong DOM kể cả nằm ngoài cửa sổ đầu.
 
 Download Center đã áp dụng cửa sổ 50 row sau benchmark; History và Following tiếp tục giữ giới hạn dữ liệu và regression hiện hành.
 
 ## Download Center và responsive acceptance 2026-10-02
 
-Fixture 500 Queue + 500 history cho thấy cửa sổ 100+100 row có một long task 52 ms, vượt budget. Download Center vì vậy dùng cửa sổ 50 row cho mỗi list. Lần acceptance bản phát hành đạt **267 ms** từ navigation đến row đầu, **0 ms** long task trong refresh/render và acknowledgement `START_QUEUE` khoảng **1,5 ms**. Popup Main/Picker/Queue/Stats/Following và Download Center đều qua smoke screenshot/overflow tại 320, 360 và 400 px; keyboard chuyển tab bằng phím mũi tên được kiểm tra tự động.
+Fixture 500 Queue + 500 history cho thấy cửa sổ 100+100 row có một long task 52 ms, vượt budget. Download Center vì vậy dùng cửa sổ 50 row cho mỗi list. Lần acceptance bản phát hành đạt **655 ms** từ navigation đến row đầu, **0 ms** long task trong refresh/render và acknowledgement `START_QUEUE` khoảng **2,1 ms**. Popup Main/Picker/Queue/Stats/Following và Download Center đều qua smoke screenshot/overflow tại 320, 360 và 400 px; keyboard chuyển tab bằng phím mũi tên được kiểm tra tự động.

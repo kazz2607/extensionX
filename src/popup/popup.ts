@@ -739,10 +739,17 @@ function setupListeners() {
       setStatus('ready', `${stoppedTxt} — @${currentUsername}`, '●');
       els.statusSpeed.textContent = '';
     } else {
-      isCollecting = true;
       lastScrollCount = parseInt(els.badge.textContent) || 0;
       lastScrollTime = Date.now();
-      await sendBG('START_COLLECTING', { username: currentUsername });
+      els.btnCollect.disabled = true;
+      const response = await sendBG('START_COLLECTING', { username: currentUsername });
+      if (!response?.ok) {
+        isCollecting = false;
+        showToast(response?.error || 'Không thể bắt đầu thu thập. Hãy tải lại tab X và thử lại.', 'error');
+        updateButtons();
+        return;
+      }
+      isCollecting = true;
       const collectingTxt = window.i18n ? window.i18n.t('status_collecting') : 'Đang thu thập media...';
       setStatus('collecting', collectingTxt, '🔍');
       els.scrollSec.style.display = 'block';

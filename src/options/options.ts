@@ -422,7 +422,7 @@ async function exportSettings() {
     const stored = await chrome.storage.sync.get('options').catch(() => ({})) as { options?: Record<string, unknown> };
     const opts = migrateOptionsStorage(stored.options || DEFAULT_OPTIONS);
     const exportData = {
-      _version: '7.2.0',
+      _version: '7.2.1',
       _exportedAt: new Date().toISOString(),
       options: opts,
     };
@@ -593,10 +593,20 @@ async function refreshStorageSummary(): Promise<void> {
 
 async function pruneStorage(): Promise<void> {
   if (!confirm('Dọn media và lịch sử duplicate quá 180 ngày hoặc vượt giới hạn lưu trữ?')) return;
-  const response = await chrome.runtime.sendMessage({ type: 'PRUNE_STORAGE' }) as ResponseFor<'PRUNE_STORAGE'>;
-  if (!response.ok || !response.summary) { alert(response.error || 'Không thể dọn dữ liệu'); return; }
-  renderStorageSummary(response.summary);
-  showSaveStatus(`✓ Đã dọn ${response.removed ?? 0} bản ghi`);
+  const button = document.getElementById('btn-prune-storage') as HTMLButtonElement | null;
+  const originalLabel = button?.textContent || 'Dọn dữ liệu cũ';
+  if (button) { button.disabled = true; button.textContent = 'Đang dọn…'; }
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'PRUNE_STORAGE' }) as ResponseFor<'PRUNE_STORAGE'>;
+    if (!response?.ok || !response.summary) throw new Error(response?.error || 'Không thể dọn dữ liệu');
+    renderStorageSummary(response.summary);
+    showSaveStatus(`✓ Đã dọn ${response.removed ?? 0} bản ghi`);
+  } catch (error) {
+    console.error('[Options] pruneStorage error:', error);
+    alert(`Không thể dọn dữ liệu: ${error instanceof Error ? error.message : 'Lỗi không xác định'}`);
+  } finally {
+    if (button) { button.disabled = false; button.textContent = originalLabel; }
+  }
 }
 
 async function handleStorageSummaryClick(event: Event): Promise<void> {

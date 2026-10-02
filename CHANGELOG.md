@@ -10,6 +10,18 @@ Chưa có thay đổi.
 
 ---
 
+## [7.2.1] — 2026-10-02 *(Collection, storage cleanup & popup fixes)*
+
+### Sửa lỗi
+
+- Sửa nút **Bắt đầu thu thập** không hoạt động từ popup: background tìm đúng tab profile bằng URL đã parse, xác nhận collector thực sự khởi động rồi mới cập nhật trạng thái UI và báo lỗi rõ ràng khi tab chưa sẵn sàng.
+- Làm rõ tùy chọn **Tự động bắt đầu thu thập** trong Settings; mặc định tắt và chỉ tự thu thập/cuộn khi người dùng chủ động bật.
+- Tối ưu **Dọn dữ liệu cũ** cho hàng nghìn profile bằng xử lý song song có giới hạn, trạng thái `Đang dọn…`, bắt lỗi và làm mới cache sau khi prune.
+- Tăng chiều rộng nội tại popup lên **440 px**, giữ toolbar Queue trên một hàng và vẫn co giãn không tràn ngang ở viewport nhỏ.
+- Thêm Chromium regression cho lệnh thu thập thủ công từ extension page.
+
+---
+
 ## [7.2.0] — 2026-10-02 *(P2 toolkit & Queue layout refresh)*
 
 ### P2 Toolkit

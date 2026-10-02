@@ -1,10 +1,10 @@
-# Migration và rollback v7.0.x–v7.2.0
+# Migration và rollback v7.0.x–v7.2.1
 
-> Áp dụng cho nâng cấp từ **6.4.0/7.0.x–7.1.x** lên **7.2.0** | Cập nhật: 2026-10-02
+> Áp dụng cho nâng cấp từ **6.4.0/7.0.x–7.2.0** lên **7.2.1** | Cập nhật: 2026-10-02
 
 ## Thay đổi dữ liệu
 
-Nhánh v7.0.x–v7.2.0 không thay đổi permission hay host permission. v7.0.0 thêm Saved Jobs/history v2; v7.0.1 bổ sung Queue schema v3 có snapshot tương thích rollback; v7.1.0 thêm Following Scanner/retention; v7.2.0 thêm schedule và notification snapshot trong `chrome.storage.local` nhưng không tăng phiên bản IndexedDB. Các vùng dữ liệu cục bộ cần lưu ý:
+Nhánh v7.0.x–v7.2.1 không thay đổi permission hay host permission. v7.0.0 thêm Saved Jobs/history v2; v7.0.1 bổ sung Queue schema v3 có snapshot tương thích rollback; v7.1.0 thêm Following Scanner/retention; v7.2.0 thêm schedule và notification snapshot trong `chrome.storage.local` nhưng không tăng phiên bản IndexedDB. v7.2.1 chỉ sửa logic/UI, không thêm schema hoặc storage key. Các vùng dữ liệu cục bộ cần lưu ý:
 
 | Storage key | Schema | Nội dung | Giới hạn |
 | --- | ---: | --- | ---: |

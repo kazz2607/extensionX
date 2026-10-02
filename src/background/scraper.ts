@@ -7,7 +7,7 @@ import { MediaItem, Options, CollectState } from '../types.ts';
 import { filterMediaItems, isVideoThumbnailUrl } from '../shared/media-filter.ts';
 import { recordDiagnostic } from './diagnostics.ts';
 import { canTransitionCollectPhase, type CollectPhase } from '../shared/collect-state.ts';
-import { normalizeUrlForDedup } from '../shared/validation.ts';
+import { isXProfileUrlForUsername, normalizeUrlForDedup } from '../shared/validation.ts';
 
 // ─── BUG-03 FIX: Options Cache — tránh gọi storage.sync N lần per session ────
 let _optionsCache: Options | null = null;
@@ -185,29 +185,48 @@ async function checkAutoScroll(tabId: number | undefined, username: string | und
   if (!isMediaPage || !tabId || !username) return;
   const opts = await getCachedOptions();
   if (opts.autoScroll) {
-    setTimeout(() => startCollecting(username, tabId), 3000);
+    setTimeout(() => { void startCollecting(username, tabId); }, 3000);
   }
 }
 
-async function startCollecting(username: string, tabId?: number) {
+async function startCollecting(username: string, tabId?: number): Promise<boolean> {
   // FEA-01: Block bookmark scanning khi tắt trong options
   if (username === '_bookmarks_') {
     const opts = await getCachedOptions();
     if (opts.enableBookmarks === false) {
       console.log('[SW] Bookmark scanning disabled by user — skip');
-      return;
+      return false;
     }
   }
 
   if (!tabId) {
-    // SEC-05 FIX: Chỉ query tab x.com/twitter.com — không đọc URL mọi tab của user
-    const tabs = await chrome.tabs.query({ url: ['https://x.com/*', 'https://twitter.com/*', 'https://*.x.com/*', 'https://*.twitter.com/*'] });
-    tabId = tabs.find(t => t.url?.includes(username))?.id;
+    // Popup không có sender.tab. Ưu tiên tab đã đăng ký PAGE_LOADED, sau đó
+    // tìm tab X đang active; luôn so khớp profile bằng URL parser thay vì
+    // substring để không sai khác hoa/thường hoặc chọn nhầm username gần giống.
+    for (const [knownTabId, knownState] of tabState) {
+      if (knownState.username?.toLowerCase() === username.toLowerCase() && isXProfileUrlForUsername(knownState.url, username)) {
+        tabId = knownTabId;
+        if (knownState.isMediaPage) break;
+      }
+    }
+    if (!tabId) {
+      const patterns = ['https://x.com/*', 'https://twitter.com/*', 'https://*.x.com/*', 'https://*.twitter.com/*'];
+      const activeTabs = await chrome.tabs.query({ active: true, currentWindow: true, url: patterns });
+      tabId = activeTabs.find((tab) => isXProfileUrlForUsername(tab.url, username))?.id;
+      if (!tabId) {
+        const tabs = await chrome.tabs.query({ url: patterns });
+        tabId = tabs.find((tab) => isXProfileUrlForUsername(tab.url, username))?.id;
+      }
+    }
   }
-  if (!tabId) return;
+  if (!tabId) return false;
+
+  const matchedTab = await chrome.tabs.get(tabId).catch(() => null);
+  if (!matchedTab || !isXProfileUrlForUsername(matchedTab.url, username)) return false;
 
   const state: CollectState = tabState.get(tabId) || { scrollCount: 0 };
-  if (state.isCollecting || !canTransitionCollectPhase(state.phase ?? 'idle', 'starting')) return;
+  if (state.isCollecting) return true;
+  if (!canTransitionCollectPhase(state.phase ?? 'idle', 'starting')) return false;
 
   state.phase = 'starting';
   state.isCollecting = true;
@@ -239,16 +258,17 @@ async function startCollecting(username: string, tabId?: number) {
     await chrome.tabs.update(tabId, { url: targetUrl });
     await waitForTabLoad(tabId);
     await sleep(3000);
-    if (tabState.get(tabId)?.operationId !== operationId) return;
+    if (tabState.get(tabId)?.operationId !== operationId) return false;
     // Sau navigate, gửi lại vì content script mới reload
     chrome.tabs.sendMessage(tabId, { type: 'COLLECT_STARTED_LOCAL' }).catch(() => {});
   }
 
   const activeState = tabState.get(tabId);
-  if (!activeState || activeState.operationId !== operationId) return;
+  if (!activeState || activeState.operationId !== operationId) return false;
   activeState.phase = 'collecting';
   tabState.set(tabId, activeState);
   void scrollLoop(tabId, username, operationId);
+  return true;
 }
 
 function finishCollecting(state: CollectState, phase: Extract<CollectPhase, 'stopped' | 'failed'>): CollectState {

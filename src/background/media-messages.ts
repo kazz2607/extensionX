@@ -216,14 +216,17 @@ export function handleMediaMessage(
     }
 
     case 'START_COLLECTING': {
-      if (!isValidUsername(payload?.username) || (sender.tab && !isMatchingXTab(sender, payload.username))) { sendResponse({ error: 'Invalid username or tab' }); return false; }
-      startCollecting(payload.username, sender.tab?.id);
-      sendResponse({ ok: true });
+      const senderIsXTab = isXUrl(sender.tab?.url);
+      if (!isValidUsername(payload?.username) || (senderIsXTab && !isMatchingXTab(sender, payload.username))) { sendResponse({ error: 'Invalid username or tab' }); return false; }
+      void startCollecting(payload.username, senderIsXTab ? sender.tab?.id : undefined)
+        .then((started) => sendResponse(started ? { ok: true } : { error: 'Không tìm thấy tab media phù hợp hoặc phiên thu thập chưa sẵn sàng' }))
+        .catch(() => sendResponse({ error: 'Không thể bắt đầu thu thập' }));
       return true;
     }
 
     case 'STOP_COLLECTING': {
-      if (!isValidUsername(payload?.username) || (sender.tab && !isMatchingXTab(sender, payload.username))) { sendResponse({ error: 'Invalid username or tab' }); return false; }
+      const senderIsXTab = isXUrl(sender.tab?.url);
+      if (!isValidUsername(payload?.username) || (senderIsXTab && !isMatchingXTab(sender, payload.username))) { sendResponse({ error: 'Invalid username or tab' }); return false; }
       stopCollecting(payload.username);
       sendResponse({ ok: true });
       return true;

@@ -1,6 +1,6 @@
 # P2 Toolkit — estimate, gallery, ZIP và lịch tải
 
-> ExtensionX **7.2.0** | Cập nhật: 2026-10-02 | Trạng thái: **Released**
+> ExtensionX **7.2.1** | Cập nhật: 2026-10-02 | Trạng thái: **Released trong 7.2.0, ổn định trong 7.2.1**
 
 P2 Toolkit nằm trong Download Center và gom các công cụ lập kế hoạch/tổ chức download mà không mở rộng permission hiện hành.
 

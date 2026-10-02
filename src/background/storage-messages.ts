@@ -3,6 +3,21 @@ import { mediaStore, statsStore, downloadedStore, dirtyMediaStore } from './stat
 import { mediaRepository } from './indexeddb.ts';
 import { isValidUsername } from '../shared/validation.ts';
 
+const PRUNE_CONCURRENCY = 8;
+
+async function runBounded<T>(items: readonly T[], worker: (item: T) => Promise<number>): Promise<number> {
+  let cursor = 0;
+  let removed = 0;
+  const runners = Array.from({ length: Math.min(PRUNE_CONCURRENCY, items.length) }, async () => {
+    while (cursor < items.length) {
+      const item = items[cursor++];
+      removed += await worker(item);
+    }
+  });
+  await Promise.all(runners);
+  return removed;
+}
+
 export const handleStorageMessage: DomainMessageHandler = (message, _sender, sendResponse) => {
   const { type, payload } = message;
   switch (type) {
@@ -15,11 +30,16 @@ export const handleStorageMessage: DomainMessageHandler = (message, _sender, sen
       void (async () => {
         try {
           const before = await mediaRepository.getStorageSummary();
-          let removed = 0;
-          for (const profile of before.profiles) {
-            removed += await mediaRepository.pruneMediaItems(profile.username);
-            removed += await mediaRepository.pruneDownloadedUrls(profile.username);
-          }
+          const now = Date.now();
+          const removed = await runBounded(before.profiles, async (profile) => {
+            const count = await mediaRepository.pruneMediaItems(profile.username, now)
+              + await mediaRepository.pruneDownloadedUrls(profile.username, now);
+            mediaStore.delete(profile.username);
+            statsStore.delete(profile.username);
+            downloadedStore.delete(profile.username);
+            dirtyMediaStore.delete(profile.username);
+            return count;
+          });
           sendResponse({ ok: true, removed, summary: await mediaRepository.getStorageSummary() });
         } catch {
           sendResponse({ error: 'Unable to prune local storage' });

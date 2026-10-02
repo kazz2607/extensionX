@@ -98,6 +98,16 @@ test('Chrome extension fixture covers media collection and Queue lifecycle', { t
   await waitForCount(() => count('Alice'), 1);
   await waitForCount(() => count('Bob'), 1);
 
+  // Popup messages have no sender.tab. Manual collection must resolve the
+  // exact profile tab from PAGE_LOADED state and acknowledge only after the
+  // collector has actually started.
+  const manualStart = await options.evaluate(() => chrome.runtime.sendMessage({ type: 'START_COLLECTING', payload: { username: 'Alice' } }));
+  t.diagnostic(`Manual collection response: ${JSON.stringify(manualStart)}`);
+  assert.equal(manualStart.ok, true);
+  const collectingState = await options.evaluate(() => chrome.runtime.sendMessage({ type: 'GET_TAB_STATE', payload: { username: 'Alice' } }));
+  assert.equal(collectingState.isCollecting, true);
+  await options.evaluate(() => chrome.runtime.sendMessage({ type: 'STOP_COLLECTING', payload: { username: 'Alice' } }));
+
   await alice.evaluate(() => {
     history.pushState({}, '', '/Alice/media?page=2');
     const article = document.createElement('article');

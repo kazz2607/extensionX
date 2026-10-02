@@ -99,9 +99,9 @@ body {
   font-size: 13px;
   background: var(--bg);
   color: var(--text-primary);
-  width: 100%;
-  min-width: 320px;
-  max-width: 400px;
+  width: 440px;
+  min-width: 440px;
+  max-width: 440px;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
 }
@@ -109,9 +109,9 @@ body {
 html {
   background: var(--bg);
   border: none;
-  width: 400px;
-  min-width: 320px;
-  max-width: 400px;
+  width: 440px;
+  min-width: 440px;
+  max-width: 440px;
   overflow-x: hidden;
 }
 
@@ -1486,7 +1486,7 @@ a:focus-visible {
   opacity: 0.6;
 }
 
-@media (max-width: 399px) {
+@media (max-width: 439px) {
   html,
   body {
     width: 100%;

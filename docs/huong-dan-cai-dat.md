@@ -1,6 +1,6 @@
 # Hướng dẫn cài đặt và sử dụng
 
-> X Media Downloader **7.2.0** | Cập nhật: 2026-10-02
+> X Media Downloader **7.2.1** | Cập nhật: 2026-10-02
 
 Extension tải ảnh, video và GIF từ X.com, đồng thời hỗ trợ tải media trực tiếp trên Telegram Web A/K.
 
@@ -24,7 +24,7 @@ Extension tải ảnh, video và GIF từ X.com, đồng thời hỗ trợ tải
 4. Mở `chrome://extensions`.
 5. Bật **Developer mode**.
 6. Chọn **Load unpacked** và trỏ tới thư mục `dist/`.
-7. Kiểm tra popup hiển thị version **7.2.0**.
+7. Kiểm tra popup hiển thị version **7.2.1**.
 
 ## Cập nhật extension
 
@@ -82,6 +82,7 @@ Trang Options cho phép cấu hình:
 - Bỏ qua file đã tải.
 - Template tên file.
 - Smart Auto-Stop, snackbar, notification và feature toggle.
+- **Tự động bắt đầu thu thập** khi vào `/media`; tùy chọn này mặc định tắt.
 - Diagnostic cục bộ opt-in, export và xóa dữ liệu diagnostic.
 
 Các thay đổi được tự động lưu; kiểm tra trạng thái **Saved** trước khi đóng trang.
@@ -93,10 +94,11 @@ Các thay đổi được tự động lưu; kiểm tra trạng thái **Saved** 
 - Đảm bảo đang ở đúng profile/tab được hỗ trợ và đã đăng nhập.
 - Tải lại trang, bắt đầu collect rồi cuộn để X.com nạp thêm dữ liệu.
 - Với profile private, tài khoản hiện tại phải có quyền xem.
+- Nếu nút **Bắt đầu thu thập** báo tab chưa sẵn sàng, reload extension rồi F5 tab X để nạp lại content script.
 
 ### Queue không bắt đầu
 
-- Xác nhận popup và `dist/manifest.json` cùng version 7.2.0.
+- Xác nhận popup và `dist/manifest.json` cùng version 7.2.1.
 - Reload extension và mở lại popup.
 - Mục có `0 media` sẽ chuyển Error; kiểm tra profile khác còn dữ liệu hay không.
 - Mở Service Worker console và tìm `START_QUEUE`, `Queue IndexedDB load failed` hoặc lỗi download.
