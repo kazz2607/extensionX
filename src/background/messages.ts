@@ -6,12 +6,14 @@ import { isInternalSender, type DomainMessageHandler } from './message-handler.t
 import { handleMediaMessage } from './media-messages.ts';
 import { handleQueueMessage } from './queue-messages.ts';
 import { handleStorageMessage } from './storage-messages.ts';
+import { handleP2Message } from './p2-messages.ts';
 
 const handlers: readonly DomainMessageHandler[] = [
   handleQueueMessage,
   handleDownloadCenterMessage,
   handleExportMessage,
   handleStorageMessage,
+  handleP2Message,
   handleFollowingMessage,
   handleMediaMessage,
 ];

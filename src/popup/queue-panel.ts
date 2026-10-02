@@ -152,7 +152,20 @@ export function renderQueue(): void {
   }
   const summary = document.getElementById('queue-summary');
   if (summary) {
-    summary.textContent = `${presentation.downloading} đang tải · ${presentation.waiting} chờ · ${presentation.paused} tạm dừng · ${presentation.error} lỗi`;
+    const metrics: Array<[string, number, string]> = [
+      ['Đang tải', presentation.downloading, 'active'],
+      ['Chờ', presentation.waiting, 'waiting'],
+      ['Tạm dừng', presentation.paused, 'paused'],
+      ['Lỗi', presentation.error, 'error'],
+    ];
+    summary.replaceChildren(...metrics.map(([label, value, state]) => {
+      const metric = document.createElement('span');
+      metric.className = `queue-summary-item ${state}`;
+      const count = document.createElement('strong'); count.textContent = String(value);
+      const text = document.createElement('span'); text.textContent = label;
+      metric.append(count, text);
+      return metric;
+    }));
   }
 
   // P3: Kiểm tra signature — bỏ qua full rebuild nếu chỉ progress thay đổi

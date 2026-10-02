@@ -1,4 +1,4 @@
-import type { HistoryEntry, QueueItem, SavedJob, SavedJobInput } from '../types.ts';
+import type { HistoryEntry, JobSchedule, MediaItem, NotificationEvent, QueueItem, SavedJob, SavedJobInput } from '../types.ts';
 import type { MessageType, ResponseFor } from '../shared/messages.ts';
 
 interface CenterData {
@@ -12,6 +12,10 @@ let data: CenterData = { queue: [], jobs: [], history: [], download: { isDownloa
 const LIST_WINDOW = 50;
 let queueWindow = LIST_WINDOW;
 let historyWindow = LIST_WINDOW;
+let galleryOffset = 0;
+let galleryNextOffset: number | null = null;
+let schedules: JobSchedule[] = [];
+let notifications: NotificationEvent[] = [];
 
 const byId = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const search = byId<HTMLInputElement>('search');
@@ -56,6 +60,98 @@ function render(): void {
   renderQueue();
   renderJobs();
   renderHistory();
+  renderScheduleOptions();
+}
+
+function p2Payload(): Record<string, unknown> {
+  return { username: byId<HTMLInputElement>('p2-username').value.trim().replace(/^@/, ''), filterType: byId<HTMLSelectElement>('p2-filter').value };
+}
+
+function downloadText(filename: string, content: string, type: string): void {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  chrome.downloads.download({ url, filename, saveAs: false }).finally(() => setTimeout(() => URL.revokeObjectURL(url), 1_000));
+}
+
+function renderScheduleOptions(): void {
+  const select = byId<HTMLSelectElement>('schedule-job');
+  const selected = select.value;
+  const options = [new Option('Chọn Saved Job', '')];
+  options.push(...data.jobs.map((job) => new Option(`${job.name} · @${job.username}`, job.id)));
+  select.replaceChildren(...options);
+  select.value = selected;
+  const list = byId('schedule-list');
+  if (!schedules.length) { list.replaceChildren(empty('Chưa có lịch tải. Lịch chỉ chạy khi Chrome còn hoạt động và sẽ bỏ qua nếu đang tải.')); return; }
+  const fragment = document.createDocumentFragment();
+  for (const schedule of schedules) {
+    const job = data.jobs.find((item) => item.id === schedule.jobId);
+    const row = document.createElement('article'); row.className = 'item';
+    const title = document.createElement('h3'); title.className = 'item-title'; title.textContent = job?.name || 'Saved Job đã xóa';
+    const meta = document.createElement('p'); meta.className = 'item-meta'; meta.textContent = `${schedule.enabled ? 'Đang bật' : 'Đã tắt'} · mỗi ${schedule.intervalMinutes} phút`;
+    const detail = document.createElement('div'); detail.className = 'item-detail'; detail.textContent = schedule.nextRunAt ? `Lần tới ${new Date(schedule.nextRunAt).toLocaleString('vi-VN')}` : 'Không có lần chạy kế tiếp';
+    const actions = document.createElement('div'); actions.className = 'item-actions';
+    actions.append(button(schedule.enabled ? 'Tắt' : 'Bật', 'toggle-schedule', schedule.jobId));
+    const main = document.createElement('div'); main.append(title, meta); row.append(main, detail, actions); fragment.append(row);
+  }
+  list.replaceChildren(fragment);
+}
+
+function renderNotifications(): void {
+  byId('notification-count').textContent = String(notifications.filter((item) => !item.read).length);
+  const list = byId('notifications-list');
+  if (!notifications.length) { list.replaceChildren(empty('Chưa có thông báo cục bộ.')); return; }
+  const fragment = document.createDocumentFragment();
+  for (const event of notifications) {
+    const row = document.createElement('article'); row.className = 'item';
+    const main = document.createElement('div'); const title = document.createElement('h3'); title.className = 'item-title'; title.textContent = event.title;
+    const meta = document.createElement('p'); meta.className = 'item-meta'; meta.textContent = new Date(event.createdAt).toLocaleString('vi-VN'); main.append(title, meta);
+    const detail = document.createElement('div'); detail.className = 'item-detail'; detail.textContent = event.message;
+    row.append(main, detail); fragment.append(row);
+  }
+  list.replaceChildren(fragment);
+}
+
+async function refreshP2State(): Promise<void> {
+  const [scheduleResponse, notificationResponse] = await Promise.all([sendBG('GET_SCHEDULES'), sendBG('GET_NOTIFICATIONS')]);
+  schedules = scheduleResponse?.schedules || [];
+  notifications = notificationResponse?.events || [];
+  renderScheduleOptions(); renderNotifications();
+}
+
+async function previewFolder(): Promise<void> {
+  const username = byId<HTMLInputElement>('p2-username').value.trim().replace(/^@/, '') || 'profile';
+  const template = byId<HTMLInputElement>('p2-folder-rule').value;
+  const response = await sendBG('PREVIEW_FOLDER_RULE', { username, template });
+  byId('p2-preview').textContent = response?.preview ? `Downloads/${response.preview}/` : response?.error || 'Quy tắc không hợp lệ';
+}
+
+async function estimate(): Promise<void> {
+  const response = await sendBG('GET_DOWNLOAD_ESTIMATE', { ...p2Payload(), skipDuplicates: true });
+  const root = byId('estimate-result');
+  if (!response?.estimate) { root.replaceChildren(empty(response?.error || 'Không thể ước tính.')); return; }
+  const values = [
+    ['Sẽ tải', String(response.estimate.selected)],
+    ['Trùng', String(response.estimate.duplicates)],
+    ['Ước tính', `${(response.estimate.estimatedBytes / 1024 / 1024).toFixed(1)} MiB`],
+    ['Chưa rõ kích thước', String(response.estimate.unknownSize)],
+  ];
+  root.replaceChildren(...values.map(([label, value]) => { const card = document.createElement('article'); card.className = 'summary-card'; const span = document.createElement('span'); span.textContent = label; const strong = document.createElement('strong'); strong.textContent = value; card.append(span, strong); return card; }));
+  byId('p2-preview').textContent = response.estimate.warning || `${response.estimate.images} ảnh · ${response.estimate.videos} video · ${response.estimate.gifs} GIF`;
+}
+
+async function loadGallery(reset = false): Promise<void> {
+  if (reset) { galleryOffset = 0; byId('gallery-grid').replaceChildren(); }
+  const response = await sendBG('GET_GALLERY_PAGE', { ...p2Payload(), offset: galleryOffset, limit: 50 });
+  if (!response?.items) return;
+  const fragment = document.createDocumentFragment();
+  for (const item of response.items as MediaItem[]) {
+    const card = document.createElement('article'); card.className = 'gallery-card';
+    const media = document.createElement(item.type === 'image' ? 'img' : 'video');
+    media.src = item.url; if (media instanceof HTMLImageElement) media.loading = 'lazy'; else media.preload = 'metadata';
+    const badge = document.createElement('span'); badge.textContent = item.type; card.append(media, badge); fragment.append(card);
+  }
+  byId('gallery-grid').append(fragment);
+  galleryNextOffset = response.nextOffset ?? null; galleryOffset = galleryNextOffset ?? galleryOffset;
+  byId('btn-gallery-more').classList.toggle('hidden', galleryNextOffset === null);
 }
 
 function renderQueue(): void {
@@ -161,6 +257,11 @@ async function handleAction(action: string, id: string): Promise<void> {
   if (action === 'edit-job') openJobDialog(data.jobs.find((job) => job.id === id));
   if (action === 'delete-job' && confirm('Xóa Saved Job này?')) await sendBG('DELETE_SAVED_JOB', { id });
   if (action === 'job-from-history') openJobDialog(undefined, id);
+  if (action === 'toggle-schedule') {
+    const current = schedules.find((item) => item.jobId === id);
+    await sendBG('SET_JOB_SCHEDULE', { schedule: { jobId: id, enabled: !current?.enabled, intervalMinutes: current?.intervalMinutes || 1440 } });
+    await refreshP2State();
+  }
   if (!['edit-job', 'job-from-history'].includes(action)) await refresh();
 }
 
@@ -173,6 +274,28 @@ document.addEventListener('DOMContentLoaded', () => {
   byId('btn-cancel-job').addEventListener('click', () => dialog.close());
   search.addEventListener('input', () => { queueWindow = LIST_WINDOW; historyWindow = LIST_WINDOW; render(); });
   statusFilter.addEventListener('change', () => { queueWindow = LIST_WINDOW; renderQueue(); });
+  byId('p2-folder-rule').addEventListener('input', () => void previewFolder());
+  byId('p2-username').addEventListener('input', () => void previewFolder());
+  byId('btn-estimate').addEventListener('click', () => void estimate());
+  byId('btn-gallery').addEventListener('click', () => void loadGallery(true));
+  byId('btn-gallery-more').addEventListener('click', () => { if (galleryNextOffset !== null) void loadGallery(); });
+  byId('btn-zip').addEventListener('click', async () => {
+    const response = await sendBG('DOWNLOAD_ZIP_CHUNKS', { ...p2Payload(), chunkSize: 50 });
+    byId('p2-preview').textContent = response?.ok ? `Đang tạo ${response.chunks} ZIP cho ${response.files} file.` : response?.error || 'Không thể tạo ZIP';
+  });
+  byId('btn-error-report').addEventListener('click', async () => {
+    const response = await sendBG('EXPORT_ERROR_REPORT');
+    if (response?.json) downloadText('extensionx-error-report.json', response.json, 'application/json');
+    if (response?.csv) downloadText('extensionx-error-report.csv', response.csv, 'text/csv');
+  });
+  byId('btn-save-schedule').addEventListener('click', async () => {
+    const jobId = byId<HTMLSelectElement>('schedule-job').value;
+    if (!jobId) { byId('connection-status').textContent = 'Hãy chọn Saved Job'; return; }
+    await sendBG('SET_JOB_SCHEDULE', { schedule: { jobId, enabled: byId<HTMLInputElement>('schedule-enabled').checked, intervalMinutes: Number(byId<HTMLSelectElement>('schedule-interval').value) } });
+    await refreshP2State();
+  });
+  byId('btn-notifications').addEventListener('click', () => byId('notifications-panel').classList.toggle('hidden'));
+  byId('btn-mark-read').addEventListener('click', async () => { await sendBG('MARK_NOTIFICATIONS_READ'); await refreshP2State(); });
   document.querySelector('main')?.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button[data-action]') : null;
     if (target?.dataset.action && target.dataset.id) void handleAction(target.dataset.action, target.dataset.id);
@@ -199,5 +322,5 @@ document.addEventListener('DOMContentLoaded', () => {
   chrome.runtime.onMessage.addListener((message) => {
     if (['QUEUE_UPDATE', 'DOWNLOAD_DONE'].includes(message?.type)) void refresh();
   });
-  void refresh();
+  void Promise.all([refresh(), refreshP2State(), previewFolder()]);
 });

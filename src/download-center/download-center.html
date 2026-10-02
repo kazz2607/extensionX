@@ -9,7 +9,7 @@
 <body>
   <header class="topbar">
     <div>
-      <p class="eyebrow">EXTENSIONX · v7.1.0</p>
+      <p class="eyebrow">EXTENSIONX · v7.2.0</p>
       <h1>Download Center</h1>
       <p class="subtitle">Quản lý Queue, Saved Jobs và lịch sử tải tại một nơi.</p>
     </div>
@@ -46,6 +46,46 @@
         </select>
       </label>
       <p id="connection-status" class="connection" role="status" aria-live="polite">Đang tải dữ liệu…</p>
+    </section>
+
+    <section class="panel" aria-labelledby="p2-heading">
+      <div class="panel-heading">
+        <div><p class="section-kicker">P2 TOOLKIT</p><h2 id="p2-heading">Lập kế hoạch, Gallery và ZIP</h2></div>
+        <div class="item-actions">
+          <button id="btn-error-report" class="button secondary" type="button">Xuất báo cáo lỗi</button>
+          <button id="btn-notifications" class="button secondary" type="button">Thông báo <span id="notification-count">0</span></button>
+        </div>
+      </div>
+      <div class="p2-controls">
+        <label><span>Profile</span><input id="p2-username" maxlength="50" placeholder="NASA" /></label>
+        <label><span>Loại media</span><select id="p2-filter"><option value="all">Tất cả</option><option value="images">Ảnh</option><option value="videos">Video</option><option value="gifs">GIF</option></select></label>
+        <label class="wide"><span>Quy tắc thư mục</span><input id="p2-folder-rule" maxlength="300" value="{username}/{year}/{month}/{type}" /></label>
+      </div>
+      <p id="p2-preview" class="item-detail" role="status">Nhập profile để xem trước.</p>
+      <div class="item-actions p2-actions">
+        <button id="btn-estimate" class="button primary" type="button">Ước tính</button>
+        <button id="btn-gallery" class="button secondary" type="button">Mở Gallery</button>
+        <button id="btn-zip" class="button secondary" type="button">Tải ZIP theo phần</button>
+      </div>
+      <div id="estimate-result" class="estimate-grid" aria-live="polite"></div>
+      <div id="gallery-grid" class="gallery-grid"></div>
+      <button id="btn-gallery-more" class="button secondary hidden" type="button">Tải thêm</button>
+    </section>
+
+    <section class="panel" aria-labelledby="schedule-heading">
+      <div class="panel-heading"><div><p class="section-kicker">MV3 SCHEDULE</p><h2 id="schedule-heading">Lịch tải thủ công</h2></div></div>
+      <div class="p2-controls">
+        <label class="wide"><span>Saved Job</span><select id="schedule-job"><option value="">Chọn Saved Job</option></select></label>
+        <label><span>Chu kỳ</span><select id="schedule-interval"><option value="60">Mỗi giờ</option><option value="360">Mỗi 6 giờ</option><option value="1440">Mỗi ngày</option><option value="10080">Mỗi tuần</option></select></label>
+        <label class="checkbox"><input id="schedule-enabled" type="checkbox" /><span>Bật lịch</span></label>
+      </div>
+      <div class="item-actions p2-actions"><button id="btn-save-schedule" class="button primary" type="button">Lưu lịch</button></div>
+      <div id="schedule-list" class="item-list"></div>
+    </section>
+
+    <section id="notifications-panel" class="panel hidden" aria-labelledby="notifications-heading">
+      <div class="panel-heading"><div><p class="section-kicker">LOCAL ONLY</p><h2 id="notifications-heading">Notification Center</h2></div><button id="btn-mark-read" class="button secondary" type="button">Đánh dấu đã đọc</button></div>
+      <div id="notifications-list" class="item-list"></div>
     </section>
 
     <section class="panel" aria-labelledby="queue-heading">
@@ -85,7 +125,7 @@
         <label><span>Từ khóa</span><input id="job-keyword" maxlength="200" placeholder="#launch" /></label>
         <label><span>Từ ngày</span><input id="job-date-from" type="date" /></label>
         <label><span>Đến ngày</span><input id="job-date-to" type="date" /></label>
-        <label class="wide"><span>Thư mục lưu</span><input id="job-folder" maxlength="500" placeholder="TwitterMedia" /></label>
+        <label class="wide"><span>Thư mục lưu / rule</span><input id="job-folder" maxlength="500" placeholder="{username}/{year}/{month}/{type}" /></label>
         <label class="wide"><span>Filename template</span><input id="job-template" maxlength="200" placeholder="{username}_{tweetId}.{ext}" /></label>
         <label class="checkbox wide"><input id="job-dedup" type="checkbox" checked /><span>Bỏ qua file đã tải</span></label>
       </div>

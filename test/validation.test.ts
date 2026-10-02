@@ -23,6 +23,7 @@ import { DownloadCoordinator } from '../src/shared/download-coordinator.ts';
 import { getQueuePresentation } from '../src/shared/queue-presentation.ts';
 import { prepareQueueMedia } from '../src/shared/queue-prepare.ts';
 import { createTimedSettlement } from '../src/shared/timed-settlement.ts';
+import { buildRedactedErrorReport, contentFingerprint, estimateMedia, parseScheduleInput, renderFolderRule, validateFolderRule } from '../src/shared/p2-tools.ts';
 import { collectMediaMatches } from '../src/shared/media-query.ts';
 import { selectCacheEvictions } from '../src/shared/bounded-cache.ts';
 import { renderFilenameTemplate } from '../src/shared/filename-template.ts';
@@ -397,4 +398,36 @@ test('classifies inactive Following candidates and validates an explicit bounded
   assert.deepEqual(validateUnfollowSelection(['1'], candidates)?.map((item) => item.userId), ['1']);
   assert.equal(validateUnfollowSelection(['1', '1'], candidates), null);
   assert.equal(validateUnfollowSelection(['missing'], candidates), null);
+});
+
+test('P2 estimate reports duplicates, bounded size fallback and large-job warning', () => {
+  const items = [
+    { type: 'image' as const, url: 'https://pbs.twimg.com/media/a.jpg', width: 1000, height: 500 },
+    { type: 'video' as const, url: 'https://video.twimg.com/a.mp4' },
+  ];
+  const estimate = estimateMedia(items, new Set([items[0]!.url]));
+  assert.equal(estimate.total, 2);
+  assert.equal(estimate.duplicates, 1);
+  assert.equal(estimate.selected, 1);
+  assert.equal(estimate.unknownSize, 1);
+  assert.ok(estimate.estimatedBytes > 0);
+});
+
+test('P2 folder rules and schedules reject traversal and unsafe frequency', () => {
+  const item = { type: 'image' as const, url: 'https://pbs.twimg.com/media/a.jpg', tweetDate: Date.UTC(2026, 8, 3) };
+  assert.equal(renderFolderRule('{username}/{year}/{month}/{type}', item, 'NASA'), 'NASA/2026/09/images');
+  assert.equal(validateFolderRule('../{username}'), false);
+  assert.deepEqual(parseScheduleInput({ jobId: 'job_1', enabled: true, intervalMinutes: 60 }), { jobId: 'job_1', enabled: true, intervalMinutes: 60 });
+  assert.equal(parseScheduleInput({ jobId: 'job_1', enabled: true, intervalMinutes: 5 }), null);
+  assert.ok(parseExtensionMessage({ type: 'GET_GALLERY_PAGE', payload: { username: 'NASA', offset: 0, limit: 50 } }));
+  assert.equal(parseExtensionMessage({ type: 'GET_GALLERY_PAGE', payload: { username: 'NASA', secret: 'token' } }), null);
+});
+
+test('P2 error report redacts usernames and content fingerprint is deterministic', async () => {
+  const report = buildRedactedErrorReport([{ username: 'secret_user', count: 0, filter: 'videos', date: '2026-10-01T00:00:00Z', failed: 2, status: 'failed' }]);
+  assert.equal(report.count, 1);
+  assert.equal(report.json.includes('secret_user'), false);
+  assert.equal(report.csv.includes('secret_user'), false);
+  const bytes = new TextEncoder().encode('same-content').buffer;
+  assert.equal(await contentFingerprint(bytes), await contentFingerprint(bytes));
 });

@@ -1,6 +1,6 @@
 # X Media Downloader — Roadmap
 
-> Phiên bản hiện tại: **7.1.0** | Cập nhật: 2026-10-01
+> Phiên bản hiện tại: **7.2.0** | Cập nhật: 2026-10-02
 
 Tài liệu này là nguồn duy nhất cho trạng thái sản phẩm, phần việc đã hoàn thành và backlog. Chi tiết từng bản phát hành nằm trong [`CHANGELOG.md`](../CHANGELOG.md).
 
@@ -17,7 +17,7 @@ Extension đang dùng Manifest V3, TypeScript strict và Vite. Các luồng chí
 - Tải ảnh/video trực tiếp trên Telegram Web A/K, gồm Range-fetch cho stream riêng tư.
 - Following Scanner: thu thập GraphQL có giới hạn, lọc hoạt động, preview và unfollow tuần tự có throttle.
 
-Quality gate hiện hành: TypeScript, ESLint, **39 unit tests**, **2 fixture e2e tests**, benchmark 100–50.000 media, dependency lockfile review, **4 Chromium acceptance tests** (Queue lifecycle/fault/DOM và responsive/keyboard/Download Center), production build, performance budget và release checksum manifest. Chi tiết tại [`quality-gate.md`](quality-gate.md).
+Quality gate hiện hành: TypeScript, ESLint, **42 unit tests**, **2 fixture e2e tests**, benchmark 100–50.000 media, dependency lockfile review, **4 Chromium acceptance tests** (Queue lifecycle/fault/DOM và responsive/keyboard/Download Center), production build, performance budget và release checksum manifest. Chi tiết tại [`quality-gate.md`](quality-gate.md).
 
 ## Kiến trúc chính
 
@@ -54,6 +54,7 @@ src/
 | v7.0.0 | Download Center, Saved Jobs và history schema v2 có đường migration/rollback |
 | v7.0.1 | Queue lifecycle/fault acceptance, cursor/cache bound, Queue windowing/bulk actions và pipeline Blob object URL |
 | v7.1.0 | Hoàn tất P1: typed response map, storage retention UI, Following Scanner và acceptance UI/heap mở rộng |
+| v7.2.0 | Hoàn tất P2: estimate, folder rules, Gallery, ZIP chunk/hash dedupe, lịch Saved Job, Notification Center và Queue UI mới |
 
 Các kế hoạch Pha 0–15 cũ đã hoàn thành và được hợp nhất vào bảng này; không còn duy trì file kế hoạch riêng.
 
@@ -71,14 +72,13 @@ Automated Chromium acceptance đã xanh cho Queue profile rỗng, cold-load 100/
 
 Thiết kế chi tiết còn hoạt động tại [`following-scanner-plan.md`](following-scanner-plan.md).
 
-### P2 — Ý tưởng sản phẩm chưa cam kết
+### P2 — Hoàn thành
 
-- Gallery/dashboard toàn trang cho tập media lớn.
-- Đóng gói ZIP có giới hạn bộ nhớ và cảnh báo kích thước.
-- Content-hash duplicate detection tùy chọn.
-- Notification center và quản lý dung lượng dữ liệu cục bộ.
-- Lịch tải tự động chỉ khi có thiết kế MV3/rate-limit rõ ràng.
-- Cloud sync chỉ triển khai khi có mô hình quyền riêng tư và opt-in riêng.
+- Estimate trước tải, folder rule, error report đã redact, Gallery bounded, ZIP theo chunk/content-hash dedupe, lịch Saved Job MV3 và Notification Center đã hoàn thành.
+- Storage/retention UI đã hoàn thành từ P1.
+- Cloud sync tiếp tục không triển khai vì chưa có backend, threat model và cơ chế opt-in mã hóa; đây là mục “chưa khuyến nghị”, không thuộc release P2.
+
+Chi tiết và giới hạn tại [`p2-features.md`](p2-features.md).
 
 ## Nguyên tắc phát triển
 
@@ -91,7 +91,7 @@ Thiết kế chi tiết còn hoạt động tại [`following-scanner-plan.md`](
 ## Tài liệu liên quan
 
 - [`README.md`](README.md) — mục lục tài liệu.
-- [`upgrade-plan.md`](upgrade-plan.md) — kế hoạch nâng cấp kỹ thuật, UI/UX và tính năng theo các mốc 6.2.8–7.1.0.
+- [`upgrade-plan.md`](upgrade-plan.md) — kế hoạch nâng cấp kỹ thuật, UI/UX và tính năng theo các mốc 6.2.8–7.2.0.
 - [`huong-dan-cai-dat.md`](huong-dan-cai-dat.md) — cài đặt, sử dụng và xử lý sự cố.
 - [`quality-gate.md`](quality-gate.md) — kiểm thử và baseline chất lượng.
 - [`publish-guide.md`](publish-guide.md) — đóng gói và phát hành.

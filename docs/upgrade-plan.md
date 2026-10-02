@@ -1,6 +1,6 @@
 # Kế hoạch nâng cấp ExtensionX
 
-> Baseline: **7.1.0** | Rà soát: 2026-10-01 | Trạng thái: **P0 và P1 hoàn tất; P2 chưa cam kết**
+> Baseline: **7.2.0** | Rà soát: 2026-10-02 | Trạng thái: **P0, P1 và phạm vi P2 cam kết đã hoàn tất**
 
 Tài liệu này đề xuất lộ trình nâng cấp dựa trên mã nguồn hiện tại. Trọng tâm là độ tin cậy của Queue/download, hiệu năng với profile lớn, thu hẹp bề mặt bảo mật, hoàn thiện UI/UX và bổ sung tính năng có giá trị thực tế. Đây là kế hoạch triển khai, không phải danh sách lỗi đã được xác nhận; các mục cần đo hoặc tái hiện được ghi rõ là audit/benchmark.
 
@@ -14,7 +14,7 @@ Tài liệu này đề xuất lộ trình nâng cấp dựa trên mã nguồn hi
 | Storage | IndexedDB theo profile, lịch sử tải tối đa 50.000 URL | Đọc/ghi theo batch/cursor; không nhân đôi toàn bộ tập dữ liệu trong bộ nhớ |
 | Download | Worker pool 1–5, timeout và HLS offscreen | Stop phản hồi < 500 ms; retry có giới hạn; không tải thumbnail video |
 | Bảo mật | CSP, URL/sender validation và diagnostic redact đã có | Mọi message có payload typed; quyền/host có lý do; không có dữ liệu nhạy cảm trong log/export |
-| Chất lượng | 39 unit + 2 fixture e2e + 4 Chromium acceptance | Browser regression bắt buộc cho Queue, Download Center, X DOM fallback và Telegram |
+| Chất lượng | 42 unit + 2 fixture e2e + 4 Chromium acceptance | Browser regression bắt buộc cho Queue, Download Center, X DOM fallback và Telegram |
 
 ## 2. Nguyên tắc triển khai
 
@@ -250,14 +250,14 @@ Không gộp toàn bộ roadmap vào một release. Mỗi mốc nên có feature
 - Phân loại hoạt động 3/6/12 tháng, trạng thái chưa xác định, UI filter/selection và preview bắt buộc.
 - Unfollow tuần tự tối đa 100 mục/lượt, throttle bảo thủ và dừng khi gặp 401/403/429; không chạy nền và không persist token.
 
-### P2 — Tính năng sản phẩm chưa cam kết
+### P2 — Tính năng sản phẩm — Hoàn thành
 
-- Ước tính số file, file trùng và dung lượng trước khi tải.
-- Rule-based organization có preview và sanitize.
-- Export báo cáo lỗi đã redact; gallery virtual; ZIP theo chunk; content-hash dedupe và lịch tải thủ công.
+- Ước tính số file, file trùng và dung lượng trước khi tải đã có trong Download Center.
+- Rule-based organization có preview/sanitize và token `{username}/{year}/{month}/{type}` đã nối vào downloader.
+- Error report đã redact, Gallery bounded, ZIP theo chunk/SHA-256 dedupe, lịch Saved Job MV3 và Notification Center đã hoàn thành; xem [`p2-features.md`](p2-features.md).
 
 ## 12. Thứ tự triển khai tiếp theo
 
-P0 và toàn bộ P1 trong tài liệu này đã hoàn thành. Phần tiếp theo là P2 theo quyết định sản phẩm: ước tính dung lượng trước tải, rule-based organization, báo cáo lỗi, gallery, ZIP theo chunk, content-hash dedupe và lịch tải thủ công.
+P0, toàn bộ P1 và phạm vi P2 cam kết trong tài liệu này đã hoàn thành. Phần tiếp theo chỉ được mở sau quyết định sản phẩm mới; cloud sync/telemetry từ xa/auto-unfollow nền vẫn không được khuyến nghị.
 
-Version 7.1.0 đóng P0 và P1 sau khi acceptance tương ứng có bằng chứng test/benchmark và được ghi lại trong quality gate. P2 vẫn là backlog ý tưởng chưa cam kết.
+Baseline sau P2 có acceptance cho pure logic, message boundary, popup/Download Center responsive và performance budget; version phát hành tiếp theo sẽ được chốt ở bước release riêng.

@@ -1,4 +1,5 @@
-import type { CollectState, DownloadOptions, FollowingCandidate, FollowingScanState, FollowingScrollState, HistoryEntry, MediaItem, QueueExportData, QueueItem, SavedJob, SavedJobInput, Stats, StorageSummary } from '../types.ts';
+import type { CollectState, DownloadOptions, FollowingCandidate, FollowingScanState, FollowingScrollState, HistoryEntry, JobSchedule, MediaItem, NotificationEvent, QueueExportData, QueueItem, SavedJob, SavedJobInput, Stats, StorageSummary } from '../types.ts';
+import type { DownloadEstimate } from './p2-tools.ts';
 import type { LocalDiagnostics } from './diagnostics.ts';
 
 export type MessageType =
@@ -15,7 +16,9 @@ export type MessageType =
   | 'START_FOLLOWING_SCROLL' | 'STOP_FOLLOWING_SCROLL' | 'GET_FOLLOWING_SCROLL_STATE' | 'HLS_DONE' | 'TG_DOWNLOAD_MEDIA'
   | 'START_FOLLOWING_SCAN' | 'FOLLOWING_SCAN_PAGE' | 'GET_FOLLOWING_SCAN_STATE' | 'STOP_FOLLOWING_SCAN' | 'START_UNFOLLOW'
   | 'GET_DOWNLOAD_CENTER' | 'GET_SAVED_JOBS' | 'SAVE_SAVED_JOB' | 'DELETE_SAVED_JOB' | 'RUN_SAVED_JOB'
-  | 'GET_STORAGE_SUMMARY' | 'PRUNE_STORAGE' | 'CLEAR_PROFILE_STORAGE';
+  | 'GET_STORAGE_SUMMARY' | 'PRUNE_STORAGE' | 'CLEAR_PROFILE_STORAGE'
+  | 'GET_DOWNLOAD_ESTIMATE' | 'PREVIEW_FOLDER_RULE' | 'GET_GALLERY_PAGE' | 'EXPORT_ERROR_REPORT'
+  | 'GET_SCHEDULES' | 'SET_JOB_SCHEDULE' | 'GET_NOTIFICATIONS' | 'MARK_NOTIFICATIONS_READ' | 'DOWNLOAD_ZIP_CHUNKS';
 
 type UsernamePayload = { username: string };
 type MediaFilterPayload = UsernamePayload & { filterType?: 'all' | 'images' | 'videos' | 'gifs'; dateFrom?: string; dateTo?: string; keyword?: string };
@@ -25,7 +28,8 @@ type EmptyMessageType =
   | 'GET_SAVED_SESSION' | 'STOP_DOWNLOAD' | 'RETRY_FAILED' | 'EXPORT_QUEUE'
   | 'STOP_FOLLOWING_SCROLL' | 'GET_FOLLOWING_SCROLL_STATE' | 'GET_DOWNLOAD_CENTER' | 'GET_SAVED_JOBS'
   | 'GET_STORAGE_SUMMARY' | 'PRUNE_STORAGE'
-  | 'GET_FOLLOWING_SCAN_STATE' | 'STOP_FOLLOWING_SCAN';
+  | 'GET_FOLLOWING_SCAN_STATE' | 'STOP_FOLLOWING_SCAN'
+  | 'GET_SCHEDULES' | 'GET_NOTIFICATIONS' | 'MARK_NOTIFICATIONS_READ' | 'EXPORT_ERROR_REPORT';
 
 export type ExtensionMessage =
   | { type: 'MEDIA_FOUND'; payload: { username: string; mediaItems: MediaItem[] } }
@@ -51,6 +55,11 @@ export type ExtensionMessage =
   | { type: 'SAVE_SAVED_JOB'; payload: { job: SavedJobInput } }
   | { type: 'DELETE_SAVED_JOB' | 'RUN_SAVED_JOB'; payload: { id: string } }
   | { type: 'CLEAR_PROFILE_STORAGE'; payload: UsernamePayload }
+  | { type: 'GET_DOWNLOAD_ESTIMATE'; payload: MediaFilterPayload & { skipDuplicates?: boolean } }
+  | { type: 'PREVIEW_FOLDER_RULE'; payload: UsernamePayload & { template: string } }
+  | { type: 'GET_GALLERY_PAGE'; payload: MediaFilterPayload & { offset?: number; limit?: number } }
+  | { type: 'SET_JOB_SCHEDULE'; payload: { schedule: { jobId: string; enabled: boolean; intervalMinutes: number } } }
+  | { type: 'DOWNLOAD_ZIP_CHUNKS'; payload: MediaFilterPayload & { chunkSize?: number } }
   | { type: 'TG_DOWNLOAD_MEDIA'; payload: { url: string; filename: string; isVideo: boolean } }
   | { type: EmptyMessageType; payload?: Record<never, never> };
 
@@ -115,6 +124,15 @@ export interface MessageResponseMap {
   GET_STORAGE_SUMMARY: { summary?: StorageSummary; error?: string };
   PRUNE_STORAGE: { ok?: boolean; removed?: number; summary?: StorageSummary; error?: string };
   CLEAR_PROFILE_STORAGE: { ok?: boolean; summary?: StorageSummary; error?: string };
+  GET_DOWNLOAD_ESTIMATE: { estimate?: DownloadEstimate; error?: string };
+  PREVIEW_FOLDER_RULE: { preview?: string; error?: string };
+  GET_GALLERY_PAGE: { items?: MediaItem[]; total?: number; offset?: number; nextOffset?: number | null; error?: string };
+  EXPORT_ERROR_REPORT: { json?: string; csv?: string; count?: number; error?: string };
+  GET_SCHEDULES: { schedules: JobSchedule[] };
+  SET_JOB_SCHEDULE: { ok?: boolean; schedule?: JobSchedule; error?: string };
+  GET_NOTIFICATIONS: { events: NotificationEvent[] };
+  MARK_NOTIFICATIONS_READ: { ok: boolean };
+  DOWNLOAD_ZIP_CHUNKS: { ok?: boolean; chunks?: number; files?: number; error?: string };
 }
 
 export type ResponseFor<T extends MessageType> = T extends keyof MessageResponseMap
@@ -137,6 +155,8 @@ const MESSAGE_TYPES: ReadonlySet<string> = new Set<MessageType>([
   'START_FOLLOWING_SCAN', 'FOLLOWING_SCAN_PAGE', 'GET_FOLLOWING_SCAN_STATE', 'STOP_FOLLOWING_SCAN', 'START_UNFOLLOW',
   'GET_DOWNLOAD_CENTER', 'GET_SAVED_JOBS', 'SAVE_SAVED_JOB', 'DELETE_SAVED_JOB', 'RUN_SAVED_JOB',
   'GET_STORAGE_SUMMARY', 'PRUNE_STORAGE', 'CLEAR_PROFILE_STORAGE',
+  'GET_DOWNLOAD_ESTIMATE', 'PREVIEW_FOLDER_RULE', 'GET_GALLERY_PAGE', 'EXPORT_ERROR_REPORT',
+  'GET_SCHEDULES', 'SET_JOB_SCHEDULE', 'GET_NOTIFICATIONS', 'MARK_NOTIFICATIONS_READ', 'DOWNLOAD_ZIP_CHUNKS',
 ]);
 
 const PAYLOAD_KEYS: Readonly<Record<MessageType, readonly string[]>> = {
@@ -162,6 +182,11 @@ const PAYLOAD_KEYS: Readonly<Record<MessageType, readonly string[]>> = {
   GET_DOWNLOAD_CENTER: [], GET_SAVED_JOBS: [], SAVE_SAVED_JOB: ['job'],
   DELETE_SAVED_JOB: ['id'], RUN_SAVED_JOB: ['id'],
   GET_STORAGE_SUMMARY: [], PRUNE_STORAGE: [], CLEAR_PROFILE_STORAGE: ['username'],
+  GET_DOWNLOAD_ESTIMATE: ['username', 'filterType', 'dateFrom', 'dateTo', 'keyword', 'skipDuplicates'],
+  PREVIEW_FOLDER_RULE: ['username', 'template'],
+  GET_GALLERY_PAGE: ['username', 'filterType', 'dateFrom', 'dateTo', 'keyword', 'offset', 'limit'],
+  EXPORT_ERROR_REPORT: [], GET_SCHEDULES: [], SET_JOB_SCHEDULE: ['schedule'], GET_NOTIFICATIONS: [], MARK_NOTIFICATIONS_READ: [],
+  DOWNLOAD_ZIP_CHUNKS: ['username', 'filterType', 'dateFrom', 'dateTo', 'keyword', 'chunkSize'],
 };
 
 /** Cheap boundary check before command-specific validation in the service worker. */

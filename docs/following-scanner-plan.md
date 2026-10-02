@@ -1,6 +1,6 @@
 # Following Scanner Feature 1 — Kế hoạch triển khai
 
-> ExtensionX **7.1.0** | Cập nhật: 2026-10-01 | Trạng thái: **Implemented**
+> ExtensionX **7.2.0** | Cập nhật: 2026-10-02 | Trạng thái: **Implemented**
 
 Feature 0 (tự cuộn trang `/following`) đã hoàn thành từ v5.6.0. Feature 1 hiện thu các response GraphQL Following do chính trang X tải trong lúc auto-scroll, normalize/validate tại boundary, phân tích hoạt động và cung cấp unfollow có kiểm soát. Không tự lưu hoặc phát lại cookie/token.
 

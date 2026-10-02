@@ -80,7 +80,7 @@
         </div>
         <div class="header-text">
           <h1 class="app-name">Media Downloader</h1>
-          <span class="app-version">v7.1.0</span>
+          <span class="app-version">v7.2.0</span>
         </div>
       </div>
       <button class="btn-icon btn-theme" id="btn-theme" title="Đổi giao diện">
@@ -417,27 +417,32 @@
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
               <span class="queue-primary-label">Bắt đầu</span>
             </button>
-            <button class="btn-queue-export" id="btn-queue-export" title="Xuất queue ra file JSON">
+          </div>
+        </div>
+        <div class="queue-tools" aria-label="Dữ liệu hàng đợi">
+          <span class="queue-tools-label">Dữ liệu</span>
+          <button class="btn-queue-export" id="btn-queue-export" title="Xuất queue ra file JSON">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               Export
-            </button>
-            <label class="btn-queue-import-label" title="Nhập queue từ file JSON">
+          </button>
+          <label class="btn-queue-import-label" title="Nhập queue từ file JSON">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Import
               <input type="file" id="input-queue-import" accept=".json" />
-            </label>
-            <button class="btn-text btn-queue-clear" id="btn-queue-clear">Clear</button>
-          </div>
+          </label>
+          <button class="btn-text btn-queue-clear" id="btn-queue-clear">Xóa tất cả</button>
+          <details class="queue-bulk-menu">
+            <summary>Hàng loạt</summary>
+            <div class="queue-bulk-actions" id="queue-bulk-actions" aria-label="Thao tác hàng loạt">
+              <button type="button" data-bulk-action="retry_errors">Thử lại lỗi</button>
+              <button type="button" data-bulk-action="pause_selected">Tạm dừng mục chọn</button>
+              <button type="button" data-bulk-action="resume_selected">Tiếp tục mục chọn</button>
+              <button type="button" data-bulk-action="clear_completed">Xóa mục hoàn tất</button>
+              <button type="button" data-bulk-action="undo_clear_completed">Hoàn tác</button>
+            </div>
+          </details>
         </div>
-        <div class="queue-summary" id="queue-summary" role="status" aria-live="polite">0 đang tải · 0 chờ · 0 tạm dừng · 0 lỗi</div>
-
-        <div class="queue-bulk-actions" id="queue-bulk-actions" aria-label="Thao tác hàng loạt">
-          <button type="button" data-bulk-action="retry_errors">Thử lại lỗi</button>
-          <button type="button" data-bulk-action="pause_selected">Tạm dừng chọn</button>
-          <button type="button" data-bulk-action="resume_selected">Tiếp tục chọn</button>
-          <button type="button" data-bulk-action="clear_completed">Xóa hoàn tất</button>
-          <button type="button" data-bulk-action="undo_clear_completed">Hoàn tác</button>
-        </div>
+        <div class="queue-summary" id="queue-summary" role="status" aria-live="polite"></div>
 
         <!-- Add current profile shortcut -->
         <div class="queue-add-bar" id="queue-add-bar">

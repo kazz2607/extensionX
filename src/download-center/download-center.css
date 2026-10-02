@@ -69,6 +69,15 @@ dialog::backdrop { background: rgba(0,0,0,.7); backdrop-filter: blur(5px); }
 .checkbox input { min-height: 0; width: 18px; height: 18px; }
 .form-error { min-height: 20px; margin: 12px 0 0; color: var(--danger); font-size: 12px; }
 .dialog-actions { justify-content: flex-end; margin-top: 10px; }
+.p2-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.p2-actions { justify-content: flex-start; margin: 14px 0; }
+.estimate-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.estimate-grid .summary-card { box-shadow: none; background: rgba(4,12,20,.42); }
+.gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 14px; }
+.gallery-card { position: relative; overflow: hidden; min-height: 150px; border: 1px solid var(--border); border-radius: 12px; background: #07111a; }
+.gallery-card img, .gallery-card video { display: block; width: 100%; height: 150px; object-fit: cover; }
+.gallery-card span { position: absolute; left: 7px; bottom: 7px; padding: 3px 7px; border-radius: 8px; color: white; background: rgba(0,0,0,.75); font-size: 10px; }
+.hidden { display: none !important; }
 @media (max-width: 760px) {
   .topbar { position: static; align-items: flex-start; flex-direction: column; }
   .summary-grid { grid-template-columns: 1fr 1fr; }
@@ -76,6 +85,7 @@ dialog::backdrop { background: rgba(0,0,0,.7); backdrop-filter: blur(5px); }
   .connection { margin: 0; }
   .item { grid-template-columns: 1fr; gap: 8px; }
   .item-actions { justify-content: flex-start; }
+  .estimate-grid { grid-template-columns: 1fr 1fr; }
 }
-@media (max-width: 480px) { .summary-grid, .form-grid { grid-template-columns: 1fr; } .wide { grid-column: auto; } main { width: min(100% - 24px, 1180px); } }
+@media (max-width: 480px) { .summary-grid, .form-grid, .p2-controls, .estimate-grid { grid-template-columns: 1fr; } .wide { grid-column: auto; } main { width: min(100% - 24px, 1180px); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }

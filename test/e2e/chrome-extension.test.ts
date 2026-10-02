@@ -419,14 +419,17 @@ test('P1 Queue DOM and long-task budget covers 500 rows', { timeout: 60_000 }, a
   await popup.locator('#panel-queue.active').waitFor();
   const secondRow = popup.locator('.queue-item').nth(1);
   await secondRow.locator('.queue-select').check({ force: true });
+  await popup.locator('.queue-bulk-menu').evaluate((element: HTMLDetailsElement) => { element.open = true; });
   await popup.locator('[data-bulk-action="pause_selected"]').click();
   await popup.locator('.queue-item.status-paused').filter({ hasText: '@Bench1' }).waitFor();
+  await popup.locator('.queue-bulk-menu').evaluate((element: HTMLDetailsElement) => { element.open = true; });
   await popup.locator('[data-bulk-action="clear_completed"]').click();
   const remainingStatuses = await popup.evaluate(async () => {
     const response = await chrome.runtime.sendMessage({ type: 'GET_QUEUE', payload: {} });
     return response.queue.map((item: { status: string }) => item.status);
   });
   assert.equal(remainingStatuses.includes('done'), false);
+  await popup.locator('.queue-bulk-menu').evaluate((element: HTMLDetailsElement) => { element.open = true; });
   await popup.locator('[data-bulk-action="undo_clear_completed"]').click();
   const restoredStatuses = await popup.evaluate(async () => {
     const response = await chrome.runtime.sendMessage({ type: 'GET_QUEUE', payload: {} });

@@ -1,5 +1,5 @@
 {
-  "maxTotalJavaScriptBytes": 300000,
-  "maxSingleJavaScriptBytes": 90000,
-  "maxSourceModules": 80
+  "maxTotalJavaScriptBytes": 400000,
+  "maxSingleJavaScriptBytes": 110000,
+  "maxSourceModules": 85
 }

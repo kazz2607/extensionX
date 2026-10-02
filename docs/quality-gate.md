@@ -1,10 +1,10 @@
 # Quality gate và baseline hiện hành
 
-> Áp dụng cho phiên bản **7.1.0** | Cập nhật: 2026-10-01
+> Áp dụng cho phiên bản **7.2.0** | Cập nhật: 2026-10-02
 
-## Baseline hiện hành (v7.1.0)
+## Baseline hiện hành (v7.2.0)
 
-Gate hiện hành gồm typecheck, ESLint, **39 unit test**, 2 e2e fixture, **4 browser acceptance**, benchmark media 100–50.000, Chrome heap/DOM/long-task budget, dependency lockfile review, production build, performance budget và release manifest SHA-256. Regression bao phủ Queue schema v3, migration/rollback, bulk/undo/windowing, IndexedDB reject/stale operation, callback download timeout, media query window, bounded LRU cache, cursor download/export, Following parser/selection, Options/IndexedDB/Saved Jobs/history và runtime messages. `npm run test:browser` là gate riêng trong browser job vì cần Chromium có hỗ trợ extension.
+Gate hiện hành gồm typecheck, ESLint, **42 unit test**, 2 e2e fixture, **4 browser acceptance**, benchmark media 100–50.000, Chrome heap/DOM/long-task budget, dependency lockfile review, production build, performance budget và release manifest SHA-256. Regression bao phủ Queue schema v3, migration/rollback, bulk/undo/windowing, IndexedDB reject/stale operation, callback download timeout, media query window, bounded LRU cache, cursor download/export, Following parser/selection, P2 estimate/folder/schedule/redaction/hash, Options/IndexedDB/Saved Jobs/history và runtime messages. `npm run test:browser` là gate riêng trong browser job vì cần Chromium có hỗ trợ extension.
 
 ## Lệnh bắt buộc
 

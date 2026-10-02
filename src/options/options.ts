@@ -422,7 +422,7 @@ async function exportSettings() {
     const stored = await chrome.storage.sync.get('options').catch(() => ({})) as { options?: Record<string, unknown> };
     const opts = migrateOptionsStorage(stored.options || DEFAULT_OPTIONS);
     const exportData = {
-      _version: '7.1.0',
+      _version: '7.2.0',
       _exportedAt: new Date().toISOString(),
       options: opts,
     };

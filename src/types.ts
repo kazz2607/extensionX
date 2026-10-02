@@ -269,3 +269,21 @@ export interface FollowingScanState {
   failed: number;
   error?: string;
 }
+
+export interface JobSchedule {
+  jobId: string;
+  enabled: boolean;
+  intervalMinutes: number;
+  nextRunAt?: number;
+  lastRunAt?: number;
+  lastStatus?: 'completed' | 'skipped' | 'failed';
+}
+
+export interface NotificationEvent {
+  id: string;
+  createdAt: number;
+  level: 'info' | 'success' | 'warning' | 'error';
+  title: string;
+  message: string;
+  read: boolean;
+}

@@ -10,6 +10,18 @@ Chưa có thay đổi.
 
 ---
 
+## [7.2.0] — 2026-10-02 *(P2 toolkit & Queue layout refresh)*
+
+### P2 Toolkit
+
+- Thêm estimate trước tải, folder rule có preview/sanitize và error report JSON/CSV đã redact.
+- Thêm Gallery phân trang, ZIP theo chunk có giới hạn RAM/file và SHA-256 content dedupe.
+- Thêm lịch Saved Job dựa trên `chrome.alarms` và Notification Center cục bộ có giới hạn 100 sự kiện.
+- Sửa popup có thể bị Chrome co thành dải dọc; bố cục Queue mới tách hành động chính, dữ liệu, trạng thái và thao tác hàng loạt, đồng thời loại bỏ cuộn ngang.
+- Bổ sung 3 regression P2; tổng số unit test tăng lên **42**.
+
+---
+
 ## [7.1.0] — 2026-10-01 *(P1 completion: Following, storage & accessibility)*
 
 ### Hoàn thiện P1

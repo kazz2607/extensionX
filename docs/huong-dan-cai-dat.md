@@ -1,6 +1,6 @@
 # Hướng dẫn cài đặt và sử dụng
 
-> X Media Downloader **7.1.0** | Cập nhật: 2026-10-01
+> X Media Downloader **7.2.0** | Cập nhật: 2026-10-02
 
 Extension tải ảnh, video và GIF từ X.com, đồng thời hỗ trợ tải media trực tiếp trên Telegram Web A/K.
 
@@ -24,7 +24,7 @@ Extension tải ảnh, video và GIF từ X.com, đồng thời hỗ trợ tải
 4. Mở `chrome://extensions`.
 5. Bật **Developer mode**.
 6. Chọn **Load unpacked** và trỏ tới thư mục `dist/`.
-7. Kiểm tra popup hiển thị version **7.1.0**.
+7. Kiểm tra popup hiển thị version **7.2.0**.
 
 ## Cập nhật extension
 
@@ -56,14 +56,15 @@ Queue chỉ tải ảnh bài viết độc lập. Ảnh bìa/thumbnail dùng đ�
 ## Các tính năng chính
 
 - **Download Center:** bấm biểu tượng tải xuống trên header popup để mở trang quản lý Queue, Saved Jobs và lịch sử; có thể tìm kiếm/lọc theo trạng thái.
-- **Saved Jobs:** lưu profile, filter, date range, thư mục và template tên file. Job chỉ chạy khi bấm **Chạy**, không tự polling.
+- **Saved Jobs và lịch tải:** lưu profile/filter/date range/thư mục/template; có thể chạy trực tiếp hoặc bật lịch tối thiểu một giờ trong Download Center. Lịch bỏ qua lượt chạy nếu đang có download khác.
+- **P2 Toolkit:** estimate trước tải, folder rule `{username}/{year}/{month}/{type}`, Gallery phân trang, ZIP theo chunk, báo cáo lỗi đã redact và Notification Center cục bộ.
 - **Download Picker:** chọn tối đa 200 thumbnail mỗi lần; kết hợp được với bộ lọc.
 - **Filter Preset:** lưu loại media, date range, keyword và tùy chọn chống trùng theo profile.
 - **Filename Template:** dùng token như `{username}`, `{tweetId}`, `{date}`, `{type}`, `{ext}`, `{index}`.
 - **Manifest export:** xuất JSON/CSV cho lịch sử tải.
 - **Watch mode:** so sánh số media khi người dùng chủ động mở lại popup; không polling nền.
 - **FAB và nút tweet:** thao tác tải nhanh trực tiếp trên X.com.
-- **Following Scroll:** tự cuộn trang Following; API Scanner/Unfollow vẫn đang ở backlog.
+- **Following Scanner:** thu GraphQL có giới hạn, lọc hoạt động, preview và unfollow tuần tự có throttle; dừng ở lỗi xác thực/rate-limit.
 
 ## Tải media từ Telegram Web
 
@@ -95,7 +96,7 @@ Các thay đổi được tự động lưu; kiểm tra trạng thái **Saved** 
 
 ### Queue không bắt đầu
 
-- Xác nhận popup và `dist/manifest.json` cùng version 7.1.0.
+- Xác nhận popup và `dist/manifest.json` cùng version 7.2.0.
 - Reload extension và mở lại popup.
 - Mục có `0 media` sẽ chuyển Error; kiểm tra profile khác còn dữ liệu hay không.
 - Mở Service Worker console và tìm `START_QUEUE`, `Queue IndexedDB load failed` hoặc lỗi download.

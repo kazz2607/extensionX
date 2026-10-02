@@ -9,12 +9,14 @@ import { createTimedSettlement } from '../shared/timed-settlement.ts';
 import { isTrustedMediaUrl, sanitizeFilename } from '../shared/validation.ts';
 import { createMediaMatcher } from '../shared/media-query.ts';
 import { renderFilenameTemplate } from '../shared/filename-template.ts';
+import { renderFolderRule } from '../shared/p2-tools.ts';
 import { formatDownloadError } from '../shared/download-errors.ts';
 import { recordDiagnostic } from './diagnostics.ts';
 import { DIAGNOSTIC_ERROR_CODES } from '../shared/diagnostics.ts';
 import { transitionQueueItem } from '../shared/queue-state.ts';
 import { isVideoThumbnailUrl } from '../shared/media-filter.ts';
 import { listDownloadHistory, recordDownloadHistory } from './download-history.ts';
+import { addNotificationEvent } from './notification-events.ts';
 
 // ─── BUG-2 FIX: Keep-alive alarm để SW không bị Chrome terminate ───────────────
 const KEEPALIVE_ALARM = 'sw-keepalive';
@@ -558,6 +560,11 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
     stopKeepAlive(); // BUG-2 FIX: Tắt keep-alive khi xong
     _fabProgressTimeByOp.delete(operationId); // P3: dọn per-operation throttle state
     await recordDownloadHistory(username, options.filterType ?? 'all', { success, failed, skipped }).catch(() => {});
+    await addNotificationEvent(
+      failed > 0 ? (success > 0 ? 'warning' : 'error') : 'success',
+      failed > 0 ? 'Download hoàn tất một phần' : 'Download hoàn tất',
+      `@${username}: ${success} thành công, ${failed} lỗi, ${skipped} bỏ qua.`,
+    ).catch(() => {});
     // UI-01: Truyền errors array để popup có thể hiện chi tiết lỗi
     broadcastToPopup('DOWNLOAD_DONE', { username, success, failed, total, skipped, errors: activeErrors.slice(0, 20) });
     // v4.1.0: Hiện system notification
@@ -698,8 +705,10 @@ function buildDownloadPath(
   const filename = buildFilename(item, username, filenameUsername, filenameTemplate, index);
 
   // Cấu trúc: {saveFolder?}/{username}/{subfolder?}/{filename}
-  const parts = [saveFolder, username];
-  if (!flatUsername) {
+  const hasFolderRule = /\{(?:username|year|month|type)\}/.test(saveFolder);
+  const resolvedFolder = hasFolderRule ? renderFolderRule(saveFolder, item, username) : saveFolder;
+  const parts = hasFolderRule ? [resolvedFolder] : [resolvedFolder, username];
+  if (!hasFolderRule && !flatUsername) {
     parts.push(subfolder);
   }
   parts.push(filename);
@@ -809,7 +818,7 @@ async function buildManifest(username: string): Promise<{ json: string; csv: str
   const history = allHistory.filter((entry) => entry.username === username);
 
   const json = JSON.stringify({
-    _version: '7.1.0',
+    _version: '7.2.0',
     _exportedAt: new Date().toISOString(),
     username,
     history,
