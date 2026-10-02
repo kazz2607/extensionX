@@ -101,7 +101,7 @@ body {
   color: var(--text-primary);
   width: 100%;
   min-width: 320px;
-  max-width: 360px;
+  max-width: 400px;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
 }
@@ -109,9 +109,9 @@ body {
 html {
   background: var(--bg);
   border: none;
-  width: 360px;
+  width: 400px;
   min-width: 320px;
-  max-width: 360px;
+  max-width: 400px;
   overflow-x: hidden;
 }
 
@@ -1177,6 +1177,13 @@ a:focus-visible {
   background: var(--bg-card);
 }
 
+.queue-tools > button,
+.queue-tools > label,
+.queue-tools > details {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .queue-tools-label {
   margin-right: auto;
   color: var(--text-muted);
@@ -1479,7 +1486,7 @@ a:focus-visible {
   opacity: 0.6;
 }
 
-@media (max-width: 359px) {
+@media (max-width: 399px) {
   html,
   body {
     width: 100%;
