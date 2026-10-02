@@ -58,7 +58,9 @@ src/
 
 Các kế hoạch Pha 0–15 cũ đã hoàn thành và được hợp nhất vào bảng này; không còn duy trì file kế hoạch riêng.
 
-## Backlog đang hoạt động
+## Trạng thái kế hoạch
+
+Hiện không còn backlog đã được phê duyệt. P0, P1 và phạm vi P2 đều đã hoàn thành; mốc tiếp theo chỉ được mở sau khi chốt phạm vi sản phẩm mới.
 
 ### P0 — Hoàn thành
 
@@ -69,8 +71,6 @@ Automated Chromium acceptance đã xanh cho Queue profile rỗng, cold-load 100/
 - Typed messages, retention/storage UI, benchmark/list windowing, responsive/keyboard/screenshot acceptance đã hoàn thành.
 - Following Scanner thu GraphQL page có cap, phân tích hoạt động, preview bắt buộc và unfollow tuần tự có throttle/stop.
 - Không tự động unfollow nền, không persist token và dừng khi gặp lỗi xác thực/rate-limit.
-
-Thiết kế chi tiết còn hoạt động tại [`following-scanner-plan.md`](following-scanner-plan.md).
 
 ### P2 — Hoàn thành
 
@@ -91,8 +91,6 @@ Chi tiết và giới hạn tại [`p2-features.md`](p2-features.md).
 ## Tài liệu liên quan
 
 - [`README.md`](README.md) — mục lục tài liệu.
-- [`upgrade-plan.md`](upgrade-plan.md) — kế hoạch nâng cấp kỹ thuật, UI/UX và tính năng theo các mốc 6.2.8–7.2.0.
 - [`huong-dan-cai-dat.md`](huong-dan-cai-dat.md) — cài đặt, sử dụng và xử lý sự cố.
 - [`quality-gate.md`](quality-gate.md) — kiểm thử và baseline chất lượng.
 - [`publish-guide.md`](publish-guide.md) — đóng gói và phát hành.
-- [`following-scanner-plan.md`](following-scanner-plan.md) — kế hoạch tính năng còn mở.

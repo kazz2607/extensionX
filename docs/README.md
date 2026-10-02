@@ -10,13 +10,11 @@
 
 ## Dành cho phát triển và phát hành
 
-- [Roadmap và backlog hiện hành](roadmap.md)
-- [Kế hoạch nâng cấp hiệu năng, bảo mật, UI, logic và tính năng](upgrade-plan.md)
+- [Roadmap và trạng thái triển khai hiện hành](roadmap.md)
 - [Quality gate](quality-gate.md)
 - [Baseline hiệu năng và build budget 7.2.0](performance-baseline.md)
 - [Audit bảo mật và quyền](security-permissions.md)
 - [Hướng dẫn đóng gói/phát hành](publish-guide.md)
-- [Kế hoạch Following Scanner Feature 1](following-scanner-plan.md)
 - [P2 Toolkit: estimate, gallery, ZIP và lịch tải](p2-features.md)
 - [Lịch sử phát hành](../CHANGELOG.md)
 
