@@ -1,4 +1,4 @@
-# Baseline hiệu năng và build budget 8.1.0
+# Baseline hiệu năng và build budget 8.2.0
 
 > Cập nhật: 2026-10-14
 
@@ -20,13 +20,13 @@
 | Stop download | UI phản hồi dưới 500 ms |
 | 10.000 media | popup không bị khóa, không giữ thêm bản sao mảng không cần thiết |
 
-Build 8.1.0 tiếp tục áp dụng gate tự động trong `npm run check` và tính cả entrypoint Download Center:
+Build 8.2.0 tiếp tục áp dụng gate tự động trong `npm run check` và tính cả entrypoint Download Center:
 
-| Chỉ số build | Ngưỡng | Kết quả 8.1.0 |
+| Chỉ số build | Ngưỡng | Kết quả 8.2.0 |
 | --- | ---: | ---: |
-| Tổng JavaScript trong `dist/` | ≤ 480.000 byte | 463.659 byte |
-| JavaScript bundle lớn nhất | ≤ 120.000 byte | 111.731 byte |
-| Số module TypeScript trong `src/` | ≤ 110 | 105 |
+| Tổng JavaScript trong `dist/` | ≤ 480.000 byte | 476.764 byte |
+| JavaScript bundle lớn nhất | ≤ 120.000 byte | 114.771 byte |
+| Số module TypeScript trong `src/` | ≤ 110 | 107 |
 
 Ngưỡng số module tăng từ 85 lên 95 trong 7.3.0 vì bridge MAIN ↔ isolated, navigation và các helper có kiểm thử được tách thành module nhỏ; tổng dung lượng JavaScript gần như không đổi.
 
@@ -41,6 +41,8 @@ Tối ưu runtime 7.3.0: metric diagnostic không rời trang khi chưa bật (m
 8.0.0: F1–F3 thêm khoảng 15 KB JavaScript (service worker +6 KB: parser Search/Hashtag, ô CSV, phân loại lỗi, lưu file lỗi; Download Center +3 KB: panel File lỗi; bảng dịch en/vi). Bản build chỉ còn 1,5 KB tổng / 0,2 KB file lớn nhất / 1 module dưới ngưỡng cũ (460 KB / 110 KB / 105), nên ngưỡng nâng lên 480 KB / 120 KB / 110 để còn chỗ cho F4–F5. Không thêm công việc nền: file lỗi chỉ được ghi khi một file thất bại, đường thành công dùng bản sao trong bộ nhớ và không đọc storage khi file chưa từng lỗi.
 
 8.1.0 (F4): +3 KB JavaScript (giới hạn luồng/khoảng nghỉ, cổng tạm dừng 429, hai cài đặt mới và chuỗi dịch). Khoảng nghỉ chỉ làm chậm lượt tải khi người dùng bật; ở mặc định (0 giây) đường tải không thêm lần chờ nào. Popup khởi động song song các bước đọc storage độc lập.
+
+8.2.0 (F5): +13 KB JavaScript — Options +8,8 KB (giao diện sao lưu/khôi phục, kiểm tra file, 22 chuỗi song ngữ), service worker +3 KB. Ngưỡng giữ nguyên; tổng JS chỉ còn ~3 KB dưới 480 KB, nên tính năng kế tiếp cần xem lại ngân sách (vd. tách bảng dịch của Options) trước khi nâng ngưỡng.
 
 Ngưỡng nằm trong `performance-budget.json` và được kiểm tra bởi `scripts/check-performance-budget.mjs`.
 

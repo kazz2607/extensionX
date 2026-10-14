@@ -1,6 +1,6 @@
 # Hướng dẫn cài đặt và sử dụng
 
-> X Media Downloader **8.1.0** | Cập nhật: 2026-10-14
+> X Media Downloader **8.2.0** | Cập nhật: 2026-10-14
 
 Extension tải ảnh, video và GIF từ X.com, đồng thời hỗ trợ tải media trực tiếp trên Telegram Web A/K.
 
@@ -24,7 +24,7 @@ Extension tải ảnh, video và GIF từ X.com, đồng thời hỗ trợ tải
 4. Mở `chrome://extensions`.
 5. Bật **Developer mode**.
 6. Chọn **Load unpacked** và trỏ tới thư mục `dist/`.
-7. Kiểm tra popup hiển thị version **8.1.0**.
+7. Kiểm tra popup hiển thị version **8.2.0**.
 
 ## Cập nhật extension
 
@@ -64,6 +64,7 @@ Queue chỉ tải ảnh bài viết độc lập. Ảnh bìa/thumbnail dùng đ�
 - **Filter Preset:** lưu loại media, date range, keyword và tùy chọn chống trùng theo profile.
 - **Filename Template:** dùng token như `{username}`, `{tweetId}`, `{date}`, `{type}`, `{ext}`, `{index}`.
 - **Manifest export:** xuất JSON/CSV cho lịch sử tải; từ 8.0.0 có thêm caption (`tweetText`) và số like (`likeCount`) của tweet.
+- **Sao lưu/khôi phục (8.2.0):** Settings → Data & Settings → **💾 Back up** lưu cấu hình, Saved Jobs, lịch, Queue, lịch sử và danh sách file đã tải vào một file JSON; trên máy mới bấm **♻️ Restore** và chọn file đó. Dữ liệu hiện có được giữ và gộp; cấu hình được thay bằng cấu hình trong file. Danh sách media đã thu thập không nằm trong file — mở lại profile và thu thập lại; file đã tải sẽ được bỏ qua nhờ danh sách đã khôi phục.
 - **File lỗi (8.0.0):** trong Download Center bấm **File lỗi** để xem file tải hỏng theo nguyên nhân (404, 401/403, 429, quá thời gian, mạng, HLS), chọn và **Thử lại** hoặc **Xóa**; file thử lại thành công tự biến mất.
 - **Watch mode:** so sánh số media khi người dùng chủ động mở lại popup; không polling nền.
 - **FAB và nút tweet:** thao tác tải nhanh trực tiếp trên X.com.
@@ -109,7 +110,7 @@ Các thay đổi được tự động lưu; kiểm tra trạng thái **Saved** 
 
 ### Queue không bắt đầu
 
-- Xác nhận popup và `dist/manifest.json` cùng version 8.1.0.
+- Xác nhận popup và `dist/manifest.json` cùng version 8.2.0.
 - Reload extension và mở lại popup.
 - Mục có `0 media` sẽ chuyển Error; kiểm tra profile khác còn dữ liệu hay không.
 - Mở Service Worker console và tìm `START_QUEUE`, `Queue IndexedDB load failed` hoặc lỗi download.

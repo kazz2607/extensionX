@@ -10,6 +10,28 @@ Chưa có thay đổi.
 
 ---
 
+## [8.2.0] — 2026-10-14 *(F5: sao lưu và khôi phục dữ liệu)*
+
+### Tính năng mới
+
+- **Sao lưu toàn bộ dữ liệu** (Settings → Data & Settings → **💾 Back up**): một file `extensionx_backup_YYYYMMDD.json` gồm cấu hình, Saved Jobs, lịch tải, Queue, lịch sử tải và **danh sách file đã tải của mọi profile** — chuyển sang máy mới không tải lại file trùng. Không gồm danh sách media đã thu thập (thu thập lại sau khi khôi phục), file lỗi và thông báo.
+- **Khôi phục** (**♻️ Restore**): hiện số Saved Job, lịch, mục Queue, dòng lịch sử, số file đã tải và ngày sao lưu để xác nhận trước. Cấu hình thay cấu hình hiện tại; Saved Jobs, lịch, Queue, lịch sử và danh sách file đã tải được **gộp** với dữ liệu hiện có. Lịch tải được tạo lại cho đúng Saved Job tồn tại.
+- Mọi phần trong file được kiểm tra lại bằng đúng bộ kiểm tra dữ liệu đó vẫn dùng — file sửa tay hoặc hỏng không ghi được giá trị sai; phần sai định dạng bị bỏ qua.
+
+### Sửa lỗi
+
+- Trang Settings: biểu tượng của các hàng Export/Import/Reset/Clear history không còn tách sang dòng riêng.
+
+### Kỹ thuật
+
+- Khôi phục gửi từng khối ≤ 180 KB qua `RESTORE_BACKUP_SECTION` (giữ giới hạn 256 KB/message hiện có); `EXPORT_BACKUP` và `RESTORE_BACKUP_SECTION` chỉ nhận từ trang extension. Không thêm quyền, không đổi schema IndexedDB hay storage key.
+
+### Kiểm thử
+
+- Tổng **73** unit test (kiểm tra từng phần của file, quy tắc gộp, chia khối). Luồng sao lưu/khôi phục trên trang Settings kiểm tra bằng bản build với service worker giả lập; chưa thử sao lưu/khôi phục giữa hai máy thật.
+
+---
+
 ## [8.1.0] — 2026-10-14 *(F4: chống bị X giới hạn tốc độ)*
 
 ### Tính năng mới

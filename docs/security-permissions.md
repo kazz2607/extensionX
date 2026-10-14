@@ -1,6 +1,6 @@
 # Audit bảo mật và quyền extension
 
-> Rà soát cho **8.1.0** | Cập nhật: 2026-10-14
+> Rà soát cho **8.2.0** | Cập nhật: 2026-10-14
 
 ## Quyền Manifest
 
@@ -52,6 +52,10 @@ Từ 8.0.0 (F1–F3), không thêm quyền hay host permission:
 - Mục lỗi lưu ở `chrome.storage.local` chỉ gồm profile, URL media CDN X đã kiểm tra, tweetId, mã nguyên nhân và câu lỗi đã rút gọn (`formatDownloadError`, không chứa URL/token/raw exception); dòng sai định dạng bị loại khi đọc.
 - Khoá Search/Hashtag chỉ gồm `[a-z0-9_]`, suy ra từ URL `x.com`/`twitter.com` HTTPS; trang khác domain không được nhận diện. Script trang và service worker dùng chung một parser nên tab/sender vẫn được so khớp đúng khoá như profile.
 - Caption tweet trong CSV được đặt trong ô có trích dẫn và thêm `'` trước ký tự `= + - @` để không thành công thức khi mở bằng bảng tính.
+
+Từ 8.2.0 (F5 sao lưu/khôi phục), không thêm quyền:
+- `EXPORT_BACKUP` và `RESTORE_BACKUP_SECTION` chỉ nhận từ trang extension. Khôi phục đi theo từng khối dưới giới hạn 256 KB/message có sẵn; mỗi khối được service worker kiểm tra lại bằng parser của đúng loại dữ liệu (Saved Jobs, lịch, Queue, lịch sử, URL CDN X tin cậy theo username hợp lệ) trước khi ghi — trang gửi gì cũng không ghi được dữ liệu sai dạng.
+- Cấu hình trong file đi qua `sanitizeImportedOptions` như Import Settings. File sao lưu chứa username profile và URL media đã tải (không có cookie, token hay bearer); người dùng cần giữ file này riêng tư.
 
 ## Bề mặt cần theo dõi
 
