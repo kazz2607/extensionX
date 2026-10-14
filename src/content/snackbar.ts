@@ -3,13 +3,15 @@
  * Hiển thị tiến trình download dưới dạng snackbar mini ở giữa dưới màn hình.
  * Không cần mở popup để theo dõi tiến độ tải.
  *
- * Lắng nghe CustomEvent: XMD_SNACKBAR_UPDATE
+ * Lắng nghe XMD_SNACKBAR_UPDATE qua ui-bus
  * Dispatch từ: content.js (relay từ service-worker)
  *
- * Chạy trong PAGE CONTEXT (MAIN world, bundle content/main-world.ts)
+ * Chạy trong isolated content-script world (import từ content.ts) — trang X
+ * không truy cập hay hook được DOM/prototype của nó.
  */
 
-import { onExtensionMessage } from './page-bridge.ts';
+import { onUi } from './ui-bus.ts';
+import { createClosedShadowRoot } from './shadow-host.ts';
 
 interface ActiveDownload { filename: string; speedBps: number; bytesReceived: number; totalBytes: number }
 interface SnackbarUpdate {
@@ -28,7 +30,10 @@ interface SnackbarUpdate {
 (function () {
   'use strict';
 
-  if (document.getElementById('__xmd_snackbar__')) return;
+  // Closed shadow root: page scripts cannot read usernames, file names or
+  // progress shown here. Null when already mounted (double-init guard).
+  const root = createClosedShadowRoot('__xmd_snackbar_host__');
+  if (!root) return;
 
   // ─── CSS ────────────────────────────────────────────────────────────────────
   const style = document.createElement('style');
@@ -205,7 +210,7 @@ interface SnackbarUpdate {
     .__xmd_sb_done_success__ { color: #00ba7c; font-weight: 600; }
     .__xmd_sb_done_failed__  { color: #f4212e; font-weight: 600; }
   `;
-  document.documentElement.appendChild(style);
+  root.appendChild(style);
 
   // ─── HTML ────────────────────────────────────────────────────────────────────
   const sb = document.createElement('div');
@@ -226,16 +231,16 @@ interface SnackbarUpdate {
     </div>
     <div class="__xmd_sb_done_msg__" id="__xmd_sb_done_msg__"></div>
   `;
-  document.documentElement.appendChild(sb);
+  root.appendChild(sb);
 
   // ─── Elements ────────────────────────────────────────────────────────────────
-  const titleEl    = document.getElementById('__xmd_sb_title__');
-  const usernameEl = document.getElementById('__xmd_sb_username__');
-  const closeBtn   = document.getElementById('__xmd_sb_close__');
-  const barEl      = document.getElementById('__xmd_sb_bar__');
-  const counterEl  = document.getElementById('__xmd_sb_counter__');
-  const filenameEl = document.getElementById('__xmd_sb_filename__');
-  const doneMsgEl  = document.getElementById('__xmd_sb_done_msg__');
+  const titleEl    = sb.querySelector<HTMLElement>('#__xmd_sb_title__');
+  const usernameEl = sb.querySelector<HTMLElement>('#__xmd_sb_username__');
+  const closeBtn   = sb.querySelector<HTMLElement>('#__xmd_sb_close__');
+  const barEl      = sb.querySelector<HTMLElement>('#__xmd_sb_bar__');
+  const counterEl  = sb.querySelector<HTMLElement>('#__xmd_sb_counter__');
+  const filenameEl = sb.querySelector<HTMLElement>('#__xmd_sb_filename__');
+  const doneMsgEl  = sb.querySelector<HTMLElement>('#__xmd_sb_done_msg__');
 
   // ─── State ───────────────────────────────────────────────────────────────────
 // @ts-ignore
@@ -305,7 +310,7 @@ interface SnackbarUpdate {
   });
 
   // ─── Event: XMD_SNACKBAR_UPDATE ──────────────────────────────────────────────
-  onExtensionMessage('XMD_SNACKBAR_UPDATE', (detail) => {
+  onUi('XMD_SNACKBAR_UPDATE', (detail) => {
     // Shape comes from the service worker's SNACKBAR_UPDATE payloads.
     const data = (detail || {}) as SnackbarUpdate;
 

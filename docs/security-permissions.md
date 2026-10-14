@@ -1,6 +1,6 @@
 # Audit bảo mật và quyền extension
 
-> Rà soát cho **7.3.0** | Cập nhật: 2026-10-14
+> Rà soát cho **7.3.1** | Cập nhật: 2026-10-14
 
 ## Quyền Manifest
 
@@ -37,7 +37,7 @@ Từ 7.3.0, script MAIN world (interceptor, DOM scanner, FAB, nút tweet, snackb
 - `HLS_DONE` có envelope riêng gồm `requestId`, `dataUrl` hoặc `error`; không chấp nhận field khác. Data URL từ offscreen nội bộ được miễn giới hạn 256 KB vì là nội dung video, nhưng vẫn yêu cầu sender cùng extension và request ID hợp lệ.
 - URL media, Telegram sender, Queue import và options vẫn qua validator theo domain trước khi thực thi. `START_DOWNLOAD` chỉ nhận field options trong allowlist (field nội bộ `_queueId`/`_operationId`/`_fromQueue` bị từ chối); import settings được lọc theo kiểu/ngưỡng của `DEFAULT_OPTIONS` (`src/shared/options-import.ts`).
 - HLS chỉ fetch HTTPS từ CDN media X (kể cả URL trong playlist) với `credentials: 'omit'`; `TG_DOWNLOAD_MEDIA` chỉ nhận `blob:`/stream cùng origin Telegram hoặc `data:` ảnh/video.
-- Following Scanner giữ nguyên handle đầu tiên của mỗi account ID, nên một trang sau không thể gắn nhãn lại ID mà người dùng sắp chọn unfollow.
+- Following Scanner giữ nguyên handle đầu tiên của mỗi account ID, nên một trang sau không thể gắn nhãn lại ID mà người dùng sắp chọn unfollow; danh sách và hộp xác nhận unfollow hiển thị account ID cạnh handle (7.3.1).
 - `OFFSCREEN_SAVE_BLOB` (từ 7.2.3) chỉ nhận từ chính offscreen document (`sender.url` là `offscreen/offscreen.html`, không có `sender.tab`), chỉ nhận `blob:` URL do extension tạo và đường dẫn tương đối không có `..`, `\` hoặc `:`. Offscreen không có `chrome.downloads`; mọi file HLS/ZIP đều được service worker lưu qua cùng registry `activeDownloads`, nên Stop hủy được.
 - `SHORTCUT_DOWNLOAD` (từ 7.2.3) chỉ nhận từ tab X/Twitter và chỉ tải HTTPS từ CDN media X allowlist; không còn chấp nhận `http:`, `data:` hay `blob:` lấy từ thuộc tính `<img>` của trang.
 - `DOWNLOAD_TWEET` nhận từ mọi tab X/Twitter (kể cả Home/Search); username chỉ được dùng khi khớp profile của tab, ngược lại bị bỏ qua.
@@ -47,7 +47,7 @@ Từ 7.3.0, script MAIN world (interceptor, DOM scanner, FAB, nút tweet, snackb
 
 ## Bề mặt cần theo dõi
 
-- MAIN-world bridge trên X chỉ chuyển dữ liệu cần thiết qua port riêng, không log bearer/cookie/query URL nhạy cảm. FAB/snackbar vẫn là DOM trong trang (closed shadow root là việc của bản sau).
+- MAIN-world bridge trên X chỉ chuyển dữ liệu cần thiết qua port riêng, không log bearer/cookie/query URL nhạy cảm. Từ 7.3.1 FAB và snackbar chạy trong content script (isolated world) và nằm trong closed shadow root: script của trang không đọc được username, tên file hay tiến độ hiển thị — kể cả khi hook prototype DOM, vì isolated world có prototype riêng — và CSS của X không tác động được. Bridge với trang chỉ còn mang dữ liệu thu thập, nút tweet và lệnh quét DOM.
 - Telegram private stream dùng URL ngắn hạn; không persist URL token vào diagnostic.
 - Offscreen HLS phải gắn request ID và bỏ qua callback của operation cũ.
 - ZIP offscreen phải giữ cap file/byte, chỉ tải HTTPS từ CDN X allowlist, dùng SHA-256 trong operation và revoke Blob URL sau khi hoàn tất.

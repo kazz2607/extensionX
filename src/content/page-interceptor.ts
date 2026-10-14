@@ -13,6 +13,7 @@ import { parseFollowingGraphqlPage } from '../shared/following-scanner.ts';
  */
 
 import { sendToExtension } from './page-bridge.ts';
+import { routeCollectsMedia } from './page-route.ts';
 
 (function () {
   'use strict';
@@ -172,16 +173,9 @@ import { sendToExtension } from './page-bridge.ts';
   // Captured before JSON.parse is hooked below so our own parsing never walks a
   // response a second time through the hook.
   const nativeParse = JSON.parse;
-  const RESERVED_ROUTES = new Set(['home', 'explore', 'notifications', 'messages', 'search', 'settings', 'i', 'login', 'logout', 'compose']);
-
   // Media is only kept on profile/likes/bookmarks routes (content.ts drops it
-  // elsewhere), so skip parsing X's Home, Explore, DM and notification traffic.
-  function routeCollectsMedia(): boolean {
-    const path = location.pathname;
-    if (path.startsWith('/i/bookmarks')) return true;
-    const first = path.split('/')[1] || '';
-    return /^[A-Za-z0-9_]{1,50}$/.test(first) && !RESERVED_ROUTES.has(first.toLowerCase());
-  }
+  // elsewhere), so routeCollectsMedia() skips parsing Home, Explore, DM and
+  // notification traffic.
 
   // ─── 1. Hook window.fetch ────────────────────────────────────────────────────
   const _originalFetch = window.fetch;

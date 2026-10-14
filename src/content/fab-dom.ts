@@ -18,7 +18,7 @@ export interface FabElements {
   dragHandle: HTMLElement;
 }
 
-export function buildFabDom(): FabElements {
+export function buildFabDom(root: ParentNode): FabElements {
   const fab = document.createElement('div');
   fab.id = '__xmd_fab__';
   fab.innerHTML = `
@@ -71,20 +71,21 @@ export function buildFabDom(): FabElements {
       <span id="__xmd_badge__">0</span>
     </button>
   `;
-  document.documentElement.appendChild(fab);
+  root.appendChild(fab);
+  const byId = <T extends HTMLElement>(id: string) => fab.querySelector<T>(`#${id}`)!;
 
   return {
     fab,
-    panel: document.getElementById('__xmd_panel__')!,
-    mainBtn: document.getElementById('__xmd_main_btn__') as HTMLButtonElement,
-    badge: document.getElementById('__xmd_badge__')!,
-    countEl: document.getElementById('__xmd_count__')!,
-    scrollsEl: document.getElementById('__xmd_scrolls__')!,
-    collectBtn: document.getElementById('__xmd_collect_btn__') as HTMLButtonElement,
-    downloadBtn: document.getElementById('__xmd_download_btn__') as HTMLButtonElement,
-    scrollInfo: document.getElementById('__xmd_scroll_info__')!,
-    lblMedia: document.getElementById('__xmd_lbl_media__')!,
-    lblScroll: document.getElementById('__xmd_lbl_scroll__')!,
-    dragHandle: document.getElementById('__xmd_drag_handle__')!,
+    panel: byId('__xmd_panel__'),
+    mainBtn: byId<HTMLButtonElement>('__xmd_main_btn__'),
+    badge: byId('__xmd_badge__'),
+    countEl: byId('__xmd_count__'),
+    scrollsEl: byId('__xmd_scrolls__'),
+    collectBtn: byId<HTMLButtonElement>('__xmd_collect_btn__'),
+    downloadBtn: byId<HTMLButtonElement>('__xmd_download_btn__'),
+    scrollInfo: byId('__xmd_scroll_info__'),
+    lblMedia: byId('__xmd_lbl_media__'),
+    lblScroll: byId('__xmd_lbl_scroll__'),
+    dragHandle: byId('__xmd_drag_handle__'),
   };
 }

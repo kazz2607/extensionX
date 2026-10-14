@@ -6,7 +6,8 @@
  *   - Nút Quick Download
  *   - [v3.9.0] Draggable theo trục Y, lưu vị trí qua localStorage
  *
- * Chạy trong EXTENSION ISOLATED WORLD (content script).
+ * Chạy trong EXTENSION ISOLATED WORLD (import từ content.ts), trong closed
+ * shadow root — script của trang không đọc hay hook được FAB.
  * Pha 8: tách thành fab-css/fab-dom/fab-drag/fab-i18n/fab-events, file này chỉ
  * còn là entry point khởi tạo theo thứ tự — không đổi hành vi.
  */
@@ -14,15 +15,18 @@ import { injectFabStyle } from './fab-css.ts';
 import { buildFabDom } from './fab-dom.ts';
 import { initDrag } from './fab-drag.ts';
 import { initFabEvents } from './fab-events.ts';
+import { createClosedShadowRoot } from './shadow-host.ts';
 
 (function () {
   'use strict';
 
-  // Tránh khởi tạo nhiều lần
-  if (document.getElementById('__xmd_fab__')) return;
+  // Closed shadow root: page scripts cannot read the FAB (username, counts).
+  // Null when already mounted, which also guards against double init.
+  const root = createClosedShadowRoot('__xmd_fab_host__');
+  if (!root) return;
 
-  injectFabStyle();
-  const elements = buildFabDom();
+  injectFabStyle(root);
+  const elements = buildFabDom(root);
   const { closePanel } = initFabEvents(elements);
   initDrag(elements, closePanel);
 })();

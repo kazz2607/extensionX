@@ -9,8 +9,8 @@ import { sendToExtension } from './page-bridge.ts';
 import { onNavigation } from './page-navigation.ts';
 import './page-interceptor.ts';
 import './dom-scanner.ts';
-import './fab.ts';
 import './tweet-btn.ts';
-import './snackbar.ts';
+// FAB and snackbar are not here: they run in the isolated world (content.ts),
+// where page scripts cannot patch the DOM APIs they use.
 
 onNavigation((url) => sendToExtension('XMD_NAVIGATED', { url }));

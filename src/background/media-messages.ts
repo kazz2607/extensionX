@@ -101,60 +101,50 @@ export function handleMediaMessage(
 
       console.log(`[SW] MEDIA_FOUND: ${validItems.length} items cho @${username}`);
 
-      // Bound work so a timeline batch cannot start dozens of GraphQL video
-      // lookups at once. This keeps the extension responsive and reduces 429s.
-      runWithConcurrency(validItems, MEDIA_PROCESS_CONCURRENCY, async (item) => {
-        if (!item) return;
-
-        if (item.type === 'video_placeholder') {
-          // BUG-A FIX: Guard tweetId rỗng — tránh gọi API với ID không hợp lệ → cascade 404
-          if (!item.tweetId || !/^\d{10,}$/.test(item.tweetId)) {
-            console.debug(`[SW] video_placeholder bỏ qua: tweetId không hợp lệ ('${item.tweetId}')`);
-            return;
-          }
-
-          // Kiểm tra xem interceptor đã bắt được video URL của tweet này chưa
-          const store = mediaStore.get(username);
-          let alreadyHasVideo = false;
-          if (store) {
-            for (const media of store.values()) {
-              if (media.tweetId === item.tweetId && (media.type === 'video' || media.type === 'hls' || media.type === 'gif')) {
-                alreadyHasVideo = true;
-                break;
-              }
-            }
-          }
-          if (alreadyHasVideo) return; // Đã có video gốc, không cần gọi API
-
-          console.log(`[SW] video_placeholder: tweetId=${item.tweetId}, nguồn=${item.source}`);
-          try {
-            const videoItem = await fetchVideoForTweetWithRefresh(item.tweetId, tabId);
-
-            if (videoItem) {
-              videoItem.url = normalizeMediaUrlToOrig(videoItem.url);
-              const videoMediaItem = videoItem as MediaItem;
-              videoMediaItem.username = username;
-              const added = addMediaItems(username, [videoMediaItem]);
-              if (added > 0) updateFAB(tabId, username);
-            } else {
-              console.warn(`[SW] ✗ Không lấy được video URL cho tweet ${item.tweetId}`);
-            }
-          } catch (err) {
-            console.warn('[SW] fetchVideoForTweet lỗi:', item.tweetId, err instanceof Error ? err.message : String(err));
-          }
-        } else {
-          // Xử lý ảnh hoặc video URL trực tiếp (từ page-interceptor)
-          item.username = username;
-          if (item.type === 'hls' || item.type === 'video' || item.type === 'gif') {
-            console.log(`[SW] ${item.type.toUpperCase()} URL: ${(item.url || '').slice(0, 80)}...`);
-          }
-          const filtered = await applyOptionsFilter(username, [item]);
-          if (filtered.length > 0) {
-            const added = addMediaItems(username, filtered);
-            if (added > 0) updateFAB(tabId, username);
-          }
+      // Direct media (images and video URLs from the interceptor) is filtered
+      // and stored as one batch, so a 200-item batch costs one badge, popup,
+      // persist and FAB update instead of one of each per item.
+      const direct = validItems.filter((item) => item.type !== 'video_placeholder');
+      const placeholders = validItems.filter((item) => item.type === 'video_placeholder' && item.tweetId && /^\d{10,}$/.test(item.tweetId));
+      void (async () => {
+        // Drop already-stored URLs first: the maxMedia cap slices the batch,
+        // and known items must not take the slots of new ones.
+        // Also de-duplicate within the batch (a tweet and its quote can carry
+        // the same media) so duplicates cannot use up maxMedia slots either.
+        const known = mediaStore.get(username);
+        const fresh = [...new Map(direct.filter((item) => !known?.has(item.url)).map((item) => [item.url, item])).values()];
+        if (fresh.length > 0) {
+          fresh.forEach((item) => { item.username = username; });
+          const filtered = await applyOptionsFilter(username, fresh);
+          if (filtered.length > 0 && addMediaItems(username, filtered) > 0) updateFAB(tabId, username);
         }
-      }).catch((err: unknown) => console.debug('[SW] MEDIA_FOUND handler error:', err instanceof Error ? err.message : String(err)));
+        if (placeholders.length === 0) return;
+
+        // One scan per batch (not per placeholder) for tweets whose real video
+        // URL the interceptor already captured.
+        const haveVideo = new Set([...(mediaStore.get(username)?.values() ?? [])]
+          .filter((media) => media.tweetId && (media.type === 'video' || media.type === 'hls' || media.type === 'gif'))
+          .map((media) => media.tweetId));
+        const pending = [...new Set(placeholders.map((item) => item.tweetId!))].filter((tweetId) => !haveVideo.has(tweetId));
+
+        // Bound work so a timeline batch cannot start dozens of GraphQL video
+        // lookups at once. This keeps the extension responsive and reduces 429s.
+        await runWithConcurrency(pending, MEDIA_PROCESS_CONCURRENCY, async (tweetId) => {
+          try {
+            const videoItem = await fetchVideoForTweetWithRefresh(tweetId, tabId);
+            if (!videoItem) {
+              console.warn(`[SW] ✗ Không lấy được video URL cho tweet ${tweetId}`);
+              return;
+            }
+            videoItem.url = normalizeMediaUrlToOrig(videoItem.url);
+            const videoMediaItem = videoItem as MediaItem;
+            videoMediaItem.username = username;
+            if (addMediaItems(username, [videoMediaItem]) > 0) updateFAB(tabId, username);
+          } catch (err) {
+            console.warn('[SW] fetchVideoForTweet lỗi:', tweetId, err instanceof Error ? err.message : String(err));
+          }
+        });
+      })().catch((err: unknown) => console.debug('[SW] MEDIA_FOUND handler error:', err instanceof Error ? err.message : String(err)));
       return false;
     }
 

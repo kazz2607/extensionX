@@ -15,7 +15,6 @@ export type BridgeHandshake = 'port';
 export const PAGE_TO_EXTENSION = [
   'X_MEDIA_FOUND',
   'XMD_DIAGNOSTIC_METRIC',
-  'XMD_FAB_ACTION',
   'XMD_BEARER_TOKEN',
   'XMD_QUERY_ID',
   'XMD_FOLLOWING_PAGE',
@@ -26,10 +25,7 @@ export const PAGE_TO_EXTENSION = [
 
 /** Content script → page (MAIN world). */
 export const EXTENSION_TO_PAGE = [
-  'XMD_FAB_UPDATE',
   'XMD_TWEET_BTN_UPDATE',
-  'XMD_SNACKBAR_UPDATE',
-  'XMD_LANG_UPDATE',
   'XMD_SCAN_DOM',
 ] as const;
 

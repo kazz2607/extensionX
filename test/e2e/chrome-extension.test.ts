@@ -668,8 +668,39 @@ test('v7.3.0 page scripts cannot read or forge the extension bridge; SPA navigat
   assert.deepEqual(pageView, { stolen: 0, leaked: 0 }, 'page saw the bridge port or received bridge traffic');
 
   // The real FAB still drives the worker, and worker updates still reach the FAB.
-  await carol.locator('#__xmd_badge__').filter({ hasText: '1' }).waitFor({ timeout: 10_000 });
-  await carol.evaluate(() => (document.getElementById('__xmd_collect_btn__') as HTMLButtonElement).click());
+  // FAB/snackbar live in closed shadow roots: invisible to page scripts.
+  const pageSeesFab = await carol.evaluate(() => ({
+    badge: document.getElementById('__xmd_badge__') !== null,
+    shadowRoot: document.getElementById('__xmd_fab_host__')?.shadowRoot ?? null,
+    hostMounted: document.getElementById('__xmd_fab_host__') !== null,
+  }));
+  assert.deepEqual(pageSeesFab, { badge: false, shadowRoot: null, hostMounted: true });
+  // DevTools protocol can pierce closed shadow roots; use it to drive the FAB.
+  const fabCdp = await context.newCDPSession(carol);
+  const callOnFabElement = async (elementId: string, fn: string): Promise<unknown> => {
+    const { root } = await fabCdp.send('DOM.getDocument', { depth: -1, pierce: true });
+    type DomNode = { nodeId: number; attributes?: string[]; children?: DomNode[]; shadowRoots?: DomNode[] };
+    const find = (node: DomNode): DomNode | undefined => {
+      const attrs = node.attributes ?? [];
+      for (let i = 0; i < attrs.length; i += 2) if (attrs[i] === 'id' && attrs[i + 1] === elementId) return node;
+      for (const child of [...(node.shadowRoots ?? []), ...(node.children ?? [])]) {
+        const hit = find(child);
+        if (hit) return hit;
+      }
+      return undefined;
+    };
+    const target = find(root as DomNode);
+    if (!target) return undefined;
+    const { object } = await fabCdp.send('DOM.resolveNode', { nodeId: target.nodeId });
+    const { result } = await fabCdp.send('Runtime.callFunctionOn', { objectId: object.objectId!, functionDeclaration: fn, returnByValue: true });
+    return result.value;
+  };
+  const badgeDeadline = Date.now() + 10_000;
+  while ((await callOnFabElement('__xmd_badge__', 'function () { return this.textContent; }')) !== '1' && Date.now() < badgeDeadline) {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  assert.equal(await callOnFabElement('__xmd_badge__', 'function () { return this.textContent; }'), '1', 'worker update did not reach the FAB');
+  await callOnFabElement('__xmd_collect_btn__', 'function () { this.click(); }');
   const deadline = Date.now() + 10_000;
   while (!(await isCollecting()) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 200));
   assert.equal(await isCollecting(), true, 'FAB click did not start collection');

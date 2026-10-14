@@ -13,6 +13,7 @@
 
 import { onExtensionMessage, sendToExtension } from './page-bridge.ts';
 import { onNavigation } from './page-navigation.ts';
+import { routeCollectsMedia } from './page-route.ts';
 
 (function () {
   'use strict';
@@ -22,8 +23,23 @@ import { onNavigation } from './page-navigation.ts';
 // @ts-ignore
   window.__X_DOM_SCANNER_LOADED__ = true;
 
-  // Tập hợp URL đã phát hiện (tránh duplicate)
-  const discovered = new Set();
+  // Tập hợp URL/key đã phát hiện (tránh duplicate). Bounded: a long session on
+  // one route must not grow it forever; it is also cleared on navigation.
+  // Evict the oldest keys (Set keeps insertion order) instead of clearing
+  // everything, which made every visible item look new and re-sent it.
+  const DISCOVERED_MAX = 20_000;
+  const DISCOVERED_EVICT = 2_000;
+  const discovered = new Set<string>();
+  function remember(key: string): void {
+    if (discovered.size >= DISCOVERED_MAX) {
+      let evicted = 0;
+      for (const oldest of discovered) {
+        discovered.delete(oldest);
+        if (++evicted >= DISCOVERED_EVICT) break;
+      }
+    }
+    discovered.add(key);
+  }
 
   // ─── Media Domain Whitelist ─────────────────────────────────────────────────
   const IMAGE_DOMAINS = ['pbs.twimg.com'];
@@ -53,9 +69,10 @@ import { onNavigation } from './page-navigation.ts';
   // `root` is a newly-added subtree for observer work. A full-document scan is
   // retained only for initial load and the explicit scroll fallback.
   function scanDOM(root: ParentNode = document) {
-    // P3: Performance mark để diagnostic và benchmark
-    const markName = `xmd-scan-${Date.now()}`;
-    performance.mark(`${markName}-start`);
+    // Home/Explore/etc.: content.ts would drop the results anyway.
+    if (!routeCollectsMedia()) return 0;
+    // performance.now() deltas only — named marks were never cleared and piled
+    // up in X's performance timeline.
     const startedAt = performance.now();
 // @ts-ignore
     const found: unknown[] = [];
@@ -64,7 +81,8 @@ import { onNavigation } from './page-navigation.ts';
     selectAll<HTMLImageElement>(root, 'img[src]').forEach(img => {
 // @ts-ignore
       const src = img.src || img.getAttribute('src') || '';
-      if (!src || !isImageUrl(src)) return;
+      // Cheap raw-src check before any URL parsing for images already seen.
+      if (!src || discovered.has(src) || !isImageUrl(src)) return;
 
       // Nâng chất lượng lên orig (BUG-B FIX: không ép format=jpg — giữ nguyên format gốc PNG/WebP)
       let url = src;
@@ -75,8 +93,11 @@ import { onNavigation } from './page-navigation.ts';
         url = u.toString();
       } catch (_) {}
 
-      if (discovered.has(url)) return;
-      discovered.add(url);
+      // Remember the raw src only after the normalized URL is handled: when
+      // src is already the orig URL both keys are equal.
+      if (discovered.has(url)) { remember(src); return; }
+      remember(url);
+      if (src !== url) remember(src);
 
       // Cố gắng lấy tweet ID từ article gần nhất
       const article = img.closest('article');
@@ -103,7 +124,7 @@ import { onNavigation } from './page-navigation.ts';
       if (realSrc && isVideoUrl(realSrc) && !realSrc.startsWith('blob:')) {
         const baseKey = `video_url_${realSrc.split('?')[0]}`;
         if (!discovered.has(baseKey)) {
-          discovered.add(baseKey);
+          remember(baseKey);
           const isHls = realSrc.includes('.m3u8');
           const isGif = realSrc.includes('tweet_video');
           // Bỏ qua quality-specific m3u8 (để page-interceptor xử lý)
@@ -124,7 +145,7 @@ import { onNavigation } from './page-navigation.ts';
       // Ưu tiên 2: Chỉ có tweetId → cần API để lấy URL video
       // BUG-G FIX: Chỉ chấp nhận tweetId hợp lệ (≥10 chữ số) — tránh gọi API với ID rỗng
       if (!tweetId || !/^\d{10,}$/.test(tweetId) || discovered.has(`video_${tweetId}`)) return;
-      discovered.add(`video_${tweetId}`);
+      remember(`video_${tweetId}`);
 
       found.push({
         type: 'video_placeholder', // Sẽ được service-worker phân giải qua Syndication/Guest API
@@ -166,7 +187,7 @@ import { onNavigation } from './page-navigation.ts';
 
       const key = `video_thumb_${tweetId}`;
       if (discovered.has(key)) return;
-      discovered.add(key);
+      remember(key);
 
       found.push({
         type: 'video_placeholder',
@@ -178,10 +199,6 @@ import { onNavigation } from './page-navigation.ts';
     if (found.length > 0) {
       sendToExtension('X_MEDIA_FOUND', { mediaItems: found, sourceUrl: 'dom-scanner' });
     }
-
-    // P3: Measure + emit diagnostic (allowlisted metric only)
-    performance.mark(`${markName}-end`);
-    try { performance.measure(`xmd-scan`, `${markName}-start`, `${markName}-end`); } catch (_) {}
 
     // Aggregated performance data only. The isolated content script validates
     // this allowlisted metric before it can reach extension storage.
@@ -218,14 +235,16 @@ import { onNavigation } from './page-navigation.ts';
   }
 
 
-  // ─── P3: Scroll debounce — quét lại document khi user cuộn ───────────────
+  // ─── P3: Scroll fallback — the observer handles new tweets; a full-document
+  // scan while scrolling is only a safety net, at most every 2 seconds.
+  const SCROLL_FALLBACK_MS = 2_000;
   let _scrollTimer: ReturnType<typeof setTimeout> | null = null;
   function onScroll() {
     if (_scrollTimer) return;
     _scrollTimer = setTimeout(() => {
       _scrollTimer = null;
       scanDOM(document);
-    }, 500);
+    }, SCROLL_FALLBACK_MS);
   }
   window.addEventListener('scroll', onScroll, { passive: true });
 

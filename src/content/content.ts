@@ -10,6 +10,12 @@
  *   4. Cầu nối FAB ↔ service worker
  */
 import { onPageMessage, sendToPage } from './extension-bridge.ts';
+import { emitUi, onUi } from './ui-bus.ts';
+// window.i18n, FAB and snackbar live in this isolated world (closed shadow
+// roots), out of reach of page scripts.
+import '../lib/i18n.ts';
+import './fab.ts';
+import './snackbar.ts';
 
 // ─── BUG-3 FIX: Guard kiểm tra extension context còn hợp lệ không ────────────
 function isExtensionValid() {
@@ -51,10 +57,9 @@ function safeSendMessage(message: unknown): Promise<unknown> {
   }
 }
 
-// ─── 1. Gửi ngôn ngữ cho page scripts (FAB/snackbar dùng window.i18n) ────────
-// The bridge port queues messages until the MAIN world starts listening.
+// ─── 1. Ngôn ngữ cho FAB/snackbar (window.i18n của isolated world) ───────────
 chrome.storage.local.get('lang')
-  .then((stored) => sendToPage('XMD_LANG_UPDATE', { lang: typeof stored.lang === 'string' ? stored.lang : 'en' }))
+  .then((stored) => emitUi('XMD_LANG_UPDATE', { lang: typeof stored.lang === 'string' ? stored.lang : 'en' }))
   .catch((err: unknown) => console.debug('Failed to load lang', err));
 
 // ─── 2. Lấy username từ URL ───────────────────────────────────────────────────
@@ -205,7 +210,7 @@ onPageMessage('XMD_DIAGNOSTIC_METRIC', (detail) => {
 
 
 // ─── 4. Lắng nghe FAB actions → relay sang service worker ────────────────────
-onPageMessage('XMD_FAB_ACTION', (detail) => {
+onUi('XMD_FAB_ACTION', (detail) => {
   const action = (detail as { action?: unknown } | null)?.action;
   const username = getUsernameFromURL();
   if (!username) return;
@@ -380,7 +385,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   // Update FAB widget từ service worker
   if (message.type === 'FAB_UPDATE') {
-    sendToPage('XMD_FAB_UPDATE', message.payload);
+    emitUi('XMD_FAB_UPDATE', message.payload);
     return false;
   }
 
@@ -392,7 +397,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   // Progress Snackbar — relay SNACKBAR_UPDATE về snackbar.js trên trang
   if (message.type === 'SNACKBAR_UPDATE') {
-    sendToPage('XMD_SNACKBAR_UPDATE', message.payload);
+    emitUi('XMD_SNACKBAR_UPDATE', message.payload);
     return false;
   }
 
@@ -412,7 +417,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 // Lắng nghe storage thay đổi (lang, diagnostics opt-in)
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes.lang) {
-    sendToPage('XMD_LANG_UPDATE', { lang: changes.lang.newValue });
+    emitUi('XMD_LANG_UPDATE', { lang: changes.lang.newValue });
   }
   if (area === 'sync' && changes.options) readDiagnosticsFlag(changes.options.newValue);
 });

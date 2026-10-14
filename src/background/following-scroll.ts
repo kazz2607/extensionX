@@ -34,6 +34,16 @@ export function stopFollowingScroll() {
 }
 
 // ─── Main: Scroll Following Page To End ──────────────────────────────────────
+/** Same X/Twitter path (case-insensitive), ignoring host alias and query. */
+function isSameXPath(url: string | undefined, target: string): boolean {
+  try {
+    const trim = (path: string) => path.replace(/\/+$/, '').toLowerCase();
+    return Boolean(url) && trim(new URL(url!).pathname) === trim(new URL(target).pathname);
+  } catch {
+    return false;
+  }
+}
+
 export async function startFollowingScroll(targetUrl: string): Promise<void> {
   if (_scrollState.isScrolling) {
     console.warn('[following-scroll] Đang chạy — bỏ qua yêu cầu mới');
@@ -53,7 +63,7 @@ export async function startFollowingScroll(targetUrl: string): Promise<void> {
   broadcastToPopup('FOLLOWING_SCROLL_STARTED', { targetUrl });
 
   // BUG-L7: Track xem có tự tạo tab mới không để đóng sau khi xong
-  let createdNewTab = false;
+  let createdTabId: number | undefined;
 
   try {
     // Tìm tab đang mở x.com để dùng, hoặc dùng tab active
@@ -68,7 +78,7 @@ export async function startFollowingScroll(targetUrl: string): Promise<void> {
       // Không có tab x.com — tạo tab mới
       const newTab = await chrome.tabs.create({ url: targetUrl, active: true });
       tabId = newTab.id;
-      createdNewTab = true; // BUG-L7: Đánh dấu để đóng sau
+      createdTabId = newTab.id; // BUG-L7: đóng đúng tab này khi xong
     }
 
     if (!tabId) {
@@ -76,8 +86,10 @@ export async function startFollowingScroll(targetUrl: string): Promise<void> {
     }
 
     // Navigate đến trang /following nếu chưa ở đó
+    // Must be exactly the requested /following page, not any account's one.
     const currentTab = await chrome.tabs.get(tabId).catch(() => null);
-    if (!currentTab?.url?.includes('/following')) {
+    // A tab just created by tabs.create only has pendingUrl until it commits.
+    if (!isSameXPath(currentTab?.pendingUrl || currentTab?.url, targetUrl)) {
       await chrome.tabs.update(tabId, { url: targetUrl });
       await waitForTabLoad(tabId);
       await sleep(3000); // Chờ X.com render virtual list
@@ -185,13 +197,9 @@ export async function startFollowingScroll(targetUrl: string): Promise<void> {
     finishFollowingScan(false, message);
   } finally {
     // BUG-L7 FIX: Đóng tab nếu extension tự tạo — tránh rác tab sau khi scroll xong
-    if (createdNewTab) {
-      const tabs = await chrome.tabs.query({ url: ['https://x.com/*', 'https://twitter.com/*'] });
-      const newTab = tabs.find(t => t.url?.includes('/following'));
-      if (newTab?.id) {
-        chrome.tabs.remove(newTab.id).catch(() => {});
-        console.debug('[following-scroll] BUG-L7: Đã đóng tab tự tạo');
-      }
+    if (createdTabId !== undefined) {
+      chrome.tabs.remove(createdTabId).catch(() => {});
+      console.debug('[following-scroll] BUG-L7: Đã đóng tab tự tạo');
     }
   }
 }

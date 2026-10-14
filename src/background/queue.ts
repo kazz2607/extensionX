@@ -47,17 +47,21 @@ function loadPersistedQueue(): Promise<void> {
   return _queueLoadPromise;
 }
 
-let _queuePersistTimer: ReturnType<typeof setTimeout> | null = null;
+// Queue edits are user actions, not a hot path: write right after the current
+// task (coalescing edits made together) instead of after a 500 ms debounce
+// that a service-worker shutdown could swallow.
+let _queuePersistScheduled = false;
 function persistQueue() {
-  if (_queuePersistTimer) clearTimeout(_queuePersistTimer);
-  _queuePersistTimer = setTimeout(async () => {
-    _queuePersistTimer = null;
+  if (_queuePersistScheduled) return;
+  _queuePersistScheduled = true;
+  queueMicrotask(async () => {
+    _queuePersistScheduled = false;
     try {
       await chromeApi.storage.local.set({ profile_queue: createQueueStorageSnapshot(profileQueue) });
     } catch (err: unknown) {
       console.debug('[SW] persistQueue error:', err instanceof Error ? err.message : String(err));
     }
-  }, 500);
+  });
 }
 
 function broadcastQueueUpdate() {
@@ -96,10 +100,6 @@ async function startNextInQueue(): Promise<boolean> {
 }
 
 async function persistQueueImmediately(): Promise<void> {
-  if (_queuePersistTimer) {
-    clearTimeout(_queuePersistTimer);
-    _queuePersistTimer = null;
-  }
   try {
     await chromeApi.storage.local.set({ profile_queue: createQueueStorageSnapshot(profileQueue) });
   } catch (err: unknown) {

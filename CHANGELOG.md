@@ -10,6 +10,31 @@ Chưa có thay đổi.
 
 ---
 
+## [7.3.1] — 2026-10-14 *(Hoàn thiện phần còn dở của 7.3.0)*
+
+### Bảo mật
+
+- FAB và snackbar trên X chuyển sang chạy trong content script (isolated world) và nằm trong closed shadow root: script của trang không còn đọc được username, số lượng media, tên file hay tiến độ hiển thị, kể cả bằng cách hook API DOM. Message FAB/snackbar/ngôn ngữ không còn đi qua bridge với trang.
+- Danh sách Following và hộp xác nhận unfollow hiển thị account ID cạnh handle, vì unfollow thực hiện theo ID.
+
+### Sửa lỗi
+
+- **Dọn dữ liệu cũ** không còn làm mất media vừa thu thập nhưng chưa lưu xuống IndexedDB; cache của profile đang thu thập được dựng lại từ IndexedDB (cộng media mới) nên số đếm khớp dữ liệu sau khi dọn.
+- Following Scroll chỉ dùng tab đang ở đúng trang `/following` được yêu cầu (không tải lại tab vừa mở), và đóng đúng tab do extension tự mở.
+- Thay đổi Queue được lưu ngay sau thao tác thay vì sau 500 ms, nên không mất khi service worker bị dừng.
+
+### Hiệu năng
+
+- Service worker xử lý `MEDIA_FOUND` theo batch: lọc và ghi một lần, đúng một lần cập nhật badge/popup/FAB cho mỗi batch; placeholder video được khử trùng và quét store một lần mỗi batch.
+- DOM scanner bỏ qua trang không thu thập (Home, Explore…; dùng chung parser route với service worker), lọc theo `src` gốc trước khi phân tích URL, chỉ quét dự phòng khi cuộn mỗi 2 giây, giới hạn bộ nhớ khử trùng bằng cách loại key cũ nhất và không còn để lại `performance.mark` trong trang X.
+- Batch media được khử trùng ngay trong batch trước khi áp giới hạn `maxMedia`.
+
+### Kiểm thử
+
+- Tổng **58** unit test; Chromium acceptance xác nhận trang không truy cập được FAB, còn cập nhật từ service worker và nút thu thập trong shadow root vẫn hoạt động.
+
+---
+
 ## [7.3.0] — 2026-10-14 *(Hardening: bridge, permissions, logic & performance)*
 
 ### Bảo mật

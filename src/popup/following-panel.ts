@@ -168,7 +168,9 @@ function renderFollowingCandidates(state: FollowingScanState): void {
     const handle = document.createElement('div');
     handle.className = 'cleanup-user-handle';
     const activity = candidate.lastActiveAt ? new Date(candidate.lastActiveAt).toLocaleDateString() : 'chưa xác định';
-    handle.textContent = `@${candidate.username} · hoạt động: ${activity}`;
+    // The unfollow acts on the numeric account ID, so show it next to the handle.
+    handle.textContent = `@${candidate.username} · ID ${candidate.userId} · hoạt động: ${activity}`;
+    handle.title = `Account ID ${candidate.userId}`;
     info.append(name, handle);
     row.append(checkbox, info);
     list.append(row);
@@ -362,7 +364,7 @@ export function initFollowingPanel(deps: FollowingPanelDeps): void {
   unfollow?.addEventListener('click', async () => {
     const selected = _candidates.filter((item) => item.selected);
     if (!selected.length) return;
-    const preview = selected.slice(0, 10).map((item) => `@${item.username}`).join(', ');
+    const preview = selected.slice(0, 10).map((item) => `@${item.username} (ID ${item.userId})`).join('\n');
     if (!confirm(`Unfollow ${selected.length} tài khoản?\n\n${preview}${selected.length > 10 ? '…' : ''}\n\nHành động này không thể tự động hoàn tác.`)) return;
     const response = await sendBG('START_UNFOLLOW', { ids: selected.map((item) => item.userId), confirmed: true }) as { ok?: boolean; error?: string } | null;
     if (!response?.ok) showToast(response?.error || 'Unfollow chưa hoàn tất', 'error');

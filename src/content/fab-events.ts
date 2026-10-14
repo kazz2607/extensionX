@@ -4,7 +4,7 @@
  */
 import type { FabElements } from './fab-dom.ts';
 import { setPanelButtonText, updateFabI18n } from './fab-i18n.ts';
-import { onExtensionMessage, sendToExtension } from './page-bridge.ts';
+import { emitUi, onUi } from './ui-bus.ts';
 
 export function initFabEvents(elements: FabElements): { closePanel: () => void } {
   const { fab, panel, mainBtn, badge, countEl, scrollsEl, collectBtn, downloadBtn, scrollInfo } = elements;
@@ -20,7 +20,7 @@ export function initFabEvents(elements: FabElements): { closePanel: () => void }
     panel.classList.remove('visible');
   }
 
-  onExtensionMessage('XMD_LANG_UPDATE', (detail) => {
+  onUi('XMD_LANG_UPDATE', (detail) => {
     const lang = (detail as { lang?: unknown } | null)?.lang;
     if (window.i18n && typeof lang === 'string') {
       window.i18n.lang = lang;
@@ -39,7 +39,7 @@ export function initFabEvents(elements: FabElements): { closePanel: () => void }
     // Nếu có media và chưa đang download: bấm main btn = download luôn
     if (mediaCount > 0) {
       isDownloading = true;
-      sendToExtension('XMD_FAB_ACTION', { action: 'START_DOWNLOAD' });
+      emitUi('XMD_FAB_ACTION', { action: 'START_DOWNLOAD' });
       setPanelButtonText(downloadBtn, window.i18n ? window.i18n.t('fab_downloading') : '⏳ Đang tải...');
       downloadBtn.disabled = true;
       // Đóng panel nếu đang mở
@@ -51,9 +51,11 @@ export function initFabEvents(elements: FabElements): { closePanel: () => void }
     panel.classList.toggle('visible', panelOpen);
   });
 
-  // Đóng panel khi click ra ngoài
+  // Đóng panel khi click ra ngoài. From the document, clicks inside the closed
+  // shadow root are retargeted to its host element.
+  const host = (fab.getRootNode() as ShadowRoot).host ?? fab;
   document.addEventListener('click', (e) => {
-    if (!fab.contains(e.target as Node)) {
+    if (e.target !== host && !fab.contains(e.target as Node)) {
       closePanel();
     }
   }, true);
@@ -69,13 +71,13 @@ export function initFabEvents(elements: FabElements): { closePanel: () => void }
       mainBtn.classList.add('collecting');
       scrollInfo.classList.add('visible');
       // Gửi lệnh START_COLLECTING qua custom event → content.js relay
-      sendToExtension('XMD_FAB_ACTION', { action: 'START_COLLECTING' });
+      emitUi('XMD_FAB_ACTION', { action: 'START_COLLECTING' });
     } else {
       setPanelButtonText(collectBtn, window.i18n ? window.i18n.t('fab_collect_start') : '▶ Thu Thập');
       collectBtn.classList.remove('active');
       mainBtn.classList.remove('collecting');
       scrollInfo.classList.remove('visible');
-      sendToExtension('XMD_FAB_ACTION', { action: 'STOP_COLLECTING' });
+      emitUi('XMD_FAB_ACTION', { action: 'STOP_COLLECTING' });
     }
   });
 
@@ -84,13 +86,13 @@ export function initFabEvents(elements: FabElements): { closePanel: () => void }
     e.stopPropagation();
     if (downloadBtn.disabled || isDownloading) return;
     isDownloading = true;
-    sendToExtension('XMD_FAB_ACTION', { action: 'START_DOWNLOAD' });
+    emitUi('XMD_FAB_ACTION', { action: 'START_DOWNLOAD' });
     setPanelButtonText(downloadBtn, window.i18n ? window.i18n.t('fab_downloading') : '⏳ Đang tải...');
     downloadBtn.disabled = true;
   });
 
   // ─── Update từ messages ──────────────────────────────────────────────────────
-  onExtensionMessage('XMD_FAB_UPDATE', (detail) => {
+  onUi('XMD_FAB_UPDATE', (detail) => {
     const update = (detail || {}) as { count?: number; scrollCount?: number; state?: string; percent?: number; current?: number; total?: number };
     const { count, scrollCount, state } = update;
 

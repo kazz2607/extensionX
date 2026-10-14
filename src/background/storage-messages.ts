@@ -1,7 +1,8 @@
 import type { DomainMessageHandler } from './message-handler.ts';
-import { mediaStore, statsStore, downloadedStore, dirtyMediaStore } from './state.ts';
+import { mediaStore, statsStore, downloadedStore, dirtyMediaStore, tabState } from './state.ts';
+import { releasePersistedEntries } from '../shared/dirty-batch.ts';
 import { mediaRepository } from './indexeddb.ts';
-import { cancelDownloadedPersist } from './scraper.ts';
+import { cancelDownloadedPersist, reloadMediaCache } from './scraper.ts';
 import { isValidUsername } from '../shared/validation.ts';
 
 const PRUNE_CONCURRENCY = 8;
@@ -33,12 +34,27 @@ export const handleStorageMessage: DomainMessageHandler = (message, _sender, sen
           const before = await mediaRepository.getStorageSummary();
           const now = Date.now();
           const removed = await runBounded(before.profiles, async (profile) => {
-            const count = await mediaRepository.pruneMediaItems(profile.username, now)
-              + await mediaRepository.pruneDownloadedUrls(profile.username, now);
-            mediaStore.delete(profile.username);
-            statsStore.delete(profile.username);
-            downloadedStore.delete(profile.username);
-            dirtyMediaStore.delete(profile.username);
+            const username = profile.username;
+            // Write media collected but not yet persisted first; pruning used
+            // to drop it together with the RAM cache.
+            const dirty = dirtyMediaStore.get(username);
+            if (dirty?.size) {
+              const entries = [...dirty.entries()];
+              await mediaRepository.saveMediaItems(username, entries.map(([, item]) => item));
+              releasePersistedEntries(dirty, entries);
+            }
+            const count = await mediaRepository.pruneMediaItems(username, now)
+              + await mediaRepository.pruneDownloadedUrls(username, now);
+            // A profile being collected (or with unsaved items) gets its cache
+            // rebuilt so pruned records leave RAM too; others reload lazily.
+            const collecting = [...tabState.values()].some((state) => state.isCollecting && state.username === username);
+            if (mediaStore.has(username) && (collecting || dirtyMediaStore.get(username)?.size)) {
+              await reloadMediaCache(username, now);
+            } else {
+              mediaStore.delete(username);
+              statsStore.delete(username);
+            }
+            downloadedStore.delete(username);
             return count;
           });
           sendResponse({ ok: true, removed, summary: await mediaRepository.getStorageSummary() });

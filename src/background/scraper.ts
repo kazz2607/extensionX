@@ -4,7 +4,7 @@ import { mediaStore, dirtyMediaStore, statsStore, tabState, downloadedStore, use
 import { fetchVideoForTweet } from './tweet-api.ts';
 import { updateBadge, broadcastToPopup, updateFAB, broadcastFABState, sleep, waitForTabLoad, sanitizeFolder } from './utils.ts';
 import { mediaRepository } from './indexeddb.ts';
-import { MediaItem, Options, CollectState } from '../types.ts';
+import { MediaItem, Options, CollectState, Stats } from '../types.ts';
 import { filterMediaItems, isVideoThumbnailUrl } from '../shared/media-filter.ts';
 import { recordDiagnostic } from './diagnostics.ts';
 import { canTransitionCollectPhase, type CollectPhase } from '../shared/collect-state.ts';
@@ -125,6 +125,33 @@ async function ensureMediaStoreLoaded(username: string): Promise<Map<string, Med
   touchMediaCache(username);
   trimMediaCache();
   return mediaStore.get(username)!;
+}
+
+/**
+ * Rebuild a profile's RAM cache after IndexedDB records were pruned, without
+ * losing media that arrived meanwhile: the new map is built from the database
+ * plus items added since `keepAddedSince` plus still-unsaved (dirty) items, and
+ * swapped in synchronously.
+ */
+async function reloadMediaCache(username: string, keepAddedSince: number): Promise<void> {
+  const persisted = await mediaRepository.getMediaItems(username);
+  const recent = [...(mediaStore.get(username)?.values() ?? [])].filter((item) => (item.addedAt ?? 0) >= keepAddedSince);
+  const pending = [...(dirtyMediaStore.get(username)?.values() ?? [])];
+  const store = new Map<string, MediaItem>();
+  const stats: Stats = { image: 0, video: 0, gif: 0, hls: 0 };
+  [...persisted, ...recent, ...pending]
+    .filter((item) => !(item.type === 'image' && isVideoThumbnailUrl(item.url)) && !store.has(item.url))
+    .forEach((item) => {
+      store.set(item.url, item);
+      if (item.type === 'image') stats.image++;
+      else if (item.type === 'gif') stats.gif++;
+      else if (item.type === 'hls') stats.hls++;
+      else stats.video++;
+    });
+  mediaStore.set(username, store);
+  statsStore.set(username, stats);
+  updateBadge(username);
+  broadcastToPopup('MEDIA_COUNT_UPDATE', { username, count: store.size, newCount: 0, stats: { ...stats } });
 }
 
 function addMediaItems(username: string, items: MediaItem[]) {
@@ -634,6 +661,6 @@ export {
   requestCsrfRefresh, fetchVideoForTweetWithRefresh,
   addMediaItems, ensureMediaStoreLoaded, applyOptionsFilter, tweetDateFromId,
   checkAutoScroll, startCollecting, stopCollecting, stopCollectingForTab, scrollLoop,
-  persistSession, clearSession,
+  persistSession, clearSession, reloadMediaCache,
   loadDownloadedUrls, isAlreadyDownloaded, markDownloaded, cancelDownloadedPersist, showDownloadNotification
 };

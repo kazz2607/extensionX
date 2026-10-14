@@ -22,15 +22,15 @@
 
 Build 7.3.0 tiếp tục áp dụng gate tự động trong `npm run check` và tính cả entrypoint Download Center:
 
-| Chỉ số build | Ngưỡng | Kết quả 7.3.0 |
+| Chỉ số build | Ngưỡng | Kết quả 7.3.1 |
 | --- | ---: | ---: |
-| Tổng JavaScript trong `dist/` | ≤ 400.000 byte | 384.248 byte |
+| Tổng JavaScript trong `dist/` | ≤ 400.000 byte | 397.214 byte |
 | JavaScript bundle lớn nhất | ≤ 110.000 byte | 102.108 byte |
-| Số module TypeScript trong `src/` | ≤ 95 | 86 |
+| Số module TypeScript trong `src/` | ≤ 95 | 89 |
 
 Ngưỡng số module tăng từ 85 lên 95 trong 7.3.0 vì bridge MAIN ↔ isolated, navigation và các helper có kiểm thử được tách thành module nhỏ; tổng dung lượng JavaScript gần như không đổi.
 
-Tối ưu runtime 7.3.0: metric diagnostic không rời trang khi chưa bật (mặc định) và service worker cache cờ diagnostic; interceptor chỉ parse GraphQL trên route profile/likes/bookmarks (và trang Following), XHR không parse hai lần, hook `JSON.parse` quét một chuỗi thay vì năm; Telegram chỉ quét subtree mới thêm, tối đa khoảng 4 lần/giây, cộng một lượt toàn trang mỗi 2 giây; HLS ghép segment không còn bản sao toàn bộ video; script MAIN không còn bị nạp hai lần.
+Tối ưu runtime 7.3.0: metric diagnostic không rời trang khi chưa bật (mặc định) và service worker cache cờ diagnostic; interceptor chỉ parse GraphQL trên route profile/likes/bookmarks (và trang Following), XHR không parse hai lần, hook `JSON.parse` quét một chuỗi thay vì năm; Telegram chỉ quét subtree mới thêm, tối đa khoảng 4 lần/giây, cộng một lượt toàn trang mỗi 2 giây; HLS ghép segment không còn bản sao toàn bộ video; script MAIN không còn bị nạp hai lần. 7.3.1: `MEDIA_FOUND` lọc/ghi theo batch với đúng một lần cập nhật badge/popup/FAB, placeholder video quét store một lần mỗi batch; DOM scanner bỏ qua route không thu thập, lọc theo `src` gốc trước khi parse URL, quét dự phòng khi cuộn 2 giây/lần, giới hạn 20.000 key và không còn để lại `performance.mark`. Tổng JavaScript tăng khoảng 13 KB vì bộ dịch i18n được bundle vào `content.js` cho FAB/snackbar ở isolated world (popup vẫn có bản riêng); v7.4.0 cần tách bảng dịch để không vượt ngưỡng 400 KB.
 
 Ngưỡng nằm trong `performance-budget.json` và được kiểm tra bởi `scripts/check-performance-budget.mjs`.
 

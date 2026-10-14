@@ -3,7 +3,7 @@
  * Tách nguyên vẹn từ fab.ts, không đổi hành vi.
  */
 
-export function injectFabStyle(): void {
+export function injectFabStyle(target: ParentNode): void {
   const style = document.createElement('style');
   style.id = '__xmd_fab_style__';
   style.textContent = `
@@ -237,5 +237,5 @@ export function injectFabStyle(): void {
 
     .__xmd_scroll_info__.visible { display: block; }
   `;
-  document.documentElement.appendChild(style);
+  target.appendChild(style);
 }

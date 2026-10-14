@@ -9,6 +9,7 @@ import { createMediaMatcher, localDayEnd, localDayKey, localDayStart } from '../
 import { isTelegramDownloadUrl } from '../src/shared/telegram-media.ts';
 import { createTimedSettlement } from '../src/shared/timed-settlement.ts';
 import type { MediaItem } from '../src/types.ts';
+import { routeCollectsMedia } from '../src/content/page-route.ts';
 
 const ORIGIN = 'chrome-extension://abcdefghijklmnop/';
 
@@ -94,4 +95,13 @@ test('download timeout is an inactivity timeout: progress keeps a slow download 
   const stalled = createTimedSettlement<number>(20, () => new Error('stalled'));
   await assert.rejects(stalled.promise, /stalled/);
   stalled.touch(); // no-op after settling
+});
+
+test('page scripts only parse media on routes that can collect it', () => {
+  for (const path of ['/NASA/media', '/NASA/status/1850000000000000000', '/NASA/likes', '/i/bookmarks']) {
+    assert.equal(routeCollectsMedia(`https://x.com${path}`), true, path);
+  }
+  for (const path of ['/home', '/explore', '/notifications', '/messages/123', '/search', '/i/lists/1', '/']) {
+    assert.equal(routeCollectsMedia(`https://x.com${path}`), false, path);
+  }
 });
