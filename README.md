@@ -2,7 +2,7 @@
 
 Extension Chrome mạnh mẽ cho phép bạn tải toàn bộ ảnh, video và GIF từ bất kỳ profile nào trên X.com (Twitter) với chất lượng gốc, hoàn toàn tự động và sắp xếp gọn gàng vào thư mục theo tên người dùng.
 
-> **Phiên bản hiện tại: 7.4.0** — Giao diện English/Tiếng Việt đầy đủ, theme theo hệ thống, accessibility và tối ưu hiệu năng.
+> **Phiên bản hiện tại: 7.4.1** — Hotfix layout popup: hàng nút hành động và tên thương hiệu không còn tràn/vỡ dòng.
 
 ## ✨ Tính Năng Nổi Bật
 
@@ -70,4 +70,4 @@ Click vào nút ⚙ (Cài đặt) trên popup của extension để tuỳ chỉn
 
 ---
 
-*Phát triển nội bộ — Phiên bản **7.4.0** | Cập nhật: 2026-10-14*
+*Phát triển nội bộ — Phiên bản **7.4.1** | Cập nhật: 2026-10-14*

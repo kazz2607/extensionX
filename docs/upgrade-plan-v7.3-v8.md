@@ -1,7 +1,7 @@
 # Kế hoạch nâng cấp v7.3 → v8.0
 
 > Lập ngày: 2026-10-14 | Baseline: **v7.2.2** (`npm run check` xanh: 42 unit, 2 e2e, build, budget)
-> Trạng thái: **Đang thực hiện** — v7.2.3, v7.3.0, v7.3.1 và v7.4.0 đã hoàn thành ngày 2026-10-14; v8.0.0 (tính năng mới) chờ chốt phạm vi.
+> Trạng thái: **Đang thực hiện** — v7.2.3, v7.3.0, v7.3.1, v7.4.0 và v7.4.1 (hotfix layout popup, phát hiện qua báo cáo người dùng sau khi phát hành 7.4.0) đã hoàn thành ngày 2026-10-14; v8.0.0 (tính năng mới) chờ chốt phạm vi.
 
 Kế hoạch này dựa trên audit đọc mã nguồn ngày 2026-10-14, chia 4 nhóm: **logic**, **bảo mật**, **hiệu năng**, **UI/UX**, kèm phần tư vấn tính năng mới. Mỗi hạng mục có mã ID, vị trí mã, cách sửa và tiêu chí nghiệm thu. Vị trí dòng (`file:line`) tính theo v7.2.2 và có thể lệch nhẹ khi sửa.
 
@@ -120,7 +120,7 @@ Nhỏ: bỏ index `url` không dùng trên `media_items`; `waitForTabLoad` khôn
 
 ## 4. Giao diện (UI/UX)
 
-> v7.4.0: U1–U15 hoàn thành, trừ U9 một phần (nút icon đã có title/aria-label đa ngôn ngữ; ký tự `×` chưa thay bằng SVG). Phần "Dọn dẹp" (selector trùng, `!important`, style inline) chưa làm. P10 thay index `[username, addedAt]` (cần nâng IndexedDB, phá rollback) bằng cursor + kiểm tra retention hằng ngày hoặc khi profile vượt ngưỡng thêm 1.000 mục.
+> v7.4.0: U1–U15 hoàn thành, trừ U9 một phần (nút icon đã có title/aria-label đa ngôn ngữ; ký tự `×` chưa thay bằng SVG). Phần "Dọn dẹp" (selector trùng, `!important`, style inline) chưa làm. P10 thay index `[username, addedAt]` (cần nâng IndexedDB, phá rollback) bằng cursor + kiểm tra retention hằng ngày hoặc khi profile vượt ngưỡng thêm 1.000 mục. v7.4.1: U16 (phát hiện sau phát hành, không nằm trong audit gốc) hoàn thành.
 
 ### P0/P1
 
@@ -146,6 +146,7 @@ Nhỏ: bỏ index `url` không dùng trên `media_items`; `waitForTabLoad` khôn
 | **U13** ✅ | FAB/snackbar dùng z-index tối đa → che lightbox/modal của X; snackbar trùng vị trí toast của X; `min-width:340px` tràn trên màn hẹp. | Ẩn/hạ FAB khi có `[aria-modal="true"]`; dời snackbar; `min-width: min(340px, calc(100vw - 40px))`. |
 | **U14** ✅ | 23 key i18n không dùng (`nav_*`, `stat_*`, `date_preset_*`…) trong khi UI tương ứng hard-code; `<html lang>` cố định. | Nối các key sẵn có; đặt `document.documentElement.lang` sau `loadI18n`. |
 | **U15** ✅ | Popup/Options tải font Inter từ Google Fonts → request ngoài (mâu thuẫn cam kết "chỉ xử lý cục bộ"), FOUT, không có font khi offline. | Đóng gói woff2 cục bộ hoặc dùng system font stack. |
+| **U16** ✅ (v7.4.1) | `.btn-row` chỉ khai báo 3 cột lưới nhưng có 4 nút thật ở trạng thái thường (Download, queue-add, CSV, Clear) và 5 nút khi đang tải (Stop chen thêm thay vì thay chỗ Download) → nút dư tràn xuống dòng riêng, sát thanh tab dưới cùng. `.header` không có rule cho `.header-text`, 5 nút icon cạnh tranh chỗ với tên thương hiệu → "Media Downloader" vỡ thành 2 dòng ngay lần mở đầu. Phát hiện qua ảnh chụp người dùng gửi sau khi phát hành 7.4.0. | `popup.css:543-547` (nay 4 cột), `popup.ts` `updateButtons()` (Stop thay chỗ Download), `popup.css`/`popup.html` quanh `.header`/`.header-left`/`.logo`/`.app-name` (gom nút vào `.header-actions`, thêm `min-width:0`/`white-space:nowrap`/ellipsis). |
 
 Dọn dẹp: gộp selector trùng `.queue-status` (`popup.css:1365`, `:1443`); bỏ 3 `!important` không cần thiết; chuyển khoảng 50 `style=""` inline (HTML và template TS) thành class.
 
@@ -175,11 +176,12 @@ Dọn dẹp: gộp selector trùng `.queue-status` (`popup.css:1365`, `:1443`); 
 2. ~~**v7.2.3**: L1–L5 + regression test~~ — hoàn thành 2026-10-14.
 3. ~~**v7.3.0**~~ — hoàn thành 2026-10-14: S1/S3/S11/P9 làm cùng nhau (cùng thay đổi kiến trúc bridge content ↔ page), sau đó S2, S4–S10, L6–L15, P1–P3.
 4. ~~**v7.4.0**~~ — hoàn thành 2026-10-14: U2/U3/U14 (i18n) → U5–U8 (token/theme) → U4/U9–U13 (accessibility) → P4–P15.
-5. **v8.0.0**: F1, F2, F3 là cốt lõi; F4, F5 nếu còn thời gian.
+5. ~~**v7.4.1**: U16 (hotfix layout popup)~~ — hoàn thành 2026-10-14, phát hiện qua báo cáo người dùng sau phát hành 7.4.0.
+6. **v8.0.0**: F1, F2, F3 là cốt lõi; F4, F5 nếu còn thời gian.
 
-## 6b. Tồn đọng sau v7.4.0
+## 6b. Tồn đọng sau v7.4.1
 
-Các mốc v7.2.3 → v7.4.0 đã phát hành (xem `CHANGELOG.md`). Còn lại:
+Các mốc v7.2.3 → v7.4.1 đã phát hành (xem `CHANGELOG.md`). Còn lại:
 
 - **U9 (phần còn lại):** thay ký tự `×`/`✕` trên nút đóng bằng icon SVG.
 - **Dọn CSS:** gộp selector trùng `.queue-status`, bỏ `!important` không cần, chuyển `style=""` inline sang class.

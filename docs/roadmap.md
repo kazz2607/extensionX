@@ -1,6 +1,6 @@
 # X Media Downloader — Roadmap
 
-> Phiên bản hiện tại: **7.4.0** | Cập nhật: 2026-10-14
+> Phiên bản hiện tại: **7.4.1** | Cập nhật: 2026-10-14
 
 Tài liệu này là nguồn duy nhất cho trạng thái sản phẩm, phần việc đã hoàn thành và backlog. Chi tiết từng bản phát hành nằm trong [`CHANGELOG.md`](../CHANGELOG.md).
 
@@ -61,6 +61,7 @@ src/
 | v7.3.0 | Hardening: bridge MessagePort riêng với trang X, lệnh runtime theo ngữ cảnh gửi, bỏ quyền `tabs`/DNR/web-accessible, sửa Queue/Saved Job/timeout/lọc ngày/unfollow, giảm tải interceptor và Telegram |
 | v7.3.1 | Hoàn thiện phần dở của 7.3.0: FAB/snackbar trong closed shadow root, account ID trong preview unfollow, `MEDIA_FOUND` theo batch, DOM scanner nhẹ hơn, Prune không mất media chưa lưu |
 | v7.4.0 | i18n đầy đủ en/vi (gate kiểm tra), token/theme dùng chung và theme theo hệ thống, accessibility Options/popup/nút tweet, tối ưu progress/nút tweet/Download Center/JSZip/retention |
+| v7.4.1 | Hotfix: hàng nút hành động và tên thương hiệu trong popup không còn tràn/vỡ dòng, đè lên thanh tab dưới cùng |
 
 Các kế hoạch Pha 0–15 cũ đã hoàn thành và được hợp nhất vào bảng này; không còn duy trì file kế hoạch riêng.
 
@@ -68,7 +69,7 @@ Các kế hoạch Pha 0–15 cũ đã hoàn thành và được hợp nhất và
 
 Hiện không còn backlog đã được phê duyệt. P0, P1 và phạm vi P2 đều đã hoàn thành; mốc tiếp theo chỉ được mở sau khi chốt phạm vi sản phẩm mới.
 
-**Kế hoạch đang thực hiện (2026-10-14):** [`upgrade-plan-v7.3-v8.md`](upgrade-plan-v7.3-v8.md) — audit logic, bảo mật, hiệu năng, UI và tư vấn tính năng v8.0. Mốc v7.2.3, v7.3.0, v7.3.1 và v7.4.0 (performance & UI) đã phát hành; v8.0.0 (tính năng mới F1–F5) là mốc tiếp theo và cần chốt phạm vi.
+**Kế hoạch đang thực hiện (2026-10-14):** [`upgrade-plan-v7.3-v8.md`](upgrade-plan-v7.3-v8.md) — audit logic, bảo mật, hiệu năng, UI và tư vấn tính năng v8.0. Mốc v7.2.3, v7.3.0, v7.3.1, v7.4.0 (performance & UI) và v7.4.1 (hotfix layout popup) đã phát hành; v8.0.0 (tính năng mới F1–F5) là mốc tiếp theo và cần chốt phạm vi.
 
 Bản vá v7.2.1 đã khép lại các lỗi hậu phát hành của P2: Start Collecting xác nhận đúng tab/profile, auto-collect có công tắc rõ ràng mặc định tắt, prune storage chạy bounded concurrency và popup có chiều rộng nội tại ổn định.
 

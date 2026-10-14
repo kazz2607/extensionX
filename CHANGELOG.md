@@ -10,6 +10,20 @@ Chưa có thay đổi.
 
 ---
 
+## [7.4.1] — 2026-10-14 *(Hotfix: layout popup)*
+
+### Sửa lỗi
+
+- **Hàng nút hành động tràn dòng:** `.btn-row` chỉ khai báo 3 cột lưới nhưng có 4 nút thật ở trạng thái bình thường (Download, thêm vào Queue, CSV, Xóa) và 5 nút khi đang tải (thêm nút Stop) — nút dư bị đẩy xuống dòng riêng, sát ngay thanh tab dưới cùng (phát hiện qua ảnh chụp người dùng gửi). Nút Stop giờ **thay chỗ** Download thay vì chen thêm, và lưới đổi sang đúng 4 cột — không còn tràn dòng ở bất kỳ trạng thái nào (rỗng, nhãn dài kiểu "Videos (9999)", hay đang tải).
+- **Tên "Media Downloader" tự vỡ thành 2 dòng** ngay khi mở popup, vì không có CSS kiểm soát độ co giãn trong khi 5 nút icon bên phải chiếm hết chỗ. Gom 5 nút icon vào một khối riêng và cho tên thương hiệu co giãn đúng cách — luôn nằm 1 dòng, tự hiện `…` nếu ngôn ngữ nào đó có tên dài hơn.
+
+### Kiểm thử
+
+- Không có logic mới cần unit test (thuần CSS/HTML + 1 dòng ẩn/hiện nút có sẵn); xác minh bằng Playwright chụp ảnh bản `dist/` thật ở các trạng thái rỗng, nhãn dài và đang tải. Tổng vẫn **60** unit test, 2 e2e, `npm run check` xanh.
+- Queue, Stats, Picker, Following và trang Settings được kiểm tra bằng ảnh chụp tương tự — không có lỗi tương tự, không sửa gì ở các tab này.
+
+---
+
 ## [7.4.0] — 2026-10-14 *(Performance & UI: i18n, theme, accessibility)*
 
 ### Giao diện
