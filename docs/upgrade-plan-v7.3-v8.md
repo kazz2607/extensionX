@@ -1,7 +1,7 @@
 # Kế hoạch nâng cấp v7.3 → v8.0
 
 > Lập ngày: 2026-10-14 | Baseline: **v7.2.2** (`npm run check` xanh: 42 unit, 2 e2e, build, budget)
-> Trạng thái: **Đề xuất — chờ chốt phạm vi**. Khi hoàn thành, ghi kết quả vào `CHANGELOG.md`/`roadmap.md` và xóa file này (theo quy ước `docs/README.md`).
+> Trạng thái: **Đang thực hiện** — v7.2.3 (L1–L5) đã hoàn thành ngày 2026-10-14; các mốc sau chờ triển khai. Khi hoàn thành, ghi kết quả vào `CHANGELOG.md`/`roadmap.md` và xóa file này (theo quy ước `docs/README.md`).
 
 Kế hoạch này dựa trên audit đọc mã nguồn ngày 2026-10-14, chia 4 nhóm: **logic**, **bảo mật**, **hiệu năng**, **UI/UX**, kèm phần tư vấn tính năng mới. Mỗi hạng mục có mã ID, vị trí mã, cách sửa và tiêu chí nghiệm thu. Vị trí dòng (`file:line`) tính theo v7.2.2 và có thể lệch nhẹ khi sửa.
 
@@ -9,7 +9,7 @@ Kế hoạch này dựa trên audit đọc mã nguồn ngày 2026-10-14, chia 4 
 
 | Mốc | Phạm vi | Mục tiêu |
 | --- | --- | --- |
-| **v7.2.3 — Hotfix** | L1–L5, S1 (phần 12) | Sửa lỗi làm hỏng chức năng hoặc mất dữ liệu |
+| **v7.2.3 — Hotfix** ✅ | L1–L5 (+ S4 cho phím tắt) | Sửa lỗi làm hỏng chức năng hoặc mất dữ liệu — **đã phát hành** |
 | **v7.3.0 — Hardening** | L6–L15, S1–S11, P1–P3 | Bảo mật bridge, ổn định Queue/Saved Job, giảm tải trên X/Telegram |
 | **v7.4.0 — Performance & UI** | P4–P15, U1–U15 | i18n đầy đủ, theme/token thống nhất, accessibility, tối ưu batch/IndexedDB |
 | **v8.0.0 — Tính năng mới** | F1–F8 (chọn lọc) | Mở rộng nguồn tải và quản lý thư viện |
@@ -20,15 +20,17 @@ Mức độ: **P0** = hỏng chức năng/mất dữ liệu/rủi ro tài khoả
 
 ## 1. Sửa lỗi logic
 
-### P0 — đưa vào v7.2.3
+### P0 — v7.2.3 ✅ hoàn thành
+
+> Kết quả: L1 xác nhận bằng Chromium (offscreen có `chrome.downloads === undefined`); sửa bằng kênh `OFFSCREEN_SAVE_BLOB` để SW lưu Blob. L2–L4 tách logic sang `shared/collect-state.ts` và `shared/dirty-batch.ts` có regression. L5 sửa sender, nút tweet chạy trên Home/Search, `SHORTCUT_DOWNLOAD` đã được siết theo S4. Gate: 48 unit, 2 e2e, 5 Chromium acceptance.
 
 | ID | Vấn đề | Vị trí | Cách sửa | Nghiệm thu |
 | --- | --- | --- | --- | --- |
-| **L1** | Offscreen gọi `chrome.downloads` (offscreen document chỉ có `chrome.runtime`) → HLS, ZIP, `DOWNLOAD_MP4` có thể lỗi toàn bộ. File có `@ts-nocheck` nên typecheck không phát hiện. **Cần xác nhận runtime trước.** | `src/offscreen/offscreen.ts:1-27`, `:148`, `:197` | Offscreen trả blob/object URL (hoặc chunk) về service worker; SW gọi `chrome.downloads.download` và revoke. Bỏ `@ts-nocheck`, thêm kiểu message. | Chromium acceptance tải 1 HLS + 1 ZIP chunk thành công; `tsc` phủ offscreen. |
-| **L2** | `PAGE_LOADED` ghi đè `tabState` mà không giữ `operationId` → Start từ trang không phải `/media` bị treo ở "đang thu thập", Start lần sau không làm gì đến khi bấm Stop. | `src/background/media-messages.ts:151-160`, `scraper.ts:228`, `:261` | Giữ `operationId`/`phase` từ `existingState` khi cùng username; khác username thì gọi `finishCollecting`. | Regression: Start tại `x.com/foo` → reload `/media` → `scrollLoop` chạy. |
-| **L3** | Race mất media: chụp `dirtyItems`, `await` save/prune, rồi `dirtyStore.clear()` → item đến trong lúc `await` bị xóa mà chưa ghi. | `src/background/scraper.ts:454-464` | Chỉ xóa đúng key đã lưu, hoặc đổi Map mới trước khi `await`. | Unit test: thêm item giữa lúc save đang chờ → item vẫn được persist. |
-| **L4** | Race tương tự cho URL đã tải (chống trùng) → sau khi SW restart, file bị tải lại thành bản "(1)". | `src/background/scraper.ts:579-584`, `indexeddb.ts:241` | Tách set ra khỏi map trước khi `await`; lỗi thì merge lại. | Unit test cho `markDownloaded` chạy đồng thời với save. |
-| **L5** | Nút tải trên tweet và phím tắt hover không hoạt động: sender gửi `sourceUrl`/`pageUrl` nhưng allowlist payload chỉ có `tweetId,username` / `url` → message bị loại. Nút còn quay `loading` mãi vì response lỗi bị bỏ qua. | `src/content/content.ts:290-299`, `shortcuts.ts:267`, `src/shared/messages.ts:177-179`, `tweet-btn.ts:213` | Bỏ trường thừa ở sender; xử lý `res.error` → trạng thái `error`; timeout 30 s cho `loading`. **Làm S4 trước khi bật lại `SHORTCUT_DOWNLOAD`.** | Regression: nút tweet trên `/home` và profile cho kết quả done/error trong ≤ 30 s. |
+| **L1** ✅ | Offscreen gọi `chrome.downloads` (offscreen document chỉ có `chrome.runtime`) → HLS, ZIP, `DOWNLOAD_MP4` có thể lỗi toàn bộ. File có `@ts-nocheck` nên typecheck không phát hiện. **Cần xác nhận runtime trước.** | `src/offscreen/offscreen.ts:1-27`, `:148`, `:197` | Offscreen trả blob/object URL (hoặc chunk) về service worker; SW gọi `chrome.downloads.download` và revoke. Bỏ `@ts-nocheck`, thêm kiểu message. | Chromium acceptance tải 1 HLS + 1 ZIP chunk thành công; `tsc` phủ offscreen. |
+| **L2** ✅ | `PAGE_LOADED` ghi đè `tabState` mà không giữ `operationId` → Start từ trang không phải `/media` bị treo ở "đang thu thập", Start lần sau không làm gì đến khi bấm Stop. | `src/background/media-messages.ts:151-160`, `scraper.ts:228`, `:261` | Giữ `operationId`/`phase` từ `existingState` khi cùng username; khác username thì gọi `finishCollecting`. | Regression: Start tại `x.com/foo` → reload `/media` → `scrollLoop` chạy. |
+| **L3** ✅ | Race mất media: chụp `dirtyItems`, `await` save/prune, rồi `dirtyStore.clear()` → item đến trong lúc `await` bị xóa mà chưa ghi. | `src/background/scraper.ts:454-464` | Chỉ xóa đúng key đã lưu, hoặc đổi Map mới trước khi `await`. | Unit test: thêm item giữa lúc save đang chờ → item vẫn được persist. |
+| **L4** ✅ | Race tương tự cho URL đã tải (chống trùng) → sau khi SW restart, file bị tải lại thành bản "(1)". | `src/background/scraper.ts:579-584`, `indexeddb.ts:241` | Tách set ra khỏi map trước khi `await`; lỗi thì merge lại. | Unit test cho `markDownloaded` chạy đồng thời với save. |
+| **L5** ✅ | Nút tải trên tweet và phím tắt hover không hoạt động: sender gửi `sourceUrl`/`pageUrl` nhưng allowlist payload chỉ có `tweetId,username` / `url` → message bị loại. Nút còn quay `loading` mãi vì response lỗi bị bỏ qua. | `src/content/content.ts:290-299`, `shortcuts.ts:267`, `src/shared/messages.ts:177-179`, `tweet-btn.ts:213` | Bỏ trường thừa ở sender; xử lý `res.error` → trạng thái `error`; timeout 30 s cho `loading`. **Làm S4 trước khi bật lại `SHORTCUT_DOWNLOAD`.** | Regression: nút tweet trên `/home` và profile cho kết quả done/error trong ≤ 30 s. |
 
 ### P1 — v7.3.0
 
@@ -58,7 +60,7 @@ Lỗi nhỏ: `following-scroll.ts:80` chấp nhận bất kỳ URL `/following` 
 | **S1** | Med | Bridge MAIN → isolated dùng `CustomEvent` toàn cục, nên script bất kỳ trên x.com (hoặc một lỗ XSS) có thể giả `XMD_FAB_ACTION` (`START_DOWNLOAD` tự ghi file, bỏ qua prompt "automatic downloads"), giả bearer/queryId, giả trang following. | `src/content/content.ts:218-300` | Page chỉ được gửi tên action; isolated world tự dựng payload. Hành động tải/thu thập cần user gesture trong isolated world (FAB/nút tweet chuyển sang isolated hoặc closed shadow DOM), hoặc dùng `MessageChannel` với nonce mỗi lần load. |
 | **S2** | Med | Following page giả có thể ghép `userId` nạn nhân với `username` khác → người dùng unfollow nhầm tài khoản. | `background/following-scanner.ts:99-124`, `tweet-api.ts:87-104` | Chỉ nhận candidate từ response do SW tự fetch, hoặc SW tự resolve `userId → screen_name`; hiển thị userId trong preview. |
 | **S3** | Med | `isInternalSender` chỉ kiểm tra `sender.id`, mà content script cũng thỏa → lệnh chỉ dành cho popup (`START_UNFOLLOW`, `CLEAR_ALL_*`, `IMPORT_QUEUE`, `SET_JOB_SCHEDULE`…) có thể bị gọi từ content script. | `background/message-handler.ts:10-12`, `offscreen.ts:134` | Khai báo nguồn hợp lệ cho từng loại message: popup-only yêu cầu `!sender.tab` và `sender.url` thuộc extension; offscreen chỉ nhận từ SW. |
-| **S4** | Med | `SHORTCUT_DOWNLOAD` tải URL bất kỳ (`http`, `data`, 50 MB, gửi kèm cookie) lấy từ thuộc tính `img` do page kiểm soát. Hiện chưa khai thác được chỉ vì đang bị lỗi L5. | `media-messages.ts:451-493`, `shortcuts.ts:318-341` | Bắt buộc tab X, chỉ HTTPS, kiểm tra `isTrustedMediaUrl`; host khác dùng `saveAs:true`. |
+| **S4** ✅ | Med | `SHORTCUT_DOWNLOAD` tải URL bất kỳ (`http`, `data`, 50 MB, gửi kèm cookie) lấy từ thuộc tính `img` do page kiểm soát. Hiện chưa khai thác được chỉ vì đang bị lỗi L5. | `media-messages.ts:451-493`, `shortcuts.ts:318-341` | Bắt buộc tab X, chỉ HTTPS, kiểm tra `isTrustedMediaUrl`; host khác dùng `saveAs:true`. |
 | **S5** | Low-Med | Rule DNR thêm `Access-Control-Allow-Origin: *` cho `cdn.syndication.twimg.com` với mọi initiator, trong khi SW không cần rule này. | `src/public/rules.json` | Xóa rule và quyền `declarativeNetRequest` (bớt một cảnh báo quyền). |
 | **S6** | Low-Med | HLS fetcher theo playlist sang host bất kỳ với `credentials:'include'`; `DOWNLOAD_MP4` không kiểm tra URL. | `lib/hls-fetcher.ts:102`, `:177-184`, `offscreen.ts:162` | Kiểm tra `isTrustedMediaUrl` cho từng URL đã resolve, chỉ HTTPS, `credentials:'omit'`. |
 | **S7** | Low | `TG_DOWNLOAD_MEDIA` nhận URL không kiểm tra scheme rồi click trong MAIN world (nguy cơ `javascript:`). | `media-messages.ts:497-528` | Chỉ nhận `blob:` hoặc `https://web.telegram.org`. |
@@ -161,8 +163,8 @@ Dọn dẹp: gộp selector trùng `.queue-status` (`popup.css:1365`, `:1443`); 
 
 ## 6. Thứ tự thực hiện đề xuất
 
-1. **Xác minh L1** bằng tay trên Chromium (tải 1 profile có video HLS). Nếu lỗi, đây là ưu tiên số một.
-2. **v7.2.3**: L1–L5 + regression test cho từng lỗi. Bản này không đụng UI lớn.
+1. ~~Xác minh L1 trên Chromium~~ — đã xác nhận lỗi.
+2. ~~**v7.2.3**: L1–L5 + regression test~~ — hoàn thành 2026-10-14.
 3. **v7.3.0**: S1/S3/S11/P9 làm cùng nhau (cùng thay đổi kiến trúc bridge content ↔ page), sau đó S2, S4–S10, L6–L15, P1–P3.
 4. **v7.4.0**: U2/U3/U14 (i18n) → U5–U8 (token/theme) → U4/U9–U13 (accessibility) → P4–P15.
 5. **v8.0.0**: F1, F2, F3 là cốt lõi; F4, F5 nếu còn thời gian.

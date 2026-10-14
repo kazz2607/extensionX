@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import {
   isTrustedMediaUrl,
   isValidDownloadOptions,
@@ -17,7 +18,8 @@ import { formatDownloadError } from '../src/shared/download-errors.ts';
 import { parseExtensionMessage } from '../src/shared/messages.ts';
 import { addDiagnosticEvent, DIAGNOSTIC_ERROR_CODES, emptyDiagnostics } from '../src/shared/diagnostics.ts';
 import { filterMediaItems, isVideoThumbnailUrl } from '../src/shared/media-filter.ts';
-import { canTransitionCollectPhase } from '../src/shared/collect-state.ts';
+import { canTransitionCollectPhase, continueCollectOnPageLoad } from '../src/shared/collect-state.ts';
+import { releasePersistedEntries, restoreDirtyBatch, takeDirtyBatch } from '../src/shared/dirty-batch.ts';
 import { recoverQueueItemAfterRestart, transitionQueueItem, wasInterrupted, findInterruptedIds, resetDownloadingItemsAfterStop } from '../src/shared/queue-state.ts';
 import { DownloadCoordinator } from '../src/shared/download-coordinator.ts';
 import { getQueuePresentation } from '../src/shared/queue-presentation.ts';
@@ -432,4 +434,57 @@ test('P2 error report redacts usernames and content fingerprint is deterministic
   assert.equal(report.csv.includes('secret_user'), false);
   const bytes = new TextEncoder().encode('same-content').buffer;
   assert.equal(await contentFingerprint(bytes), await contentFingerprint(bytes));
+});
+
+test('v7.2.3: page reload during Start keeps the collect operation for the same profile only', () => {
+  const running = { username: 'NASA', isCollecting: true, scrollCount: 4, phase: 'starting' as const, operationId: 'op-1' };
+  assert.deepEqual(continueCollectOnPageLoad(running, 'nasa', true), { isCollecting: true, scrollCount: 4, phase: 'starting', operationId: 'op-1' });
+  assert.deepEqual(continueCollectOnPageLoad(running, 'SpaceX', true), { isCollecting: false, scrollCount: 0, phase: 'stopped', operationId: undefined });
+  assert.equal(continueCollectOnPageLoad(running, 'NASA', false).operationId, undefined);
+  assert.equal(continueCollectOnPageLoad(undefined, 'NASA', true).isCollecting, false);
+});
+
+test('v7.2.3: media persisted during a pending write keeps later additions dirty', () => {
+  const a = { id: 'a' }; const b = { id: 'b' }; const bNewer = { id: 'b2' }; const c = { id: 'c' };
+  const dirty = new Map([['a', a], ['b', b]]);
+  const snapshot = [...dirty.entries()];
+  dirty.set('b', bNewer); // replaced while the write was pending
+  dirty.set('c', c); // added while the write was pending
+  releasePersistedEntries(dirty, snapshot);
+  assert.deepEqual([...dirty.keys()], ['b', 'c']);
+  assert.equal(dirty.get('b'), bNewer);
+});
+
+test('v7.2.3: downloaded-URL batches are detached before the write and restored on failure', () => {
+  const pending = new Map([['NASA', new Set(['u1'])]]);
+  const batch = takeDirtyBatch(pending, 'NASA');
+  assert.deepEqual([...(batch ?? [])], ['u1']);
+  assert.equal(pending.has('NASA'), false);
+  pending.set('NASA', new Set(['u2'])); // marked while the write was pending
+  restoreDirtyBatch(pending, 'NASA', batch!);
+  assert.deepEqual([...pending.get('NASA')!].sort(), ['u1', 'u2']);
+  assert.equal(takeDirtyBatch(new Map([['x', new Set<string>()]]), 'x'), undefined);
+});
+
+test('v7.2.3: tweet/shortcut/offscreen messages match the runtime allowlist', () => {
+  assert.equal(parseExtensionMessage({ type: 'DOWNLOAD_TWEET', payload: { tweetId: '1234567890123' } })?.type, 'DOWNLOAD_TWEET');
+  assert.equal(parseExtensionMessage({ type: 'DOWNLOAD_TWEET', payload: { tweetId: '1234567890123', username: 'NASA' } })?.type, 'DOWNLOAD_TWEET');
+  assert.equal(parseExtensionMessage({ type: 'DOWNLOAD_TWEET', payload: { tweetId: '1234567890123', sourceUrl: 'https://x.com/home' } }), null);
+  assert.equal(parseExtensionMessage({ type: 'SHORTCUT_DOWNLOAD', payload: { url: 'https://pbs.twimg.com/media/a.jpg' } })?.type, 'SHORTCUT_DOWNLOAD');
+  assert.equal(parseExtensionMessage({ type: 'SHORTCUT_DOWNLOAD', payload: { url: 'https://pbs.twimg.com/media/a.jpg', pageUrl: 'https://x.com' } }), null);
+  assert.equal(parseExtensionMessage({ type: 'OFFSCREEN_SAVE_BLOB', payload: { url: 'blob:chrome-extension://id/1', filename: 'NASA/a.ts', username: 'NASA' } })?.type, 'OFFSCREEN_SAVE_BLOB');
+  assert.equal(parseExtensionMessage({ type: 'OFFSCREEN_SAVE_BLOB', payload: { url: 'blob:x', filename: 'a', saveAs: true } }), null);
+});
+
+test('v7.2.3: content senders do not add fields outside the payload allowlist', () => {
+  const content = readFileSync(new URL('../src/content/content.ts', import.meta.url), 'utf8');
+  const shortcuts = readFileSync(new URL('../src/content/shortcuts.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(content, /sourceUrl:\s*location\.href/);
+  assert.doesNotMatch(shortcuts, /pageUrl:\s*location\.href/);
+});
+
+test('v7.2.3: offscreen document never calls chrome.downloads (only chrome.runtime is available there)', () => {
+  const source = readFileSync(new URL('../src/offscreen/offscreen.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /chrome\.downloads\.\w+/);
+  assert.doesNotMatch(source, /@ts-nocheck/);
 });

@@ -557,3 +557,55 @@ test('P1 responsive, keyboard and screenshot acceptance covers every primary sur
   }
   t.diagnostic(`Captured 15 popup + 2 Options screenshots; Download Center=${centerRenderMs}ms, maxLongTask=${maxCenterLongTask}ms, START_QUEUE=${startQueueMs}ms`);
 });
+
+test('v7.2.3 offscreen blobs are saved by the service worker, not chrome.downloads in offscreen', { timeout: 60_000 }, async (t) => {
+  const extensionDir = await prepareTestExtension();
+  const profileDir = await mkdtemp(join(tmpdir(), 'extensionx-offscreen-profile-'));
+  const context = await chromium.launchPersistentContext(profileDir, {
+    executablePath: chromePath,
+    headless: process.env.PLAYWRIGHT_HEADED !== 'true',
+    args: [`--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`, '--no-first-run'],
+  });
+  t.after(async () => {
+    await context.close();
+    await rm(extensionDir, { recursive: true, force: true });
+    await rm(profileDir, { recursive: true, force: true });
+  });
+  const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
+  await worker.evaluate(() => chrome.offscreen.createDocument({ url: 'offscreen/offscreen.html', reasons: ['BLOBS'], justification: 'acceptance' }));
+  const page = await context.newPage();
+  const cdp = await context.newCDPSession(page);
+  const { targetInfos } = await cdp.send('Target.getTargets');
+  const offscreen = targetInfos.find((target) => target.url.endsWith('/offscreen/offscreen.html'));
+  assert.ok(offscreen, 'offscreen document target was not found');
+  const { sessionId } = await cdp.send('Target.attachToTarget', { targetId: offscreen.targetId, flatten: false });
+  let nextId = 1;
+  const evaluateOffscreen = (expression: string) => new Promise<unknown>((resolve) => {
+    const id = nextId++;
+    cdp.on('Target.receivedMessageFromTarget', (event) => {
+      const reply = JSON.parse(event.message) as { id?: number; result?: { result?: { value?: unknown } } };
+      if (reply.id === id) resolve(reply.result?.result?.value);
+    });
+    void cdp.send('Target.sendMessageToTarget', { sessionId, message: JSON.stringify({ id, method: 'Runtime.evaluate', params: { expression, awaitPromise: true } }) });
+  });
+
+  // The platform restriction that broke HLS/ZIP in v7.0.1–v7.2.2.
+  assert.equal(await evaluateOffscreen('typeof chrome.downloads'), 'undefined');
+  const saved = JSON.parse(String(await evaluateOffscreen(`(async () => {
+    const url = URL.createObjectURL(new Blob([new Uint8Array(4096)], { type: 'video/mp2t' }));
+    try {
+      return JSON.stringify(await chrome.runtime.sendMessage({ type: 'OFFSCREEN_SAVE_BLOB', payload: { url, filename: 'acceptance/hls.ts', username: 'acceptance' } }));
+    } finally { URL.revokeObjectURL(url); }
+  })()`))) as { downloadId?: number; error?: string };
+  assert.ok(saved.downloadId, `offscreen save failed: ${saved.error}`);
+  const download = await worker.evaluate((id) => new Promise<{ state: string; bytes: number }>((resolve) => {
+    chrome.downloads.search({ id }, (items) => resolve({ state: items[0]?.state ?? '', bytes: items[0]?.bytesReceived ?? 0 }));
+  }), saved.downloadId);
+  assert.deepEqual(download, { state: 'complete', bytes: 4096 });
+
+  // Extension pages and tabs cannot use the offscreen-only save channel.
+  const options = await context.newPage();
+  await options.goto(`chrome-extension://${new URL(worker.url()).host}/options/options.html`);
+  const rejected = await options.evaluate(() => chrome.runtime.sendMessage({ type: 'OFFSCREEN_SAVE_BLOB', payload: { url: 'blob:chrome-extension://x/1', filename: 'a.ts' } }));
+  assert.equal((rejected as { error?: string }).error, 'Invalid offscreen save request');
+});

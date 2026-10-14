@@ -18,7 +18,8 @@ export type MessageType =
   | 'GET_DOWNLOAD_CENTER' | 'GET_SAVED_JOBS' | 'SAVE_SAVED_JOB' | 'DELETE_SAVED_JOB' | 'RUN_SAVED_JOB'
   | 'GET_STORAGE_SUMMARY' | 'PRUNE_STORAGE' | 'CLEAR_PROFILE_STORAGE' | 'CLEAR_ALL_PROFILE_STORAGE'
   | 'GET_DOWNLOAD_ESTIMATE' | 'PREVIEW_FOLDER_RULE' | 'GET_GALLERY_PAGE' | 'EXPORT_ERROR_REPORT'
-  | 'GET_SCHEDULES' | 'SET_JOB_SCHEDULE' | 'GET_NOTIFICATIONS' | 'MARK_NOTIFICATIONS_READ' | 'DOWNLOAD_ZIP_CHUNKS';
+  | 'GET_SCHEDULES' | 'SET_JOB_SCHEDULE' | 'GET_NOTIFICATIONS' | 'MARK_NOTIFICATIONS_READ' | 'DOWNLOAD_ZIP_CHUNKS'
+  | 'OFFSCREEN_SAVE_BLOB';
 
 type UsernamePayload = { username: string };
 type MediaFilterPayload = UsernamePayload & { filterType?: 'all' | 'images' | 'videos' | 'gifs'; dateFrom?: string; dateTo?: string; keyword?: string };
@@ -42,7 +43,7 @@ export type ExtensionMessage =
   | { type: 'REORDER_QUEUE_ITEM'; payload: { id: string; direction: 'up' | 'down' } }
   | { type: 'QUEUE_BULK_ACTION'; payload: { action: 'retry_errors' | 'pause_selected' | 'resume_selected' | 'clear_completed' | 'undo_clear_completed'; ids?: string[] } }
   | { type: 'EXPORT_CSV'; payload: UsernamePayload & { filterType?: string; offset?: number } }
-  | { type: 'DOWNLOAD_TWEET'; payload: { username: string; tweetId: string } }
+  | { type: 'DOWNLOAD_TWEET'; payload: { username?: string; tweetId: string } }
   | { type: 'UPDATE_BEARER'; payload: { bearer: string } }
   | { type: 'UPDATE_QUERY_ID'; payload: { queryId: string; opName: string } }
   | { type: 'DIAGNOSTIC_METRIC'; payload: { name: string; value: number } }
@@ -61,6 +62,7 @@ export type ExtensionMessage =
   | { type: 'SET_JOB_SCHEDULE'; payload: { schedule: { jobId: string; enabled: boolean; intervalMinutes: number } } }
   | { type: 'DOWNLOAD_ZIP_CHUNKS'; payload: MediaFilterPayload & { chunkSize?: number } }
   | { type: 'TG_DOWNLOAD_MEDIA'; payload: { url: string; filename: string; isVideo: boolean } }
+  | { type: 'OFFSCREEN_SAVE_BLOB'; payload: { url: string; filename: string; username?: string } }
   | { type: EmptyMessageType; payload?: Record<never, never> };
 
 export type ParsedRuntimeMessage = ExtensionMessage | {
@@ -134,6 +136,7 @@ export interface MessageResponseMap {
   GET_NOTIFICATIONS: { events: NotificationEvent[] };
   MARK_NOTIFICATIONS_READ: { ok: boolean };
   DOWNLOAD_ZIP_CHUNKS: { ok?: boolean; chunks?: number; files?: number; error?: string };
+  OFFSCREEN_SAVE_BLOB: { downloadId?: number; error?: string };
 }
 
 export type ResponseFor<T extends MessageType> = T extends keyof MessageResponseMap
@@ -158,6 +161,7 @@ const MESSAGE_TYPES: ReadonlySet<string> = new Set<MessageType>([
   'GET_STORAGE_SUMMARY', 'PRUNE_STORAGE', 'CLEAR_PROFILE_STORAGE', 'CLEAR_ALL_PROFILE_STORAGE',
   'GET_DOWNLOAD_ESTIMATE', 'PREVIEW_FOLDER_RULE', 'GET_GALLERY_PAGE', 'EXPORT_ERROR_REPORT',
   'GET_SCHEDULES', 'SET_JOB_SCHEDULE', 'GET_NOTIFICATIONS', 'MARK_NOTIFICATIONS_READ', 'DOWNLOAD_ZIP_CHUNKS',
+  'OFFSCREEN_SAVE_BLOB',
 ]);
 
 const PAYLOAD_KEYS: Readonly<Record<MessageType, readonly string[]>> = {
@@ -188,6 +192,7 @@ const PAYLOAD_KEYS: Readonly<Record<MessageType, readonly string[]>> = {
   GET_GALLERY_PAGE: ['username', 'filterType', 'dateFrom', 'dateTo', 'keyword', 'offset', 'limit'],
   EXPORT_ERROR_REPORT: [], GET_SCHEDULES: [], SET_JOB_SCHEDULE: ['schedule'], GET_NOTIFICATIONS: [], MARK_NOTIFICATIONS_READ: [],
   DOWNLOAD_ZIP_CHUNKS: ['username', 'filterType', 'dateFrom', 'dateTo', 'keyword', 'chunkSize'],
+  OFFSCREEN_SAVE_BLOB: ['url', 'filename', 'username'],
 };
 
 /** Cheap boundary check before command-specific validation in the service worker. */

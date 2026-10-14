@@ -1,10 +1,11 @@
 import { mediaStore, statsStore, tabState, downloadedStore, downloadCoordinator, pendingHlsRequests, setCsrfToken, dirtyMediaStore } from './state.ts';
+import { continueCollectOnPageLoad } from '../shared/collect-state.ts';
 import { addMediaItems, ensureMediaStoreLoaded, applyOptionsFilter, checkAutoScroll, startCollecting, stopCollecting, clearSession, fetchVideoForTweetWithRefresh, loadDownloadedUrls } from './scraper.ts';
-import { startDownload, handleDownloadTweet } from './downloader.ts';
+import { startDownload, handleDownloadTweet, saveOffscreenBlob } from './downloader.ts';
 import { updateBadge, broadcastToPopup, updateFAB } from './utils.ts';
 import { mediaRepository } from './indexeddb.ts';
 import { setDynamicBearer, setDynamicQueryId } from './tweet-api.ts';
-import { isValidDownloadOptions, isValidMediaItem, isValidUsername, isXProfileUrlForUsername, isXUrl, normalizeMediaUrlToOrig } from '../shared/validation.ts';
+import { isTrustedMediaUrl, isValidDownloadOptions, isValidMediaItem, isValidUsername, isXProfileUrlForUsername, isXUrl, normalizeMediaUrlToOrig } from '../shared/validation.ts';
 import type { ParsedRuntimeMessage } from '../shared/messages.ts';
 import { recordDiagnostic } from './diagnostics.ts';
 import { isTelegramWebUrl } from '../shared/telegram-media.ts';
@@ -41,6 +42,12 @@ async function runWithConcurrency<T>(items: readonly T[], limit: number, worker:
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, run));
 }
 
+function isSafeDownloadPath(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length < 1 || value.length > 1_000) return false;
+  if (value.startsWith('/') || /[\\:\u0000-\u001f]/.test(value)) return false;
+  return value.split('/').every((segment) => segment !== '' && segment !== '.' && segment !== '..');
+}
+
 function isMatchingXTab(sender: chrome.runtime.MessageSender, username: unknown): boolean {
   return Boolean(sender.tab?.id && isXProfileUrlForUsername(sender.tab.url, username));
 }
@@ -65,6 +72,20 @@ export function handleMediaMessage(
       else pending.resolve({ dataUrl: message.dataUrl, downloadId: message.downloadId });
     }
     return false;
+  }
+
+  // Offscreen hands assembled HLS/ZIP blobs back because it cannot use chrome.downloads.
+  if (message.type === 'OFFSCREEN_SAVE_BLOB') {
+    const { url, filename, username } = message.payload;
+    const fromOffscreen = !sender.tab && sender.url === chrome.runtime.getURL('offscreen/offscreen.html');
+    if (!fromOffscreen || typeof url !== 'string' || !isSafeDownloadPath(filename)) {
+      sendResponse({ error: 'Invalid offscreen save request' });
+      return false;
+    }
+    saveOffscreenBlob(url, filename, typeof username === 'string' ? username : '')
+      .then((downloadId) => sendResponse({ downloadId }))
+      .catch((error: unknown) => sendResponse({ error: error instanceof Error ? error.message : 'Save failed' }));
+    return true;
   }
 
   switch (type) {
@@ -146,17 +167,16 @@ export function handleMediaMessage(
       if (tabId && username) {
         const existingState = tabState.get(tabId);
         const wasCollecting = existingState?.isCollecting ?? false;
-        const isCollecting = wasCollecting && isMediaPage;
+        const next = continueCollectOnPageLoad(existingState, username, isMediaPage);
+        const { isCollecting } = next;
 
         tabState.set(tabId, {
+          ...next,
           username,
           url: tabUrl,
           isMediaPage,
-          isCollecting,
-          scrollCount: isCollecting ? (existingState?.scrollCount ?? 0) : 0,
           reachedEnd: false,
           ct0: typeof ct0 === 'string' && ct0.length <= 512 ? ct0 : existingState?.ct0,
-          phase: isCollecting ? (existingState?.phase ?? 'collecting') : 'stopped',
         });
 
         if (typeof ct0 === 'string' && ct0.length <= 512) {
@@ -342,7 +362,9 @@ export function handleMediaMessage(
     case 'DOWNLOAD_TWEET': {
       const { tweetId, username } = payload || {};
       const tabId = sender.tab?.id;
-      if (!tabId || !isMatchingXTab(sender, username) || typeof tweetId !== 'string' || !/^\d{10,20}$/.test(tweetId)) { sendResponse({ error: 'Invalid tweet request' }); return false; }
+      if (!tabId || !isXUrl(sender.tab?.url) || typeof tweetId !== 'string' || !/^\d{10,20}$/.test(tweetId)) { sendResponse({ error: 'Invalid tweet request' }); return false; }
+      // Buttons also appear on Home/Search; only trust a username that matches the tab's profile.
+      const profileUsername = isMatchingXTab(sender, username) ? username : undefined;
 
       // Thông báo loading ngay
       if (tabId) {
@@ -353,7 +375,7 @@ export function handleMediaMessage(
       }
 
       // Xử lý async không giữ message channel
-      handleDownloadTweet(tweetId, username, tabId);
+      handleDownloadTweet(tweetId, profileUsername, tabId);
       sendResponse({ ok: true });
       return false;
     }
@@ -450,24 +472,14 @@ export function handleMediaMessage(
     // v5.5.0: Shortcut download — tải ảnh từ bất kỳ trang web nào
     case 'SHORTCUT_DOWNLOAD': {
       const { url } = payload || {};
-      if (!url || typeof url !== 'string') {
-        sendResponse({ error: 'Missing URL' });
-        return true;
+      // The URL comes from page-controlled <img> attributes: only an X tab may ask,
+      // and only HTTPS media hosts are downloaded (no http:, data:, intranet).
+      if (!sender.tab?.id || !isXUrl(sender.tab.url) || !isTrustedMediaUrl(url)) {
+        sendResponse({ error: 'Blocked untrusted shortcut download' });
+        return false;
       }
       try {
-        // SEC-02 FIX: Validate URL scheme — chỉ cho phép các scheme an toàn
         const urlObj = new URL(url);
-        const allowedSchemes = ['https:', 'http:', 'blob:', 'data:'];
-        if (!allowedSchemes.includes(urlObj.protocol)) {
-          console.warn(`[SW] SHORTCUT_DOWNLOAD blocked: URL scheme not allowed: ${urlObj.protocol}`);
-          sendResponse({ error: `URL scheme not allowed: ${urlObj.protocol}` });
-          return true;
-        }
-        // Giới hạn data: URL tối đa 50MB để tránh DoS
-        if (urlObj.protocol === 'data:' && url.length > 50_000_000) {
-          sendResponse({ error: 'data: URL too large (max 50MB)' });
-          return true;
-        }
 
         // Extract filename từ URL
         const pathParts = urlObj.pathname.split('/').filter(Boolean);

@@ -1,4 +1,5 @@
 
+import { releasePersistedEntries, restoreDirtyBatch, takeDirtyBatch } from '../shared/dirty-batch.ts';
 import { mediaStore, dirtyMediaStore, statsStore, tabState, downloadedStore, userCsrfToken, setCsrfToken, touchMediaCache, trimMediaCache } from './state.ts';
 import { fetchVideoForTweet } from './tweet-api.ts';
 import { updateBadge, broadcastToPopup, updateFAB, broadcastFABState, sleep, waitForTabLoad, sanitizeFolder } from './utils.ts';
@@ -453,15 +454,16 @@ async function persistSession(username: string) {
       
       const dirtyStore = dirtyMediaStore.get(username);
       if (dirtyStore && dirtyStore.size > 0) {
-        const dirtyItems = Array.from(dirtyStore.values());
+        const dirtyEntries = Array.from(dirtyStore.entries());
+        const dirtyItems = dirtyEntries.map(([, item]) => item);
         // v4.4.0: Lưu dirty items vào IndexedDB (Delta Write)
         await mediaRepository.saveMediaItems(username, dirtyItems);
         if (!_mediaRetentionChecked.has(username)) {
           _mediaRetentionChecked.add(username);
           await mediaRepository.pruneMediaItems(username).catch(() => 0);
         }
-        // Sau khi lưu thành công, clear dirty store của user này
-        dirtyStore.clear();
+        // Items added or replaced while the write was pending stay dirty.
+        releasePersistedEntries(dirtyStore, dirtyEntries);
       }
 
       // Lấy scrollCount từ tabState
@@ -578,12 +580,14 @@ function scheduleDownloadedPersist(username: string, normalizedUrl: string): voi
   if (existing) clearTimeout(existing);
   const timer = setTimeout(async () => {
     _downloadedPersistTimers.delete(username);
+    // URLs marked during the write start a fresh batch (and timer).
+    const dirty = takeDirtyBatch(_dirtyDownloadedUrls, username);
+    if (!dirty) return;
     try {
-      const dirty = _dirtyDownloadedUrls.get(username);
-      if (dirty?.size) await mediaRepository.saveDownloadedUrls(username, dirty);
-      _dirtyDownloadedUrls.delete(username);
+      await mediaRepository.saveDownloadedUrls(username, dirty);
     } catch (err) {
       console.debug('[SW] markDownloaded persist error:', err instanceof Error ? err.message : String(err));
+      restoreDirtyBatch(_dirtyDownloadedUrls, username, dirty);
     }
   }, 3000);
   _downloadedPersistTimers.set(username, timer);

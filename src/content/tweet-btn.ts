@@ -221,6 +221,8 @@
     return btn;
   }
 
+  const LOADING_TIMEOUT_MS = 120_000;
+
   /** Cập nhật trạng thái nút */
 // @ts-ignore
   function setButtonState(tweetId, state) {
@@ -237,6 +239,11 @@
     if (state === 'loading') {
       btn.classList.add('xmd-loading');
       btn.title = 'Đang tải...';
+      // Safety net: never leave the button stuck if no result ever arrives.
+      btn.__xmdTimer = setTimeout(() => {
+        btn.classList.remove('xmd-loading');
+        btn.title = 'Download media (X Media Downloader)';
+      }, LOADING_TIMEOUT_MS);
     } else if (state === 'done') {
       btn.classList.add('xmd-done');
       btn.title = 'Đã tải xong! ✓';

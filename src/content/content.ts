@@ -289,14 +289,16 @@ window.addEventListener('XMD_TWEET_DOWNLOAD', (event) => {
   const { tweetId, username } = event.detail || {};
   if (!tweetId) return;
 
+  const profile = username || getUsernameFromURL();
+  const reportError = () => window.dispatchEvent(new CustomEvent('XMD_TWEET_BTN_UPDATE', {
+    detail: { tweetId, state: 'error' }
+  }));
   safeSendMessage({
     type: 'DOWNLOAD_TWEET',
-    payload: {
-      tweetId,
-      username: username || getUsernameFromURL() || 'unknown',
-      sourceUrl: location.href
-    }
-  }).catch(() => {});
+    payload: profile ? { tweetId, username: profile } : { tweetId }
+  }).then((res) => {
+    if ((res as { error?: string } | undefined)?.error) reportError();
+  }).catch(reportError);
 });
 
 // ─── 4c. P1: Lắng nghe X_ADAPTIVE_SPEED từ interceptor ────────────────────────

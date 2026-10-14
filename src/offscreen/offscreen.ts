@@ -1,53 +1,77 @@
-// @ts-nocheck
 import { fetchHLS } from '../lib/hls-fetcher.js';
 import '../lib/jszip.min.ts';
 
-function downloadBlob(blob, filename, task) {
-  return new Promise((resolve, reject) => {
-    const blobUrl = URL.createObjectURL(blob);
-    chrome.downloads.download({ url: blobUrl, filename, conflictAction: 'uniquify', saveAs: false }, (downloadId) => {
-      if (chrome.runtime.lastError || !downloadId) {
-        URL.revokeObjectURL(blobUrl);
-        reject(new Error(chrome.runtime.lastError?.message || 'No downloadId returned'));
-        return;
-      }
-      task.downloadId = downloadId;
-      const listener = (delta) => {
-        if (delta.id !== downloadId || !delta.state) return;
-        if (delta.state.current !== 'complete' && delta.state.current !== 'interrupted') return;
-        chrome.downloads.onChanged.removeListener(listener);
-        URL.revokeObjectURL(blobUrl);
-        task.downloadId = undefined;
-        if (delta.state.current === 'complete') resolve(downloadId);
-        else reject(new Error(delta.error?.current || 'Download interrupted'));
-      };
-      chrome.downloads.onChanged.addListener(listener);
-    });
-  });
+interface ZipArchive {
+  file(name: string, data: ArrayBuffer): void;
+  generateAsync(options: { type: 'blob'; compression: 'DEFLATE'; compressionOptions: { level: number }; streamFiles: boolean }): Promise<Blob>;
+}
+
+interface ZipItem { url: string; ext?: string }
+
+interface HlsTask {
+  requestId: string;
+  url: string;
+  username: string;
+  filename: string;
+  controller: AbortController;
+}
+
+interface OffscreenMessage {
+  target?: string;
+  type?: string;
+  requestId?: string;
+  url?: string;
+  username?: string;
+  filename?: string;
+  items?: unknown;
+  chunkSize?: unknown;
+}
+
+// Offscreen documents only get chrome.runtime, so chrome.downloads must run in
+// the service worker. The object URL stays alive here until the SW reports the
+// Chrome download as finished, then it is revoked.
+async function saveBlob(blob: Blob, filename: string, username: string): Promise<number> {
+  const url = URL.createObjectURL(blob);
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'OFFSCREEN_SAVE_BLOB',
+      payload: { url, filename, username },
+    }) as { downloadId?: number; error?: string } | undefined;
+    if (!response?.downloadId) throw new Error(response?.error || 'No downloadId returned');
+    return response.downloadId;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 const ZIP_MAX_BYTES = 500 * 1024 * 1024;
 let zipRunning = false;
 
-function zipFilename(item, index) {
+function zipFilename(item: ZipItem, index: number): string {
   const raw = item.url.split('/').pop()?.split('?')[0] || `media_${index}.${item.ext || 'bin'}`;
   return raw.replace(/[^A-Za-z0-9._-]/g, '_').slice(-120);
 }
 
-async function sha256(buffer) {
+async function sha256(buffer: ArrayBuffer): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', buffer);
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-async function processZipChunks(msg) {
+function isZipItem(value: unknown): value is ZipItem {
+  return Boolean(value) && typeof (value as ZipItem).url === 'string';
+}
+
+async function processZipChunks(msg: OffscreenMessage) {
   if (zipRunning) throw new Error('A ZIP operation is already running');
   zipRunning = true;
   try {
+    const JSZip = (globalThis as unknown as { JSZip: new () => ZipArchive }).JSZip;
+    const username = String(msg.username || 'media').replace(/[^A-Za-z0-9_-]/g, '_');
     const chunkSize = Math.max(1, Math.min(200, Number(msg.chunkSize) || 50));
-    const items = Array.isArray(msg.items) ? msg.items.slice(0, 200) : [];
-    const seenHashes = new Set();
+    const items = Array.isArray(msg.items) ? msg.items.slice(0, 200).filter(isZipItem) : [];
+    const seenHashes = new Set<string>();
     for (let start = 0; start < items.length; start += chunkSize) {
-      const zip = new globalThis.JSZip();
+      const zip = new JSZip();
       let bytes = 0;
       let added = 0;
       const chunk = items.slice(start, start + chunkSize);
@@ -67,7 +91,7 @@ async function processZipChunks(msg) {
       }
       if (!added) continue;
       const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 4 }, streamFiles: true });
-      await downloadBlob(blob, `${String(msg.username || 'media').replace(/[^A-Za-z0-9_-]/g, '_')}/zip/media_${Math.floor(start / chunkSize) + 1}.zip`, {});
+      await saveBlob(blob, `${username}/zip/media_${Math.floor(start / chunkSize) + 1}.zip`, username);
       chrome.runtime.sendMessage({ type: 'ZIP_PROGRESS', payload: { completed: Math.min(start + chunkSize, items.length), total: items.length } }).catch(() => {});
     }
   } finally {
@@ -79,12 +103,12 @@ async function processZipChunks(msg) {
 // Không thể await trong onMessage callback vì Chrome sẽ timeout sendResponse.
 // Giải pháp: queue + drain, kết quả trả về qua sendMessage ngược lại SW.
 const HLS_MAX_PARALLEL = 2;
-const hlsQueue = [];
-const hlsTasks = new Map();
+const hlsQueue: HlsTask[] = [];
+const hlsTasks = new Map<string, HlsTask>();
 let hlsRunning = 0;
 
-function enqueueHLS(requestId, url, username, filename) {
-  const task = { requestId, url, username, filename, controller: new AbortController(), downloadId: undefined };
+function enqueueHLS(requestId: string, url: string, username: string, filename: string) {
+  const task: HlsTask = { requestId, url, username, filename, controller: new AbortController() };
   hlsTasks.set(requestId, task);
   hlsQueue.push(task);
   drainHLSQueue();
@@ -92,7 +116,7 @@ function enqueueHLS(requestId, url, username, filename) {
 
 function drainHLSQueue() {
   while (hlsRunning < HLS_MAX_PARALLEL && hlsQueue.length > 0) {
-    const task = hlsQueue.shift();
+    const task = hlsQueue.shift()!;
     hlsRunning++;
     processHLSTask(task).finally(() => {
       hlsTasks.delete(task.requestId);
@@ -102,7 +126,7 @@ function drainHLSQueue() {
   }
 }
 
-async function processHLSTask(task) {
+async function processHLSTask(task: HlsTask) {
   const { requestId, url, username, filename, controller } = task;
   try {
     const blob = await fetchHLS(url, (fetched, total) => {
@@ -113,7 +137,7 @@ async function processHLSTask(task) {
     }, { signal: controller.signal });
 
     if (controller.signal.aborted) throw new DOMException('Download cancelled', 'AbortError');
-    const downloadId = await downloadBlob(blob, filename, task);
+    const downloadId = await saveBlob(blob, filename, username);
 
     chrome.runtime.sendMessage({
       type: 'HLS_DONE',
@@ -130,77 +154,35 @@ async function processHLSTask(task) {
 }
 
 // ─── Message Listener ─────────────────────────────────────────────────────────
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((msg: OffscreenMessage, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id || msg.target !== 'offscreen') return false;
 
   if (msg.type === 'DOWNLOAD_HLS') {
+    if (typeof msg.requestId !== 'string' || typeof msg.url !== 'string' || typeof msg.filename !== 'string') {
+      sendResponse({ queued: false });
+      return false;
+    }
     // Đẩy vào queue (không await, không block listener)
-    enqueueHLS(msg.requestId, msg.url, msg.username, msg.filename);
+    enqueueHLS(msg.requestId, msg.url, String(msg.username || ''), msg.filename);
     // Xác nhận đã nhận để SW không bị timeout message
     sendResponse({ queued: true });
     return false;
   }
 
   if (msg.type === 'CANCEL_HLS') {
-    const task = hlsTasks.get(msg.requestId);
+    // A Chrome download already started from this task is cancelled by the SW
+    // through its activeDownloads registry.
+    const task = typeof msg.requestId === 'string' ? hlsTasks.get(msg.requestId) : undefined;
     if (task) {
       task.controller.abort();
-      if (task.downloadId) chrome.downloads.cancel(task.downloadId).catch(() => {});
       const queuedIndex = hlsQueue.indexOf(task);
       if (queuedIndex >= 0) {
         hlsQueue.splice(queuedIndex, 1);
-        hlsTasks.delete(msg.requestId);
+        hlsTasks.delete(task.requestId);
       }
     }
     sendResponse({ cancelled: Boolean(task) });
     return false;
-  }
-
-  if (msg.type === 'DOWNLOAD_MP4') {
-    (async () => {
-      try {
-        const res = await fetch(msg.url, { credentials: 'include', cache: 'no-store' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const contentType = res.headers.get('content-type') || '';
-        if (contentType.includes('text/html') || contentType.includes('text/plain')) {
-          throw new Error('Server trả về định dạng chữ thay vì video (Bị chặn 403).');
-        }
-
-        const contentLength = res.headers.get('content-length');
-        const total = contentLength ? parseInt(contentLength, 10) : 0;
-        let loaded = 0;
-
-        const reader = res.body.getReader();
-        const chunks = [];
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (value) {
-            chunks.push(value);
-            loaded += value.length;
-
-            chrome.runtime.sendMessage({
-              type: 'MP4_FETCH_PROGRESS',
-              payload: { username: msg.username, bytesReceived: loaded, total }
-            }).catch(() => {});
-          }
-        }
-
-        if (chunks.length === 0) {
-          throw new Error('Server trả về file rỗng (0 bytes).');
-        }
-
-        const blob = new Blob(chunks, { type: 'video/mp4' });
-        const task = { downloadId: undefined };
-        const downloadId = await downloadBlob(blob, msg.filename, task);
-        sendResponse({ ok: true, downloadId });
-      } catch (err) {
-        sendResponse({ error: err.message });
-      }
-    })();
-    return true;
   }
 
   if (msg.type === 'DOWNLOAD_ZIP_CHUNKS') {
@@ -210,4 +192,5 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     sendResponse({ queued: true });
     return false;
   }
+  return false;
 });

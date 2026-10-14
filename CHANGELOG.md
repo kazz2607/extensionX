@@ -10,6 +10,25 @@ Chưa có thay đổi.
 
 ---
 
+## [7.2.3] — 2026-10-14 *(Hotfix: HLS/ZIP, collection & tweet button)*
+
+### Sửa lỗi
+
+- Sửa **tải video HLS và ZIP thất bại toàn bộ** từ v7.0.1: offscreen document không có `chrome.downloads` (đã xác nhận trên Chromium). Offscreen nay chỉ tạo Blob URL và chuyển cho service worker lưu qua message nội bộ `OFFSCREEN_SAVE_BLOB`; Stop hủy được cả file HLS/ZIP đang ghi. Bỏ `@ts-nocheck` và nhánh `DOWNLOAD_MP4` không còn được dùng.
+- Sửa **Bắt đầu thu thập bị treo** khi tab chưa ở trang `/media`: lần tải lại trang sau khi điều hướng làm mất `operationId`, nên vòng cuộn không bao giờ chạy và các lần bấm Start sau đó không làm gì. Chuyển sang profile khác giữa chừng nay kết thúc phiên thu thập cũ.
+- Sửa **mất media mới thu thập** khi chúng đến đúng lúc đang ghi IndexedDB, và **mất lịch sử chống trùng** (gây tải lại file thành bản "(1)" sau khi service worker khởi động lại).
+- Sửa **nút tải trên tweet và phím tắt tải ảnh đang hover không hoạt động**: content script gửi thêm field ngoài allowlist nên message bị loại. Nút tweet nay chạy cả trên Home/Search, báo lỗi khi bị từ chối và tự trở về trạng thái chờ sau 2 phút nếu không nhận được kết quả.
+
+### Bảo mật
+
+- `SHORTCUT_DOWNLOAD` chỉ nhận từ tab X và chỉ tải HTTPS từ CDN media X; bỏ chấp nhận `http:`/`data:`/`blob:` lấy từ thuộc tính ảnh do trang kiểm soát.
+
+### Kiểm thử
+
+- Thêm 6 regression unit (tổng **48**) và 1 Chromium acceptance (tổng **5**) xác nhận offscreen không có `chrome.downloads`, Blob được service worker lưu hoàn tất và trang extension không dùng được kênh lưu của offscreen.
+
+---
+
 ## [7.2.2] — 2026-10-02 *(Storage cleanup & Options layout fix)*
 
 ### Sửa lỗi

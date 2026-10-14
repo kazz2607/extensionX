@@ -627,8 +627,14 @@ function maybeWarnIdm() {
 // BUG-1 FIX: Thêm timeout 90s — Promise không bao giờ treo vĩnh viễn
 // BUG-7 FIX: Guard chống double-resolve bằng `settled` flag
 // IDM FIX: Detect IDM hijack → resolve thay vì reject để không báo lỗi sai
+// Offscreen documents cannot call chrome.downloads, so they hand their
+// object URLs back here. Only blobs minted by this extension are accepted.
+function isExtensionBlobUrl(url: string): boolean {
+  return url.startsWith(`blob:${chrome.runtime.getURL('')}`);
+}
+
 function downloadFile(url: string, filename: string, username: string): Promise<number> {
-  if (!url.startsWith('data:') && !isTrustedMediaUrl(url)) {
+  if (!url.startsWith('data:') && !isExtensionBlobUrl(url) && !isTrustedMediaUrl(url)) {
     return Promise.reject(new Error('Blocked untrusted download URL'));
   }
   const settlement = createTimedSettlement<number>(
@@ -886,4 +892,9 @@ function stopDownload(): boolean {
   return true;
 }
 
-export { startDownload, handleDownloadTweet, activeErrors, buildCSV, buildManifest, retryLastDownload, stopDownload };
+function saveOffscreenBlob(url: string, filename: string, username: string): Promise<number> {
+  if (!isExtensionBlobUrl(url)) return Promise.reject(new Error('Blocked untrusted blob URL'));
+  return downloadFile(url, filename, username);
+}
+
+export { startDownload, handleDownloadTweet, activeErrors, buildCSV, buildManifest, retryLastDownload, stopDownload, saveOffscreenBlob };

@@ -1,10 +1,10 @@
 # Quality gate và baseline hiện hành
 
-> Áp dụng cho phiên bản **7.2.2** | Cập nhật: 2026-10-02
+> Áp dụng cho phiên bản **7.2.3** | Cập nhật: 2026-10-14
 
-## Baseline hiện hành (v7.2.2)
+## Baseline hiện hành (v7.2.3)
 
-Gate hiện hành gồm typecheck, ESLint, **42 unit test**, 2 e2e fixture, **4 browser acceptance**, benchmark media 100–50.000, Chrome heap/DOM/long-task budget, dependency lockfile review, production build, performance budget và release manifest SHA-256. Regression bao phủ Queue schema v3, migration/rollback, bulk/undo/windowing, IndexedDB reject/stale operation, callback download timeout, media query window, bounded LRU cache, cursor download/export, Following parser/selection, P2 estimate/folder/schedule/redaction/hash, Options/IndexedDB/Saved Jobs/history, clear-all storage, runtime messages và Start Collecting không có `sender.tab` từ extension page. Options storage layout được kiểm tra screenshot/overflow tại 400/620 px. `npm run test:browser` là gate riêng trong browser job vì cần Chromium có hỗ trợ extension.
+Gate hiện hành gồm typecheck, ESLint, **48 unit test**, 2 e2e fixture, **5 browser acceptance**, benchmark media 100–50.000, Chrome heap/DOM/long-task budget, dependency lockfile review, production build, performance budget và release manifest SHA-256. Regression bao phủ Queue schema v3, migration/rollback, bulk/undo/windowing, IndexedDB reject/stale operation, callback download timeout, media query window, bounded LRU cache, cursor download/export, Following parser/selection, P2 estimate/folder/schedule/redaction/hash, Options/IndexedDB/Saved Jobs/history, clear-all storage, runtime messages, Start Collecting không có `sender.tab` từ extension page, giữ collect operation khi reload `/media`, chống mất dirty media/URL đã tải khi ghi IndexedDB, allowlist message nút tweet/phím tắt và lưu Blob offscreen qua service worker (Chromium xác nhận offscreen không có `chrome.downloads`). Options storage layout được kiểm tra screenshot/overflow tại 400/620 px. `npm run test:browser` là gate riêng trong browser job vì cần Chromium có hỗ trợ extension.
 
 ## Lệnh bắt buộc
 

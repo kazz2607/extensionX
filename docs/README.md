@@ -1,11 +1,11 @@
 # Tài liệu ExtensionX
 
-> Phiên bản tài liệu: **7.2.2** | Cập nhật: 2026-10-02
+> Phiên bản tài liệu: **7.2.3** | Cập nhật: 2026-10-14
 
 ## Dành cho người dùng
 
 - [Hướng dẫn cài đặt và sử dụng](huong-dan-cai-dat.md)
-- [Migration và rollback v7.0.x–v7.2.2](v7-migration-rollback.md)
+- [Migration và rollback v7.0.x–v7.2.3](v7-migration-rollback.md)
 - [Xử lý sự cố](huong-dan-cai-dat.md#-xử-lý-sự-cố)
 
 ## Dành cho phát triển và phát hành

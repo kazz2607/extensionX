@@ -264,8 +264,10 @@
     try {
       chrome.runtime.sendMessage({
         type: 'SHORTCUT_DOWNLOAD',
-        payload: { url, pageUrl: location.href }
-      });
+        payload: { url }
+      }).then((res: { error?: string } | undefined) => {
+        if (res?.error) showToast('✗ Download blocked');
+      }).catch(() => {});
       showToast('⬇ Downloading...');
     } catch (_) {
       // Fallback: mở ảnh trong tab mới để user tự save

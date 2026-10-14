@@ -1,6 +1,6 @@
 # Audit bảo mật và quyền extension
 
-> Rà soát cho **7.2.2** | Cập nhật: 2026-10-02
+> Rà soát cho **7.2.3** | Cập nhật: 2026-10-14
 
 ## Quyền Manifest
 
@@ -28,6 +28,9 @@ Download Center và P2 không thêm permission hoặc host. Saved Jobs chạy tr
 - Background chỉ chấp nhận sender nội bộ extension; lệnh gắn username từ content script phải khớp tab X/Twitter tương ứng.
 - `HLS_DONE` có envelope riêng gồm `requestId`, `dataUrl` hoặc `error`; không chấp nhận field khác. Data URL từ offscreen nội bộ được miễn giới hạn 256 KB vì là nội dung video, nhưng vẫn yêu cầu sender cùng extension và request ID hợp lệ.
 - URL media, Telegram sender, Queue import và options vẫn qua validator theo domain trước khi thực thi.
+- `OFFSCREEN_SAVE_BLOB` (từ 7.2.3) chỉ nhận từ chính offscreen document (`sender.url` là `offscreen/offscreen.html`, không có `sender.tab`), chỉ nhận `blob:` URL do extension tạo và đường dẫn tương đối không có `..`, `\` hoặc `:`. Offscreen không có `chrome.downloads`; mọi file HLS/ZIP đều được service worker lưu qua cùng registry `activeDownloads`, nên Stop hủy được.
+- `SHORTCUT_DOWNLOAD` (từ 7.2.3) chỉ nhận từ tab X/Twitter và chỉ tải HTTPS từ CDN media X allowlist; không còn chấp nhận `http:`, `data:` hay `blob:` lấy từ thuộc tính `<img>` của trang.
+- `DOWNLOAD_TWEET` nhận từ mọi tab X/Twitter (kể cả Home/Search); username chỉ được dùng khi khớp profile của tab, ngược lại bị bỏ qua.
 - Các lệnh Download Center/Saved Jobs có allowlist field; job được validate lại tại background trước khi lưu hoặc chạy.
 - `FOLLOWING_SCAN_PAGE` chỉ nhận từ tab X/Twitter, giới hạn 500 candidate mỗi page và 10.000 candidate mỗi operation; `START_UNFOLLOW` giới hạn 100 ID và yêu cầu `confirmed: true`.
 - Message P2 dùng field allowlist, Gallery tối đa 100 mục/page, schedule được validate 60–43.200 phút và error report không chứa username/URL/raw exception.
