@@ -1,7 +1,7 @@
 # Kế hoạch nâng cấp v7.3 → v8.0
 
 > Lập ngày: 2026-10-14 | Baseline: **v7.2.2** (`npm run check` xanh: 42 unit, 2 e2e, build, budget)
-> Trạng thái: **Đang thực hiện** — v7.2.3, v7.3.0, v7.3.1, v7.4.0, v7.4.1 (hotfix layout popup, phát hiện qua báo cáo người dùng sau khi phát hành 7.4.0) và v7.4.2 (dọn nốt backlog UI/UX: U9 còn lại, CSS trùng lặp, Chromium fixture tweet-btn) đã hoàn thành ngày 2026-10-14; v8.0.0 (tính năng mới) chờ chốt phạm vi.
+> Trạng thái: **Đang thực hiện** — v7.2.3 → v7.4.2 và **v8.0.0 (F1–F3)** đã hoàn thành ngày 2026-10-14; F4–F5 và phần mở rộng của F1/F3 chưa làm.
 
 Kế hoạch này dựa trên audit đọc mã nguồn ngày 2026-10-14, chia 4 nhóm: **logic**, **bảo mật**, **hiệu năng**, **UI/UX**, kèm phần tư vấn tính năng mới. Mỗi hạng mục có mã ID, vị trí mã, cách sửa và tiêu chí nghiệm thu. Vị trí dòng (`file:line`) tính theo v7.2.2 và có thể lệch nhẹ khi sửa.
 
@@ -12,7 +12,7 @@ Kế hoạch này dựa trên audit đọc mã nguồn ngày 2026-10-14, chia 4 
 | **v7.2.3 — Hotfix** ✅ | L1–L5 (+ S4 cho phím tắt) | Sửa lỗi làm hỏng chức năng hoặc mất dữ liệu — **đã phát hành** |
 | **v7.3.0 — Hardening** ✅ | L6–L15, S1–S11, P1–P3 (+ P9, P11) | Bảo mật bridge, ổn định Queue/Saved Job, giảm tải trên X/Telegram |
 | **v7.4.0 — Performance & UI** ✅ | P4–P15, U1–U15 | i18n đầy đủ, theme/token thống nhất, accessibility, tối ưu batch/IndexedDB |
-| **v8.0.0 — Tính năng mới** | F1–F8 (chọn lọc) | Mở rộng nguồn tải và quản lý thư viện |
+| **v8.0.0 — Tính năng mới** ✅ (F1–F3) | F1–F3 (F4–F8 chưa làm) | Mở rộng nguồn tải và quản lý thư viện |
 
 Mức độ: **P0** = hỏng chức năng/mất dữ liệu/rủi ro tài khoản · **P1** = ảnh hưởng rõ tới người dùng · **P2** = cải thiện.
 
@@ -158,9 +158,9 @@ Dọn dẹp ✅ (v7.4.2): gộp selector trùng `.queue-status` thành 1 rule; b
 
 | ID | Tính năng | Giá trị | Công sức | Rủi ro | Khuyến nghị |
 | --- | --- | --- | --- | --- | --- |
-| **F1** | **Thu thập theo Search / Hashtag / List**: mở rộng interceptor sang `SearchTimeline` và `ListLatestTweetsTimeline`, Queue nhận "nguồn" thay vì chỉ username. | Cao | M | Thấp — tái dùng pipeline sẵn có | **Nên làm** |
-| **F2** | **Metadata sidecar**: xuất `.json` hoặc caption `.txt` cạnh file (tweetId, ngày, text, số like), tùy chọn bật/tắt; hoặc gộp vào Manifest. | Cao (lưu trữ/tìm lại) | S | Thấp | **Nên làm** |
-| **F3** | **Tab "Lỗi" trong Download Center**: danh sách item lỗi theo nguyên nhân (404, timeout, rate-limit), retry có chọn lọc, đổi chất lượng. Kết hợp L7–L9. | Cao | S–M | Thấp | **Nên làm** |
+| **F1** ✅ (v8.0.0, thu hẹp) | **Thu thập theo Search / Hashtag / List**: mở rộng interceptor sang `SearchTimeline` và `ListLatestTweetsTimeline`, Queue nhận "nguồn" thay vì chỉ username. | Cao | M | Thấp — tái dùng pipeline sẵn có | **Nên làm** |
+| **F2** ✅ (v8.0.0, gộp vào Manifest) | **Metadata sidecar**: xuất `.json` hoặc caption `.txt` cạnh file (tweetId, ngày, text, số like), tùy chọn bật/tắt; hoặc gộp vào Manifest. | Cao (lưu trữ/tìm lại) | S | Thấp | **Nên làm** |
+| **F3** ✅ (v8.0.0, chưa có đổi chất lượng) | **Tab "Lỗi" trong Download Center**: danh sách item lỗi theo nguyên nhân (404, timeout, rate-limit), retry có chọn lọc, đổi chất lượng. Kết hợp L7–L9. | Cao | S–M | Thấp | **Nên làm** |
 | **F4** | **Giới hạn băng thông/đồng thời** trong Settings (1–6 luồng, nghỉ giữa các batch) để tránh rate-limit khi tải profile lớn. | Trung bình | S | Thấp | Nên làm |
 | **F5** | **Backup/Restore toàn bộ dữ liệu cục bộ** (media index, lịch sử chống trùng, Saved Jobs, settings) thành 1 file, có kiểm tra schema (dùng lại validator của S9). Thay thế an toàn cho cloud sync. | Trung bình | M | Thấp | Nên làm |
 | **F6** | **Tải thread/hội thoại**: từ `TweetDetail`, tải media của cả thread của tác giả. | Trung bình | S–M | Thấp | Cân nhắc |
@@ -170,6 +170,16 @@ Dọn dẹp ✅ (v7.4.2): gộp selector trùng `.queue-status` thành 1 rule; b
 
 ---
 
+## 5b. Kết quả v8.0.0 (F1–F3)
+
+Phạm vi đã chốt trước khi làm (thu hẹp để giữ rủi ro thấp):
+
+- **F1 — Search/Hashtag (không gồm Lists, không có nguồn Queue riêng):** trang `/search?q=` và `/hashtag/<tag>` quy về khoá dạng username (`_search_<chữ>_h<hash>`, `_hashtag_…`, xem `src/shared/collection-source.ts`), giống mẹo `_bookmarks_`/`<user>_likes`, nên IndexedDB, validate, so khớp tab/sender, thư mục tải và Queue dùng lại nguyên vẹn, không đổi schema. `extractMediaFromResponse` vốn quét đệ quy nên `SearchTimeline` được parse mà không sửa interceptor. Parser URL riêng của `content.ts` được thay bằng parser dùng chung. Chưa làm: X Lists (cần lấy tên list qua API riêng; operation `ListLatestTweetsTimeline`), nguồn Search trong Queue nhiều mục.
+- **F2 — gộp vào Manifest (không ghi sidecar từng file):** sidecar từng file sẽ nhân đôi lệnh `chrome.downloads` và phải đưa cả `MediaItem` vào đường tải lõi. Manifest JSON thêm `tweetText`, `likeCount`; Manifest CSV và CSV media thêm cột tương ứng qua `csvCell()` (RFC 4180, chặn công thức). `likeCount` đọc từ `favorite_count` trên cùng object tweet interceptor đã có.
+- **F3 — danh sách file lỗi + thử lại chọn lọc (chưa đổi chất lượng):** lưu ở `chrome.storage.local` `failed_items_v1` (500 mục) thay vì store IndexedDB mới, vì nâng `DB_VERSION` làm hỏng rollback. `categorizeDownloadError` chạy song song `formatDownloadError` (câu hiển thị giữ nguyên). Thử lại dùng `startDownload` với `selectedUrls`, từng profile một. Đổi chất lượng cần lưu các variant video đang bị bỏ ở 3 chỗ chọn `bestMp4` — để vòng sau.
+
+Gate: 67 unit test, 2 e2e, `npm run check` xanh; ngân sách build nâng 480 KB / 120 KB / 110 module. Chưa kiểm thử trên X thật và chưa có Chromium acceptance cho F1/F3.
+
 ## 6. Thứ tự thực hiện đề xuất
 
 1. ~~Xác minh L1 trên Chromium~~ — đã xác nhận lỗi.
@@ -178,15 +188,17 @@ Dọn dẹp ✅ (v7.4.2): gộp selector trùng `.queue-status` thành 1 rule; b
 4. ~~**v7.4.0**~~ — hoàn thành 2026-10-14: U2/U3/U14 (i18n) → U5–U8 (token/theme) → U4/U9–U13 (accessibility) → P4–P15.
 5. ~~**v7.4.1**: U16 (hotfix layout popup)~~ — hoàn thành 2026-10-14, phát hiện qua báo cáo người dùng sau phát hành 7.4.0.
 6. ~~**v7.4.2**: U9 còn lại, dọn CSS, Chromium fixture tweet-btn~~ — hoàn thành 2026-10-14.
-7. **v8.0.0**: F1, F2, F3 là cốt lõi; F4, F5 nếu còn thời gian.
+7. ~~**v8.0.0**: F1, F2, F3~~ — hoàn thành 2026-10-14 (phạm vi thu hẹp, xem 5b).
+8. **Tiếp theo:** F4, F5; X Lists cho F1; đổi chất lượng khi thử lại cho F3.
 
-## 6b. Tồn đọng sau v7.4.2
+## 6b. Tồn đọng sau v8.0.0
 
-Các mốc v7.2.3 → v7.4.2 đã phát hành (xem `CHANGELOG.md`). Còn lại:
+Các mốc v7.2.3 → v8.0.0 đã phát hành (xem `CHANGELOG.md`). Còn lại:
 
-- **Test:** Chromium fixture mới `tweet-btn re-attaches...` (test/e2e/chrome-extension.test.ts) viết xong và đúng theo đúng pattern các test còn lại, nhưng **chưa tự chạy được** trong môi trường dev hiện tại — service worker của extension không khởi động nổi khi Playwright nạp qua `--load-extension` ở đây (tái hiện y hệt trên cả 6 test Chromium cũ, trên cả commit trước khi thêm test mới → xác nhận là giới hạn môi trường có sẵn, không phải lỗi của test). Cần chạy lại trong CI hoặc máy có Chrome thật để xác nhận pass.
-- **Kiểm thử thủ công trên X/Telegram thật:** đổi ngôn ngữ, lightbox ẩn FAB, HLS, Following Scanner, và icon SVG mới (U9) hiển thị đúng trên trang thật.
-- **v8.0.0:** F1–F5 cần chốt phạm vi trước khi triển khai.
+- **Kiểm thử thủ công trên X/Telegram thật:** Search/Hashtag (tab Media/Latest, hashtag tiếng Việt), Manifest có caption/like, panel File lỗi và thử lại; cùng các mục cũ (đổi ngôn ngữ, lightbox ẩn FAB, HLS, Following Scanner, icon SVG U9).
+- **Test:** Chromium fixture `tweet-btn re-attaches...` (7.4.2) chưa chạy được trong môi trường dev — service worker không khởi động khi Playwright nạp `--load-extension` ở đây; cần CI hoặc máy có Chrome thật. Chưa có Chromium acceptance cho Search/Hashtag và retry chọn lọc.
+- **Mở rộng F1/F3:** X Lists; nguồn Search trong Queue; đổi chất lượng khi thử lại (lưu variant video).
+- **F4–F5:** giới hạn băng thông/đồng thời; Backup/Restore toàn bộ dữ liệu cục bộ — cần chốt phạm vi.
 
 ## 7. Tiêu chí hoàn thành chung
 

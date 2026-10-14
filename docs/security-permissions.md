@@ -1,6 +1,6 @@
 # Audit bảo mật và quyền extension
 
-> Rà soát cho **7.4.2** | Cập nhật: 2026-10-14
+> Rà soát cho **8.0.0** | Cập nhật: 2026-10-14
 
 ## Quyền Manifest
 
@@ -46,6 +46,12 @@ Từ 7.3.0, script MAIN world (interceptor, DOM scanner, FAB, nút tweet, snackb
 - Các lệnh Download Center/Saved Jobs có allowlist field; job được validate lại tại background trước khi lưu hoặc chạy.
 - `FOLLOWING_SCAN_PAGE` chỉ nhận từ tab X/Twitter, giới hạn 500 candidate mỗi page và 10.000 candidate mỗi operation; `START_UNFOLLOW` giới hạn 100 ID và yêu cầu `confirmed: true`.
 - Message P2 dùng field allowlist, Gallery tối đa 100 mục/page, schedule được validate 60–43.200 phút và error report không chứa username/URL/raw exception.
+
+Từ 8.0.0 (F1–F3), không thêm quyền hay host permission:
+- `GET_FAILED_ITEMS`, `RETRY_FAILED_ITEMS`, `CLEAR_FAILED_ITEMS` chỉ nhận từ trang extension (không có trong danh sách lệnh content script được phép). `ids` phải là mảng chuỗi, tối đa 500 phần tử; retry chỉ tải lại URL đã nằm trong danh sách lỗi và vẫn qua `startDownload` (allowlist CDN X, sanitize đường dẫn) như mọi lượt tải.
+- Mục lỗi lưu ở `chrome.storage.local` chỉ gồm profile, URL media CDN X đã kiểm tra, tweetId, mã nguyên nhân và câu lỗi đã rút gọn (`formatDownloadError`, không chứa URL/token/raw exception); dòng sai định dạng bị loại khi đọc.
+- Khoá Search/Hashtag chỉ gồm `[a-z0-9_]`, suy ra từ URL `x.com`/`twitter.com` HTTPS; trang khác domain không được nhận diện. Script trang và service worker dùng chung một parser nên tab/sender vẫn được so khớp đúng khoá như profile.
+- Caption tweet trong CSV được đặt trong ô có trích dẫn và thêm `'` trước ký tự `= + - @` để không thành công thức khi mở bằng bảng tính.
 
 ## Bề mặt cần theo dõi
 

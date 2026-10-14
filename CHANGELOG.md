@@ -10,6 +10,29 @@ Chưa có thay đổi.
 
 ---
 
+## [8.0.0] — 2026-10-14 *(Tính năng mới: Search/Hashtag, metadata, file lỗi)*
+
+Ba tính năng cốt lõi F1–F3 của mốc v8.0 (xem `docs/upgrade-plan-v7.3-v8.md`). Không thêm quyền, không đổi schema IndexedDB.
+
+### Tính năng mới
+
+- **F1 — Thu thập từ trang Search và Hashtag:** mở `x.com/search?q=…` (nên chọn tab *Media* hoặc *Latest*) hoặc `x.com/hashtag/…`, popup nhận ra trang và cho **Start Collecting / Download / CSV / Manifest** giống hệt một profile. Popup hiển thị truy vấn gốc ("🔍 cat photos", "#Cats"). Mỗi truy vấn có một khoá riêng ổn định nên các lần thu thập cùng truy vấn được cộng dồn; file lưu vào thư mục theo khoá đó (vd. `_search_cat_photos_h…`). Chưa hỗ trợ X Lists và chưa có mục Queue riêng cho Search.
+- **F2 — Caption và số like trong Manifest/CSV:** Manifest JSON thêm `tweetText`, `likeCount`; Manifest CSV và CSV media thêm cột `likeCount,tweetText`. Caption được ghi an toàn cho bảng tính (đúng chuẩn CSV, chặn chèn công thức `= + - @`). Chỉ có với media thu thập qua GraphQL từ bản này trở đi và còn trong bộ nhớ lúc xuất.
+- **F3 — Danh sách file lỗi trong Download Center:** nút **File lỗi** mở danh sách các file tải không thành công, lọc theo nguyên nhân (404, bị từ chối 401/403, giới hạn tốc độ 429, quá thời gian, lỗi mạng, lỗi HLS, khác), chọn từng mục hoặc tất cả rồi **Thử lại mục đã chọn** hoặc **Xóa mục đã chọn**. File thử lại thành công tự biến mất khỏi danh sách. Giữ tối đa 500 mục mới nhất; xóa dữ liệu profile cũng xóa file lỗi của profile đó.
+
+### Kỹ thuật
+
+- Parser URL dùng chung (`usernameFromXUrl`) cho script trang, content script và service worker — bỏ bản sao riêng trong `content.ts`.
+- File lỗi lưu ở `chrome.storage.local` (`failed_items_v1`), không thêm store IndexedDB để giữ rollback an toàn.
+- Message mới (chỉ trang extension gửi được): `GET_FAILED_ITEMS`, `RETRY_FAILED_ITEMS`, `CLEAR_FAILED_ITEMS`.
+- Ngân sách build nâng lên 480 KB tổng JS / 120 KB file lớn nhất / 110 module (bản build: 458,8 KB / 109,8 KB / 104).
+
+### Kiểm thử
+
+- Tổng **67** unit test (thêm khoá Search/Hashtag, nhãn hiển thị, CSV an toàn, phân loại lỗi, lưu/gộp/giới hạn file lỗi), 2 e2e, `npm run check` xanh. Panel File lỗi được kiểm tra bằng ảnh chụp bản build thật. Chưa kiểm thử trên X thật (Search/Hashtag) và Chromium acceptance chưa chạy được trong môi trường dev này.
+
+---
+
 ## [7.4.2] — 2026-10-14 *(Dọn backlog UI/UX: U9, CSS)*
 
 ### Giao diện

@@ -1,4 +1,4 @@
-# Baseline hiệu năng và build budget 7.4.2
+# Baseline hiệu năng và build budget 8.0.0
 
 > Cập nhật: 2026-10-14
 
@@ -20,13 +20,13 @@
 | Stop download | UI phản hồi dưới 500 ms |
 | 10.000 media | popup không bị khóa, không giữ thêm bản sao mảng không cần thiết |
 
-Build 7.4.2 tiếp tục áp dụng gate tự động trong `npm run check` và tính cả entrypoint Download Center:
+Build 8.0.0 tiếp tục áp dụng gate tự động trong `npm run check` và tính cả entrypoint Download Center:
 
-| Chỉ số build | Ngưỡng | Kết quả 7.4.2 |
+| Chỉ số build | Ngưỡng | Kết quả 8.0.0 |
 | --- | ---: | ---: |
-| Tổng JavaScript trong `dist/` | ≤ 460.000 byte | 443.512 byte |
-| JavaScript bundle lớn nhất | ≤ 110.000 byte | 103.726 byte |
-| Số module TypeScript trong `src/` | ≤ 105 | 100 |
+| Tổng JavaScript trong `dist/` | ≤ 480.000 byte | 458.812 byte |
+| JavaScript bundle lớn nhất | ≤ 120.000 byte | 109.801 byte |
+| Số module TypeScript trong `src/` | ≤ 110 | 104 |
 
 Ngưỡng số module tăng từ 85 lên 95 trong 7.3.0 vì bridge MAIN ↔ isolated, navigation và các helper có kiểm thử được tách thành module nhỏ; tổng dung lượng JavaScript gần như không đổi.
 
@@ -37,6 +37,8 @@ Tối ưu runtime 7.3.0: metric diagnostic không rời trang khi chưa bật (m
 7.4.1 (hotfix): sửa layout popup (hàng nút hành động và header) — thuần CSS/HTML cộng 1 dòng JS ẩn/hiện nút có sẵn, không thêm module hay phụ thuộc mới; dung lượng JS gần như không đổi so với 7.4.0 (+131 byte).
 
 7.4.2: thay ký tự `×`/`✕` bằng SVG ở 5 nút đóng/xóa (U9) và dọn CSS trùng lặp — không thêm module; dung lượng JS tăng không đáng kể so với 7.4.1 (+413 byte, các chuỗi SVG tĩnh trong popup/download-center/content).
+
+8.0.0: F1–F3 thêm khoảng 15 KB JavaScript (service worker +6 KB: parser Search/Hashtag, ô CSV, phân loại lỗi, lưu file lỗi; Download Center +3 KB: panel File lỗi; bảng dịch en/vi). Bản build chỉ còn 1,5 KB tổng / 0,2 KB file lớn nhất / 1 module dưới ngưỡng cũ (460 KB / 110 KB / 105), nên ngưỡng nâng lên 480 KB / 120 KB / 110 để còn chỗ cho F4–F5. Không thêm công việc nền: file lỗi chỉ được ghi khi một file thất bại, đường thành công dùng bản sao trong bộ nhớ và không đọc storage khi file chưa từng lỗi.
 
 Ngưỡng nằm trong `performance-budget.json` và được kiểm tra bởi `scripts/check-performance-budget.mjs`.
 

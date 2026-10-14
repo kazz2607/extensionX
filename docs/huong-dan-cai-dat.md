@@ -1,6 +1,6 @@
 # Hướng dẫn cài đặt và sử dụng
 
-> X Media Downloader **7.4.2** | Cập nhật: 2026-10-14
+> X Media Downloader **8.0.0** | Cập nhật: 2026-10-14
 
 Extension tải ảnh, video và GIF từ X.com, đồng thời hỗ trợ tải media trực tiếp trên Telegram Web A/K.
 
@@ -24,7 +24,7 @@ Extension tải ảnh, video và GIF từ X.com, đồng thời hỗ trợ tải
 4. Mở `chrome://extensions`.
 5. Bật **Developer mode**.
 6. Chọn **Load unpacked** và trỏ tới thư mục `dist/`.
-7. Kiểm tra popup hiển thị version **7.4.2**.
+7. Kiểm tra popup hiển thị version **8.0.0**.
 
 ## Cập nhật extension
 
@@ -41,6 +41,8 @@ Extension tải ảnh, video và GIF từ X.com, đồng thời hỗ trợ tải
 5. Bấm **Download**, hoặc dùng tab **Picker** để chọn từng mục.
 
 File được lưu dưới thư mục Downloads theo cấu hình, mặc định phân nhóm theo username và loại media.
+
+**Từ 8.0.0 — Search và Hashtag:** mở `x.com/search?q=từ khoá` (nên chọn tab **Media** hoặc **Latest**) hoặc `x.com/hashtag/tên`, rồi dùng popup như với một profile. Popup hiển thị "🔍 từ khoá" hoặc "#tên". Cùng một truy vấn được cộng dồn qua các lần thu thập; file lưu trong thư mục mang khoá của truy vấn (vd. `_search_cat_photos_h…`). Chưa hỗ trợ X Lists.
 
 ## Dùng Queue nhiều profile
 
@@ -61,7 +63,8 @@ Queue chỉ tải ảnh bài viết độc lập. Ảnh bìa/thumbnail dùng đ�
 - **Download Picker:** chọn tối đa 200 thumbnail mỗi lần; kết hợp được với bộ lọc.
 - **Filter Preset:** lưu loại media, date range, keyword và tùy chọn chống trùng theo profile.
 - **Filename Template:** dùng token như `{username}`, `{tweetId}`, `{date}`, `{type}`, `{ext}`, `{index}`.
-- **Manifest export:** xuất JSON/CSV cho lịch sử tải.
+- **Manifest export:** xuất JSON/CSV cho lịch sử tải; từ 8.0.0 có thêm caption (`tweetText`) và số like (`likeCount`) của tweet.
+- **File lỗi (8.0.0):** trong Download Center bấm **File lỗi** để xem file tải hỏng theo nguyên nhân (404, 401/403, 429, quá thời gian, mạng, HLS), chọn và **Thử lại** hoặc **Xóa**; file thử lại thành công tự biến mất.
 - **Watch mode:** so sánh số media khi người dùng chủ động mở lại popup; không polling nền.
 - **FAB và nút tweet:** thao tác tải nhanh trực tiếp trên X.com.
 - **Following Scanner:** thu GraphQL có giới hạn, lọc hoạt động, preview và unfollow tuần tự có throttle; dừng ở lỗi xác thực/rate-limit.
@@ -106,7 +109,7 @@ Các thay đổi được tự động lưu; kiểm tra trạng thái **Saved** 
 
 ### Queue không bắt đầu
 
-- Xác nhận popup và `dist/manifest.json` cùng version 7.4.2.
+- Xác nhận popup và `dist/manifest.json` cùng version 8.0.0.
 - Reload extension và mở lại popup.
 - Mục có `0 media` sẽ chuyển Error; kiểm tra profile khác còn dữ liệu hay không.
 - Mở Service Worker console và tìm `START_QUEUE`, `Queue IndexedDB load failed` hoặc lỗi download.
@@ -116,6 +119,7 @@ Các thay đổi được tự động lưu; kiểm tra trạng thái **Saved** 
 - Kiểm tra mạng và quyền download của Chrome.
 - Giảm concurrency trong Options.
 - Dùng **Retry**; tùy chọn chống trùng sẽ bỏ qua file đã tải thành công.
+- Mở Download Center → **File lỗi** để xem nguyên nhân từng file và thử lại đúng các file cần. Lỗi **429** nghĩa là X đang giới hạn tốc độ: đợi vài phút và giảm concurrency trước khi thử lại; lỗi **404** thường là media đã bị xóa.
 - Tắt tạm download manager bên thứ ba nếu nó đổi đường dẫn hoặc chặn nhiều file.
 
 ### Telegram không tải được video
