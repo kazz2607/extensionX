@@ -622,10 +622,12 @@ function updateButtons() {
   if (els.btnQueueAdd)    els.btnQueueAdd.disabled    = !hasUser || filteredCount === 0;
   if (els.btnQueueAddBar) els.btnQueueAddBar.disabled = !hasUser;
 
-  // Bug 2: Hiện nút Stop khi đang tải, ẩn khi rảnh
+  // Bug 2: Hiện nút Stop khi đang tải, ẩn khi rảnh. Stop THAY CHỖ Download (không
+  // chen thêm) để .btn-row luôn đúng 4 nút hiển thị cùng lúc, tránh tràn dòng.
   if (els.btnStopDownload) {
     els.btnStopDownload.style.display = isDownloading ? 'inline-flex' : 'none';
   }
+  els.btnDownload.style.display = isDownloading ? 'none' : 'flex';
 
   if (isCollecting) {
     els.btnCollect.classList.add('collecting');

@@ -48,6 +48,7 @@ html {
   align-items: center;
   justify-content: space-between;
   padding: 14px 16px;
+  gap: 8px;
   background: var(--bg);
 }
 
@@ -55,6 +56,14 @@ html {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .logo {
@@ -70,10 +79,19 @@ html {
   box-shadow: 0 2px 12px rgba(29, 155, 240, 0.4);
 }
 
+.header-text {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
 .app-name {
   font-size: 14px;
   font-weight: 700;
   letter-spacing: -0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .app-version {
@@ -490,7 +508,7 @@ html {
 
 /* ─── Actions ─────────────────────────────────────────────────────────────── */
 .actions-section {
-  padding: 10px 14px;
+  padding: 10px 14px 14px;
   background: var(--bg);
   display: flex;
   flex-direction: column;
@@ -542,8 +560,15 @@ html {
 /* Bottom row */
 .btn-row {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto auto auto;
   gap: 6px;
+}
+
+/* Download/Stop không bao giờ cùng hiển thị (xem updateButtons() trong popup.ts),
+   nhưng ghim rõ cột 1 cho cả hai để an toàn nếu logic đổi sau này. */
+.btn-row > .btn--download,
+.btn-row > .btn--stop-dl {
+  grid-column: 1;
 }
 
 .btn--download {
