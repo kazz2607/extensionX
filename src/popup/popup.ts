@@ -25,7 +25,7 @@ import { initPresets, type FilterPreset } from './presets.ts';
 import { initQueuePanel, loadQueue, addCurrentToQueue as queueAddCurrent, updateQueueItemProgress, setQueueFromUpdate } from './queue-panel.ts';
 import { initDownloadPicker, loadPickerItems } from './download-picker.ts';
 import { isWatched, toggleWatch, checkWatchedProfile } from './watch-list.ts';
-import { searchSourceFromUrl, searchSourceLabel } from '../shared/collection-source.ts';
+import { collectionKeyLabel, searchSourceFromUrl, searchSourceLabel } from '../shared/collection-source.ts';
 import type { DownloadOptions } from '../types.ts';
 import type { MessageType, ResponseFor } from '../shared/messages.ts';
 
@@ -461,7 +461,7 @@ async function setCurrentUser(username: string, pageUrl?: string) {
   // F1: trang Search/Hashtag hiển thị truy vấn gốc thay vì khoá nội bộ.
   const search = pageUrl ? searchSourceFromUrl(pageUrl) : null;
   const isSearch = search?.key === username;
-  els.username.textContent = isSearch && search ? searchSourceLabel(search) : `@${username}`;
+  els.username.textContent = isSearch && search ? searchSourceLabel(search) : collectionKeyLabel(username);
   els.hint.textContent = t(isSearch ? (search?.kind === 'hashtag' ? 'profile_hint_hashtag' : 'profile_hint_search') : 'profile_hint_active');
   els.profileCard.classList.add('active');
   els.avatar.textContent = isSearch ? (search?.kind === 'hashtag' ? '#' : '🔍') : username.slice(0, 2).toUpperCase();

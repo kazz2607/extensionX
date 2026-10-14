@@ -99,3 +99,14 @@ export function searchSourceFromUrl(value: unknown): SearchSource | null {
 export function searchSourceLabel(source: SearchSource): string {
   return source.kind === 'hashtag' ? `#${source.query}` : `🔍 ${source.query}`;
 }
+
+/**
+ * Nhãn hiển thị khi chỉ có khoá (Download Center, danh sách lỗi): phần chữ dễ
+ * đọc đã chuẩn hoá ("🔍 cat photos", "#cats"). Profile thường giữ dạng "@name".
+ */
+export function collectionKeyLabel(key: string): string {
+  const match = key.match(/^_(search|hashtag)_(?:([a-z0-9_]*)_)?h[a-z0-9]{1,7}$/);
+  if (!match) return `@${key}`;
+  const readable = (match[2] ?? '').replace(/_/g, ' ').trim() || '…';
+  return match[1] === 'hashtag' ? `#${readable.replace(/ /g, '_')}` : `🔍 ${readable}`;
+}

@@ -50,6 +50,22 @@ export interface ManifestItem {
   likeCount?: number;
 }
 
+/** F3: một file tải lỗi, lưu lại để xem theo nguyên nhân và thử lại có chọn lọc. */
+export interface FailedItem {
+  /** `${username}_${url}` — cùng quy ước khoá với media_items. */
+  id: string;
+  username: string;
+  url: string;
+  type: MediaItem['type'];
+  ext?: string;
+  tweetId?: string;
+  reason: import('./shared/download-errors.ts').DownloadErrorReason;
+  /** Câu lỗi đã rút gọn (formatDownloadError), không chứa URL/token. */
+  message: string;
+  failedAt: number;
+  attempts: number;
+}
+
 export interface QueueItem {
   id: string;
   username: string;

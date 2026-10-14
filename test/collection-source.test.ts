@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isSearchSourceKey, searchSourceFromUrl, searchSourceKey, searchSourceLabel } from '../src/shared/collection-source.ts';
+import { collectionKeyLabel, isSearchSourceKey, searchSourceFromUrl, searchSourceKey, searchSourceLabel } from '../src/shared/collection-source.ts';
 import { isValidUsername, isXProfileUrlForUsername, usernameFromXUrl } from '../src/shared/validation.ts';
 
 test('F1: Search and Hashtag pages map to stable, username-shaped collection keys', () => {
@@ -50,4 +50,12 @@ test('F1: the shared URL parser recognizes Search/Hashtag without changing profi
   assert.equal(usernameFromXUrl('https://evil.test/search?q=nasa'), null);
   assert.equal(isSearchSourceKey('NASA'), false);
   assert.equal(isSearchSourceKey('_bookmarks_'), false);
+});
+
+test('F1: a bare key renders a readable label where the original query is unknown', () => {
+  assert.equal(collectionKeyLabel(searchSourceKey('search', 'Cat  Photos')), '🔍 cat photos');
+  assert.equal(collectionKeyLabel(searchSourceKey('hashtag', 'Cats')), '#cats');
+  assert.equal(collectionKeyLabel(searchSourceKey('search', '猫')), '🔍 …');
+  assert.equal(collectionKeyLabel('NASA'), '@NASA');
+  assert.equal(collectionKeyLabel('_bookmarks_'), '@_bookmarks_');
 });

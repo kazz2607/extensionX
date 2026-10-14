@@ -1,7 +1,9 @@
 import { parseSavedJobInput } from '../shared/saved-jobs.ts';
 import type { DomainMessageHandler } from './message-handler.ts';
 import { downloadCoordinator } from './state.ts';
-import { startDownload } from './downloader.ts';
+import { retryFailedItems, startDownload } from './downloader.ts';
+import { clearFailedItems, listFailedItems } from './failed-items.ts';
+import { FAILED_ITEMS_MAX } from '../shared/failed-items.ts';
 import { loadPersistedQueue, profileQueue } from './queue.ts';
 import { deleteSavedJob, getSavedJob, listSavedJobs, saveSavedJob } from './saved-jobs.ts';
 import { removeSchedule } from './p2-messages.ts';
@@ -9,6 +11,13 @@ import { listDownloadHistory } from './download-history.ts';
 import { t } from '../lib/i18n.ts';
 
 const JOB_ID_PATTERN = /^[A-Za-z0-9_-]{1,120}$/;
+
+/** id mục lỗi = `${username}_${url}`; chỉ nhận mảng chuỗi có giới hạn, null nếu sai dạng. */
+function parseFailedItemIds(value: unknown): string[] | null {
+  if (!Array.isArray(value) || value.length > FAILED_ITEMS_MAX) return null;
+  if (!value.every((id) => typeof id === 'string' && id.length > 0 && id.length <= 9_000)) return null;
+  return value as string[];
+}
 export const handleDownloadCenterMessage: DomainMessageHandler = (message, _sender, sendResponse) => {
   const { type, payload } = message;
   switch (type) {
@@ -28,6 +37,21 @@ export const handleDownloadCenterMessage: DomainMessageHandler = (message, _send
         });
       })();
       return true;
+    case 'GET_FAILED_ITEMS':
+      void listFailedItems().then((items) => sendResponse({ items }), () => sendResponse({ items: [] }));
+      return true;
+    case 'RETRY_FAILED_ITEMS': {
+      const ids = parseFailedItemIds(payload?.ids);
+      if (!ids || ids.length === 0) { sendResponse({ ok: false, error: t('bg_err_no_failed_selected') }); return false; }
+      void retryFailedItems(ids).then(sendResponse, (error: unknown) => sendResponse({ ok: false, error: String(error) }));
+      return true;
+    }
+    case 'CLEAR_FAILED_ITEMS': {
+      const ids = payload?.ids === undefined ? undefined : parseFailedItemIds(payload.ids);
+      if (ids === null) { sendResponse({ ok: false, error: t('bg_err_no_failed_selected') }); return false; }
+      void clearFailedItems(ids).then((removed) => sendResponse({ ok: true, removed }), (error: unknown) => sendResponse({ ok: false, error: String(error) }));
+      return true;
+    }
     case 'GET_SAVED_JOBS':
       void listSavedJobs().then((jobs) => sendResponse({ jobs }));
       return true;

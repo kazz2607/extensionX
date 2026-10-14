@@ -10,7 +10,9 @@ registerTranslations(COMMON_STRINGS, DOWNLOAD_CENTER_STRINGS);
 document.querySelectorAll('[data-manifest-version]').forEach((el) => {
   el.textContent = `v${chrome.runtime.getManifest().version}`;
 });
-import type { HistoryEntry, JobSchedule, MediaItem, NotificationEvent, QueueItem, SavedJob, SavedJobInput } from '../types.ts';
+import type { FailedItem, HistoryEntry, JobSchedule, MediaItem, NotificationEvent, QueueItem, SavedJob, SavedJobInput } from '../types.ts';
+import { DOWNLOAD_ERROR_REASONS } from '../shared/download-errors.ts';
+import { collectionKeyLabel } from '../shared/collection-source.ts';
 import type { MessageType, ResponseFor } from '../shared/messages.ts';
 
 interface CenterData {
@@ -28,6 +30,9 @@ let galleryOffset = 0;
 let galleryNextOffset: number | null = null;
 let schedules: JobSchedule[] = [];
 let notifications: NotificationEvent[] = [];
+// F3: file tải lỗi (Download Center → Failed files)
+let failedItems: FailedItem[] = [];
+const selectedFailed = new Set<string>();
 
 const byId = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const search = byId<HTMLInputElement>('search');
@@ -133,6 +138,56 @@ function renderNotifications(): void {
     row.append(main, detail); fragment.append(row);
   }
   list.replaceChildren(fragment);
+}
+
+function visibleFailedItems(): FailedItem[] {
+  const reason = byId<HTMLSelectElement>('errors-reason').value;
+  return failedItems.filter((item) => (!reason || item.reason === reason) && matchesQuery(item.username, item.url, item.message));
+}
+
+function renderFailedItems(): void {
+  byId('errors-count').textContent = String(failedItems.length);
+  // Lựa chọn chỉ giữ mục còn tồn tại (file đã tải lại thành công thì tự biến mất).
+  const existing = new Set(failedItems.map((item) => item.id));
+  for (const id of selectedFailed) if (!existing.has(id)) selectedFailed.delete(id);
+
+  const select = byId<HTMLSelectElement>('errors-reason');
+  const current = select.value;
+  const counts = new Map<string, number>();
+  for (const item of failedItems) counts.set(item.reason, (counts.get(item.reason) ?? 0) + 1);
+  const options = [new Option(t('dc_errors_reason_all', { n: failedItems.length }), '')];
+  for (const reason of DOWNLOAD_ERROR_REASONS) {
+    const n = counts.get(reason);
+    if (n) options.push(new Option(`${t(`dc_reason_${reason}`)} (${n})`, reason));
+  }
+  select.replaceChildren(...options);
+  select.value = options.some((option) => option.value === current) ? current : '';
+
+  const list = byId('errors-list');
+  const visible = visibleFailedItems();
+  byId<HTMLButtonElement>('btn-errors-retry').disabled = selectedFailed.size === 0 || data.download.isDownloading;
+  byId<HTMLButtonElement>('btn-errors-remove').disabled = selectedFailed.size === 0;
+  if (!visible.length) { list.replaceChildren(empty(t('dc_errors_empty'))); return; }
+  const fragment = document.createDocumentFragment();
+  for (const item of visible) {
+    const row = document.createElement('article'); row.className = 'item';
+    const main = document.createElement('div');
+    const label = document.createElement('label'); label.className = 'checkbox item-title';
+    const box = document.createElement('input'); box.type = 'checkbox'; box.dataset.failedId = item.id; box.checked = selectedFailed.has(item.id);
+    const name = document.createElement('span'); name.textContent = `${collectionKeyLabel(item.username)} · ${labelOr(`dc_media_${item.type}`, item.type)}`;
+    label.append(box, name);
+    const meta = document.createElement('p'); meta.className = 'item-meta';
+    meta.textContent = `${t(`dc_reason_${item.reason}`)} · ${new Date(item.failedAt).toLocaleString(locale())}${item.attempts > 1 ? ` · ${t('dc_errors_attempts', { n: item.attempts })}` : ''}`;
+    main.append(label, meta);
+    const detail = document.createElement('div'); detail.className = 'item-detail'; detail.textContent = item.message;
+    row.append(main, detail); fragment.append(row);
+  }
+  list.replaceChildren(fragment);
+}
+
+async function refreshFailedItems(): Promise<void> {
+  failedItems = (await sendBG('GET_FAILED_ITEMS'))?.items || [];
+  renderFailedItems();
 }
 
 async function refreshP2State(): Promise<void> {
@@ -248,6 +303,7 @@ async function refresh(): Promise<void> {
   if (!response) { byId('connection-status').textContent = t('dc_conn_no_sw'); return; }
   data = response;
   render();
+  await refreshFailedItems();
 }
 
 function setValue(id: string, value: string): void { byId<HTMLInputElement | HTMLSelectElement>(id).value = value; }
@@ -303,7 +359,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   byId('btn-new-job').addEventListener('click', () => openJobDialog());
   byId('btn-close-dialog').addEventListener('click', () => dialog.close());
   byId('btn-cancel-job').addEventListener('click', () => dialog.close());
-  search.addEventListener('input', () => { queueWindow = LIST_WINDOW; historyWindow = LIST_WINDOW; render(); });
+  search.addEventListener('input', () => { queueWindow = LIST_WINDOW; historyWindow = LIST_WINDOW; render(); renderFailedItems(); });
   statusFilter.addEventListener('change', () => { queueWindow = LIST_WINDOW; renderQueue(); });
   byId('p2-folder-rule').addEventListener('input', () => void previewFolder());
   byId('p2-username').addEventListener('input', () => void previewFolder());
@@ -326,6 +382,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     await refreshP2State();
   });
   byId('btn-notifications').addEventListener('click', () => byId('notifications-panel').classList.toggle('hidden'));
+  byId('btn-errors').addEventListener('click', () => {
+    const hidden = byId('errors-panel').classList.toggle('hidden');
+    byId('btn-errors').setAttribute('aria-expanded', String(!hidden));
+    if (!hidden) void refreshFailedItems();
+  });
+  byId('errors-reason').addEventListener('change', () => renderFailedItems());
+  byId('errors-list').addEventListener('change', (event) => {
+    const box = event.target instanceof HTMLInputElement ? event.target : null;
+    const id = box?.dataset.failedId;
+    if (!box || !id) return;
+    if (box.checked) selectedFailed.add(id); else selectedFailed.delete(id);
+    renderFailedItems();
+  });
+  byId('btn-errors-select-all').addEventListener('click', () => {
+    const visible = visibleFailedItems();
+    const allSelected = visible.length > 0 && visible.every((item) => selectedFailed.has(item.id));
+    for (const item of visible) { if (allSelected) selectedFailed.delete(item.id); else selectedFailed.add(item.id); }
+    renderFailedItems();
+  });
+  byId('btn-errors-retry').addEventListener('click', async () => {
+    const response = await sendBG('RETRY_FAILED_ITEMS', { ids: [...selectedFailed] });
+    byId('errors-status').textContent = response?.ok
+      ? t('dc_errors_retry_started', { files: response.files ?? 0, profiles: response.profiles ?? 0 })
+      : response?.error || t('dc_errors_retry_failed');
+    if (response?.ok) selectedFailed.clear();
+    await refresh();
+  });
+  byId('btn-errors-remove').addEventListener('click', async () => {
+    const response = await sendBG('CLEAR_FAILED_ITEMS', { ids: [...selectedFailed] });
+    byId('errors-status').textContent = response?.ok ? t('dc_errors_removed', { n: response.removed ?? 0 }) : response?.error || '';
+    selectedFailed.clear();
+    await refreshFailedItems();
+  });
   byId('btn-mark-read').addEventListener('click', async () => { await sendBG('MARK_NOTIFICATIONS_READ'); await refreshP2State(); });
   document.querySelector('main')?.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button[data-action]') : null;

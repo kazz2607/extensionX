@@ -55,6 +55,7 @@
         <div class="item-actions">
           <button id="btn-error-report" class="button secondary" type="button" data-i18n="dc_btn_error_report">Export error report</button>
           <button id="btn-notifications" class="button secondary" type="button"><span data-i18n="dc_btn_notifications">Notifications</span> <span id="notification-count">0</span></button>
+          <button id="btn-errors" class="button secondary" type="button" aria-controls="errors-panel" aria-expanded="false"><span data-i18n="dc_btn_errors">Failed files</span> <span id="errors-count">0</span></button>
         </div>
       </div>
       <div class="p2-controls">
@@ -87,6 +88,20 @@
     <section id="notifications-panel" class="panel hidden" aria-labelledby="notifications-heading">
       <div class="panel-heading"><div><p class="section-kicker">LOCAL ONLY</p><h2 id="notifications-heading" data-i18n="dc_notifications_heading">Notification Center</h2></div><button id="btn-mark-read" class="button secondary" type="button" data-i18n="dc_btn_mark_read">Mark as read</button></div>
       <div id="notifications-list" class="item-list"></div>
+    </section>
+
+    <section id="errors-panel" class="panel hidden" aria-labelledby="errors-heading">
+      <div class="panel-heading">
+        <div><p class="section-kicker">RETRY</p><h2 id="errors-heading" data-i18n="dc_errors_heading">Failed files</h2></div>
+        <div class="item-actions">
+          <select id="errors-reason" class="errors-filter" aria-label="Reason" data-i18n-aria-label="dc_errors_reason_label"></select>
+          <button id="btn-errors-select-all" class="button secondary" type="button" data-i18n="dc_errors_select_all">Select all</button>
+          <button id="btn-errors-retry" class="button primary" type="button" disabled data-i18n="dc_errors_retry">Retry selected</button>
+          <button id="btn-errors-remove" class="button secondary danger" type="button" disabled data-i18n="dc_errors_remove">Remove selected</button>
+        </div>
+      </div>
+      <p id="errors-status" class="item-detail" role="status" aria-live="polite"></p>
+      <div id="errors-list" class="item-list"></div>
     </section>
 
     <section class="panel" aria-labelledby="queue-heading">

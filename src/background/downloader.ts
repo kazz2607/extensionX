@@ -20,6 +20,8 @@ import { listDownloadHistory, recordDownloadHistory } from './download-history.t
 import { addNotificationEvent } from './notification-events.ts';
 import { t } from '../lib/i18n.ts';
 import { csvCell } from '../shared/csv.ts';
+import { recordFailedItem, resolveFailedItem, listFailedItems } from './failed-items.ts';
+import { groupFailedItemsByUsername } from '../shared/failed-items.ts';
 
 // ─── BUG-2 FIX: Keep-alive alarm để SW không bị Chrome terminate ───────────────
 const KEEPALIVE_ALARM = 'sw-keepalive';
@@ -469,11 +471,15 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
       success++;
       // v4.1.0: Đánh dấu đã tải xong
       markDownloaded(username, item.url);
+      // F3: file từng lỗi nay đã tải được thì gỡ khỏi danh sách lỗi.
+      void resolveFailedItem(username, item.url).catch(() => {});
     } catch (err: unknown) {
       if (!downloadCoordinator.isCurrent(operationId)) return;
       const errMsg = err instanceof Error ? err.message : String(err);
       failed++;
       activeErrors.push(formatDownloadError(err));
+      // F3: lưu lại để xem theo nguyên nhân và thử lại có chọn lọc (không chặn vòng tải).
+      void recordFailedItem(username, item, err).catch(() => {});
       const isHls = item.type === 'hls';
       void recordDiagnostic(
         isHls ? 'hls.failed' : 'download.failed',
@@ -864,6 +870,23 @@ function retryLastDownload(): boolean {
   return true;
 }
 
+// F3: thử lại đúng các file lỗi đã chọn. Mỗi profile chạy một lượt startDownload
+// với selectedUrls (cùng cơ chế với Download Picker), lần lượt vì chỉ một lượt
+// tải được chạy cùng lúc. Bộ lọc loại/ngày bị bỏ qua để không loại mất file đã chọn.
+async function retryFailedItems(ids: readonly string[]): Promise<{ ok: boolean; profiles: number; files: number; error?: string }> {
+  if (downloadCoordinator.isBusy) return { ok: false, profiles: 0, files: 0, error: t('bg_err_download_busy') };
+  const groups = groupFailedItemsByUsername(await listFailedItems(), ids);
+  const files = [...groups.values()].reduce((sum, urls) => sum + urls.length, 0);
+  if (files === 0) return { ok: false, profiles: 0, files: 0, error: t('bg_err_no_failed_selected') };
+  void (async () => {
+    for (const [username, urls] of groups) {
+      if (downloadCoordinator.isBusy) break;
+      await startDownload(username, { filterType: 'all', selectedUrls: urls, skipDuplicates: true });
+    }
+  })();
+  return { ok: true, profiles: groups.size, files };
+}
+
 // Stop the active coordinator operation and invalidate every stale callback.
 function stopDownload(): boolean {
   const operation = downloadCoordinator.requestStop();
@@ -913,4 +936,4 @@ function saveOffscreenBlob(url: string, filename: string, username: string): Pro
   return downloadFile(url, filename, username);
 }
 
-export { startDownload, handleDownloadTweet, activeErrors, buildCSV, buildManifest, retryLastDownload, stopDownload, saveOffscreenBlob };
+export { startDownload, handleDownloadTweet, activeErrors, buildCSV, buildManifest, retryLastDownload, retryFailedItems, stopDownload, saveOffscreenBlob };

@@ -5,6 +5,7 @@ import { mediaRepository } from './indexeddb.ts';
 import { cancelDownloadedPersist, reloadMediaCache } from './scraper.ts';
 import { isValidUsername } from '../shared/validation.ts';
 import { t } from '../lib/i18n.ts';
+import { clearFailedItems, clearFailedItemsForUser } from './failed-items.ts';
 
 const PRUNE_CONCURRENCY = 8;
 
@@ -72,6 +73,7 @@ export const handleStorageMessage: DomainMessageHandler = (message, _sender, sen
           await Promise.all([
             mediaRepository.clearMediaItems(username),
             mediaRepository.clearDownloadedUrls(username),
+            clearFailedItemsForUser(username),
           ]);
           mediaStore.delete(username);
           statsStore.delete(username);
@@ -91,6 +93,7 @@ export const handleStorageMessage: DomainMessageHandler = (message, _sender, sen
           await Promise.all([
             mediaRepository.clearAllMediaItems(),
             mediaRepository.clearAllDownloadedUrls(),
+            clearFailedItems(),
           ]);
           mediaStore.clear();
           statsStore.clear();

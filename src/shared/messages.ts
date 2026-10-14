@@ -1,4 +1,4 @@
-import type { CollectState, DownloadOptions, FollowingCandidate, FollowingScanState, FollowingScrollState, HistoryEntry, JobSchedule, MediaItem, NotificationEvent, QueueExportData, QueueItem, SavedJob, SavedJobInput, Stats, StorageSummary } from '../types.ts';
+import type { CollectState, DownloadOptions, FailedItem, FollowingCandidate, FollowingScanState, FollowingScrollState, HistoryEntry, JobSchedule, MediaItem, NotificationEvent, QueueExportData, QueueItem, SavedJob, SavedJobInput, Stats, StorageSummary } from '../types.ts';
 import type { DownloadEstimate } from './p2-tools.ts';
 import type { LocalDiagnostics } from './diagnostics.ts';
 
@@ -19,7 +19,8 @@ export type MessageType =
   | 'GET_STORAGE_SUMMARY' | 'PRUNE_STORAGE' | 'CLEAR_PROFILE_STORAGE' | 'CLEAR_ALL_PROFILE_STORAGE'
   | 'GET_DOWNLOAD_ESTIMATE' | 'PREVIEW_FOLDER_RULE' | 'GET_GALLERY_PAGE' | 'EXPORT_ERROR_REPORT'
   | 'GET_SCHEDULES' | 'SET_JOB_SCHEDULE' | 'GET_NOTIFICATIONS' | 'MARK_NOTIFICATIONS_READ' | 'DOWNLOAD_ZIP_CHUNKS'
-  | 'OFFSCREEN_SAVE_BLOB';
+  | 'OFFSCREEN_SAVE_BLOB'
+  | 'GET_FAILED_ITEMS' | 'RETRY_FAILED_ITEMS' | 'CLEAR_FAILED_ITEMS';
 
 type UsernamePayload = { username: string };
 type MediaFilterPayload = UsernamePayload & { filterType?: 'all' | 'images' | 'videos' | 'gifs'; dateFrom?: string; dateTo?: string; keyword?: string };
@@ -30,7 +31,8 @@ type EmptyMessageType =
   | 'STOP_FOLLOWING_SCROLL' | 'GET_FOLLOWING_SCROLL_STATE' | 'GET_DOWNLOAD_CENTER' | 'GET_SAVED_JOBS'
   | 'GET_STORAGE_SUMMARY' | 'PRUNE_STORAGE' | 'CLEAR_ALL_PROFILE_STORAGE'
   | 'GET_FOLLOWING_SCAN_STATE' | 'STOP_FOLLOWING_SCAN'
-  | 'GET_SCHEDULES' | 'GET_NOTIFICATIONS' | 'MARK_NOTIFICATIONS_READ' | 'EXPORT_ERROR_REPORT';
+  | 'GET_SCHEDULES' | 'GET_NOTIFICATIONS' | 'MARK_NOTIFICATIONS_READ' | 'EXPORT_ERROR_REPORT'
+  | 'GET_FAILED_ITEMS';
 
 export type ExtensionMessage =
   | { type: 'MEDIA_FOUND'; payload: { username: string; mediaItems: MediaItem[] } }
@@ -63,6 +65,8 @@ export type ExtensionMessage =
   | { type: 'DOWNLOAD_ZIP_CHUNKS'; payload: MediaFilterPayload & { chunkSize?: number } }
   | { type: 'TG_DOWNLOAD_MEDIA'; payload: { url: string; filename: string; isVideo: boolean } }
   | { type: 'OFFSCREEN_SAVE_BLOB'; payload: { url: string; filename: string; username?: string } }
+  | { type: 'RETRY_FAILED_ITEMS'; payload: { ids: string[] } }
+  | { type: 'CLEAR_FAILED_ITEMS'; payload: { ids?: string[] } }
   | { type: EmptyMessageType; payload?: Record<never, never> };
 
 export type ParsedRuntimeMessage = ExtensionMessage | {
@@ -137,6 +141,9 @@ export interface MessageResponseMap {
   MARK_NOTIFICATIONS_READ: { ok: boolean };
   DOWNLOAD_ZIP_CHUNKS: { ok?: boolean; chunks?: number; files?: number; error?: string };
   OFFSCREEN_SAVE_BLOB: { downloadId?: number; error?: string };
+  GET_FAILED_ITEMS: { items: FailedItem[] };
+  RETRY_FAILED_ITEMS: { ok: boolean; profiles?: number; files?: number; error?: string };
+  CLEAR_FAILED_ITEMS: { ok: boolean; removed?: number; error?: string };
 }
 
 export type ResponseFor<T extends MessageType> = T extends keyof MessageResponseMap
@@ -162,6 +169,7 @@ const MESSAGE_TYPES: ReadonlySet<string> = new Set<MessageType>([
   'GET_DOWNLOAD_ESTIMATE', 'PREVIEW_FOLDER_RULE', 'GET_GALLERY_PAGE', 'EXPORT_ERROR_REPORT',
   'GET_SCHEDULES', 'SET_JOB_SCHEDULE', 'GET_NOTIFICATIONS', 'MARK_NOTIFICATIONS_READ', 'DOWNLOAD_ZIP_CHUNKS',
   'OFFSCREEN_SAVE_BLOB',
+  'GET_FAILED_ITEMS', 'RETRY_FAILED_ITEMS', 'CLEAR_FAILED_ITEMS',
 ]);
 
 const PAYLOAD_KEYS: Readonly<Record<MessageType, readonly string[]>> = {
@@ -193,6 +201,7 @@ const PAYLOAD_KEYS: Readonly<Record<MessageType, readonly string[]>> = {
   EXPORT_ERROR_REPORT: [], GET_SCHEDULES: [], SET_JOB_SCHEDULE: ['schedule'], GET_NOTIFICATIONS: [], MARK_NOTIFICATIONS_READ: [],
   DOWNLOAD_ZIP_CHUNKS: ['username', 'filterType', 'dateFrom', 'dateTo', 'keyword', 'chunkSize'],
   OFFSCREEN_SAVE_BLOB: ['url', 'filename', 'username'],
+  GET_FAILED_ITEMS: [], RETRY_FAILED_ITEMS: ['ids'], CLEAR_FAILED_ITEMS: ['ids'],
 };
 
 /** Commands a content script on X/Telegram may send. Everything else is popup/options/Download Center only. */
