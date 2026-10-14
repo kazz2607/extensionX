@@ -241,6 +241,8 @@ import { routeCollectsMedia } from './page-route.ts';
       : ((obj.entities && Array.isArray(obj.entities.media)) ? obj.entities.media : null);
 
     if (mediaList && Array.isArray(mediaList)) {
+      // F2: số like nằm ngay trên cùng object tweet (legacy) — không cần request thêm.
+      const likeCount = Number.isSafeInteger(obj.favorite_count) && obj.favorite_count >= 0 ? obj.favorite_count : undefined;
 // @ts-ignore
       mediaList.forEach(media => {
         const type = media.type;
@@ -267,7 +269,8 @@ import { routeCollectsMedia } from './page-route.ts';
               tweetId,
               mediaKey: media.media_key || media.id_str || tweetId,
               ext: isHls ? 'm3u8' : 'mp4',
-              tweetText: obj.full_text || ''
+              tweetText: obj.full_text || '',
+              likeCount,
             });
           }
         } else if (type === 'photo') {
@@ -290,6 +293,7 @@ import { routeCollectsMedia } from './page-route.ts';
                height:   media.original_info?.height || 0,
                mediaKey: media.media_key || media.id_str || tweetId,
                tweetText: obj.full_text || '',
+               likeCount,
              });
            }
         }

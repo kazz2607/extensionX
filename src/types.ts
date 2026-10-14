@@ -9,6 +9,8 @@ export interface MediaItem {
   mediaKey?: string;
   tweetText?: string;
   tweetDate?: number | null;
+  /** F2: số like của tweet tại lúc thu thập (chỉ có khi lấy từ GraphQL). */
+  likeCount?: number;
   addedAt?: number;
   username?: string;
 }
@@ -43,6 +45,9 @@ export interface ManifestItem {
   tweetId?: string;
   mediaKey?: string;
   tweetDate?: number | null;
+  /** F2: caption và số like lúc thu thập (chỉ khi media còn trong IndexedDB). */
+  tweetText?: string;
+  likeCount?: number;
 }
 
 export interface QueueItem {

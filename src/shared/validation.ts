@@ -83,6 +83,7 @@ export function isValidMediaItem(value: unknown): value is MediaItem {
   if (item.ext !== undefined && (typeof item.ext !== 'string' || !FILE_EXTENSIONS.has(item.ext.toLowerCase()))) return false;
   if (item.tweetText !== undefined && (typeof item.tweetText !== 'string' || item.tweetText.length > 10_000)) return false;
   if (item.source !== undefined && (typeof item.source !== 'string' || item.source.length > 100)) return false;
+  if (item.likeCount !== undefined && (!Number.isSafeInteger(item.likeCount) || item.likeCount < 0)) return false;
   if (item.width !== undefined && (!Number.isInteger(item.width) || item.width < 0 || item.width > 20_000)) return false;
   if (item.height !== undefined && (!Number.isInteger(item.height) || item.height < 0 || item.height > 20_000)) return false;
   return true;

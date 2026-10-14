@@ -19,6 +19,7 @@ import { isVideoThumbnailUrl } from '../shared/media-filter.ts';
 import { listDownloadHistory, recordDownloadHistory } from './download-history.ts';
 import { addNotificationEvent } from './notification-events.ts';
 import { t } from '../lib/i18n.ts';
+import { csvCell } from '../shared/csv.ts';
 
 // ─── BUG-2 FIX: Keep-alive alarm để SW không bị Chrome terminate ───────────────
 const KEEPALIVE_ALARM = 'sw-keepalive';
@@ -788,9 +789,9 @@ async function buildCSV(username: string, filterType = 'all', offset = 0) {
   });
   const truncated = total > offset + CSV_ROW_LIMIT;
 
-  const header = 'url,type,ext,tweetId,mediaKey,tweetDate,addedAt\n';
+  const header = 'url,type,ext,tweetId,mediaKey,tweetDate,addedAt,likeCount,tweetText\n';
   const rows = page.map(item =>
-    `"${item.url}","${item.type}","${item.ext || ''}","${item.tweetId || ''}","${item.mediaKey || ''}","${item.tweetDate ? new Date(item.tweetDate).toISOString() : ''}","${new Date(item.addedAt || 0).toISOString()}"`
+    `"${item.url}","${item.type}","${item.ext || ''}","${item.tweetId || ''}","${item.mediaKey || ''}","${item.tweetDate ? new Date(item.tweetDate).toISOString() : ''}","${new Date(item.addedAt || 0).toISOString()}",${csvCell(item.likeCount)},${csvCell(item.tweetText)}`
   );
 
   return {
@@ -831,6 +832,8 @@ async function buildManifest(username: string): Promise<{ json: string; csv: str
       tweetId: media?.tweetId,
       mediaKey: media?.mediaKey,
       tweetDate: media?.tweetDate,
+      tweetText: media?.tweetText || undefined,
+      likeCount: media?.likeCount,
     };
   });
 
@@ -846,9 +849,9 @@ async function buildManifest(username: string): Promise<{ json: string; csv: str
     truncated,
   }, null, 2);
 
-  const csvHeader = 'url,type,ext,tweetId,mediaKey,tweetDate,downloadedAt\n';
+  const csvHeader = 'url,type,ext,tweetId,mediaKey,tweetDate,downloadedAt,likeCount,tweetText\n';
   const csvRows = items.map((item) =>
-    `"${item.url}","${item.type || ''}","${item.ext || ''}","${item.tweetId || ''}","${item.mediaKey || ''}","${item.tweetDate ? new Date(item.tweetDate).toISOString() : ''}","${new Date(item.downloadedAt).toISOString()}"`
+    `"${item.url}","${item.type || ''}","${item.ext || ''}","${item.tweetId || ''}","${item.mediaKey || ''}","${item.tweetDate ? new Date(item.tweetDate).toISOString() : ''}","${new Date(item.downloadedAt).toISOString()}",${csvCell(item.likeCount)},${csvCell(item.tweetText)}`
   );
 
   return { json, csv: csvHeader + csvRows.join('\n'), total, exported: items.length, truncated };
