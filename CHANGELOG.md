@@ -10,6 +10,23 @@ Chưa có thay đổi.
 
 ---
 
+## [8.2.1] — 2026-10-14 *(tiêu chí chất lượng chung)*
+
+### Sửa lỗi
+
+- **Tự giảm tốc khi X giới hạn (429) giờ thật sự hoạt động.** Chrome báo lỗi 429 và lỗi máy chủ 5xx giống hệt nhau (`SERVER_FAILED`), nên ở 8.1.0 file bị giới hạn chỉ được ghi là "lỗi khác" và không kích hoạt tạm nghỉ. Khi gặp `SERVER_FAILED`, extension gửi một yêu cầu `HEAD` (không cookie, tối đa 5 giây, chỉ CDN media X) để biết mã thật: 429 → tạm nghỉ/xếp lại như thiết kế, 5xx → nguyên nhân mới **Lỗi máy chủ** trong danh sách File lỗi.
+- **Sao lưu không còn thiếu file vừa tải.** Danh sách file đã tải được ghi xuống IndexedDB sau vài giây; bấm Back up ngay sau khi tải xong trước đây bỏ sót những file đó.
+
+### Kiểm thử và chất lượng mã
+
+- Chromium acceptance chạy được trên máy dev bằng **Chrome for Testing** (Chrome thương hiệu từ bản 137 bỏ qua `--load-extension`) — cách chạy trong `docs/quality-gate.md`. Thêm 2 test: Search/Hashtag thu thập như profile; file lỗi phân loại đúng 404/429/503, thử lại chọn lọc, file sao lưu đủ URL. Test file lỗi dùng CDN giả HTTPS cục bộ vì Playwright không chặn được request của `chrome.downloads`. **9/9 pass**, gồm cả test nút tweet từ 7.4.2 trước đây chưa chạy được.
+- Gỡ toàn bộ **62 `@ts-ignore`** trong content script (page-interceptor, snackbar, dom-scanner, tweet-btn) bằng kiểu thật; URL của XHR lưu trong `WeakMap` thay vì gắn thuộc tính lên object mà trang đọc được.
+- `docs/quality-gate.md` thêm bảng 5 chỉ tiêu đo hiệu năng (cách đo + trạng thái).
+
+Không đổi quyền, schema IndexedDB hay storage key.
+
+---
+
 ## [8.2.0] — 2026-10-14 *(F5: sao lưu và khôi phục dữ liệu)*
 
 ### Tính năng mới

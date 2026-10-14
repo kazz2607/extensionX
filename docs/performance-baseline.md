@@ -1,4 +1,4 @@
-# Baseline hiệu năng và build budget 8.2.0
+# Baseline hiệu năng và build budget 8.2.1
 
 > Cập nhật: 2026-10-14
 
@@ -20,12 +20,12 @@
 | Stop download | UI phản hồi dưới 500 ms |
 | 10.000 media | popup không bị khóa, không giữ thêm bản sao mảng không cần thiết |
 
-Build 8.2.0 tiếp tục áp dụng gate tự động trong `npm run check` và tính cả entrypoint Download Center:
+Build 8.2.1 tiếp tục áp dụng gate tự động trong `npm run check` và tính cả entrypoint Download Center:
 
-| Chỉ số build | Ngưỡng | Kết quả 8.2.0 |
+| Chỉ số build | Ngưỡng | Kết quả 8.2.1 |
 | --- | ---: | ---: |
-| Tổng JavaScript trong `dist/` | ≤ 480.000 byte | 476.764 byte |
-| JavaScript bundle lớn nhất | ≤ 120.000 byte | 114.771 byte |
+| Tổng JavaScript trong `dist/` | ≤ 480.000 byte | 477.565 byte |
+| JavaScript bundle lớn nhất | ≤ 120.000 byte | 115.420 byte |
 | Số module TypeScript trong `src/` | ≤ 110 | 107 |
 
 Ngưỡng số module tăng từ 85 lên 95 trong 7.3.0 vì bridge MAIN ↔ isolated, navigation và các helper có kiểm thử được tách thành module nhỏ; tổng dung lượng JavaScript gần như không đổi.
@@ -43,6 +43,8 @@ Tối ưu runtime 7.3.0: metric diagnostic không rời trang khi chưa bật (m
 8.1.0 (F4): +3 KB JavaScript (giới hạn luồng/khoảng nghỉ, cổng tạm dừng 429, hai cài đặt mới và chuỗi dịch). Khoảng nghỉ chỉ làm chậm lượt tải khi người dùng bật; ở mặc định (0 giây) đường tải không thêm lần chờ nào. Popup khởi động song song các bước đọc storage độc lập.
 
 8.2.0 (F5): +13 KB JavaScript — Options +8,8 KB (giao diện sao lưu/khôi phục, kiểm tra file, 22 chuỗi song ngữ), service worker +3 KB. Ngưỡng giữ nguyên; tổng JS chỉ còn ~3 KB dưới 480 KB, nên tính năng kế tiếp cần xem lại ngân sách (vd. tách bảng dịch của Options) trước khi nâng ngưỡng.
+
+8.2.1: +0,8 KB (dò mã HTTP khi `SERVER_FAILED`, gộp URL đã tải trong bộ nhớ khi sao lưu); gỡ `@ts-ignore` không đổi dung lượng. Còn ~2,4 KB dưới 480 KB.
 
 Ngưỡng nằm trong `performance-budget.json` và được kiểm tra bởi `scripts/check-performance-budget.mjs`.
 

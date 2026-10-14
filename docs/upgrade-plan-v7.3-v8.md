@@ -193,6 +193,13 @@ Gate: 68 unit test, 2 e2e, `npm run check` xanh; ngân sách build nâng 480 KB 
 - Kèm sửa lỗi CSS có sẵn: icon tiêu đề các hàng Export/Import/Reset/Clear history bị tách dòng.
 - Gate: 73 unit test. Ngân sách: tổng JS 476,8/480 KB — tính năng kế tiếp cần xem lại ngân sách trước.
 
+## 5e. Kết quả v8.2.1 (tiêu chí chung)
+
+- **Chromium acceptance chạy được:** Chrome thương hiệu (≥ 137) bỏ qua `--load-extension` — đó là lý do service worker "không khởi động" ở 7.4.2; dùng Chrome for Testing qua `PLAYWRIGHT_CHROME_EXECUTABLE`. Thêm test Search/Hashtag và file lỗi/retry/backup → 9/9 pass.
+- **Lỗi thật phát hiện nhờ test:** `chrome.downloads` báo 429 và 5xx cùng là `SERVER_FAILED`, nên lùi khi 429 của F4 không bao giờ chạy. Sửa bằng `HEAD` dò mã thật (chỉ CDN X tin cậy, không cookie, 5 s); thêm nguyên nhân `server`. Backup thiếu URL tải trong 3 s cuối (debounce ghi IndexedDB) → gộp bản trong bộ nhớ.
+- **`@ts-ignore`:** 62 → 0 trong content script (còn lại duy nhất trong vendor JSZip).
+- **Chỉ tiêu đo:** đã đưa vào `quality-gate.md` với cách đo và trạng thái; mục 1 (phần diagnostic) và mục 4 (truy vấn/cold-load) đạt tự động, các mục cần X/Telegram thật vẫn chưa đo.
+
 ## 6. Thứ tự thực hiện đề xuất
 
 1. ~~Xác minh L1 trên Chromium~~ — đã xác nhận lỗi.
@@ -204,21 +211,23 @@ Gate: 68 unit test, 2 e2e, `npm run check` xanh; ngân sách build nâng 480 KB 
 7. ~~**v8.0.0**: F1, F2, F3~~ — hoàn thành 2026-10-14 (phạm vi thu hẹp, xem 5b).
 8. ~~**v8.1.0**: F4 + 2 việc nhỏ ở mục Hiệu năng~~ — hoàn thành 2026-10-14.
 9. ~~**v8.2.0**: F5~~ — hoàn thành 2026-10-14 (xem 5d).
-10. **Tiếp theo (tùy chọn):** X Lists cho F1; đổi chất lượng khi thử lại cho F3; F6 tải thread; chỉ tiêu đo hiệu năng.
+10. ~~**v8.2.1**: tiêu chí chung (Chromium acceptance, `@ts-ignore`, chỉ tiêu đo)~~ — hoàn thành 2026-10-14 (xem 5e).
+11. **Tiếp theo (tùy chọn):** X Lists cho F1; đổi chất lượng khi thử lại cho F3; F6 tải thread; đo các chỉ tiêu còn lại trên X/Telegram thật.
 
-## 6b. Tồn đọng sau v8.2.0
+## 6b. Tồn đọng sau v8.2.1
 
-Các mốc v7.2.3 → v8.2.0 đã phát hành (xem `CHANGELOG.md`). Còn lại:
+Các mốc v7.2.3 → v8.2.1 đã phát hành (xem `CHANGELOG.md`). Còn lại:
 
 - **Kiểm thử thủ công trên X/Telegram thật:** Search/Hashtag (tab Media/Latest, hashtag tiếng Việt), Manifest có caption/like, panel File lỗi và thử lại, tự nghỉ khi gặp 429, sao lưu/khôi phục giữa hai máy; cùng các mục cũ (đổi ngôn ngữ, lightbox ẩn FAB, HLS, Following Scanner, icon SVG U9).
-- **Test:** Chromium fixture `tweet-btn re-attaches...` (7.4.2) chưa chạy được trong môi trường dev — service worker không khởi động khi Playwright nạp `--load-extension` ở đây; cần CI hoặc máy có Chrome thật. Chưa có Chromium acceptance cho Search/Hashtag và retry chọn lọc.
+- ~~**Test:** Chromium acceptance chưa chạy được ở dev; thiếu test Search/Hashtag và retry chọn lọc~~ — xong ở 8.2.1 (Chrome for Testing, 9/9 pass).
 - **Mở rộng F1/F3:** X Lists; nguồn Search trong Queue; đổi chất lượng khi thử lại (lưu variant video).
-- **Chỉ tiêu đo hiệu năng** ở mục 3 chưa được đưa vào `quality-gate.md`.
+- ~~**Chỉ tiêu đo hiệu năng** chưa vào `quality-gate.md`~~ — đã đưa vào ở 8.2.1; các mục cần X/Telegram thật (tần suất `MEDIA_FOUND`, % main thread, Telegram `processDOM`, heap HLS, DOM detach) **chưa đo**.
+- **Kiểm thử 429 thật từ X** cho luồng HEAD dò mã (8.2.1): đã kiểm chứng với CDN giả, chưa với X.
 
 ## 7. Tiêu chí hoàn thành chung
 
 - `npm run check` và `npm run test:browser` xanh ở mọi mốc.
 - Mỗi lỗi L/S có ít nhất một regression test (unit hoặc Chromium acceptance).
 - Không tăng quyền trong manifest; mục tiêu là **giảm** (`tabs`, `declarativeNetRequest`, `web_accessible_resources`).
-- Không còn `@ts-nocheck`; giảm `@ts-ignore` trong `content.ts` về 0.
+- Không còn `@ts-nocheck`; giảm `@ts-ignore` trong `content.ts` về 0. ✅ 8.2.1: 0 trong toàn bộ content script.
 - Cập nhật `security-permissions.md`, `performance-baseline.md`, `quality-gate.md` theo số đo mới.
