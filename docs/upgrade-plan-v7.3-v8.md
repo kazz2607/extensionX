@@ -1,7 +1,7 @@
 # Kế hoạch nâng cấp v7.3 → v8.0
 
 > Lập ngày: 2026-10-14 | Baseline: **v7.2.2** (`npm run check` xanh: 42 unit, 2 e2e, build, budget)
-> Trạng thái: **Đang thực hiện** — v7.2.3, v7.3.0, v7.3.1, v7.4.0 và v7.4.1 (hotfix layout popup, phát hiện qua báo cáo người dùng sau khi phát hành 7.4.0) đã hoàn thành ngày 2026-10-14; v8.0.0 (tính năng mới) chờ chốt phạm vi.
+> Trạng thái: **Đang thực hiện** — v7.2.3, v7.3.0, v7.3.1, v7.4.0, v7.4.1 (hotfix layout popup, phát hiện qua báo cáo người dùng sau khi phát hành 7.4.0) và v7.4.2 (dọn nốt backlog UI/UX: U9 còn lại, CSS trùng lặp, Chromium fixture tweet-btn) đã hoàn thành ngày 2026-10-14; v8.0.0 (tính năng mới) chờ chốt phạm vi.
 
 Kế hoạch này dựa trên audit đọc mã nguồn ngày 2026-10-14, chia 4 nhóm: **logic**, **bảo mật**, **hiệu năng**, **UI/UX**, kèm phần tư vấn tính năng mới. Mỗi hạng mục có mã ID, vị trí mã, cách sửa và tiêu chí nghiệm thu. Vị trí dòng (`file:line`) tính theo v7.2.2 và có thể lệch nhẹ khi sửa.
 
@@ -120,7 +120,7 @@ Nhỏ: bỏ index `url` không dùng trên `media_items`; `waitForTabLoad` khôn
 
 ## 4. Giao diện (UI/UX)
 
-> v7.4.0: U1–U15 hoàn thành, trừ U9 một phần (nút icon đã có title/aria-label đa ngôn ngữ; ký tự `×` chưa thay bằng SVG). Phần "Dọn dẹp" (selector trùng, `!important`, style inline) chưa làm. P10 thay index `[username, addedAt]` (cần nâng IndexedDB, phá rollback) bằng cursor + kiểm tra retention hằng ngày hoặc khi profile vượt ngưỡng thêm 1.000 mục. v7.4.1: U16 (phát hiện sau phát hành, không nằm trong audit gốc) hoàn thành.
+> v7.4.0: U1–U15 hoàn thành, trừ U9 một phần (nút icon đã có title/aria-label đa ngôn ngữ; ký tự `×` chưa thay bằng SVG). P10 thay index `[username, addedAt]` (cần nâng IndexedDB, phá rollback) bằng cursor + kiểm tra retention hằng ngày hoặc khi profile vượt ngưỡng thêm 1.000 mục. v7.4.1: U16 (phát hiện sau phát hành, không nằm trong audit gốc) hoàn thành. v7.4.2: U9 hoàn tất nốt; phần "Dọn dẹp" (selector `.queue-status` trùng, 2 `!important` thừa) đã làm — khảo sát lại cho thấy `style=""` inline đã được dọn ở một đợt trước đó, không còn sót (grep `src/**/*.html`/`.ts` cho `style="` ra 0 kết quả).
 
 ### P0/P1
 
@@ -139,7 +139,7 @@ Nhỏ: bỏ index `url` không dùng trên `media_items`; `waitForTabLoad` khôn
 
 | ID | Vấn đề | Cách sửa |
 | --- | --- | --- |
-| **U9** ✅ (một phần) | Nút chỉ có icon: `title` tiếng Việt hard-code, thiếu `aria-label`, dùng ký tự `×`/`✕` làm icon; nhãn bottom-nav hard-code tiếng Anh dù đã có key `nav_*`. | Thêm `data-i18n-title`/`data-i18n-aria-label`; icon close dạng SVG. |
+| **U9** ✅ | Nút chỉ có icon: `title` tiếng Việt hard-code, thiếu `aria-label`, dùng ký tự `×`/`✕` làm icon; nhãn bottom-nav hard-code tiếng Anh dù đã có key `nav_*`. | Thêm `data-i18n-title`/`data-i18n-aria-label`; icon close dạng SVG (v7.4.2: 5 nút đóng/xóa trong popup, Download Center, snackbar và Queue — xem U9 không bao gồm các icon chữ/mũi tên khác của Queue (`▲▼⏸▶↻⏹`, ngoài phạm vi) và dấu `×` ở "W × H" trong Options, vốn là ký hiệu nhân chứ không phải icon). |
 | **U10** ✅ | Download Picker không có trạng thái loading/error; lỗi bị hiển thị thành "không có media"; khi không có username thì grid của profile cũ vẫn còn. | Skeleton với `aria-busy`, trạng thái lỗi có nút Retry, clear grid và selection. |
 | **U11** ✅ | Danh sách Following trống trơn khi filter không khớp; định dạng ngày theo locale trình duyệt thay vì ngôn ngữ app. | Thêm empty-state; `toLocaleDateString(lang)`. |
 | **U12** ✅ | Trạng thái nút tweet chỉ hiện qua `title`, không có `aria-label`/`aria-busy`. | Cập nhật đồng bộ cùng `title`. |
@@ -148,7 +148,7 @@ Nhỏ: bỏ index `url` không dùng trên `media_items`; `waitForTabLoad` khôn
 | **U15** ✅ | Popup/Options tải font Inter từ Google Fonts → request ngoài (mâu thuẫn cam kết "chỉ xử lý cục bộ"), FOUT, không có font khi offline. | Đóng gói woff2 cục bộ hoặc dùng system font stack. |
 | **U16** ✅ (v7.4.1) | `.btn-row` chỉ khai báo 3 cột lưới nhưng có 4 nút thật ở trạng thái thường (Download, queue-add, CSV, Clear) và 5 nút khi đang tải (Stop chen thêm thay vì thay chỗ Download) → nút dư tràn xuống dòng riêng, sát thanh tab dưới cùng. `.header` không có rule cho `.header-text`, 5 nút icon cạnh tranh chỗ với tên thương hiệu → "Media Downloader" vỡ thành 2 dòng ngay lần mở đầu. Phát hiện qua ảnh chụp người dùng gửi sau khi phát hành 7.4.0. | `popup.css:543-547` (nay 4 cột), `popup.ts` `updateButtons()` (Stop thay chỗ Download), `popup.css`/`popup.html` quanh `.header`/`.header-left`/`.logo`/`.app-name` (gom nút vào `.header-actions`, thêm `min-width:0`/`white-space:nowrap`/ellipsis). |
 
-Dọn dẹp: gộp selector trùng `.queue-status` (`popup.css:1365`, `:1443`); bỏ 3 `!important` không cần thiết; chuyển khoảng 50 `style=""` inline (HTML và template TS) thành class.
+Dọn dẹp ✅ (v7.4.2): gộp selector trùng `.queue-status` thành 1 rule; bỏ 2 `!important` thừa trên `.btn-queue-clear` (trùng lặp hoàn toàn với `.btn-text` mà nút đã có sẵn qua class thứ hai, không có xung đột specificity thật nào cần `!important`); `style=""` inline đã được dọn hết từ trước, không còn sót.
 
 ---
 
@@ -177,15 +177,15 @@ Dọn dẹp: gộp selector trùng `.queue-status` (`popup.css:1365`, `:1443`); 
 3. ~~**v7.3.0**~~ — hoàn thành 2026-10-14: S1/S3/S11/P9 làm cùng nhau (cùng thay đổi kiến trúc bridge content ↔ page), sau đó S2, S4–S10, L6–L15, P1–P3.
 4. ~~**v7.4.0**~~ — hoàn thành 2026-10-14: U2/U3/U14 (i18n) → U5–U8 (token/theme) → U4/U9–U13 (accessibility) → P4–P15.
 5. ~~**v7.4.1**: U16 (hotfix layout popup)~~ — hoàn thành 2026-10-14, phát hiện qua báo cáo người dùng sau phát hành 7.4.0.
-6. **v8.0.0**: F1, F2, F3 là cốt lõi; F4, F5 nếu còn thời gian.
+6. ~~**v7.4.2**: U9 còn lại, dọn CSS, Chromium fixture tweet-btn~~ — hoàn thành 2026-10-14.
+7. **v8.0.0**: F1, F2, F3 là cốt lõi; F4, F5 nếu còn thời gian.
 
-## 6b. Tồn đọng sau v7.4.1
+## 6b. Tồn đọng sau v7.4.2
 
-Các mốc v7.2.3 → v7.4.1 đã phát hành (xem `CHANGELOG.md`). Còn lại:
+Các mốc v7.2.3 → v7.4.2 đã phát hành (xem `CHANGELOG.md`). Còn lại:
 
-- **U9 (phần còn lại):** thay ký tự `×`/`✕` trên nút đóng bằng icon SVG.
-- **Dọn CSS:** gộp selector trùng `.queue-status`, bỏ `!important` không cần, chuyển `style=""` inline sang class.
-- **Test:** Chromium fixture cho tweet có media tải muộn (nút tải được gắn lại), và kiểm thử thủ công trên X/Telegram thật (đổi ngôn ngữ, lightbox ẩn FAB, HLS, Following Scanner).
+- **Test:** Chromium fixture mới `tweet-btn re-attaches...` (test/e2e/chrome-extension.test.ts) viết xong và đúng theo đúng pattern các test còn lại, nhưng **chưa tự chạy được** trong môi trường dev hiện tại — service worker của extension không khởi động nổi khi Playwright nạp qua `--load-extension` ở đây (tái hiện y hệt trên cả 6 test Chromium cũ, trên cả commit trước khi thêm test mới → xác nhận là giới hạn môi trường có sẵn, không phải lỗi của test). Cần chạy lại trong CI hoặc máy có Chrome thật để xác nhận pass.
+- **Kiểm thử thủ công trên X/Telegram thật:** đổi ngôn ngữ, lightbox ẩn FAB, HLS, Following Scanner, và icon SVG mới (U9) hiển thị đúng trên trang thật.
 - **v8.0.0:** F1–F5 cần chốt phạm vi trước khi triển khai.
 
 ## 7. Tiêu chí hoàn thành chung

@@ -1,10 +1,10 @@
-# Migration và rollback v7.0.x–v7.4.1
+# Migration và rollback v7.0.x–v7.4.2
 
-> Áp dụng cho nâng cấp từ **6.4.0/7.0.x–7.4.0** lên **7.4.1** | Cập nhật: 2026-10-14
+> Áp dụng cho nâng cấp từ **6.4.0/7.0.x–7.4.1** lên **7.4.2** | Cập nhật: 2026-10-14
 
 ## Thay đổi dữ liệu
 
-Nhánh v7.0.x–v7.2.3 không thay đổi permission hay host permission. v7.3.0 **chỉ bỏ bớt** quyền (`tabs`, `declarativeNetRequest`, `web_accessible_resources`), không thêm quyền nên nâng cấp không hiện prompt; rollback về bản cũ hơn sẽ yêu cầu Chrome cấp lại các quyền này. v7.3.0–v7.4.1 không thêm schema hay storage key. v7.4.1 chỉ sửa layout popup (CSS/HTML) — không đổi permission, schema hay storage key, nâng cấp/rollback an toàn hai chiều. v7.4.0 không đổi phiên bản IndexedDB (index mới cho retention bị loại để giữ rollback an toàn); chỉ thêm key `media_retention_checked_v1` trong `chrome.storage.local` (bản cũ bỏ qua key này). Theme mặc định đổi từ "dark" sang "system" chỉ với người chưa từng chọn theme; lựa chọn đã lưu được giữ nguyên. v7.0.0 thêm Saved Jobs/history v2; v7.0.1 bổ sung Queue schema v3 có snapshot tương thích rollback; v7.1.0 thêm Following Scanner/retention; v7.2.0 thêm schedule và notification snapshot trong `chrome.storage.local` nhưng không tăng phiên bản IndexedDB. v7.2.1–v7.2.3 chỉ sửa logic/UI, không thêm schema hoặc storage key. Các vùng dữ liệu cục bộ cần lưu ý:
+Nhánh v7.0.x–v7.2.3 không thay đổi permission hay host permission. v7.3.0 **chỉ bỏ bớt** quyền (`tabs`, `declarativeNetRequest`, `web_accessible_resources`), không thêm quyền nên nâng cấp không hiện prompt; rollback về bản cũ hơn sẽ yêu cầu Chrome cấp lại các quyền này. v7.3.0–v7.4.2 không thêm schema hay storage key. v7.4.1–v7.4.2 chỉ sửa UI/CSS/HTML — không đổi permission, schema hay storage key, nâng cấp/rollback an toàn hai chiều. v7.4.0 không đổi phiên bản IndexedDB (index mới cho retention bị loại để giữ rollback an toàn); chỉ thêm key `media_retention_checked_v1` trong `chrome.storage.local` (bản cũ bỏ qua key này). Theme mặc định đổi từ "dark" sang "system" chỉ với người chưa từng chọn theme; lựa chọn đã lưu được giữ nguyên. v7.0.0 thêm Saved Jobs/history v2; v7.0.1 bổ sung Queue schema v3 có snapshot tương thích rollback; v7.1.0 thêm Following Scanner/retention; v7.2.0 thêm schedule và notification snapshot trong `chrome.storage.local` nhưng không tăng phiên bản IndexedDB. v7.2.1–v7.2.3 chỉ sửa logic/UI, không thêm schema hoặc storage key. Các vùng dữ liệu cục bộ cần lưu ý:
 
 | Storage key | Schema | Nội dung | Giới hạn |
 | --- | ---: | --- | ---: |

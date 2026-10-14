@@ -1,4 +1,4 @@
-# Baseline hiệu năng và build budget 7.4.1
+# Baseline hiệu năng và build budget 7.4.2
 
 > Cập nhật: 2026-10-14
 
@@ -20,11 +20,11 @@
 | Stop download | UI phản hồi dưới 500 ms |
 | 10.000 media | popup không bị khóa, không giữ thêm bản sao mảng không cần thiết |
 
-Build 7.4.1 tiếp tục áp dụng gate tự động trong `npm run check` và tính cả entrypoint Download Center:
+Build 7.4.2 tiếp tục áp dụng gate tự động trong `npm run check` và tính cả entrypoint Download Center:
 
-| Chỉ số build | Ngưỡng | Kết quả 7.4.1 |
+| Chỉ số build | Ngưỡng | Kết quả 7.4.2 |
 | --- | ---: | ---: |
-| Tổng JavaScript trong `dist/` | ≤ 460.000 byte | 443.099 byte |
+| Tổng JavaScript trong `dist/` | ≤ 460.000 byte | 443.512 byte |
 | JavaScript bundle lớn nhất | ≤ 110.000 byte | 103.726 byte |
 | Số module TypeScript trong `src/` | ≤ 105 | 100 |
 
@@ -35,6 +35,8 @@ Tối ưu runtime 7.3.0: metric diagnostic không rời trang khi chưa bật (m
 7.4.0: ngưỡng tổng JavaScript nâng từ 400.000 lên 460.000 byte vì bảng dịch en/vi của popup, Options, Download Center và service worker (~70 KB dữ liệu chuỗi). Bảng dịch được tách theo bề mặt nên content script trên X không mang chuỗi của trang khác: `content.js` ~32 KB, `shortcuts.js` ~8 KB. Tối ưu runtime 7.4.0: progress tải gửi tối đa ~4 lần/giây và chỉ 20 lỗi gần nhất; nút tweet không còn giữ cây `<article>` đã tháo khỏi DOM và chỉ quét subtree mới; Download Center cập nhật Queue tại chỗ thay vì đọc lại storage; JSZip (~96 KB) chỉ nạp khi tạo ZIP; retention duyệt bằng cursor, chạy khi đến hạn hằng ngày hoặc khi profile vượt ngưỡng thêm 1.000 mục; `icon128.png` từ JPEG 300 KB thành PNG 128 px 9 KB.
 
 7.4.1 (hotfix): sửa layout popup (hàng nút hành động và header) — thuần CSS/HTML cộng 1 dòng JS ẩn/hiện nút có sẵn, không thêm module hay phụ thuộc mới; dung lượng JS gần như không đổi so với 7.4.0 (+131 byte).
+
+7.4.2: thay ký tự `×`/`✕` bằng SVG ở 5 nút đóng/xóa (U9) và dọn CSS trùng lặp — không thêm module; dung lượng JS tăng không đáng kể so với 7.4.1 (+413 byte, các chuỗi SVG tĩnh trong popup/download-center/content).
 
 Ngưỡng nằm trong `performance-budget.json` và được kiểm tra bởi `scripts/check-performance-budget.mjs`.
 

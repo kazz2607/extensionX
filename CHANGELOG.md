@@ -10,6 +10,24 @@ Chưa có thay đổi.
 
 ---
 
+## [7.4.2] — 2026-10-14 *(Dọn backlog UI/UX: U9, CSS)*
+
+### Giao diện
+
+- **U9 (phần còn lại) hoàn tất:** 5 nút đóng/xóa còn dùng ký tự `×`/`✕` (restore-cancel, daterange-clear, error-close trong popup; dialog close trong Download Center; close trong snackbar Telegram) nay dùng icon SVG cùng kiểu stroke với các nút khác. Nút Remove trong Queue cũng đổi sang SVG; nút Stop cạnh nó vẫn giữ `⏹` (ngoài phạm vi U9). Dấu `×` ở "W × H" (kích thước ảnh tối thiểu, Options) là ký hiệu nhân, không phải icon — giữ nguyên.
+
+### Dọn dẹp CSS
+
+- Gộp selector `.queue-status` bị khai báo trùng 2 lần thành 1 rule.
+- Bỏ 2 `!important` thừa trên `.btn-queue-clear`/`:hover` — hai dòng này lặp lại đúng màu `.btn-text`/`.btn-text:hover` đã áp dụng sẵn qua class thứ hai trên cùng nút, không có xung đột specificity nào cần `!important` để thắng.
+
+### Kiểm thử
+
+- Thêm Chromium acceptance test `tweet-btn re-attaches the download button when media arrives in an article after it was first scanned` (`test/e2e/chrome-extension.test.ts`) — xác nhận `tweet-btn.ts` không gắn nút khi tweet chưa có media, và tự quét lại đúng `<article>` để gắn nút khi ảnh được thêm vào sau đó. **Không chạy được trong sandbox này** (service worker của extension không khởi động được khi Playwright nạp qua `--load-extension` ở đây — xác nhận đây là giới hạn môi trường có sẵn, tái hiện y hệt trên cả commit trước khi có thay đổi này, không phải lỗi do test mới); cần chạy trong CI/máy có Chrome thật.
+- `npm run check` xanh (60 unit test, 2 e2e, build/budget/release-manifest); không thêm module hay phụ thuộc mới.
+
+---
+
 ## [7.4.1] — 2026-10-14 *(Hotfix: layout popup)*
 
 ### Sửa lỗi
