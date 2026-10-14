@@ -18,7 +18,7 @@ Extension đang dùng Manifest V3, TypeScript strict và Vite. Các luồng chí
 - Tải ảnh/video trực tiếp trên Telegram Web A/K, gồm Range-fetch cho stream riêng tư.
 - Following Scanner: thu thập GraphQL có giới hạn, lọc hoạt động, preview và unfollow tuần tự có throttle.
 
-Quality gate hiện hành: TypeScript, ESLint, **67 unit tests**, **2 fixture e2e tests**, benchmark 100–50.000 media, dependency lockfile review, **7 Chromium acceptance tests** (Queue lifecycle/fault/DOM, responsive/keyboard/Download Center, lưu Blob từ offscreen, bridge trang X và tweet-btn gắn lại nút khi media đến muộn — mục cuối chưa tự chạy được trong môi trường dev hiện tại, xem `quality-gate.md`), production build, performance budget và release checksum manifest. Chi tiết tại [`quality-gate.md`](quality-gate.md).
+Quality gate hiện hành: TypeScript, ESLint, **68 unit tests**, **2 fixture e2e tests**, benchmark 100–50.000 media, dependency lockfile review, **7 Chromium acceptance tests** (Queue lifecycle/fault/DOM, responsive/keyboard/Download Center, lưu Blob từ offscreen, bridge trang X và tweet-btn gắn lại nút khi media đến muộn — mục cuối chưa tự chạy được trong môi trường dev hiện tại, xem `quality-gate.md`), production build, performance budget và release checksum manifest. Chi tiết tại [`quality-gate.md`](quality-gate.md).
 
 ## Kiến trúc chính
 

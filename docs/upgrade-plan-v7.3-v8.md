@@ -178,7 +178,7 @@ Phạm vi đã chốt trước khi làm (thu hẹp để giữ rủi ro thấp):
 - **F2 — gộp vào Manifest (không ghi sidecar từng file):** sidecar từng file sẽ nhân đôi lệnh `chrome.downloads` và phải đưa cả `MediaItem` vào đường tải lõi. Manifest JSON thêm `tweetText`, `likeCount`; Manifest CSV và CSV media thêm cột tương ứng qua `csvCell()` (RFC 4180, chặn công thức). `likeCount` đọc từ `favorite_count` trên cùng object tweet interceptor đã có.
 - **F3 — danh sách file lỗi + thử lại chọn lọc (chưa đổi chất lượng):** lưu ở `chrome.storage.local` `failed_items_v1` (500 mục) thay vì store IndexedDB mới, vì nâng `DB_VERSION` làm hỏng rollback. `categorizeDownloadError` chạy song song `formatDownloadError` (câu hiển thị giữ nguyên). Thử lại dùng `startDownload` với `selectedUrls`, từng profile một. Đổi chất lượng cần lưu các variant video đang bị bỏ ở 3 chỗ chọn `bestMp4` — để vòng sau.
 
-Gate: 67 unit test, 2 e2e, `npm run check` xanh; ngân sách build nâng 480 KB / 120 KB / 110 module. Chưa kiểm thử trên X thật và chưa có Chromium acceptance cho F1/F3.
+Gate: 68 unit test, 2 e2e, `npm run check` xanh; ngân sách build nâng 480 KB / 120 KB / 110 module. Chưa kiểm thử trên X thật và chưa có Chromium acceptance cho F1/F3.
 
 ## 6. Thứ tự thực hiện đề xuất
 

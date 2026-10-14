@@ -24,8 +24,8 @@ Build 8.0.0 tiếp tục áp dụng gate tự động trong `npm run check` và 
 
 | Chỉ số build | Ngưỡng | Kết quả 8.0.0 |
 | --- | ---: | ---: |
-| Tổng JavaScript trong `dist/` | ≤ 480.000 byte | 458.812 byte |
-| JavaScript bundle lớn nhất | ≤ 120.000 byte | 109.801 byte |
+| Tổng JavaScript trong `dist/` | ≤ 480.000 byte | 460.470 byte |
+| JavaScript bundle lớn nhất | ≤ 120.000 byte | 110.793 byte |
 | Số module TypeScript trong `src/` | ≤ 110 | 104 |
 
 Ngưỡng số module tăng từ 85 lên 95 trong 7.3.0 vì bridge MAIN ↔ isolated, navigation và các helper có kiểm thử được tách thành module nhỏ; tổng dung lượng JavaScript gần như không đổi.

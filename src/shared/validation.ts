@@ -69,6 +69,16 @@ export function usernameFromXUrl(value: unknown): string | null {
   return path.includes('/likes') ? `${username}_likes` : username;
 }
 
+/**
+ * Trang thu thập được bằng auto-scroll: tab media/likes/bookmarks của profile,
+ * hoặc trang Search/Hashtag (F1). Dùng chung cho content script và service worker.
+ */
+export function isCollectMediaPageUrl(value: unknown): boolean {
+  if (!isXUrl(value)) return false;
+  if (searchSourceFromUrl(value)) return true;
+  return /\/(media|photos|videos|likes|bookmarks)(?:\/|$)/.test(new URL(value).pathname);
+}
+
 export function isXProfileUrlForUsername(url: unknown, username: unknown): boolean {
   return isValidUsername(username) && usernameFromXUrl(url)?.toLowerCase() === username.toLowerCase();
 }

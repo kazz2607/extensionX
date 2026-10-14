@@ -19,10 +19,17 @@ import {
 
 let cache: FailedItem[] | null = null;
 let chain: Promise<unknown> = Promise.resolve();
+// Số lần ghi của chính module này chưa nhận sự kiện onChanged tương ứng.
+let pendingOwnWrites = 0;
 
-// Giữ bản sao khớp storage cả khi nơi khác ghi/xóa (vd. "Xóa toàn bộ dữ liệu").
+// Sự kiện onChanged của lần ghi trước có thể tới SAU khi lần ghi sau đã cập nhật
+// cache; lấy newValue của nó sẽ làm mất mục vừa thêm. Vì vậy bỏ qua sự kiện của
+// chính mình (theo thứ tự ghi) và chỉ phản ứng với thay đổi từ nơi khác (vd.
+// storage bị xóa) bằng cách bỏ cache để lần đọc kế tiếp lấy lại từ storage.
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && FAILED_ITEMS_KEY in changes) cache = parseFailedItems(changes[FAILED_ITEMS_KEY].newValue);
+  if (area !== 'local' || !(FAILED_ITEMS_KEY in changes)) return;
+  if (pendingOwnWrites > 0) { pendingOwnWrites--; return; }
+  cache = null;
 });
 
 function serialize<T>(task: () => Promise<T>): Promise<T> {
@@ -40,7 +47,15 @@ async function load(): Promise<FailedItem[]> {
 
 async function save(items: FailedItem[]): Promise<void> {
   cache = items;
-  await chrome.storage.local.set({ [FAILED_ITEMS_KEY]: { schemaVersion: FAILED_ITEMS_SCHEMA_VERSION, items } });
+  pendingOwnWrites++;
+  try {
+    await chrome.storage.local.set({ [FAILED_ITEMS_KEY]: { schemaVersion: FAILED_ITEMS_SCHEMA_VERSION, items } });
+  } catch (error) {
+    // Ghi lỗi thì không có sự kiện onChanged; đọc lại storage ở lần sau.
+    pendingOwnWrites--;
+    cache = null;
+    throw error;
+  }
 }
 
 export function listFailedItems(): Promise<FailedItem[]> {
@@ -72,7 +87,8 @@ export function clearFailedItems(ids?: readonly string[]): Promise<number> {
   return serialize(async () => {
     const items = await load();
     const next = ids ? removeFailedItemIds(items, ids) : [];
-    await save(next);
+    // Chỉ ghi khi có thay đổi: Chrome không phát onChanged cho giá trị y hệt.
+    if (next.length !== items.length) await save(next);
     return items.length - next.length;
   });
 }

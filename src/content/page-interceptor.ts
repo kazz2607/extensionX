@@ -241,12 +241,15 @@ import { routeCollectsMedia } from './page-route.ts';
       : ((obj.entities && Array.isArray(obj.entities.media)) ? obj.entities.media : null);
 
     if (mediaList && Array.isArray(mediaList)) {
-      // F2: số like nằm ngay trên cùng object tweet (legacy) — không cần request thêm.
-      const likeCount = Number.isSafeInteger(obj.favorite_count) && obj.favorite_count >= 0 ? obj.favorite_count : undefined;
 // @ts-ignore
       mediaList.forEach(media => {
         const type = media.type;
         const tweetId = media.source_status_id_str || obj.id_str || media.id_str || '';
+        // F2: số like nằm trên cùng object tweet (không cần request thêm), nhưng chỉ
+        // đúng khi media thuộc chính tweet này — media của tweet gốc được chia sẻ lại
+        // (source_status_id_str khác) thì số like của tweet bọc ngoài là sai.
+        const ownMedia = !media.source_status_id_str || media.source_status_id_str === obj.id_str;
+        const likeCount = ownMedia && Number.isSafeInteger(obj.favorite_count) && obj.favorite_count >= 0 ? obj.favorite_count : undefined;
         if (type === 'video' || type === 'animated_gif') {
           const variants = media.video_info?.variants || [];
           let bestMp4 = variants

@@ -5,7 +5,7 @@ import { startDownload, handleDownloadTweet, saveOffscreenBlob } from './downloa
 import { updateBadge, broadcastToPopup, updateFAB } from './utils.ts';
 import { mediaRepository } from './indexeddb.ts';
 import { setDynamicBearer, setDynamicQueryId } from './tweet-api.ts';
-import { isTrustedMediaUrl, isValidDownloadOptions, isValidMediaItem, isValidUsername, isXProfileUrlForUsername, isXUrl, normalizeMediaUrlToOrig } from '../shared/validation.ts';
+import { isCollectMediaPageUrl, isTrustedMediaUrl, isValidDownloadOptions, isValidMediaItem, isValidUsername, isXProfileUrlForUsername, isXUrl, normalizeMediaUrlToOrig } from '../shared/validation.ts';
 import { OFFSCREEN_DOCUMENT_PATH, type ParsedRuntimeMessage } from '../shared/messages.ts';
 import { recordDiagnostic } from './diagnostics.ts';
 import { isTelegramDownloadUrl, isTelegramWebUrl } from '../shared/telegram-media.ts';
@@ -153,7 +153,7 @@ export function handleMediaMessage(
       const { username, ct0 } = payload || {};
       const tabUrl = sender.tab?.url;
       if (!isMatchingXTab(sender, username) || !isXUrl(tabUrl)) return false;
-      const isMediaPage = /\/(media|photos|videos|likes|bookmarks)(?:\/|$)/.test(new URL(tabUrl).pathname);
+      const isMediaPage = isCollectMediaPageUrl(tabUrl);
       const tabId = sender.tab?.id;
       if (tabId && username) {
         const existingState = tabState.get(tabId);

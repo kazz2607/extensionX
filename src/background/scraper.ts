@@ -10,6 +10,7 @@ import { recordDiagnostic } from './diagnostics.ts';
 import { canTransitionCollectPhase, type CollectPhase } from '../shared/collect-state.ts';
 import { isXProfileUrlForUsername, normalizeUrlForDedup } from '../shared/validation.ts';
 import { isSearchSourceKey } from '../shared/collection-source.ts';
+import { resolveFailedItem } from './failed-items.ts';
 import { t } from '../lib/i18n.ts';
 
 // ─── BUG-03 FIX: Options Cache — tránh gọi storage.sync N lần per session ────
@@ -635,6 +636,9 @@ function markDownloaded(username: string, url: string) {
   set.add(normalizedUrl);
   // Persist debounce — ghi storage sau 3s, không ghi từng file một
   if (isNew) scheduleDownloadedPersist(username, normalizedUrl);
+  // F3: mọi đường tải thành công (Download, Queue, nút tweet) đều qua đây —
+  // file từng lỗi nay đã tải được thì gỡ khỏi danh sách lỗi.
+  void resolveFailedItem(username, url).catch(() => {});
 }
 
 const _downloadedPersistTimers = new Map<string, ReturnType<typeof setTimeout>>();

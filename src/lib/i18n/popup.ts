@@ -136,7 +136,7 @@ export const POPUP_STRINGS: TranslationTable = {
 
     // Queue
     popup_queue_add_title: 'Add to queue',
-    popup_queue_add_hint_user: '@{username} — add to queue',
+    popup_queue_add_hint_user: '{username} — add to queue',
     popup_queue_data: 'Data',
     popup_queue_data_aria: 'Queue data',
     popup_queue_export_title: 'Export queue to a JSON file',
@@ -388,7 +388,7 @@ export const POPUP_STRINGS: TranslationTable = {
 
     // Queue
     popup_queue_add_title: 'Thêm vào hàng đợi',
-    popup_queue_add_hint_user: '@{username} — thêm vào hàng đợi',
+    popup_queue_add_hint_user: '{username} — thêm vào hàng đợi',
     popup_queue_data: 'Dữ liệu',
     popup_queue_data_aria: 'Dữ liệu hàng đợi',
     popup_queue_export_title: 'Xuất queue ra file JSON',

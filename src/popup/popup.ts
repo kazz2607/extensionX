@@ -461,13 +461,15 @@ async function setCurrentUser(username: string, pageUrl?: string) {
   // F1: trang Search/Hashtag hiển thị truy vấn gốc thay vì khoá nội bộ.
   const search = pageUrl ? searchSourceFromUrl(pageUrl) : null;
   const isSearch = search?.key === username;
-  els.username.textContent = isSearch && search ? searchSourceLabel(search) : collectionKeyLabel(username);
+  // Nhãn hiển thị dùng chung cho thẻ profile và gợi ý Queue (không lộ khoá nội bộ).
+  const displayLabel = isSearch && search ? searchSourceLabel(search) : collectionKeyLabel(username);
+  els.username.textContent = displayLabel;
   els.hint.textContent = t(isSearch ? (search?.kind === 'hashtag' ? 'profile_hint_hashtag' : 'profile_hint_search') : 'profile_hint_active');
   els.profileCard.classList.add('active');
   els.avatar.textContent = isSearch ? (search?.kind === 'hashtag' ? '#' : '🔍') : username.slice(0, 2).toUpperCase();
 
   // Cập nhật queue add bar hint
-  if (els.queueAddHint) els.queueAddHint.textContent = t('popup_queue_add_hint_user', { username });
+  if (els.queueAddHint) els.queueAddHint.textContent = t('popup_queue_add_hint_user', { username: displayLabel });
   if (els.btnQueueAddBar) els.btnQueueAddBar.disabled = false;
   if (els.btnQueueAdd)    els.btnQueueAdd.disabled    = false;
 

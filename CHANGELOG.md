@@ -25,11 +25,12 @@ Ba tính năng cốt lõi F1–F3 của mốc v8.0 (xem `docs/upgrade-plan-v7.3-
 - Parser URL dùng chung (`usernameFromXUrl`) cho script trang, content script và service worker — bỏ bản sao riêng trong `content.ts`.
 - File lỗi lưu ở `chrome.storage.local` (`failed_items_v1`), không thêm store IndexedDB để giữ rollback an toàn.
 - Message mới (chỉ trang extension gửi được): `GET_FAILED_ITEMS`, `RETRY_FAILED_ITEMS`, `CLEAR_FAILED_ITEMS`.
-- Ngân sách build nâng lên 480 KB tổng JS / 120 KB file lớn nhất / 110 module (bản build: 458,8 KB / 109,8 KB / 104).
+- Sau code review trước phát hành: khoá Search/Hashtag luôn ≥16 ký tự (handle X tối đa 15) nên tài khoản thật kiểu `@_search_h1` không bị nhận nhầm; content script và service worker dùng chung hàm nhận diện trang media (auto-scroll và việc giữ phiên thu thập khi đổi tab Search giờ đúng); số like chỉ lấy khi media thuộc chính tweet đó (không lấy số like của tweet bọc ngoài khi chia sẻ lại media); bấm **Stop** dừng cả vòng thử lại nhiều profile; trước khi thử lại, file đã tải qua đường khác được gỡ khỏi danh sách và file không còn dữ liệu được báo riêng; danh sách lỗi được ghi xong trước khi báo tải xong; sửa lỗi cache có thể làm mất mục lỗi khi nhiều file lỗi liên tiếp; Download Center chỉ dựng danh sách khi panel mở và tick ô không dựng lại toàn bộ; gợi ý Queue trong popup không còn lộ khoá nội bộ.
+- Ngân sách build nâng lên 480 KB tổng JS / 120 KB file lớn nhất / 110 module (bản build: 460,5 KB / 110,8 KB / 104).
 
 ### Kiểm thử
 
-- Tổng **67** unit test (thêm khoá Search/Hashtag, nhãn hiển thị, CSV an toàn, phân loại lỗi, lưu/gộp/giới hạn file lỗi), 2 e2e, `npm run check` xanh. Panel File lỗi được kiểm tra bằng ảnh chụp bản build thật. Chưa kiểm thử trên X thật (Search/Hashtag) và Chromium acceptance chưa chạy được trong môi trường dev này.
+- Tổng **68** unit test (thêm khoá Search/Hashtag, nhãn hiển thị, CSV an toàn, phân loại lỗi, lưu/gộp/giới hạn file lỗi), 2 e2e, `npm run check` xanh. Panel File lỗi được kiểm tra bằng ảnh chụp bản build thật. Chưa kiểm thử trên X thật (Search/Hashtag) và Chromium acceptance chưa chạy được trong môi trường dev này.
 
 ---
 

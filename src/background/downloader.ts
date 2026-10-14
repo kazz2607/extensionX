@@ -20,8 +20,8 @@ import { listDownloadHistory, recordDownloadHistory } from './download-history.t
 import { addNotificationEvent } from './notification-events.ts';
 import { t } from '../lib/i18n.ts';
 import { csvCell } from '../shared/csv.ts';
-import { recordFailedItem, resolveFailedItem, listFailedItems } from './failed-items.ts';
-import { groupFailedItemsByUsername } from '../shared/failed-items.ts';
+import { clearFailedItems, recordFailedItem, listFailedItems } from './failed-items.ts';
+import { failedItemId, groupFailedItemsByUsername } from '../shared/failed-items.ts';
 
 // ─── BUG-2 FIX: Keep-alive alarm để SW không bị Chrome terminate ───────────────
 const KEEPALIVE_ALARM = 'sw-keepalive';
@@ -455,6 +455,10 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
 
   // ─── Download một file — BUG-4 FIX: mỗi item tự quản lý timeout ─────────
   // Dùng module-level downloadSingleItem() — tránh code trùng lặp với DOWNLOAD_TWEET
+  // F3: các lần ghi file lỗi chạy nền, nhưng phải xong trước DOWNLOAD_DONE để
+  // Download Center làm mới danh sách lỗi không thiếu những file lỗi cuối cùng.
+  const failureWrites: Array<Promise<void>> = [];
+
   async function downloadOne(item: MediaItem) {
     let filename = '';
     try {
@@ -471,15 +475,13 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
       success++;
       // v4.1.0: Đánh dấu đã tải xong
       markDownloaded(username, item.url);
-      // F3: file từng lỗi nay đã tải được thì gỡ khỏi danh sách lỗi.
-      void resolveFailedItem(username, item.url).catch(() => {});
     } catch (err: unknown) {
       if (!downloadCoordinator.isCurrent(operationId)) return;
       const errMsg = err instanceof Error ? err.message : String(err);
       failed++;
       activeErrors.push(formatDownloadError(err));
       // F3: lưu lại để xem theo nguyên nhân và thử lại có chọn lọc (không chặn vòng tải).
-      void recordFailedItem(username, item, err).catch(() => {});
+      failureWrites.push(recordFailedItem(username, item, err).catch(() => {}));
       const isHls = item.type === 'hls';
       void recordDiagnostic(
         isHls ? 'hls.failed' : 'download.failed',
@@ -567,6 +569,7 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
     _fabProgressTimeByOp.delete(operationId); // P3: dọn per-operation throttle state
     _progressTimeByOp.delete(operationId);
     if (!downloadCoordinator.isCurrent(operationId)) return;
+    await Promise.all(failureWrites);
     stopKeepAlive(); // BUG-2 FIX: Tắt keep-alive khi xong
     await recordDownloadHistory(username, options.filterType ?? 'all', { success, failed, skipped }).catch(() => {});
     await addNotificationEvent(
@@ -873,22 +876,61 @@ function retryLastDownload(): boolean {
 // F3: thử lại đúng các file lỗi đã chọn. Mỗi profile chạy một lượt startDownload
 // với selectedUrls (cùng cơ chế với Download Picker), lần lượt vì chỉ một lượt
 // tải được chạy cùng lúc. Bộ lọc loại/ngày bị bỏ qua để không loại mất file đã chọn.
-async function retryFailedItems(ids: readonly string[]): Promise<{ ok: boolean; profiles: number; files: number; error?: string }> {
-  if (downloadCoordinator.isBusy) return { ok: false, profiles: 0, files: 0, error: t('bg_err_download_busy') };
+// Tăng mỗi lần người dùng bấm Stop: vòng thử lại nhiều profile phải dừng hẳn,
+// không chỉ dừng profile đang chạy rồi chuyển sang profile kế.
+let _stopGeneration = 0;
+
+type RetryFailedResult = { ok: boolean; profiles: number; files: number; resolved: number; missing: number; error?: string };
+
+async function retryFailedItems(ids: readonly string[]): Promise<RetryFailedResult> {
+  if (downloadCoordinator.isBusy) return { ok: false, profiles: 0, files: 0, resolved: 0, missing: 0, error: t('bg_err_download_busy') };
   const groups = groupFailedItemsByUsername(await listFailedItems(), ids);
-  const files = [...groups.values()].reduce((sum, urls) => sum + urls.length, 0);
-  if (files === 0) return { ok: false, profiles: 0, files: 0, error: t('bg_err_no_failed_selected') };
+
+  // Kiểm tra trước để không báo "đang thử lại" cho file sẽ bị bỏ qua: file đã có
+  // trong lịch sử tải (lưu qua đường khác) thì gỡ khỏi danh sách lỗi; file không
+  // còn trong bộ nhớ media (đã dọn) thì không tải lại được và được báo riêng.
+  const plan: Array<[string, string[]]> = [];
+  const alreadyDownloaded: string[] = [];
+  let missing = 0;
+  for (const [username, urls] of groups) {
+    await loadDownloadedUrls(username);
+    const wanted = new Set(urls);
+    const stored = new Set<string>();
+    const cached = mediaStore.get(username);
+    if (cached) {
+      for (const item of cached.values()) if (wanted.has(item.url)) stored.add(item.url);
+    } else {
+      await mediaRepository.visitMediaItems(username, (item) => { if (wanted.has(item.url)) stored.add(item.url); });
+    }
+    const retry: string[] = [];
+    for (const url of urls) {
+      if (isAlreadyDownloaded(username, url)) alreadyDownloaded.push(failedItemId(username, url));
+      else if (stored.has(url)) retry.push(url);
+      else missing++;
+    }
+    if (retry.length) plan.push([username, retry]);
+  }
+  if (alreadyDownloaded.length) await clearFailedItems(alreadyDownloaded);
+
+  const resolved = alreadyDownloaded.length;
+  const files = plan.reduce((sum, [, urls]) => sum + urls.length, 0);
+  if (files === 0) {
+    const error = resolved || missing ? t('bg_err_failed_nothing_to_retry', { resolved, missing }) : t('bg_err_no_failed_selected');
+    return { ok: false, profiles: 0, files: 0, resolved, missing, error };
+  }
+  const generation = _stopGeneration;
   void (async () => {
-    for (const [username, urls] of groups) {
-      if (downloadCoordinator.isBusy) break;
+    for (const [username, urls] of plan) {
+      if (_stopGeneration !== generation || downloadCoordinator.isBusy) break;
       await startDownload(username, { filterType: 'all', selectedUrls: urls, skipDuplicates: true });
     }
   })();
-  return { ok: true, profiles: groups.size, files };
+  return { ok: true, profiles: plan.length, files, resolved, missing };
 }
 
 // Stop the active coordinator operation and invalidate every stale callback.
 function stopDownload(): boolean {
+  _stopGeneration++; // F3: dừng cả vòng thử lại nhiều profile
   const operation = downloadCoordinator.requestStop();
   if (!operation) return false;
   console.log('[SW] ⏹ stopDownload: yêu cầu dừng ngay lập tức');

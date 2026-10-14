@@ -10,7 +10,9 @@
  *
  * Khoá chỉ gồm [a-z0-9_] (khớp USERNAME_PATTERN), xác định theo truy vấn đã
  * chuẩn hoá (cùng truy vấn → cùng khoá, dữ liệu cộng dồn giữa các lần thu thập),
- * và luôn kết thúc bằng `_h<hash>` nên không bao giờ trùng hậu tố `_likes`.
+ * và luôn kết thúc bằng `h<hash 7 ký tự>` nên không bao giờ trùng hậu tố `_likes`.
+ * Khoá ngắn nhất dài 16 ký tự, còn handle X tối đa 15 ký tự, nên một tài khoản
+ * thật (vd. @_search_h1) không bao giờ bị nhận nhầm là khoá Search/Hashtag.
  * Phần chữ chỉ để dễ đọc; hash phân biệt các truy vấn khác nhau (kể cả Unicode).
  *
  * Module này không import gì để dùng được ở mọi bundle (service worker,
@@ -35,14 +37,14 @@ function normalizeQuery(query: string): string {
   return query.normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
-/** FNV-1a 32-bit — đủ để phân biệt truy vấn, không dùng cho bảo mật. */
+/** FNV-1a 32-bit, base36 cố định 7 ký tự — đủ để phân biệt truy vấn, không dùng cho bảo mật. */
 function fnv1a(text: string): string {
   let hash = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) {
     hash ^= text.charCodeAt(i);
     hash = Math.imul(hash, 0x01000193) >>> 0;
   }
-  return hash.toString(36);
+  return hash.toString(36).padStart(7, '0');
 }
 
 export function searchSourceKey(kind: SearchSourceKind, query: string): string {
@@ -61,7 +63,7 @@ export function searchSourceKey(kind: SearchSourceKind, query: string): string {
 }
 
 export function isSearchSourceKey(key: unknown): boolean {
-  return typeof key === 'string' && /^_(?:search|hashtag)_(?:[a-z0-9_]*_)?h[a-z0-9]{1,7}$/.test(key);
+  return typeof key === 'string' && /^_(?:search|hashtag)_(?:[a-z0-9_]*_)?h[a-z0-9]{7}$/.test(key);
 }
 
 /** Nhận diện trang Search (`/search?q=`) hoặc Hashtag (`/hashtag/<tag>`) trên x.com. */
@@ -105,7 +107,7 @@ export function searchSourceLabel(source: SearchSource): string {
  * đọc đã chuẩn hoá ("🔍 cat photos", "#cats"). Profile thường giữ dạng "@name".
  */
 export function collectionKeyLabel(key: string): string {
-  const match = key.match(/^_(search|hashtag)_(?:([a-z0-9_]*)_)?h[a-z0-9]{1,7}$/);
+  const match = key.match(/^_(search|hashtag)_(?:([a-z0-9_]*)_)?h[a-z0-9]{7}$/);
   if (!match) return `@${key}`;
   const readable = (match[2] ?? '').replace(/_/g, ' ').trim() || '…';
   return match[1] === 'hashtag' ? `#${readable.replace(/ /g, '_')}` : `🔍 ${readable}`;

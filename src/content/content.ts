@@ -11,8 +11,8 @@
  */
 import { onPageMessage, sendToPage } from './extension-bridge.ts';
 import { emitUi, onUi } from './ui-bus.ts';
-import { usernameFromXUrl } from '../shared/validation.ts';
-import { isSearchSourceKey, searchSourceFromUrl } from '../shared/collection-source.ts';
+import { isCollectMediaPageUrl, usernameFromXUrl } from '../shared/validation.ts';
+import { isSearchSourceKey } from '../shared/collection-source.ts';
 // window.i18n, FAB and snackbar live in this isolated world (closed shadow
 // roots), out of reach of page scripts.
 // x-ui-i18n.ts registers the X UI strings once; fab/snackbar import it.
@@ -76,8 +76,7 @@ function getUsernameFromURL(url = location.href) {
 }
 
 function isMediaPage(url = location.href) {
-  if (searchSourceFromUrl(url)) return true; // F1: trang Search/Hashtag thu thập như trang media
-  return url.includes('/media') || url.includes('/photos') || url.includes('/videos') || url.includes('/likes') || url.includes('/bookmarks');
+  return isCollectMediaPageUrl(url);
 }
 
 // ─── Feature 0: Following Page Detection ─────────────────────────────────────

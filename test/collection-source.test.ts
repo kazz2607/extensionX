@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { collectionKeyLabel, isSearchSourceKey, searchSourceFromUrl, searchSourceKey, searchSourceLabel } from '../src/shared/collection-source.ts';
-import { isValidUsername, isXProfileUrlForUsername, usernameFromXUrl } from '../src/shared/validation.ts';
+import { isCollectMediaPageUrl, isValidUsername, isXProfileUrlForUsername, usernameFromXUrl } from '../src/shared/validation.ts';
 
 test('F1: Search and Hashtag pages map to stable, username-shaped collection keys', () => {
   const search = searchSourceFromUrl('https://x.com/search?q=cat%20photos&src=typed_query&f=media');
@@ -25,7 +25,7 @@ test('F1: Search and Hashtag pages map to stable, username-shaped collection key
   // Unicode queries get a hash-only or accent-stripped readable part.
   const vi = searchSourceFromUrl('https://x.com/hashtag/%C4%90%C3%A0N%E1%BA%B5ng');
   assert.ok(vi && /^_hashtag_dan.*_h[a-z0-9]+$/.test(vi.key));
-  assert.match(searchSourceKey('search', '猫'), /^_search_h[a-z0-9]+$/);
+  assert.match(searchSourceKey('search', '猫'), /^_search_h[a-z0-9]{7}$/);
 
   for (const source of [search, hashtag, vi]) {
     assert.equal(isValidUsername(source.key), true, source.key);
@@ -50,6 +50,13 @@ test('F1: the shared URL parser recognizes Search/Hashtag without changing profi
   assert.equal(usernameFromXUrl('https://evil.test/search?q=nasa'), null);
   assert.equal(isSearchSourceKey('NASA'), false);
   assert.equal(isSearchSourceKey('_bookmarks_'), false);
+  // X handles are at most 15 characters; every key is at least 16, so a real
+  // account shaped like a key is still a profile.
+  assert.equal(isSearchSourceKey('_search_h1'), false);
+  assert.equal(isSearchSourceKey('_hashtag_h1abcd'), false);
+  assert.equal(usernameFromXUrl('https://x.com/_search_h1/media'), '_search_h1');
+  assert.equal(collectionKeyLabel('_search_h1'), '@_search_h1');
+  assert.ok(searchSourceKey('search', '猫').length >= 16);
 });
 
 test('F1: a bare key renders a readable label where the original query is unknown', () => {
@@ -58,4 +65,14 @@ test('F1: a bare key renders a readable label where the original query is unknow
   assert.equal(collectionKeyLabel(searchSourceKey('search', '猫')), '🔍 …');
   assert.equal(collectionKeyLabel('NASA'), '@NASA');
   assert.equal(collectionKeyLabel('_bookmarks_'), '@_bookmarks_');
+});
+
+test('F1: content script and service worker share one media-page check', () => {
+  for (const url of [
+    'https://x.com/NASA/media', 'https://x.com/NASA/likes', 'https://x.com/i/bookmarks',
+    'https://x.com/search?q=cats&f=media', 'https://x.com/hashtag/cats',
+  ]) assert.equal(isCollectMediaPageUrl(url), true, url);
+  for (const url of ['https://x.com/NASA', 'https://x.com/home', 'https://x.com/search', 'https://evil.test/NASA/media']) {
+    assert.equal(isCollectMediaPageUrl(url), false, url);
+  }
 });

@@ -145,11 +145,24 @@ function visibleFailedItems(): FailedItem[] {
   return failedItems.filter((item) => (!reason || item.reason === reason) && matchesQuery(item.username, item.url, item.message));
 }
 
-function renderFailedItems(): void {
+function failedPanelOpen(): boolean {
+  return !byId('errors-panel').classList.contains('hidden');
+}
+
+/** Cập nhật số đếm và trạng thái nút, không dựng lại danh sách. */
+function updateFailedActions(): void {
   byId('errors-count').textContent = String(failedItems.length);
+  byId<HTMLButtonElement>('btn-errors-retry').disabled = selectedFailed.size === 0 || data.download.isDownloading;
+  byId<HTMLButtonElement>('btn-errors-remove').disabled = selectedFailed.size === 0;
+}
+
+function renderFailedItems(): void {
   // Lựa chọn chỉ giữ mục còn tồn tại (file đã tải lại thành công thì tự biến mất).
   const existing = new Set(failedItems.map((item) => item.id));
   for (const id of selectedFailed) if (!existing.has(id)) selectedFailed.delete(id);
+  updateFailedActions();
+  // Panel đang đóng: chỉ cần số đếm trên nút, không dựng danh sách.
+  if (!failedPanelOpen()) return;
 
   const select = byId<HTMLSelectElement>('errors-reason');
   const current = select.value;
@@ -165,8 +178,6 @@ function renderFailedItems(): void {
 
   const list = byId('errors-list');
   const visible = visibleFailedItems();
-  byId<HTMLButtonElement>('btn-errors-retry').disabled = selectedFailed.size === 0 || data.download.isDownloading;
-  byId<HTMLButtonElement>('btn-errors-remove').disabled = selectedFailed.size === 0;
   if (!visible.length) { list.replaceChildren(empty(t('dc_errors_empty'))); return; }
   const fragment = document.createDocumentFragment();
   for (const item of visible) {
@@ -393,18 +404,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     const id = box?.dataset.failedId;
     if (!box || !id) return;
     if (box.checked) selectedFailed.add(id); else selectedFailed.delete(id);
-    renderFailedItems();
+    updateFailedActions(); // không dựng lại danh sách: giữ vị trí cuộn và focus
   });
   byId('btn-errors-select-all').addEventListener('click', () => {
     const visible = visibleFailedItems();
     const allSelected = visible.length > 0 && visible.every((item) => selectedFailed.has(item.id));
     for (const item of visible) { if (allSelected) selectedFailed.delete(item.id); else selectedFailed.add(item.id); }
-    renderFailedItems();
+    byId('errors-list').querySelectorAll<HTMLInputElement>('input[data-failed-id]').forEach((box) => {
+      box.checked = selectedFailed.has(box.dataset.failedId ?? '');
+    });
+    updateFailedActions();
   });
   byId('btn-errors-retry').addEventListener('click', async () => {
     const response = await sendBG('RETRY_FAILED_ITEMS', { ids: [...selectedFailed] });
+    const skipped = response?.ok && ((response.resolved ?? 0) > 0 || (response.missing ?? 0) > 0)
+      ? ` ${t('dc_errors_retry_skipped', { resolved: response.resolved ?? 0, missing: response.missing ?? 0 })}`
+      : '';
     byId('errors-status').textContent = response?.ok
-      ? t('dc_errors_retry_started', { files: response.files ?? 0, profiles: response.profiles ?? 0 })
+      ? t('dc_errors_retry_started', { files: response.files ?? 0, profiles: response.profiles ?? 0 }) + skipped
       : response?.error || t('dc_errors_retry_failed');
     if (response?.ok) selectedFailed.clear();
     await refresh();

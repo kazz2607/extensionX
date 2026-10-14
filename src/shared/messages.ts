@@ -142,7 +142,7 @@ export interface MessageResponseMap {
   DOWNLOAD_ZIP_CHUNKS: { ok?: boolean; chunks?: number; files?: number; error?: string };
   OFFSCREEN_SAVE_BLOB: { downloadId?: number; error?: string };
   GET_FAILED_ITEMS: { items: FailedItem[] };
-  RETRY_FAILED_ITEMS: { ok: boolean; profiles?: number; files?: number; error?: string };
+  RETRY_FAILED_ITEMS: { ok: boolean; profiles?: number; files?: number; resolved?: number; missing?: number; error?: string };
   CLEAR_FAILED_ITEMS: { ok: boolean; removed?: number; error?: string };
 }
 
