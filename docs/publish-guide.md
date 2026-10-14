@@ -23,7 +23,6 @@ Trước khi đóng gói, bạn cần loại bỏ các thư mục và tập tin 
 - `manifest.json`, `release-manifest.json` (checksum SHA-256)
 - `_locales/`
 - `common.js`, `common.css`, `popup.css`, `download-center.css`, `validation.js`
-- `jszip.min.js` (chỉ nạp khi tạo ZIP)
 
 **Những thành phần CẦN loại bỏ (Không đưa vào file ZIP):**
 - Thư mục `.git/` (dữ liệu quản lý phiên bản)

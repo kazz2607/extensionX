@@ -13,6 +13,10 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 - Phát hiện video lại nhận cả node tạo từ iframe (khôi phục kiểm tra `nodeType`/`tagName`).
 - Sao lưu: đọc danh sách file đã tải các profile song song, giữ phần mới nhất khi vượt giới hạn 50.000 URL/profile.
 
+### Hiệu năng
+
+- **Bỏ JSZip (96 KB):** ZIP được tạo bằng bộ ghi ZIP tối giản tích hợp (`src/shared/zip-store.ts`, không nén — ảnh/video đã nén sẵn). Tổng JavaScript giảm từ 478 KB xuống **382 KB (−20 %)**; ngưỡng budget hạ 480 → 420 KB. File ZIP mở được bằng mọi trình giải nén (unit test kiểm tra bằng `unzip -t`; Chromium acceptance tạo ZIP thật từ CDN giả).
+
 ---
 
 ## [8.2.1] — 2026-10-14 *(tiêu chí chất lượng chung)*

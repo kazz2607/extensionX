@@ -1,9 +1,5 @@
 import { fetchHLS } from '../lib/hls-fetcher.js';
-
-interface ZipArchive {
-  file(name: string, data: ArrayBuffer): void;
-  generateAsync(options: { type: 'blob'; compression: 'DEFLATE'; compressionOptions: { level: number }; streamFiles: boolean }): Promise<Blob>;
-}
+import { buildStoredZip, type ZipEntry } from '../shared/zip-store.ts';
 
 interface ZipItem { url: string; ext?: string }
 
@@ -64,16 +60,12 @@ async function processZipChunks(msg: OffscreenMessage) {
   if (zipRunning) throw new Error('A ZIP operation is already running');
   zipRunning = true;
   try {
-    // P14: JSZip (~100 KB) loads only for ZIP work, not on every offscreen
-    // start for HLS. The UMD bundle registers itself on globalThis.
-    await import('../lib/jszip.min.ts');
-    const JSZip = (globalThis as unknown as { JSZip: new () => ZipArchive }).JSZip;
     const username = String(msg.username || 'media').replace(/[^A-Za-z0-9_-]/g, '_');
     const chunkSize = Math.max(1, Math.min(200, Number(msg.chunkSize) || 50));
     const items = Array.isArray(msg.items) ? msg.items.slice(0, 200).filter(isZipItem) : [];
     const seenHashes = new Set<string>();
     for (let start = 0; start < items.length; start += chunkSize) {
-      const zip = new JSZip();
+      const entries: ZipEntry[] = [];
       let bytes = 0;
       let added = 0;
       const chunk = items.slice(start, start + chunkSize);
@@ -89,10 +81,11 @@ async function processZipChunks(msg: OffscreenMessage) {
         seenHashes.add(hash);
         bytes += buffer.byteLength;
         added++;
-        zip.file(zipFilename(item, start + index + 1), buffer);
+        entries.push({ name: zipFilename(item, start + index + 1), data: new Uint8Array(buffer) });
       }
       if (!added) continue;
-      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 4 }, streamFiles: true });
+      // Ảnh/video đã nén sẵn: STORE thay DEFLATE (xem shared/zip-store.ts).
+      const blob = new Blob(buildStoredZip(entries), { type: 'application/zip' });
       await saveBlob(blob, `${username}/zip/media_${Math.floor(start / chunkSize) + 1}.zip`, username);
       chrome.runtime.sendMessage({ type: 'ZIP_PROGRESS', payload: { completed: Math.min(start + chunkSize, items.length), total: items.length } }).catch(() => {});
     }

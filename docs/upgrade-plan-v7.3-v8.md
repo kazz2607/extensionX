@@ -197,7 +197,7 @@ Gate: 68 unit test, 2 e2e, `npm run check` xanh; ngân sách build nâng 480 KB 
 
 - **Chromium acceptance chạy được:** Chrome thương hiệu (≥ 137) bỏ qua `--load-extension` — đó là lý do service worker "không khởi động" ở 7.4.2; dùng Chrome for Testing qua `PLAYWRIGHT_CHROME_EXECUTABLE`. Thêm test Search/Hashtag và file lỗi/retry/backup → 9/9 pass.
 - **Lỗi thật phát hiện nhờ test:** `chrome.downloads` báo 429 và 5xx cùng là `SERVER_FAILED`, nên lùi khi 429 của F4 không bao giờ chạy. Sửa bằng `HEAD` dò mã thật (chỉ CDN X tin cậy, không cookie, 5 s); thêm nguyên nhân `server`. Backup thiếu URL tải trong 3 s cuối (debounce ghi IndexedDB) → gộp bản trong bộ nhớ.
-- **`@ts-ignore`:** 62 → 0 trong content script (còn lại duy nhất trong vendor JSZip).
+- **`@ts-ignore`:** 62 → 0 trong content script (vendor JSZip cũng đã bỏ sau 8.2.1, xem 6b).
 - **Chỉ tiêu đo:** đã đưa vào `quality-gate.md` với cách đo và trạng thái; mục 1 (phần diagnostic) và mục 4 (truy vấn/cold-load) đạt tự động, các mục cần X/Telegram thật vẫn chưa đo.
 
 ## 6. Thứ tự thực hiện đề xuất

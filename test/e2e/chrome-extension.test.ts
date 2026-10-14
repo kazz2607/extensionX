@@ -629,15 +629,8 @@ test('v7.2.3 offscreen blobs are saved by the service worker, not chrome.downloa
   }), saved.downloadId);
   assert.deepEqual(download, { state: 'complete', bytes: 4096 });
 
-  // P14: JSZip is a lazily imported chunk; it must still load inside the
-  // offscreen document and produce a ZIP blob.
-  const zipBytes = await evaluateOffscreen(`(async () => {
-    await import('../jszip.min.js');
-    const zip = new globalThis.JSZip();
-    zip.file('a.txt', 'hello');
-    return (await zip.generateAsync({ type: 'blob' })).size;
-  })()`);
-  assert.ok(typeof zipBytes === 'number' && zipBytes > 0, `lazy JSZip did not produce a ZIP: ${String(zipBytes)}`);
+  // ZIP is built by src/shared/zip-store.ts (STORE, no JSZip); the archive
+  // format is covered by test/zip-store.test.ts including a real `unzip -t`.
 
   // Extension pages and tabs cannot use the offscreen-only save channel.
   const options = await context.newPage();
@@ -896,14 +889,15 @@ async function startFakeCdn(handler: (path: string) => { status: number; body?: 
   const server = createHttpsServer({ key: await readFile(join(dir, 'key.pem')), cert: await readFile(join(dir, 'cert.pem')) }, (req, res) => {
     const { status, body } = handler(req.url ?? '/');
     res.writeHead(status, { 'Content-Type': status === 200 ? 'image/jpeg' : 'text/plain' });
-    res.end(req.method === 'HEAD' ? undefined : body ?? (status === 200 ? 'fixture-image' : 'error'));
+    // Body differs per path: the ZIP step de-duplicates identical files by hash.
+    res.end(req.method === 'HEAD' ? undefined : body ?? (status === 200 ? `fixture-image:${req.url}` : 'error'));
   });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const port = (server.address() as { port: number }).port;
   return { port, close: async () => { await new Promise((resolve) => server.close(resolve)); await rm(dir, { recursive: true, force: true }); } };
 }
 
-test('v8.0.0-8.2.0 failed downloads are recorded by reason, retried selectively, and backed up', { timeout: 90_000 }, async (t) => {
+test('v8.0.0-8.2.0 failed downloads are recorded by reason, retried selectively, backed up and zipped', { timeout: 90_000 }, async (t) => {
   // missing → 404, limited → 429, busy → 503 until `healthy` flips.
   let healthy = false;
   const cdn = await startFakeCdn((path) => {
@@ -986,4 +980,19 @@ test('v8.0.0-8.2.0 failed downloads are recorded by reason, retried selectively,
   const backup = JSON.parse(((await send({ type: 'EXPORT_BACKUP' })) as { json: string }).json);
   assert.equal(backup.kind, 'extensionx-backup');
   assert.deepEqual([...backup.downloaded[name]].sort(), [urls[0], urls[1]].sort());
+
+  // ZIP (no JSZip since 8.2.2): offscreen fetches every file from the CDN and
+  // the service worker saves one STORE archive that a real unzip accepts.
+  const zipped = await send({ type: 'DOWNLOAD_ZIP_CHUNKS', payload: { username: name, filterType: 'all', chunkSize: 50 } }) as { ok?: boolean; files?: number };
+  assert.equal(zipped.ok, true);
+  const zipFindAndCheck = () => options.evaluate(() => new Promise<{ filename: string; state: string }[]>((resolve) => {
+    // Playwright renames saved files to GUIDs, so match the Blob type instead.
+    chrome.downloads.search({ mime: 'application/zip' }, (items) => resolve(items.map((item) => ({ filename: item.filename, state: item.state }))));
+  }));
+  await waitFor(async () => (await zipFindAndCheck()).some((item) => item.state === 'complete'), 'ZIP saved');
+  const zipPath = (await zipFindAndCheck()).find((item) => item.state === 'complete')!.filename;
+  t.after(() => rm(zipPath, { force: true }));
+  assert.match(execFileSync('unzip', ['-t', zipPath]).toString(), /No errors detected/);
+  const listing = execFileSync('unzip', ['-Z1', zipPath]).toString().trim().split('\n').sort();
+  assert.deepEqual(listing, urls.map((url) => url.split('/').pop()).sort());
 });
