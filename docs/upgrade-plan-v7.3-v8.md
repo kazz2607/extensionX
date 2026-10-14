@@ -1,7 +1,7 @@
 # Kế hoạch nâng cấp v7.3 → v8.0
 
 > Lập ngày: 2026-10-14 | Baseline: **v7.2.2** (`npm run check` xanh: 42 unit, 2 e2e, build, budget)
-> Trạng thái: **Đang thực hiện** — v7.2.3 → v7.4.2 và **v8.0.0 (F1–F3)** đã hoàn thành ngày 2026-10-14; F4–F5 và phần mở rộng của F1/F3 chưa làm.
+> Trạng thái: **Đang thực hiện** — v7.2.3 → v7.4.2, **v8.0.0 (F1–F3)** và **v8.1.0 (F4)** đã hoàn thành ngày 2026-10-14; F5 chờ chốt phạm vi.
 
 Kế hoạch này dựa trên audit đọc mã nguồn ngày 2026-10-14, chia 4 nhóm: **logic**, **bảo mật**, **hiệu năng**, **UI/UX**, kèm phần tư vấn tính năng mới. Mỗi hạng mục có mã ID, vị trí mã, cách sửa và tiêu chí nghiệm thu. Vị trí dòng (`file:line`) tính theo v7.2.2 và có thể lệch nhẹ khi sửa.
 
@@ -106,7 +106,7 @@ Các mục đã làm (Queue/Download Center windowing, coalesce progress bằng 
 | **P14** ✅ | JSZip (103 KB) được import tĩnh ở mỗi lần mở offscreen (`offscreen.ts:3`). | `await import()` trong `processZipChunks`. |
 | **P15** ✅ | Download Center fetch lại toàn bộ dữ liệu ở mỗi `QUEUE_UPDATE` (`download-center.ts:322`). | Dùng `payload.queue`, chỉ gọi `renderQueue()`. |
 
-Nhỏ: bỏ index `url` không dùng trên `media_items`; `waitForTabLoad` không gỡ listener khi timeout (`background/utils.ts:71-82`); popup init có khoảng 8 `await` tuần tự (`popup.ts:204-226`) có thể chạy song song bằng `Promise.all`.
+Nhỏ: ~~`waitForTabLoad` không gỡ listener khi timeout~~ (sửa ở v8.1.0); ~~popup init có khoảng 8 `await` tuần tự~~ (v8.1.0: theme/compact và lịch sử/Queue/phiên/cấu hình chạy song song); index `url` không dùng trên `media_items` **giữ nguyên** — gỡ cần nâng `DB_VERSION`, làm hỏng rollback.
 
 ### Chỉ tiêu đo (bổ sung vào `quality-gate.md`)
 
@@ -161,7 +161,7 @@ Dọn dẹp ✅ (v7.4.2): gộp selector trùng `.queue-status` thành 1 rule; b
 | **F1** ✅ (v8.0.0, thu hẹp) | **Thu thập theo Search / Hashtag / List**: mở rộng interceptor sang `SearchTimeline` và `ListLatestTweetsTimeline`, Queue nhận "nguồn" thay vì chỉ username. | Cao | M | Thấp — tái dùng pipeline sẵn có | **Nên làm** |
 | **F2** ✅ (v8.0.0, gộp vào Manifest) | **Metadata sidecar**: xuất `.json` hoặc caption `.txt` cạnh file (tweetId, ngày, text, số like), tùy chọn bật/tắt; hoặc gộp vào Manifest. | Cao (lưu trữ/tìm lại) | S | Thấp | **Nên làm** |
 | **F3** ✅ (v8.0.0, chưa có đổi chất lượng) | **Tab "Lỗi" trong Download Center**: danh sách item lỗi theo nguyên nhân (404, timeout, rate-limit), retry có chọn lọc, đổi chất lượng. Kết hợp L7–L9. | Cao | S–M | Thấp | **Nên làm** |
-| **F4** | **Giới hạn băng thông/đồng thời** trong Settings (1–6 luồng, nghỉ giữa các batch) để tránh rate-limit khi tải profile lớn. | Trung bình | S | Thấp | Nên làm |
+| **F4** ✅ (v8.1.0) | **Giới hạn băng thông/đồng thời** trong Settings (1–6 luồng, nghỉ giữa các batch) để tránh rate-limit khi tải profile lớn. | Trung bình | S | Thấp | Nên làm |
 | **F5** | **Backup/Restore toàn bộ dữ liệu cục bộ** (media index, lịch sử chống trùng, Saved Jobs, settings) thành 1 file, có kiểm tra schema (dùng lại validator của S9). Thay thế an toàn cho cloud sync. | Trung bình | M | Thấp | Nên làm |
 | **F6** | **Tải thread/hội thoại**: từ `TweetDetail`, tải media của cả thread của tác giả. | Trung bình | S–M | Thấp | Cân nhắc |
 | **F7** | **Telegram: tải hàng loạt theo khoảng tin nhắn/album** trong một chat. | Trung bình | L | Trung bình — DOM Telegram thay đổi thường xuyên | Cân nhắc sau F1–F5 |
@@ -180,6 +180,12 @@ Phạm vi đã chốt trước khi làm (thu hẹp để giữ rủi ro thấp):
 
 Gate: 68 unit test, 2 e2e, `npm run check` xanh; ngân sách build nâng 480 KB / 120 KB / 110 module. Chưa kiểm thử trên X thật và chưa có Chromium acceptance cho F1/F3.
 
+## 5c. Kết quả v8.1.0 (F4)
+
+- Số luồng 1–6 (`clampConcurrency`, giá trị cũ tới 10 được đưa về 6); **Nghỉ giữa các file** 0–10 giây; **Giảm tốc khi bị giới hạn (429)** bật sẵn: mọi luồng nghỉ 60 giây qua một `PauseGate` dùng chung (nhiều luồng cùng gặp 429 không cộng dồn thời gian nghỉ), file bị chặn được xếp lại một lần trước khi tính là lỗi. Mọi khoảng chờ thoát ngay khi bấm Stop. Logic thuần ở `src/shared/download-throttle.ts`.
+- Không dùng "giới hạn băng thông" theo byte/giây: `chrome.downloads` không cho điều tiết tốc độ một file; giới hạn số luồng + khoảng nghỉ + lùi khi 429 là cách điều tiết thực tế.
+- Gate: 71 unit test. Chưa thử với phản hồi 429 thật từ X.
+
 ## 6. Thứ tự thực hiện đề xuất
 
 1. ~~Xác minh L1 trên Chromium~~ — đã xác nhận lỗi.
@@ -189,16 +195,18 @@ Gate: 68 unit test, 2 e2e, `npm run check` xanh; ngân sách build nâng 480 KB 
 5. ~~**v7.4.1**: U16 (hotfix layout popup)~~ — hoàn thành 2026-10-14, phát hiện qua báo cáo người dùng sau phát hành 7.4.0.
 6. ~~**v7.4.2**: U9 còn lại, dọn CSS, Chromium fixture tweet-btn~~ — hoàn thành 2026-10-14.
 7. ~~**v8.0.0**: F1, F2, F3~~ — hoàn thành 2026-10-14 (phạm vi thu hẹp, xem 5b).
-8. **Tiếp theo:** F4, F5; X Lists cho F1; đổi chất lượng khi thử lại cho F3.
+8. ~~**v8.1.0**: F4 + 2 việc nhỏ ở mục Hiệu năng~~ — hoàn thành 2026-10-14.
+9. **Tiếp theo:** F5 (cần chốt phạm vi); X Lists cho F1; đổi chất lượng khi thử lại cho F3.
 
-## 6b. Tồn đọng sau v8.0.0
+## 6b. Tồn đọng sau v8.1.0
 
-Các mốc v7.2.3 → v8.0.0 đã phát hành (xem `CHANGELOG.md`). Còn lại:
+Các mốc v7.2.3 → v8.1.0 đã phát hành (xem `CHANGELOG.md`). Còn lại:
 
 - **Kiểm thử thủ công trên X/Telegram thật:** Search/Hashtag (tab Media/Latest, hashtag tiếng Việt), Manifest có caption/like, panel File lỗi và thử lại; cùng các mục cũ (đổi ngôn ngữ, lightbox ẩn FAB, HLS, Following Scanner, icon SVG U9).
 - **Test:** Chromium fixture `tweet-btn re-attaches...` (7.4.2) chưa chạy được trong môi trường dev — service worker không khởi động khi Playwright nạp `--load-extension` ở đây; cần CI hoặc máy có Chrome thật. Chưa có Chromium acceptance cho Search/Hashtag và retry chọn lọc.
 - **Mở rộng F1/F3:** X Lists; nguồn Search trong Queue; đổi chất lượng khi thử lại (lưu variant video).
-- **F4–F5:** giới hạn băng thông/đồng thời; Backup/Restore toàn bộ dữ liệu cục bộ — cần chốt phạm vi.
+- **F5:** Backup/Restore dữ liệu cục bộ — cần chốt phạm vi (chỉ settings + Saved Jobs, hay cả media index và lịch sử chống trùng).
+- **Chỉ tiêu đo hiệu năng** ở mục 3 chưa được đưa vào `quality-gate.md`.
 
 ## 7. Tiêu chí hoàn thành chung
 

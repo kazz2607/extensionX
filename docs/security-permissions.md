@@ -1,6 +1,6 @@
 # Audit bảo mật và quyền extension
 
-> Rà soát cho **8.0.0** | Cập nhật: 2026-10-14
+> Rà soát cho **8.1.0** | Cập nhật: 2026-10-14
 
 ## Quyền Manifest
 

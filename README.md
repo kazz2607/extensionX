@@ -2,7 +2,7 @@
 
 Extension Chrome mạnh mẽ cho phép bạn tải toàn bộ ảnh, video và GIF từ bất kỳ profile nào trên X.com (Twitter) với chất lượng gốc, hoàn toàn tự động và sắp xếp gọn gàng vào thư mục theo tên người dùng.
 
-> **Phiên bản hiện tại: 8.0.0** — Thu thập từ trang Search/Hashtag, caption và số like trong Manifest/CSV, danh sách file lỗi có thử lại chọn lọc trong Download Center.
+> **Phiên bản hiện tại: 8.1.0** — Tự giảm tốc khi X giới hạn tốc độ (429), nghỉ giữa các file, tối đa 6 luồng; 8.0.0 thêm Search/Hashtag, caption và like trong Manifest, danh sách file lỗi.
 
 ## ✨ Tính Năng Nổi Bật
 
@@ -70,4 +70,4 @@ Click vào nút ⚙ (Cài đặt) trên popup của extension để tuỳ chỉn
 
 ---
 
-*Phát triển nội bộ — Phiên bản **8.0.0** | Cập nhật: 2026-10-14*
+*Phát triển nội bộ — Phiên bản **8.1.0** | Cập nhật: 2026-10-14*

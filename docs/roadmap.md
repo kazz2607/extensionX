@@ -1,6 +1,6 @@
 # X Media Downloader — Roadmap
 
-> Phiên bản hiện tại: **8.0.0** | Cập nhật: 2026-10-14
+> Phiên bản hiện tại: **8.1.0** | Cập nhật: 2026-10-14
 
 Tài liệu này là nguồn duy nhất cho trạng thái sản phẩm, phần việc đã hoàn thành và backlog. Chi tiết từng bản phát hành nằm trong [`CHANGELOG.md`](../CHANGELOG.md).
 
@@ -18,7 +18,7 @@ Extension đang dùng Manifest V3, TypeScript strict và Vite. Các luồng chí
 - Tải ảnh/video trực tiếp trên Telegram Web A/K, gồm Range-fetch cho stream riêng tư.
 - Following Scanner: thu thập GraphQL có giới hạn, lọc hoạt động, preview và unfollow tuần tự có throttle.
 
-Quality gate hiện hành: TypeScript, ESLint, **68 unit tests**, **2 fixture e2e tests**, benchmark 100–50.000 media, dependency lockfile review, **7 Chromium acceptance tests** (Queue lifecycle/fault/DOM, responsive/keyboard/Download Center, lưu Blob từ offscreen, bridge trang X và tweet-btn gắn lại nút khi media đến muộn — mục cuối chưa tự chạy được trong môi trường dev hiện tại, xem `quality-gate.md`), production build, performance budget và release checksum manifest. Chi tiết tại [`quality-gate.md`](quality-gate.md).
+Quality gate hiện hành: TypeScript, ESLint, **71 unit tests**, **2 fixture e2e tests**, benchmark 100–50.000 media, dependency lockfile review, **7 Chromium acceptance tests** (Queue lifecycle/fault/DOM, responsive/keyboard/Download Center, lưu Blob từ offscreen, bridge trang X và tweet-btn gắn lại nút khi media đến muộn — mục cuối chưa tự chạy được trong môi trường dev hiện tại, xem `quality-gate.md`), production build, performance budget và release checksum manifest. Chi tiết tại [`quality-gate.md`](quality-gate.md).
 
 ## Kiến trúc chính
 
@@ -65,6 +65,7 @@ src/
 | v7.4.1 | Hotfix: hàng nút hành động và tên thương hiệu trong popup không còn tràn/vỡ dòng, đè lên thanh tab dưới cùng |
 | v7.4.2 | Dọn backlog UI/UX: nút đóng/xóa dùng icon SVG thay `×`/`✕` (U9), gộp `.queue-status` trùng, bỏ `!important` thừa, thêm Chromium fixture tweet-btn |
 | v8.0.0 | Tính năng mới F1–F3: thu thập từ trang Search/Hashtag, caption và số like trong Manifest/CSV, danh sách file lỗi theo nguyên nhân với thử lại chọn lọc trong Download Center |
+| v8.1.0 | F4: tự tạm nghỉ 60 giây và xếp lại file khi X trả 429, nghỉ giữa các file (0–10 giây), tối đa 6 luồng; popup khởi động song song, sửa rò listener `waitForTabLoad` |
 
 Các kế hoạch Pha 0–15 cũ đã hoàn thành và được hợp nhất vào bảng này; không còn duy trì file kế hoạch riêng.
 
@@ -72,7 +73,7 @@ Các kế hoạch Pha 0–15 cũ đã hoàn thành và được hợp nhất và
 
 Hiện không còn backlog đã được phê duyệt. P0, P1 và phạm vi P2 đều đã hoàn thành; mốc tiếp theo chỉ được mở sau khi chốt phạm vi sản phẩm mới.
 
-**Kế hoạch đang thực hiện (2026-10-14):** [`upgrade-plan-v7.3-v8.md`](upgrade-plan-v7.3-v8.md) — audit logic, bảo mật, hiệu năng, UI và tư vấn tính năng v8.0. Mốc v7.2.3 → v7.4.2 và v8.0.0 (F1 Search/Hashtag, F2 metadata trong Manifest, F3 file lỗi) đã phát hành; còn lại F4–F5 (tùy chọn), X Lists cho F1, và đổi chất lượng khi thử lại cho F3.
+**Kế hoạch đang thực hiện (2026-10-14):** [`upgrade-plan-v7.3-v8.md`](upgrade-plan-v7.3-v8.md) — audit logic, bảo mật, hiệu năng, UI và tư vấn tính năng v8.0. Mốc v7.2.3 → v7.4.2, v8.0.0 (F1–F3) và v8.1.0 (F4) đã phát hành; tiếp theo là F5 (Backup/Restore, cần chốt phạm vi), X Lists cho F1 và đổi chất lượng khi thử lại cho F3.
 
 Bản vá v7.2.1 đã khép lại các lỗi hậu phát hành của P2: Start Collecting xác nhận đúng tab/profile, auto-collect có công tắc rõ ràng mặc định tắt, prune storage chạy bounded concurrency và popup có chiều rộng nội tại ổn định.
 

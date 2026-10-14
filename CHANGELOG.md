@@ -10,6 +10,25 @@ Chưa có thay đổi.
 
 ---
 
+## [8.1.0] — 2026-10-14 *(F4: chống bị X giới hạn tốc độ)*
+
+### Tính năng mới
+
+- **Giảm tốc khi bị giới hạn (429)** — bật sẵn, tắt được trong Settings → Download: khi X trả lỗi 429, mọi luồng tải tạm nghỉ 60 giây rồi tự tải tiếp; file bị chặn được thử lại một lần trước khi tính là lỗi (lần 429 thứ hai mới vào danh sách **File lỗi**). Popup và snackbar trên trang hiển thị thời gian nghỉ còn lại; bấm **Stop** dừng ngay, không chờ hết thời gian nghỉ.
+- **Nghỉ giữa các file** (0–10 giây, mặc định 0): mỗi luồng chờ khoảng này trước file kế tiếp — tăng lên nếu profile lớn hay gặp 429.
+- **Số luồng tải song song** mở rộng 1–6 (trước đây 1–5). Giá trị cũ lớn hơn 6 (bản cũ cho phép tới 10 qua import) được đưa về 6.
+
+### Sửa lỗi / hiệu năng
+
+- `waitForTabLoad` gỡ listener khi hết thời gian chờ (trước đây mỗi lần điều hướng quá 10 giây để lại một listener tới khi service worker khởi động lại).
+- Popup mở nhanh hơn: theme/compact mode và lịch sử/Queue/phiên đã lưu/cấu hình được nạp song song thay vì 6 lượt chờ nối tiếp.
+
+### Kiểm thử
+
+- Tổng **71** unit test (giới hạn luồng/khoảng nghỉ, cổng tạm dừng dùng chung, giới hạn khi import cài đặt); test import cài đặt cũ đổi kỳ vọng trần luồng từ 10 xuống 6. Trang Settings được kiểm tra bằng bản build thật. Chưa thử với một phản hồi 429 thật từ X.
+
+---
+
 ## [8.0.0] — 2026-10-14 *(Tính năng mới: Search/Hashtag, metadata, file lỗi)*
 
 Ba tính năng cốt lõi F1–F3 của mốc v8.0 (xem `docs/upgrade-plan-v7.3-v8.md`). Không thêm quyền, không đổi schema IndexedDB.

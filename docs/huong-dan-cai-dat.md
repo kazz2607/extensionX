@@ -1,6 +1,6 @@
 # Hướng dẫn cài đặt và sử dụng
 
-> X Media Downloader **8.0.0** | Cập nhật: 2026-10-14
+> X Media Downloader **8.1.0** | Cập nhật: 2026-10-14
 
 Extension tải ảnh, video và GIF từ X.com, đồng thời hỗ trợ tải media trực tiếp trên Telegram Web A/K.
 
@@ -24,7 +24,7 @@ Extension tải ảnh, video và GIF từ X.com, đồng thời hỗ trợ tải
 4. Mở `chrome://extensions`.
 5. Bật **Developer mode**.
 6. Chọn **Load unpacked** và trỏ tới thư mục `dist/`.
-7. Kiểm tra popup hiển thị version **8.0.0**.
+7. Kiểm tra popup hiển thị version **8.1.0**.
 
 ## Cập nhật extension
 
@@ -109,7 +109,7 @@ Các thay đổi được tự động lưu; kiểm tra trạng thái **Saved** 
 
 ### Queue không bắt đầu
 
-- Xác nhận popup và `dist/manifest.json` cùng version 8.0.0.
+- Xác nhận popup và `dist/manifest.json` cùng version 8.1.0.
 - Reload extension và mở lại popup.
 - Mục có `0 media` sẽ chuyển Error; kiểm tra profile khác còn dữ liệu hay không.
 - Mở Service Worker console và tìm `START_QUEUE`, `Queue IndexedDB load failed` hoặc lỗi download.
@@ -120,6 +120,7 @@ Các thay đổi được tự động lưu; kiểm tra trạng thái **Saved** 
 - Giảm concurrency trong Options.
 - Dùng **Retry**; tùy chọn chống trùng sẽ bỏ qua file đã tải thành công.
 - Mở Download Center → **File lỗi** để xem nguyên nhân từng file và thử lại đúng các file cần. Lỗi **429** nghĩa là X đang giới hạn tốc độ: đợi vài phút và giảm concurrency trước khi thử lại; lỗi **404** thường là media đã bị xóa.
+- Từ 8.1.0, khi gặp 429 extension tự nghỉ 60 giây rồi tải tiếp (popup hiện thời gian còn lại). Nếu vẫn gặp thường xuyên, vào Settings → Download: giảm **Concurrent downloads** và tăng **Pause between files** (vd. 1–2 giây).
 - Tắt tạm download manager bên thứ ba nếu nó đổi đường dẫn hoặc chặn nhiều file.
 
 ### Telegram không tải được video
