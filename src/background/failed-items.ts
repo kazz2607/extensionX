@@ -13,6 +13,7 @@ import {
   createFailedItem,
   failedItemId,
   parseFailedItems,
+  serializeFailedItems,
   removeFailedItemIds,
   upsertFailedItem,
 } from '../shared/failed-items.ts';
@@ -49,7 +50,7 @@ async function save(items: FailedItem[]): Promise<void> {
   cache = items;
   pendingOwnWrites++;
   try {
-    await chrome.storage.local.set({ [FAILED_ITEMS_KEY]: { schemaVersion: FAILED_ITEMS_SCHEMA_VERSION, items } });
+    await chrome.storage.local.set({ [FAILED_ITEMS_KEY]: { schemaVersion: FAILED_ITEMS_SCHEMA_VERSION, items: serializeFailedItems(items) } });
   } catch (error) {
     // Ghi lỗi thì không có sự kiện onChanged; đọc lại storage ở lần sau.
     pendingOwnWrites--;

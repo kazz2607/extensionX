@@ -147,7 +147,6 @@ interface TweetDownloadButton extends HTMLButtonElement {
 
   /** Trích tweet ID từ article */
   function extractTweetId(article: Element) {
-    if (!article) return '';
     // 1. Link /status/
     const link = article.querySelector<HTMLAnchorElement>('a[href*="/status/"]');
     if (link) {

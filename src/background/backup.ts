@@ -9,6 +9,7 @@
 import type { BackupData, BackupSection } from '../shared/backup.ts';
 import {
   BACKUP_KIND,
+  BACKUP_MAX_URLS_PER_PROFILE,
   BACKUP_SCHEMA_VERSION,
   mergeHistory,
   mergeSavedJobs,
@@ -40,15 +41,16 @@ export async function buildBackup(): Promise<{ json: string; profiles: number; u
   let urls = 0;
   // URL vừa tải còn nằm trong bộ nhớ (ghi IndexedDB có debounce vài giây) —
   // gộp cả hai để file backup không thiếu những file mới tải xong.
-  const usernames = new Set([
-    ...summary.profiles.filter((profile) => profile.downloadedUrls > 0).map((profile) => profile.username),
-    ...[...downloadedStore].filter(([, set]) => set.size > 0).map(([username]) => username),
-  ]);
-  for (const username of usernames) {
-    const stored = summary.profiles.some((profile) => profile.username === username && profile.downloadedUrls > 0)
-      ? await mediaRepository.getDownloadedUrls(username)
-      : [];
-    const list = [...new Set([...stored, ...(downloadedStore.get(username) ?? [])])];
+  const persisted = new Set(summary.profiles.filter((profile) => profile.downloadedUrls > 0).map((profile) => profile.username));
+  const usernames = new Set([...persisted, ...[...downloadedStore].filter(([, set]) => set.size > 0).map(([username]) => username)]);
+  const lists = await Promise.all([...usernames].map(async (username) => {
+    const fromDb = persisted.has(username) ? await mediaRepository.getDownloadedUrls(username) : [];
+    // Bản trong bộ nhớ có thể giữ cả URL IndexedDB đã tỉa; giữ phần cuối (mới
+    // nhất) trong giới hạn, vì khôi phục cắt theo thứ tự mảng.
+    const merged = [...new Set([...fromDb, ...(downloadedStore.get(username) ?? [])])];
+    return [username, merged.slice(-BACKUP_MAX_URLS_PER_PROFILE)] as const;
+  }));
+  for (const [username, list] of lists) {
     if (!list.length) continue;
     downloaded[username] = list;
     urls += list.length;

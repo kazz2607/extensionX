@@ -491,7 +491,7 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
       // chrome.downloads chỉ báo mã ngắt, không báo mã HTTP: 429 và 5xx đều là
       // SERVER_FAILED. Hỏi lại mã thật để 429 kích hoạt tạm nghỉ và lỗi được
       // phân loại đúng trong danh sách File lỗi.
-      const err = await withHttpStatus(caught, item.url);
+      const err = await withHttpStatus(caught, item.url, pauseGate.remaining(Date.now()) > 0);
       if (!downloadCoordinator.isCurrent(operationId)) return;
       // F4: X trả 429 → mọi luồng tạm nghỉ, file này được xếp lại cuối hàng một
       // lần (chưa tính là lỗi). Lần 429 thứ hai mới ghi nhận lỗi bình thường.
@@ -906,23 +906,42 @@ function retryLastDownload(): boolean {
 }
 
 /**
- * Mã ngắt SERVER_FAILED của chrome.downloads gộp cả 429 lẫn 5xx. Gửi một HEAD
- * (không cookie, có hạn giờ) tới chính URL CDN đã tin cậy để lấy mã HTTP thật
- * và gắn vào thông báo lỗi ("SERVER_FAILED HTTP 429"). Các lỗi khác giữ nguyên.
+ * Mã ngắt SERVER_FAILED của chrome.downloads gộp cả 429 lẫn 5xx; Chrome không
+ * cho đọc mã HTTP của chính lượt tải nếu không thêm quyền `webRequest` (kế hoạch
+ * v7.3–v8 không tăng quyền). Vì vậy hỏi lại bằng một HEAD (không cookie, hạn 3 s)
+ * tới chính URL CDN đã tin cậy. Đây là ước lượng: chỉ mã 429/5xx được dùng để
+ * gắn vào lỗi ("SERVER_FAILED HTTP 429"); 2xx/403/405... (CDN xử lý HEAD khác GET)
+ * giữ nguyên lỗi gốc. Nhiều luồng lỗi cùng lúc dùng chung một HEAD đang chạy
+ * để không dội thêm request vào host đang giới hạn.
  */
-async function withHttpStatus(error: unknown, url: string): Promise<unknown> {
-  const raw = error instanceof Error ? error.message : String(error ?? '');
-  if (!/SERVER_FAILED/.test(raw) || /HTTP\s*\d{3}/i.test(raw) || !isTrustedMediaUrl(url)) return error;
+let inflightStatusProbe: Promise<number | null> | null = null;
+
+function probeHttpStatus(url: string): Promise<number | null> {
+  if (inflightStatusProbe) return inflightStatusProbe;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 5_000);
-  try {
-    const response = await fetch(url, { method: 'HEAD', credentials: 'omit', cache: 'no-store', signal: controller.signal });
-    return response.ok ? error : new Error(`${raw} HTTP ${response.status}`);
-  } catch {
-    return error;
-  } finally {
-    clearTimeout(timer);
-  }
+  const timer = setTimeout(() => controller.abort(), 3_000);
+  inflightStatusProbe = fetch(url, { method: 'HEAD', credentials: 'omit', cache: 'no-store', signal: controller.signal })
+    .then((response) => response.status, () => null)
+    .finally(() => {
+      clearTimeout(timer);
+      inflightStatusProbe = null;
+    });
+  return inflightStatusProbe;
+}
+
+function isServerFailed(error: unknown): boolean {
+  const raw = error instanceof Error ? error.message : String(error ?? '');
+  return /SERVER_FAILED/.test(raw) && !/HTTP\s*\d{3}/i.test(raw);
+}
+
+async function withHttpStatus(error: unknown, url: string, rateLimitActive: boolean): Promise<unknown> {
+  if (!isServerFailed(error) || !isTrustedMediaUrl(url)) return error;
+  const raw = error instanceof Error ? error.message : String(error ?? '');
+  // Đang tạm nghỉ vì 429: lỗi SERVER_FAILED lúc này gần như chắc chắn cùng
+  // nguyên nhân — không gửi thêm request tới host đang giới hạn.
+  if (rateLimitActive) return new Error(`${raw} HTTP 429`);
+  const status = await probeHttpStatus(url);
+  return status === 429 || (status !== null && status >= 500 && status < 600) ? new Error(`${raw} HTTP ${status}`) : error;
 }
 
 // F3: thử lại đúng các file lỗi đã chọn. Mỗi profile chạy một lượt startDownload

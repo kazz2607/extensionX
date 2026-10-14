@@ -58,7 +58,7 @@ Từ 8.2.0 (F5 sao lưu/khôi phục), không thêm quyền:
 - Cấu hình trong file đi qua `sanitizeImportedOptions` như Import Settings. File sao lưu chứa username profile và URL media đã tải (không có cookie, token hay bearer); người dùng cần giữ file này riêng tư.
 
 Từ 8.2.1, không thêm quyền:
-- Khi `chrome.downloads` báo `SERVER_FAILED`, service worker gửi một `HEAD` tới đúng URL media đó để đọc mã HTTP (429 hay 5xx): chỉ với URL qua `isTrustedMediaUrl` (CDN X đã có trong host permission), `credentials: 'omit'`, không cache, hủy sau 5 giây; chỉ mã trạng thái được dùng, không đọc nội dung.
+- Khi `chrome.downloads` báo `SERVER_FAILED`, service worker gửi một `HEAD` tới đúng URL media đó để đọc mã HTTP (429 hay 5xx): chỉ với URL qua `isTrustedMediaUrl` (CDN X đã có trong host permission), `credentials: 'omit'`, không cache, hủy sau 3 giây; chỉ mã 429/5xx được dùng, không đọc nội dung. Nhiều luồng lỗi cùng lúc dùng chung một HEAD, và trong lúc đang tạm nghỉ vì 429 thì không gửi HEAD. Không dùng `webRequest` (đọc được mã thật của lượt tải) vì sẽ phải thêm quyền.
 - Script trang (MAIN world) không còn gắn URL request lên object XHR (`_interceptUrl`) — trang không đọc hay sửa được giá trị extension dùng để lọc GraphQL.
 
 ## Bề mặt cần theo dõi

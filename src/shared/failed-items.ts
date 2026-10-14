@@ -38,12 +38,30 @@ function isFailedItem(value: unknown): value is FailedItem {
     && Number.isInteger(item.attempts) && (item.attempts ?? 0) >= 1;
 }
 
+/**
+ * Nguyên nhân `server` (8.2.1) được lưu dưới dạng `reason: 'other'` kèm cờ
+ * `serverError`: bản ≤ 8.2.0 kiểm tra reason theo danh sách cũ và sẽ bỏ cả dòng
+ * nếu gặp giá trị lạ. Như vậy rollback vẫn giữ (và thử lại được) các file đó.
+ */
+type StoredFailedItem = Omit<FailedItem, 'reason'> & { reason: Exclude<FailedItem['reason'], 'server'>; serverError?: true };
+
+function fromStored(value: unknown): unknown {
+  if (!value || typeof value !== 'object') return value;
+  const { serverError, ...item } = value as Record<string, unknown>;
+  return serverError === true && item.reason === 'other' ? { ...item, reason: 'server' } : item;
+}
+
+/** Dạng ghi xuống storage, đọc được bởi cả bản cũ. */
+export function serializeFailedItems(items: readonly FailedItem[]): StoredFailedItem[] {
+  return items.map((item) => (item.reason === 'server' ? { ...item, reason: 'other', serverError: true } : { ...item, reason: item.reason }));
+}
+
 /** Đọc dữ liệu thô từ storage; mục sai định dạng bị bỏ qua thay vì làm hỏng cả danh sách. */
 export function parseFailedItems(raw: unknown): FailedItem[] {
   const items = raw && typeof raw === 'object' && Array.isArray((raw as { items?: unknown }).items)
     ? (raw as { items: unknown[] }).items
     : [];
-  return items.filter(isFailedItem).slice(0, FAILED_ITEMS_MAX);
+  return items.map(fromStored).filter(isFailedItem).slice(0, FAILED_ITEMS_MAX);
 }
 
 export function createFailedItem(

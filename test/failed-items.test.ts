@@ -8,6 +8,7 @@ import {
   groupFailedItemsByUsername,
   parseFailedItems,
   removeFailedItemIds,
+  serializeFailedItems,
   upsertFailedItem,
 } from '../src/shared/failed-items.ts';
 import type { MediaItem } from '../src/types.ts';
@@ -76,4 +77,20 @@ test('F3: failed items upsert, cap, validate and group per profile', () => {
   assert.deepEqual(parsed, list);
   assert.deepEqual(parseFailedItems(undefined), []);
   assert.deepEqual(parseFailedItems({ items: 'nope' }), []);
+});
+
+test('8.2.1: "server" failures are stored in a form 8.2.0 still accepts and round-trip back', () => {
+  const media: MediaItem = { type: 'image', url: 'https://pbs.twimg.com/media/busy.jpg', tweetId: '1850000000000000001' };
+  const record = createFailedItem('Erin', media, 'server', 'HTTP 503', 1_000)!;
+  const stored = serializeFailedItems([record]);
+  assert.equal(stored[0].reason, 'other');
+  assert.equal(stored[0].serverError, true);
+  // The 8.2.0 parser only knew the older reasons; a stored row must use one of them.
+  const legacyReasons = new Set(['not_found', 'forbidden', 'rate_limited', 'timeout', 'network', 'hls', 'cancelled', 'other']);
+  assert.ok(legacyReasons.has(stored[0].reason));
+  const [restored] = parseFailedItems({ schemaVersion: 1, items: JSON.parse(JSON.stringify(stored)) });
+  assert.deepEqual(restored, record);
+  // Rows written by older builds (no flag) stay "other".
+  const [plain] = parseFailedItems({ schemaVersion: 1, items: [{ ...record, reason: 'other' }] });
+  assert.equal(plain.reason, 'other');
 });

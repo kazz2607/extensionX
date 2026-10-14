@@ -396,7 +396,7 @@ interface SnackbarUpdate {
       case 'ACTIVE_DOWNLOADS_UPDATE': {
         if (!data.activeList || data.activeList.length === 0) break;
         const topItem = data.activeList[0];
-        const formatSize = (bytes: number) => (bytes / 1024 / 1024).toFixed(1) + ' MB';
+        const formatSize = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
         const speed = (topItem.speedBps / 1024 / 1024).toFixed(1) + ' MB/s';
         const percent = topItem.totalBytes ? Math.round((topItem.bytesReceived / topItem.totalBytes) * 100) + '%' : formatSize(topItem.bytesReceived);
         

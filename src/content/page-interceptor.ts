@@ -373,11 +373,14 @@ interface GraphqlNode {
   const domObserver = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
-        if (!(node instanceof Element)) continue; // Chỉ xử lý Element nodes
-        if (node instanceof HTMLVideoElement) {
-          watchVideoElement(node);
+        // nodeType/tagName thay vì instanceof: node tạo ở realm khác (iframe)
+        // không phải instance của Element trong trang này.
+        if (node.nodeType !== Node.ELEMENT_NODE) continue;
+        const el = node as Element;
+        if (el.tagName === 'VIDEO') {
+          watchVideoElement(el as HTMLVideoElement);
         } else {
-          node.querySelectorAll('video').forEach(watchVideoElement);
+          el.querySelectorAll?.('video').forEach(watchVideoElement);
         }
       }
     }

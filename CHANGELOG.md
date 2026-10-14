@@ -6,7 +6,12 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ## [Unreleased]
 
-Chưa có thay đổi.
+### Sửa lỗi (sau review 8.2.1)
+
+- File lỗi do máy chủ (5xx) được lưu theo dạng bản 8.2.0 vẫn đọc được: rollback không còn làm mất các file này khỏi danh sách File lỗi.
+- Dò mã HTTP khi `SERVER_FAILED` an toàn hơn: chỉ tin mã 429/5xx (CDN trả 403/405 cho HEAD không còn làm lỗi bị xếp nhầm), nhiều luồng dùng chung một HEAD, không gửi HEAD khi đang tạm nghỉ vì 429, hạn giờ 3 giây.
+- Phát hiện video lại nhận cả node tạo từ iframe (khôi phục kiểm tra `nodeType`/`tagName`).
+- Sao lưu: đọc danh sách file đã tải các profile song song, giữ phần mới nhất khi vượt giới hạn 50.000 URL/profile.
 
 ---
 
