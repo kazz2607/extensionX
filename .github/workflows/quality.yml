@@ -1,9 +1,10 @@
 name: Quality
 
 on:
-  pull_request:
-  push:
-    branches: [main, master]
+  workflow_dispatch: # Tạm tắt chạy tự động — bật lại bằng cách bỏ comment 2 dòng dưới.
+  # pull_request:
+  # push:
+  #   branches: [main, master]
 
 permissions:
   contents: read
