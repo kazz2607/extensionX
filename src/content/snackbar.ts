@@ -239,35 +239,37 @@ interface SnackbarUpdate {
   root.appendChild(sb);
 
   // ─── Elements ────────────────────────────────────────────────────────────────
-  const titleTextEl = sb.querySelector<HTMLElement>('#__xmd_sb_title_text__');
-  const usernameEl = sb.querySelector<HTMLElement>('#__xmd_sb_username__');
-  const closeBtn   = sb.querySelector<HTMLElement>('#__xmd_sb_close__');
-  const barEl      = sb.querySelector<HTMLElement>('#__xmd_sb_bar__');
-  const counterEl  = sb.querySelector<HTMLElement>('#__xmd_sb_counter__');
-  const filenameEl = sb.querySelector<HTMLElement>('#__xmd_sb_filename__');
-  const doneMsgEl  = sb.querySelector<HTMLElement>('#__xmd_sb_done_msg__');
+  // Template tĩnh ở ngay trên: thiếu phần tử là lỗi lập trình, không phải trạng thái hợp lệ.
+  const part = (selector: string): HTMLElement => {
+    const el = sb.querySelector<HTMLElement>(selector);
+    if (!el) throw new Error(`snackbar template missing ${selector}`);
+    return el;
+  };
+  const titleTextEl = part('#__xmd_sb_title_text__');
+  const usernameEl = part('#__xmd_sb_username__');
+  const closeBtn   = part('#__xmd_sb_close__');
+  const barEl      = part('#__xmd_sb_bar__');
+  const counterEl  = part('#__xmd_sb_counter__');
+  const filenameEl = part('#__xmd_sb_filename__');
+  const doneMsgEl  = part('#__xmd_sb_done_msg__');
 
   // Last DOWNLOAD_DONE payload, so a language change can re-render the summary.
   let lastDone: { success: number; failed: number; username: string } | null = null;
 
   /** Static strings (title, close button); re-run when the language changes. */
   function applyStaticText(): void {
-    if (titleTextEl) titleTextEl.textContent = t('sb_title_downloading');
-    if (closeBtn) {
-      const label = t('sb_close');
-      closeBtn.title = label;
-      closeBtn.setAttribute('aria-label', label);
-    }
+    titleTextEl.textContent = t('sb_title_downloading');
+    const label = t('sb_close');
+    closeBtn.title = label;
+    closeBtn.setAttribute('aria-label', label);
   }
   applyStaticText();
 
   // ─── State ───────────────────────────────────────────────────────────────────
-// @ts-ignore
-  let autoDismissTimer = null;
+  let autoDismissTimer: ReturnType<typeof setTimeout> | undefined;
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
   function show() {
-// @ts-ignore
     clearTimeout(autoDismissTimer);
     sb.classList.remove('hiding', 'done');
     // Force reflow để restart animation nếu đang hiding
@@ -276,7 +278,6 @@ interface SnackbarUpdate {
   }
 
   function hide(immediate = false) {
-// @ts-ignore
     clearTimeout(autoDismissTimer);
     if (immediate) {
       sb.classList.remove('visible');
@@ -290,7 +291,6 @@ interface SnackbarUpdate {
   }
 
   function autoDismiss(ms = 3000) {
-// @ts-ignore
     clearTimeout(autoDismissTimer);
     autoDismissTimer = setTimeout(() => hide(), ms);
   }
@@ -336,7 +336,6 @@ interface SnackbarUpdate {
   });
 
   // ─── Event: close button ─────────────────────────────────────────────────────
-// @ts-ignore
   closeBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     hide();
@@ -353,17 +352,11 @@ interface SnackbarUpdate {
         // Reset về trạng thái downloading
         sb.classList.remove('done');
         lastDone = null;
-// @ts-ignore
         usernameEl.textContent = data.username ? '@' + String(data.username) : '';
-// @ts-ignore
         barEl.style.width = '0%';
-// @ts-ignore
         barEl.classList.add('active');
-// @ts-ignore
         counterEl.textContent = '0 / ' + (data.total || 0);
-// @ts-ignore
         filenameEl.textContent = '';
-// @ts-ignore
         doneMsgEl.replaceChildren();
         show();
         break;
@@ -376,7 +369,6 @@ interface SnackbarUpdate {
         const ok    = data.success  || 0;
         const fail  = data.failed   || 0;
 
-// @ts-ignore
         barEl.style.width = pct + '%';
 
         // Counter
@@ -384,13 +376,11 @@ interface SnackbarUpdate {
 
         // Tên file đang tải
         if (data.currentFile) {
-// @ts-ignore
           filenameEl.textContent = data.currentFile;
         }
 
         // Nếu đây là update cuối (done = true từ PROGRESS)
         if (data.done) {
-// @ts-ignore
           barEl.style.width = '100%';
         }
         break;
@@ -399,7 +389,6 @@ interface SnackbarUpdate {
       case 'DOWNLOAD_THROTTLED': {
         // F4: X giới hạn tốc độ — mọi luồng tạm nghỉ tới resumeAt.
         const seconds = Math.max(1, Math.ceil(((data.resumeAt || 0) - Date.now()) / 1000));
-// @ts-ignore
         filenameEl.textContent = t('sb_rate_limited', { seconds });
         break;
       }
@@ -407,12 +396,10 @@ interface SnackbarUpdate {
       case 'ACTIVE_DOWNLOADS_UPDATE': {
         if (!data.activeList || data.activeList.length === 0) break;
         const topItem = data.activeList[0];
-// @ts-ignore
-        const formatSize = (bytes) => (bytes / 1024 / 1024).toFixed(1) + ' MB';
+        const formatSize = (bytes: number) => (bytes / 1024 / 1024).toFixed(1) + ' MB';
         const speed = (topItem.speedBps / 1024 / 1024).toFixed(1) + ' MB/s';
         const percent = topItem.totalBytes ? Math.round((topItem.bytesReceived / topItem.totalBytes) * 100) + '%' : formatSize(topItem.bytesReceived);
         
-// @ts-ignore
         filenameEl.textContent = `${topItem.filename} (${percent} • ${speed})`;
         break;
       }
@@ -422,9 +409,7 @@ interface SnackbarUpdate {
         const fail  = data.failed  || 0;
         const total = data.total   || 0;
 
-// @ts-ignore
         barEl.style.width = '100%';
-// @ts-ignore
         barEl.classList.remove('active');
         sb.classList.add('done');
 

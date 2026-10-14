@@ -26,9 +26,7 @@ interface TweetDownloadButton extends HTMLButtonElement {
 (function () {
   'use strict';
 
-// @ts-ignore
   if (window.__XMD_TWEET_BTN_LOADED__) return;
-// @ts-ignore
   window.__XMD_TWEET_BTN_LOADED__ = true;
 
   // ─── Inject CSS ──────────────────────────────────────────────────────────────
@@ -148,11 +146,10 @@ interface TweetDownloadButton extends HTMLButtonElement {
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
   /** Trích tweet ID từ article */
-// @ts-ignore
-  function extractTweetId(article) {
+  function extractTweetId(article: Element) {
     if (!article) return '';
     // 1. Link /status/
-    const link = article.querySelector('a[href*="/status/"]');
+    const link = article.querySelector<HTMLAnchorElement>('a[href*="/status/"]');
     if (link) {
       const m = link.href.match(/\/status\/(\d+)/);
       if (m) return m[1];
@@ -167,10 +164,9 @@ interface TweetDownloadButton extends HTMLButtonElement {
   }
 
   /** Kiểm tra article có chứa media không (ảnh hoặc video) */
-// @ts-ignore
-  function hasMedia(article) {
+  function hasMedia(article: Element) {
     // Ảnh (bỏ avatar/banner/emoji)
-    const imgs = article.querySelectorAll('img[src*="pbs.twimg.com"]');
+    const imgs = article.querySelectorAll<HTMLImageElement>('img[src*="pbs.twimg.com"]');
     for (const img of imgs) {
       const src = img.src || '';
       if (
@@ -305,8 +301,7 @@ interface TweetDownloadButton extends HTMLButtonElement {
   }
 
   // ─── Inject nút vào action bar của tweet ────────────────────────────────────
-// @ts-ignore
-  function injectButton(article) {
+  function injectButton(article: Element) {
     // Đã có nút rồi? Bỏ qua
     if (article.querySelector('[data-xmd-btn]')) return;
 

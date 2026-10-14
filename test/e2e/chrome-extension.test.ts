@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
-import { cp, mkdtemp, rm } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { cp, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { createServer as createHttpsServer } from 'node:https';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { chromium, type BrowserContext } from '@playwright/test';
+import { searchSourceKey } from '../../src/shared/collection-source.ts';
 
 const chromePath = process.env.PLAYWRIGHT_CHROME_EXECUTABLE ?? chromium.executablePath();
 
@@ -828,4 +831,159 @@ test('tweet-btn re-attaches the download button when media arrives in an article
   const deadline = Date.now() + 10_000;
   while (!(await downloadBtn()) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 200));
   assert.equal(await downloadBtn(), true, 'tweet-btn did not re-scan the article and attach a button once media arrived');
+});
+
+test('v8.0.0 Search and Hashtag pages are detected and collected like a profile', { timeout: 60_000 }, async (t) => {
+  const extensionDir = await prepareTestExtension();
+  const profileDir = await mkdtemp(join(tmpdir(), 'extensionx-search-profile-'));
+  const context = await chromium.launchPersistentContext(profileDir, {
+    executablePath: chromePath,
+    headless: process.env.PLAYWRIGHT_HEADED !== 'true',
+    args: [`--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`, '--no-first-run'],
+  });
+  t.after(async () => {
+    await context.close();
+    await rm(extensionDir, { recursive: true, force: true });
+    await rm(profileDir, { recursive: true, force: true });
+  });
+  await context.route('https://x.com/**', (route) => {
+    const suffix = new URL(route.request().url()).pathname.includes('hashtag') ? 'tag' : 'search';
+    return route.fulfill({ status: 200, contentType: 'text/html', body: mediaPage('Someone', `${suffix}-hit`) });
+  });
+  await context.route('https://pbs.twimg.com/**', (route) => route.fulfill({ status: 200, contentType: 'image/jpeg', body: '' }));
+  const id = await extensionId(context);
+  const searchKey = searchSourceKey('search', 'cat photos');
+  const hashtagKey = searchSourceKey('hashtag', 'Cats');
+
+  const search = await context.newPage();
+  await search.goto('https://x.com/search?q=cat%20photos&f=media');
+  const hashtag = await context.newPage();
+  await hashtag.goto('https://x.com/hashtag/Cats');
+
+  const options = await context.newPage();
+  await options.goto(`chrome-extension://${id}/options/options.html`);
+  const count = (username: string) => options.evaluate(async (name) =>
+    (await chrome.runtime.sendMessage({ type: 'GET_MEDIA_COUNT', payload: { username: name } })).count as number, username);
+  // The page scripts' route gate and the worker accept the Search/Hashtag key.
+  await waitForCount(() => count(searchKey), 1);
+  await waitForCount(() => count(hashtagKey), 1);
+
+  // The popup asks the tab's content script; it must answer with the same key.
+  const pageInfo = await options.evaluate(async () => {
+    const [tab] = await chrome.tabs.query({ url: 'https://x.com/search*' });
+    return chrome.tabs.sendMessage(tab.id!, { type: 'GET_PAGE_INFO' });
+  });
+  assert.equal(pageInfo.username, searchKey);
+  assert.equal(pageInfo.isMediaPage, true, 'Search pages count as media pages for auto-scroll');
+
+  // Starting a collect from the popup (no sender.tab) finds the Search tab
+  // without navigating it away.
+  const started = await options.evaluate((name) => chrome.runtime.sendMessage({ type: 'START_COLLECTING', payload: { username: name } }), searchKey);
+  assert.equal(started.ok, true);
+  assert.match(search.url(), /\/search\?q=cat%20photos/);
+  await options.evaluate((name) => chrome.runtime.sendMessage({ type: 'STOP_COLLECTING', payload: { username: name } }), searchKey);
+});
+
+/**
+ * Local HTTPS stand-in for pbs.twimg.com. Playwright's context.route does not
+ * see chrome.downloads traffic, so Chrome's host resolver sends the CDN host
+ * here instead (downloads and the worker's fetch both follow it).
+ */
+async function startFakeCdn(handler: (path: string) => { status: number; body?: string }): Promise<{ port: number; close: () => Promise<void> }> {
+  const dir = await mkdtemp(join(tmpdir(), 'extensionx-cdn-'));
+  execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-subj', '/CN=pbs.twimg.com', '-days', '1',
+    '-keyout', join(dir, 'key.pem'), '-out', join(dir, 'cert.pem')], { stdio: 'ignore' });
+  const server = createHttpsServer({ key: await readFile(join(dir, 'key.pem')), cert: await readFile(join(dir, 'cert.pem')) }, (req, res) => {
+    const { status, body } = handler(req.url ?? '/');
+    res.writeHead(status, { 'Content-Type': status === 200 ? 'image/jpeg' : 'text/plain' });
+    res.end(req.method === 'HEAD' ? undefined : body ?? (status === 200 ? 'fixture-image' : 'error'));
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const port = (server.address() as { port: number }).port;
+  return { port, close: async () => { await new Promise((resolve) => server.close(resolve)); await rm(dir, { recursive: true, force: true }); } };
+}
+
+test('v8.0.0-8.2.0 failed downloads are recorded by reason, retried selectively, and backed up', { timeout: 90_000 }, async (t) => {
+  // missing → 404, limited → 429, busy → 503 until `healthy` flips.
+  let healthy = false;
+  const cdn = await startFakeCdn((path) => {
+    if (!healthy && path.includes('missing')) return { status: 404 };
+    if (!healthy && path.includes('limited')) return { status: 429 };
+    if (!healthy && path.includes('busy')) return { status: 503 };
+    return { status: 200 };
+  });
+  const extensionDir = await prepareTestExtension();
+  const profileDir = await mkdtemp(join(tmpdir(), 'extensionx-failed-profile-'));
+  const context = await chromium.launchPersistentContext(profileDir, {
+    executablePath: chromePath,
+    headless: process.env.PLAYWRIGHT_HEADED !== 'true',
+    acceptDownloads: true,
+    args: [
+      `--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`, '--no-first-run',
+      `--host-resolver-rules=MAP pbs.twimg.com 127.0.0.1:${cdn.port}`, '--ignore-certificate-errors',
+    ],
+  });
+  t.after(async () => {
+    await context.close();
+    await cdn.close();
+    await rm(extensionDir, { recursive: true, force: true });
+    await rm(profileDir, { recursive: true, force: true });
+  });
+  const id = await extensionId(context);
+  const options = await context.newPage();
+  await options.goto(`chrome-extension://${id}/options/options.html`);
+  const send = (message: unknown) => options.evaluate((m) => chrome.runtime.sendMessage(m), message);
+
+  const name = 'Erin';
+  // The worker owns the schema; have it open (and create) the DB before seeding.
+  await send({ type: 'GET_STORAGE_SUMMARY' });
+  const urls = ['ok', 'missing', 'limited', 'busy'].map((label) => `https://pbs.twimg.com/media/${name}-${label}.jpg`);
+  await options.evaluate(async ({ user, list }) => {
+    // Backoff off: the 429 must be recorded instead of pausing the test 60 s.
+    await chrome.storage.sync.set({ options: { concurrency: 1, rateLimitBackoff: false, showSnackbar: false, showNotification: false } });
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('XMediaDownloaderDB', 3);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction('media_items', 'readwrite');
+      for (const url of list) tx.objectStore('media_items').put({ id: `${user}_${url}`, username: user, type: 'image', url, ext: 'jpg', tweetId: '1850000000000000001', tweetDate: Date.now() });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  }, { user: name, list: urls });
+
+  type Failed = { id: string; url: string; reason: string };
+  const failedItems = async () => ((await send({ type: 'GET_FAILED_ITEMS' })) as { items: Failed[] }).items;
+  const byLabel = (items: Failed[]) => Object.fromEntries(items.map((item) => [item.url.split('-').pop()!.replace('.jpg', ''), item.reason]));
+  const waitFor = async (check: () => Promise<boolean>, label: string) => {
+    const deadline = Date.now() + 30_000;
+    while (!(await check()) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 250));
+    assert.ok(await check(), label);
+  };
+  const isIdle = async () => !((await send({ type: 'GET_DOWNLOAD_STATE' })) as { isDownloading: boolean }).isDownloading;
+
+  // START_DOWNLOAD is popup/X-tab only; an extension page in a tab starts runs through the Queue.
+  await send({ type: 'ADD_TO_QUEUE', payload: { username: name, filterType: 'all', skipDuplicates: true, keyword: '' } });
+  assert.equal(((await send({ type: 'START_QUEUE', payload: {} })) as { ok?: boolean }).ok, true);
+  await waitFor(async () => (await failedItems()).length === 3 && await isIdle(), 'three failures recorded and the run finished');
+  // chrome.downloads reports 429 and 503 alike (SERVER_FAILED); the worker probes
+  // the real status so 429 is a rate limit and 503 a server error.
+  assert.deepEqual(byLabel(await failedItems()), { missing: 'not_found', limited: 'rate_limited', busy: 'server' });
+
+  // Selective retry of only the 404 once the server recovers.
+  healthy = true;
+  const missing = (await failedItems()).find((item) => item.url.includes('missing'))!;
+  const retried = await send({ type: 'RETRY_FAILED_ITEMS', payload: { ids: [missing.id] } }) as { ok?: boolean; files?: number };
+  assert.equal(retried.ok, true);
+  assert.equal(retried.files, 1);
+  await waitFor(async () => !('missing' in byLabel(await failedItems())) && await isIdle(), 'retried file left the list');
+  assert.deepEqual(byLabel(await failedItems()), { limited: 'rate_limited', busy: 'server' }, 'unselected failures stay');
+
+  // The backup remembers both downloaded files (URLs without query keep their form).
+  const backup = JSON.parse(((await send({ type: 'EXPORT_BACKUP' })) as { json: string }).json);
+  assert.equal(backup.kind, 'extensionx-backup');
+  assert.deepEqual([...backup.downloaded[name]].sort(), [urls[0], urls[1]].sort());
 });

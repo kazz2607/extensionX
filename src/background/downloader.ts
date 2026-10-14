@@ -486,7 +486,12 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
       success++;
       // v4.1.0: Đánh dấu đã tải xong
       markDownloaded(username, item.url);
-    } catch (err: unknown) {
+    } catch (caught: unknown) {
+      if (!downloadCoordinator.isCurrent(operationId)) return;
+      // chrome.downloads chỉ báo mã ngắt, không báo mã HTTP: 429 và 5xx đều là
+      // SERVER_FAILED. Hỏi lại mã thật để 429 kích hoạt tạm nghỉ và lỗi được
+      // phân loại đúng trong danh sách File lỗi.
+      const err = await withHttpStatus(caught, item.url);
       if (!downloadCoordinator.isCurrent(operationId)) return;
       // F4: X trả 429 → mọi luồng tạm nghỉ, file này được xếp lại cuối hàng một
       // lần (chưa tính là lỗi). Lần 429 thứ hai mới ghi nhận lỗi bình thường.
@@ -898,6 +903,26 @@ function retryLastDownload(): boolean {
   if (downloadCoordinator.isBusy || !_lastDownloadUsername) return false;
   void startDownload(_lastDownloadUsername, _lastDownloadOptions);
   return true;
+}
+
+/**
+ * Mã ngắt SERVER_FAILED của chrome.downloads gộp cả 429 lẫn 5xx. Gửi một HEAD
+ * (không cookie, có hạn giờ) tới chính URL CDN đã tin cậy để lấy mã HTTP thật
+ * và gắn vào thông báo lỗi ("SERVER_FAILED HTTP 429"). Các lỗi khác giữ nguyên.
+ */
+async function withHttpStatus(error: unknown, url: string): Promise<unknown> {
+  const raw = error instanceof Error ? error.message : String(error ?? '');
+  if (!/SERVER_FAILED/.test(raw) || /HTTP\s*\d{3}/i.test(raw) || !isTrustedMediaUrl(url)) return error;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5_000);
+  try {
+    const response = await fetch(url, { method: 'HEAD', credentials: 'omit', cache: 'no-store', signal: controller.signal });
+    return response.ok ? error : new Error(`${raw} HTTP ${response.status}`);
+  } catch {
+    return error;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // F3: thử lại đúng các file lỗi đã chọn. Mỗi profile chạy một lượt startDownload

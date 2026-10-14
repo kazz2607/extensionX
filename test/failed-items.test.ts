@@ -23,6 +23,12 @@ test('F3: download errors map to machine-readable reasons without changing displ
     ['HLS download timeout (5 min)', 'timeout'],
     ['No valid HLS stream found', 'hls'],
     ['NETWORK_FAILED', 'network'],
+    // chrome.downloads: 429 and 5xx both interrupt with SERVER_FAILED; the worker
+    // appends the probed status, otherwise it stays a generic server error.
+    ['SERVER_FAILED HTTP 429', 'rate_limited'],
+    ['SERVER_FAILED HTTP 503', 'server'],
+    ['SERVER_FAILED', 'server'],
+    ['HTTP 502', 'server'],
     ['Download cancelled', 'cancelled'],
     ['something odd', 'other'],
   ];

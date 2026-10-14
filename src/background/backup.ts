@@ -38,11 +38,19 @@ export async function buildBackup(): Promise<{ json: string; profiles: number; u
   ]);
   const downloaded: Record<string, string[]> = {};
   let urls = 0;
-  for (const profile of summary.profiles) {
-    if (!profile.downloadedUrls) continue;
-    const list = await mediaRepository.getDownloadedUrls(profile.username);
+  // URL vừa tải còn nằm trong bộ nhớ (ghi IndexedDB có debounce vài giây) —
+  // gộp cả hai để file backup không thiếu những file mới tải xong.
+  const usernames = new Set([
+    ...summary.profiles.filter((profile) => profile.downloadedUrls > 0).map((profile) => profile.username),
+    ...[...downloadedStore].filter(([, set]) => set.size > 0).map(([username]) => username),
+  ]);
+  for (const username of usernames) {
+    const stored = summary.profiles.some((profile) => profile.username === username && profile.downloadedUrls > 0)
+      ? await mediaRepository.getDownloadedUrls(username)
+      : [];
+    const list = [...new Set([...stored, ...(downloadedStore.get(username) ?? [])])];
     if (!list.length) continue;
-    downloaded[profile.username] = list;
+    downloaded[username] = list;
     urls += list.length;
   }
   const data: BackupData = {

@@ -15,21 +15,39 @@ import { parseFollowingGraphqlPage } from '../shared/following-scanner.ts';
 import { sendToExtension } from './page-bridge.ts';
 import { routeCollectsMedia } from './page-route.ts';
 
+/** Phần JSON GraphQL của X mà parser đọc tới; mọi trường đều có thể thiếu. */
+interface GraphqlVariant { content_type?: string; bitrate?: number; url?: string }
+interface GraphqlMedia {
+  type?: string;
+  id_str?: string;
+  media_key?: string;
+  source_status_id_str?: string;
+  media_url_https?: string;
+  media_url?: string;
+  original_info?: { width?: number; height?: number };
+  video_info?: { variants?: GraphqlVariant[] };
+}
+interface GraphqlNode {
+  [key: string]: unknown;
+  id_str?: string;
+  full_text?: string;
+  favorite_count?: unknown;
+  extended_entities?: { media?: unknown };
+  entities?: { media?: unknown };
+}
+
 (function () {
   'use strict';
 
   // Tránh khởi tạo nhiều lần
-// @ts-ignore
   if (window.__XMD_PAGE_INTERCEPTOR__) return;
-// @ts-ignore
   window.__XMD_PAGE_INTERCEPTOR__ = true;
 
   // Tập hợp URL đã xử lý (dedup theo base URL không có query string)
-  const seenUrls = new Set();
+  const seenUrls = new Set<string>();
 
   // ─── Extract Tweet ID từ URL video ──────────────────────────────────────────
-// @ts-ignore
-  function extractTweetIdFromUrl(url) {
+  function extractTweetIdFromUrl(url: string) {
     // ext_tw_video chứa tweet ID trong đường dẫn
     // VD: video.twimg.com/ext_tw_video/1234567890/pu/pl/abc.m3u8
     const m = url.match(/ext_tw_video\/(\d+)/);
@@ -44,9 +62,8 @@ import { routeCollectsMedia } from './page-route.ts';
         const rect = article.getBoundingClientRect();
         // Tìm article đang trong viewport (±300px)
         if (rect.top >= -300 && rect.top <= window.innerHeight + 300) {
-          const link = article.querySelector('a[href*="/status/"]');
+          const link = article.querySelector<HTMLAnchorElement>('a[href*="/status/"]');
           if (link) {
-// @ts-ignore
             const m = link.href.match(/\/status\/(\d+)/);
             if (m) return m[1];
           }
@@ -63,8 +80,7 @@ import { routeCollectsMedia } from './page-route.ts';
   }
 
   // ─── Xử lý URL video tiềm năng ──────────────────────────────────────────────
-// @ts-ignore
-  function notifyVideoUrl(rawUrl) {
+  function notifyVideoUrl(rawUrl: unknown) {
     if (!rawUrl || typeof rawUrl !== 'string') return;
     if (!rawUrl.includes('video.twimg.com')) return;
 
@@ -106,15 +122,11 @@ import { routeCollectsMedia } from './page-route.ts';
   }
 
   // ─── P1: Adaptive Speed Tracker ───────────────────────────────────────────────
-// @ts-ignore
-  const recentDurations = [];
-// @ts-ignore
-  function reportResponseTime(duration) {
+  const recentDurations: number[] = [];
+  function reportResponseTime(duration: number) {
     if (duration > 30000) return; // Bỏ qua nếu bất thường (>30s)
     recentDurations.push(duration);
-// @ts-ignore
     if (recentDurations.length > 5) recentDurations.shift();
-// @ts-ignore
     const sum = recentDurations.reduce((a, b) => a + b, 0);
     const avg = Math.round(sum / recentDurations.length);
     sendToExtension('X_ADAPTIVE_SPEED', { avgResponseTime: avg });
@@ -179,7 +191,8 @@ import { routeCollectsMedia } from './page-route.ts';
 
   // ─── 1. Hook window.fetch ────────────────────────────────────────────────────
   const _originalFetch = window.fetch;
-  window.fetch = async function (resource, init) {
+  window.fetch = async function (this: typeof globalThis, ...args: Parameters<typeof fetch>) {
+    const [resource, init] = args;
     let url = '';
     const startTime = Date.now();
     try {
@@ -191,8 +204,7 @@ import { routeCollectsMedia } from './page-route.ts';
       captureQueryId(url);      // Dynamic query ID
     } catch (_) {}
     
-// @ts-ignore
-    const response = await _originalFetch.apply(this, arguments);
+    const response = await _originalFetch.apply(this, args);
     const duration = Date.now() - startTime;
     
     // Intercept ALL GraphQL JSON responses
@@ -212,7 +224,6 @@ import { routeCollectsMedia } from './page-route.ts';
           }
           if (!wantsMedia) return;
           const mediaItems: unknown[] = [];
-// @ts-ignore
           extractMediaFromResponse(data, mediaItems);
           if (mediaItems.length > 0) {
             sendToExtension('X_MEDIA_FOUND', { mediaItems, sourceUrl: 'graphql-fetch' });
@@ -225,42 +236,38 @@ import { routeCollectsMedia } from './page-route.ts';
   };
 
   // ─── Helper: Lấy extension ảnh từ URL ──────────────────────────────────────
-// @ts-ignore
-  function getImageExt(url) {
+  function getImageExt(url: string) {
     const m = url.match(/\.(jpg|jpeg|png|webp|gif)(?:[?#]|$)/i);
     return m ? m[1].toLowerCase() : 'jpg';
   }
 
   // ─── Helper: Parse JSON GraphQL tìm video ─────────────────────────────────────
-// @ts-ignore
-  function extractMediaFromResponse(obj, results, depth = 0) {
-    if (depth > 35 || !obj || typeof obj !== 'object') return;
+  function extractMediaFromResponse(value: unknown, results: unknown[], depth = 0) {
+    if (depth > 35 || !value || typeof value !== 'object') return;
+    const obj = value as GraphqlNode;
 
     const mediaList = (obj.extended_entities && Array.isArray(obj.extended_entities.media))
       ? obj.extended_entities.media
       : ((obj.entities && Array.isArray(obj.entities.media)) ? obj.entities.media : null);
 
     if (mediaList && Array.isArray(mediaList)) {
-// @ts-ignore
-      mediaList.forEach(media => {
+      (mediaList as GraphqlMedia[]).forEach(media => {
+        if (!media || typeof media !== 'object') return;
         const type = media.type;
         const tweetId = media.source_status_id_str || obj.id_str || media.id_str || '';
         // F2: số like nằm trên cùng object tweet (không cần request thêm), nhưng chỉ
         // đúng khi media thuộc chính tweet này — media của tweet gốc được chia sẻ lại
         // (source_status_id_str khác) thì số like của tweet bọc ngoài là sai.
         const ownMedia = !media.source_status_id_str || media.source_status_id_str === obj.id_str;
-        const likeCount = ownMedia && Number.isSafeInteger(obj.favorite_count) && obj.favorite_count >= 0 ? obj.favorite_count : undefined;
+        const likeCount = ownMedia && typeof obj.favorite_count === 'number' && Number.isSafeInteger(obj.favorite_count) && obj.favorite_count >= 0 ? obj.favorite_count : undefined;
         if (type === 'video' || type === 'animated_gif') {
           const variants = media.video_info?.variants || [];
-          let bestMp4 = variants
-// @ts-ignore
+          let bestMp4: GraphqlVariant | undefined = variants
             .filter(v => v.content_type === 'video/mp4')
-// @ts-ignore
             .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
 
           let isHls = false;
           if (!bestMp4) {
-// @ts-ignore
             bestMp4 = variants.find(v => v.content_type === 'application/x-mpegURL');
             if (bestMp4) isHls = true;
           }
@@ -304,41 +311,39 @@ import { routeCollectsMedia } from './page-route.ts';
     }
 
     // Đệ quy
-    for (const key of Object.keys(obj)) {
-      if (obj[key] !== null && typeof obj[key] === 'object') {
-        extractMediaFromResponse(obj[key], results, depth + 1);
+    for (const child of Object.values(obj)) {
+      if (child !== null && typeof child === 'object') {
+        extractMediaFromResponse(child, results, depth + 1);
       }
     }
   }
 
   // ─── 2. Hook XMLHttpRequest ──────────────────────────────────────────────────
+  // URL theo từng XHR, giữ ngoài object để trang không đọc/sửa được.
+  const xhrUrls = new WeakMap<XMLHttpRequest, string>();
   const _originalXhrOpen = XMLHttpRequest.prototype.open;
-  XMLHttpRequest.prototype.open = function (method, url) {
+  XMLHttpRequest.prototype.open = function (this: XMLHttpRequest, ...args: [string, string | URL, boolean?, (string | null)?, (string | null)?]) {
     try { 
-      const urlStr = String(url || '');
-// @ts-ignore
-      this._interceptUrl = urlStr;
+      const urlStr = String(args[1] || '');
+      xhrUrls.set(this, urlStr);
       notifyVideoUrl(urlStr);
       captureQueryId(urlStr); // Dynamic query ID
     } catch (_) {}
-// @ts-ignore
-    return _originalXhrOpen.apply(this, arguments);
+    return _originalXhrOpen.apply(this, args as Parameters<XMLHttpRequest['open']>);
   };
 
   const _originalXhrSend = XMLHttpRequest.prototype.send;
-  XMLHttpRequest.prototype.send = function (body) {
+  XMLHttpRequest.prototype.send = function (this: XMLHttpRequest, ...args: Parameters<XMLHttpRequest['send']>) {
     const startTime = Date.now();
     this.addEventListener('load', function() {
       const duration = Date.now() - startTime;
       try {
-// @ts-ignore
-        const url = this._interceptUrl || this.responseURL || '';
+        const url = xhrUrls.get(this) || this.responseURL || '';
         if (url.includes('/graphql/')) {
           reportResponseTime(duration);
           if (!routeCollectsMedia()) return;
           const data = nativeParse(this.responseText);
           const mediaItems: unknown[] = [];
-// @ts-ignore
           extractMediaFromResponse(data, mediaItems);
           if (mediaItems.length > 0) {
             sendToExtension('X_MEDIA_FOUND', { mediaItems, sourceUrl: 'graphql-xhr' });
@@ -346,13 +351,11 @@ import { routeCollectsMedia } from './page-route.ts';
         }
       } catch (_) {}
     });
-// @ts-ignore
-    return _originalXhrSend.apply(this, arguments);
+    return _originalXhrSend.apply(this, args);
   };
 
   // ─── 3. Theo dõi video elements (phát hiện src/currentSrc trực tiếp) ─────────
-// @ts-ignore
-  function watchVideoElement(videoEl) {
+  function watchVideoElement(videoEl: HTMLVideoElement) {
     const checkSrc = () => {
       const src = videoEl.currentSrc || videoEl.src;
       if (src) notifyVideoUrl(src);
@@ -370,13 +373,11 @@ import { routeCollectsMedia } from './page-route.ts';
   const domObserver = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
-        if (node.nodeType !== 1) continue; // Chỉ xử lý Element nodes
-// @ts-ignore
-        if (node.tagName === 'VIDEO') {
+        if (!(node instanceof Element)) continue; // Chỉ xử lý Element nodes
+        if (node instanceof HTMLVideoElement) {
           watchVideoElement(node);
         } else {
-// @ts-ignore
-          node.querySelectorAll?.('video').forEach(watchVideoElement);
+          node.querySelectorAll('video').forEach(watchVideoElement);
         }
       }
     }
@@ -405,7 +406,6 @@ import { routeCollectsMedia } from './page-route.ts';
     try {
       if (typeof text === 'string' && text.length > 200 && routeCollectsMedia() && text.includes('media_url_https')) {
         const mediaItems: unknown[] = [];
-// @ts-ignore
         extractMediaFromResponse(result, mediaItems);
         if (mediaItems.length > 0) {
           sendToExtension('X_MEDIA_FOUND', { mediaItems, sourceUrl: 'json-interceptor' });

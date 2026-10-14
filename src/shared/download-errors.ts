@@ -19,10 +19,10 @@ export function formatDownloadError(error: unknown): string {
 
 /** F3: nguyên nhân lỗi dạng mã máy đọc được, dùng để nhóm/lọc trong Download Center. */
 export type DownloadErrorReason =
-  | 'not_found' | 'forbidden' | 'rate_limited' | 'timeout' | 'network' | 'hls' | 'cancelled' | 'other';
+  | 'not_found' | 'forbidden' | 'rate_limited' | 'timeout' | 'network' | 'server' | 'hls' | 'cancelled' | 'other';
 
 export const DOWNLOAD_ERROR_REASONS: readonly DownloadErrorReason[] = [
-  'not_found', 'forbidden', 'rate_limited', 'timeout', 'network', 'hls', 'cancelled', 'other',
+  'not_found', 'forbidden', 'rate_limited', 'timeout', 'network', 'server', 'hls', 'cancelled', 'other',
 ];
 
 /**
@@ -40,5 +40,7 @@ export function categorizeDownloadError(error: unknown): DownloadErrorReason {
   if (/timeout|timed out|stalled/i.test(raw)) return 'timeout';
   if (/No valid HLS stream|No segments|HLS playlist|HLS download/i.test(raw)) return 'hls';
   if (/NETWORK_|interrupted|Failed to fetch/i.test(raw)) return 'network';
+  // 5xx (hoặc SERVER_FAILED chưa rõ mã) là lỗi phía server, thử lại sau thường được.
+  if ((status >= 500 && status < 600) || /SERVER_FAILED/.test(raw)) return 'server';
   return 'other';
 }

@@ -235,6 +235,10 @@ declare global {
     i18n?: import('./lib/i18n.ts').I18nAPI;
     // Guard chống chạy shortcuts.ts nhiều lần trên cùng 1 trang
     __XMD_SHORTCUTS_LOADED__?: boolean;
+    // Guard chống nạp lại các script MAIN world (page-interceptor, dom-scanner, tweet-btn)
+    __XMD_PAGE_INTERCEPTOR__?: boolean;
+    __X_DOM_SCANNER_LOADED__?: boolean;
+    __XMD_TWEET_BTN_LOADED__?: boolean;
     // options.ts: exposé console-accessible cho debug thủ công (không được gọi
     // từ options.html — các nút thật đều wire qua addEventListener).
     exportSettings?: () => Promise<void>;

@@ -18,9 +18,7 @@ import { routeCollectsMedia } from './page-route.ts';
 (function () {
   'use strict';
 
-// @ts-ignore
   if (window.__X_DOM_SCANNER_LOADED__) return;
-// @ts-ignore
   window.__X_DOM_SCANNER_LOADED__ = true;
 
   // Tập hợp URL/key đã phát hiện (tránh duplicate). Bounded: a long session on
@@ -45,8 +43,7 @@ import { routeCollectsMedia } from './page-route.ts';
   const IMAGE_DOMAINS = ['pbs.twimg.com'];
   const VIDEO_DOMAINS = ['video.twimg.com'];
 
-// @ts-ignore
-  function isImageUrl(src) {
+  function isImageUrl(src: string) {
     return IMAGE_DOMAINS.some(d => src.includes(d)) &&
       !src.includes('profile_images') &&
       !src.includes('profile_banners') &&
@@ -54,8 +51,7 @@ import { routeCollectsMedia } from './page-route.ts';
       !src.includes('emoji');
   }
 
-// @ts-ignore
-  function isVideoUrl(src) {
+  function isVideoUrl(src: string) {
     return VIDEO_DOMAINS.some(d => src.includes(d));
   }
 
@@ -74,12 +70,10 @@ import { routeCollectsMedia } from './page-route.ts';
     // performance.now() deltas only — named marks were never cleared and piled
     // up in X's performance timeline.
     const startedAt = performance.now();
-// @ts-ignore
     const found: unknown[] = [];
 
     // ─── Images: <img> ─────────────────────────────────────────────────────
     selectAll<HTMLImageElement>(root, 'img[src]').forEach(img => {
-// @ts-ignore
       const src = img.src || img.getAttribute('src') || '';
       // Cheap raw-src check before any URL parsing for images already seen.
       if (!src || discovered.has(src) || !isImageUrl(src)) return;
@@ -119,8 +113,7 @@ import { routeCollectsMedia } from './page-route.ts';
       const tweetId = extractTweetId(article);
 
       // Ưu tiên 1: Có currentSrc hoặc src thực sự (video đã được load)
-// @ts-ignore
-      const realSrc = el.currentSrc || el.src || el.getAttribute('src') || '';
+      const realSrc = ('currentSrc' in el ? el.currentSrc : '') || el.src || el.getAttribute('src') || '';
       if (realSrc && isVideoUrl(realSrc) && !realSrc.startsWith('blob:')) {
         const baseKey = `video_url_${realSrc.split('?')[0]}`;
         if (!discovered.has(baseKey)) {
@@ -158,7 +151,6 @@ import { routeCollectsMedia } from './page-route.ts';
     // Trên trang /media, X.com hiển thị video bằng <img> thumbnail, không phải <video>
     // URL pattern: pbs.twimg.com/ext_tw_video_thumb/{tweetId}/... hoặc amplify_video_thumb
     selectAll<HTMLImageElement>(root, 'img[src*="video_thumb"]').forEach(img => {
-// @ts-ignore
       const src = img.src || img.getAttribute('src') || '';
       if (!src.includes('pbs.twimg.com')) return;
 
@@ -173,10 +165,9 @@ import { routeCollectsMedia } from './page-route.ts';
         tweetId = extractTweetId(article);
         if (!tweetId) {
           // Thử lấy từ link /status/ gần nhất
-          const statusLink = img.closest('a[href*="/status/"]') ||
-            img.parentElement?.closest('a[href*="/status/"]');
+          const statusLink = img.closest<HTMLAnchorElement>('a[href*="/status/"]') ||
+            img.parentElement?.closest<HTMLAnchorElement>('a[href*="/status/"]');
           if (statusLink) {
-// @ts-ignore
             const m = statusLink.href.match(/\/status\/(\d+)/);
             if (m) tweetId = m[1];
           }
@@ -208,11 +199,10 @@ import { routeCollectsMedia } from './page-route.ts';
   }
 
   // ─── Extract tweet ID từ article element ───────────────────────────────────
-// @ts-ignore
-  function extractTweetId(article) {
+  function extractTweetId(article: Element | null) {
     if (!article) return '';
     // Tìm link dạng /status/1234567890
-    const link = article.querySelector('a[href*="/status/"]');
+    const link = article.querySelector<HTMLAnchorElement>('a[href*="/status/"]');
     if (link) {
       const m = link.href.match(/\/status\/(\d+)/);
       if (m) return m[1];
@@ -227,8 +217,7 @@ import { routeCollectsMedia } from './page-route.ts';
   }
 
   // ─── Extract tweet ID từ URL video (ext_tw_video type) ────────────────────
-// @ts-ignore
-  function extractTweetIdFromVideoUrl(url) {
+  function extractTweetIdFromVideoUrl(url: string) {
     if (!url) return '';
     const m = url.match(/ext_tw_video\/(\d+)/);
     return m ? m[1] : '';
@@ -249,7 +238,6 @@ import { routeCollectsMedia } from './page-route.ts';
   window.addEventListener('scroll', onScroll, { passive: true });
 
   // ─── MutationObserver: quét khi DOM thay đổi ───────────────────────────────
-// @ts-ignore
   let scanTimeout: ReturnType<typeof setTimeout> | null = null;
   const pendingRoots = new Set<Element>();
   const observer = new MutationObserver((mutations) => {
