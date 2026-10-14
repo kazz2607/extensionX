@@ -1,4 +1,5 @@
 import { PUBLIC_DOWNLOAD_OPTION_KEYS } from './download-options.ts';
+import { searchSourceFromUrl } from './collection-source.ts';
 import type { MediaItem, QueueItem } from '../types.ts';
 
 export const USERNAME_PATTERN = /^(?:[A-Za-z0-9_]{1,50}|_bookmarks_|[A-Za-z0-9_]{1,50}_likes)$/;
@@ -57,10 +58,13 @@ export function usernameFromXUrl(value: unknown): string | null {
   if (!isXUrl(value)) return null;
   const path = new URL(value).pathname;
   if (path.startsWith('/i/bookmarks')) return '_bookmarks_';
+  // F1: trang Search/Hashtag dùng khoá dạng username (xem collection-source.ts).
+  const search = searchSourceFromUrl(value);
+  if (search) return search.key;
   const match = path.match(/^\/([A-Za-z0-9_]{1,50})(?:\/|$)/);
   if (!match) return null;
   const username = match[1];
-  const reserved = new Set(['home', 'explore', 'notifications', 'messages', 'search', 'settings', 'i', 'login', 'logout', 'compose']);
+  const reserved = new Set(['home', 'explore', 'notifications', 'messages', 'search', 'hashtag', 'settings', 'i', 'login', 'logout', 'compose']);
   if (reserved.has(username.toLowerCase())) return null;
   return path.includes('/likes') ? `${username}_likes` : username;
 }

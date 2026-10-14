@@ -25,6 +25,7 @@ import { initPresets, type FilterPreset } from './presets.ts';
 import { initQueuePanel, loadQueue, addCurrentToQueue as queueAddCurrent, updateQueueItemProgress, setQueueFromUpdate } from './queue-panel.ts';
 import { initDownloadPicker, loadPickerItems } from './download-picker.ts';
 import { isWatched, toggleWatch, checkWatchedProfile } from './watch-list.ts';
+import { searchSourceFromUrl, searchSourceLabel } from '../shared/collection-source.ts';
 import type { DownloadOptions } from '../types.ts';
 import type { MessageType, ResponseFor } from '../shared/messages.ts';
 
@@ -443,24 +444,27 @@ async function detectCurrentTab() {
     return;
   }
 
-  chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_INFO' }, (res: { username?: string } | undefined) => {
+  chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_INFO' }, (res: { username?: string; url?: string } | undefined) => {
     if (chrome.runtime.lastError || !res?.username) {
       updateOnboardingState(); // UI-04: trên X.com nhưng không nhận ra profile
       return;
     }
-    setCurrentUser(res.username);
+    setCurrentUser(res.username, res.url ?? url);
   });
 }
 
-async function setCurrentUser(username: string) {
+async function setCurrentUser(username: string, pageUrl?: string) {
   if (currentUsername !== username) _csvOffset = 0;
   currentUsername = username;
   updateOnboardingState(); // UI-04: ẩn onboarding khi biết profile
 
-  els.username.textContent = `@${username}`;
-  els.hint.textContent = t('profile_hint_active');
+  // F1: trang Search/Hashtag hiển thị truy vấn gốc thay vì khoá nội bộ.
+  const search = pageUrl ? searchSourceFromUrl(pageUrl) : null;
+  const isSearch = search?.key === username;
+  els.username.textContent = isSearch && search ? searchSourceLabel(search) : `@${username}`;
+  els.hint.textContent = t(isSearch ? (search?.kind === 'hashtag' ? 'profile_hint_hashtag' : 'profile_hint_search') : 'profile_hint_active');
   els.profileCard.classList.add('active');
-  els.avatar.textContent = username.slice(0, 2).toUpperCase();
+  els.avatar.textContent = isSearch ? (search?.kind === 'hashtag' ? '#' : '🔍') : username.slice(0, 2).toUpperCase();
 
   // Cập nhật queue add bar hint
   if (els.queueAddHint) els.queueAddHint.textContent = t('popup_queue_add_hint_user', { username });

@@ -9,6 +9,7 @@ import { filterMediaItems, isVideoThumbnailUrl } from '../shared/media-filter.ts
 import { recordDiagnostic } from './diagnostics.ts';
 import { canTransitionCollectPhase, type CollectPhase } from '../shared/collect-state.ts';
 import { isXProfileUrlForUsername, normalizeUrlForDedup } from '../shared/validation.ts';
+import { isSearchSourceKey } from '../shared/collection-source.ts';
 import { t } from '../lib/i18n.ts';
 
 // ─── BUG-03 FIX: Options Cache — tránh gọi storage.sync N lần per session ────
@@ -304,8 +305,11 @@ async function startCollecting(username: string, tabId?: number): Promise<boolea
   if (username === '_bookmarks_') targetUrl = 'https://x.com/i/bookmarks';
   else if (username.endsWith('_likes')) targetUrl = `https://x.com/${username.replace('_likes', '')}/likes`;
 
-  // Kiểm tra tab hiện tại có đang ở đúng trang thu thập không
+  // Kiểm tra tab hiện tại có đang ở đúng trang thu thập không.
+  // F1: với Search/Hashtag, tab đã được so khớp đúng khoá ở trên (khoá suy ra từ
+  // chính URL của tab), nên luôn là đúng trang — không có URL đích để điều hướng.
   const isOnRightPage = tab && (
+    isSearchSourceKey(username) ||
     (username === '_bookmarks_' && tab.url?.includes('/i/bookmarks')) ||
     (username.endsWith('_likes') && tab.url?.includes('/likes')) ||
     (!username.endsWith('_likes') && username !== '_bookmarks_' && tab.url?.includes('/media'))
@@ -496,6 +500,14 @@ function stopCollectingForTab(tabId: number) {
 // Debounce timer để tránh ghi storage quá nhiều lần khi media flood vào liên tục
 let _persistDebounceMap = new Map(); // Map<username, timerId>
 
+/** URL trang Search/Hashtag đã đăng ký cho khoá này (khoá không đảo ngược được thành truy vấn). */
+function searchTabUrl(username: string): string | undefined {
+  for (const state of tabState.values()) {
+    if (state.username === username && state.url) return state.url;
+  }
+  return undefined;
+}
+
 async function persistSession(username: string) {
   // Hủy timer cũ (nếu có) để debounce
   const existing = _persistDebounceMap.get(username);
@@ -530,7 +542,8 @@ async function persistSession(username: string) {
       });
 
       let profileUrl = `https://x.com/${username}/media`;
-      if (username === '_bookmarks_') profileUrl = 'https://x.com/i/bookmarks';
+      if (isSearchSourceKey(username)) profileUrl = searchTabUrl(username) ?? 'https://x.com/search';
+      else if (username === '_bookmarks_') profileUrl = 'https://x.com/i/bookmarks';
       else if (username.endsWith('_likes')) profileUrl = `https://x.com/${username.replace('_likes', '')}/likes`;
 
       const sessionData = {

@@ -11,6 +11,8 @@
  */
 import { onPageMessage, sendToPage } from './extension-bridge.ts';
 import { emitUi, onUi } from './ui-bus.ts';
+import { usernameFromXUrl } from '../shared/validation.ts';
+import { isSearchSourceKey, searchSourceFromUrl } from '../shared/collection-source.ts';
 // window.i18n, FAB and snackbar live in this isolated world (closed shadow
 // roots), out of reach of page scripts.
 // x-ui-i18n.ts registers the X UI strings once; fab/snackbar import it.
@@ -67,30 +69,14 @@ chrome.storage.local.get('lang')
   .catch((err: unknown) => console.debug('Failed to load lang', err));
 
 // ─── 2. Lấy username từ URL ───────────────────────────────────────────────────
+// Dùng chung parser với service worker và script trang (profile, Likes,
+// Bookmarks, Search, Hashtag) để popup, interceptor và SW luôn thống nhất.
 function getUsernameFromURL(url = location.href) {
-  try {
-    const u = new URL(url);
-    const path = u.pathname;
-    
-    // v4.4.0: Hỗ trợ Bookmarks
-    if (path.includes('/i/bookmarks')) return '_bookmarks_';
-    
-    const match = path.match(/^\/([A-Za-z0-9_]{1,50})/);
-    if (match) {
-      const reserved = ['home', 'explore', 'notifications', 'messages',
-        'search', 'settings', 'i', 'login', 'logout', 'compose'];
-      const username = match[1];
-      if (!reserved.includes(username.toLowerCase())) {
-        // v4.4.0: Hỗ trợ Likes
-        if (path.includes('/likes')) return username + '_likes';
-        return username;
-      }
-    }
-  } catch (_) {}
-  return null;
+  return usernameFromXUrl(url);
 }
 
 function isMediaPage(url = location.href) {
+  if (searchSourceFromUrl(url)) return true; // F1: trang Search/Hashtag thu thập như trang media
   return url.includes('/media') || url.includes('/photos') || url.includes('/videos') || url.includes('/likes') || url.includes('/bookmarks');
 }
 
@@ -379,7 +365,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   // Điều hướng sang /media hoặc trang tương ứng
   if (message.type === 'NAVIGATE_TO_MEDIA') {
     const username = message.payload?.username || getUsernameFromURL();
-    if (username) {
+    // Khoá Search/Hashtag không suy ra được URL; trang hiện tại đã là trang thu thập.
+    if (username && !isSearchSourceKey(username)) {
       if (username === '_bookmarks_') location.href = 'https://x.com/i/bookmarks';
       else if (username.endsWith('_likes')) location.href = `https://x.com/${username.replace('_likes', '')}/likes`;
       else location.href = `https://x.com/${username}/media`;
