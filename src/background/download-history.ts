@@ -42,3 +42,11 @@ export async function recordDownloadHistory(
     [LEGACY_STORAGE_KEY]: entries.slice(0, 20),
   });
 }
+
+/** F5: ghi lại toàn bộ lịch sử (đã gộp) khi khôi phục backup, giữ bản mirror cho rollback. */
+export async function replaceDownloadHistory(entries: readonly HistoryEntry[]): Promise<void> {
+  await chromeApi.storage.local.set({
+    [STORAGE_KEY]: createDownloadHistorySnapshot(entries),
+    [LEGACY_STORAGE_KEY]: entries.slice(0, 20),
+  });
+}

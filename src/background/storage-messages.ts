@@ -6,6 +6,10 @@ import { cancelDownloadedPersist, reloadMediaCache } from './scraper.ts';
 import { isValidUsername } from '../shared/validation.ts';
 import { t } from '../lib/i18n.ts';
 import { clearFailedItems, clearFailedItemsForUser } from './failed-items.ts';
+import { buildBackup, restoreBackupSection } from './backup.ts';
+import { BACKUP_MAX_URLS_PER_PROFILE, type BackupSection } from '../shared/backup.ts';
+
+const BACKUP_SECTIONS: ReadonlySet<unknown> = new Set<BackupSection>(['savedJobs', 'schedules', 'queue', 'history', 'downloaded']);
 
 const PRUNE_CONCURRENCY = 8;
 
@@ -85,6 +89,28 @@ export const handleStorageMessage: DomainMessageHandler = (message, _sender, sen
           sendResponse({ error: t('bg_err_storage_clear_profile') });
         }
       })();
+      return true;
+    }
+    case 'EXPORT_BACKUP':
+      void buildBackup().then(sendResponse, (error: unknown) => {
+        console.warn('[SW] EXPORT_BACKUP failed:', error instanceof Error ? error.message : String(error));
+        sendResponse({ error: t('bg_err_backup_export') });
+      });
+      return true;
+    case 'RESTORE_BACKUP_SECTION': {
+      const section = payload?.section;
+      const items = payload?.items;
+      if (!BACKUP_SECTIONS.has(section) || !Array.isArray(items) || items.length > BACKUP_MAX_URLS_PER_PROFILE) {
+        sendResponse({ ok: false, error: t('bg_err_backup_invalid') });
+        return false;
+      }
+      void restoreBackupSection(section, items, payload?.username).then(
+        (count) => sendResponse({ ok: true, count }),
+        (error: unknown) => {
+          console.warn('[SW] RESTORE_BACKUP_SECTION failed:', error instanceof Error ? error.message : String(error));
+          sendResponse({ ok: false, error: t('bg_err_backup_restore') });
+        },
+      );
       return true;
     }
     case 'CLEAR_ALL_PROFILE_STORAGE':

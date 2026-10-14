@@ -1,5 +1,6 @@
 import type { CollectState, DownloadOptions, FailedItem, FollowingCandidate, FollowingScanState, FollowingScrollState, HistoryEntry, JobSchedule, MediaItem, NotificationEvent, QueueExportData, QueueItem, SavedJob, SavedJobInput, Stats, StorageSummary } from '../types.ts';
 import type { DownloadEstimate } from './p2-tools.ts';
+import type { BackupSection } from './backup.ts';
 import type { LocalDiagnostics } from './diagnostics.ts';
 
 export type MessageType =
@@ -20,7 +21,8 @@ export type MessageType =
   | 'GET_DOWNLOAD_ESTIMATE' | 'PREVIEW_FOLDER_RULE' | 'GET_GALLERY_PAGE' | 'EXPORT_ERROR_REPORT'
   | 'GET_SCHEDULES' | 'SET_JOB_SCHEDULE' | 'GET_NOTIFICATIONS' | 'MARK_NOTIFICATIONS_READ' | 'DOWNLOAD_ZIP_CHUNKS'
   | 'OFFSCREEN_SAVE_BLOB'
-  | 'GET_FAILED_ITEMS' | 'RETRY_FAILED_ITEMS' | 'CLEAR_FAILED_ITEMS';
+  | 'GET_FAILED_ITEMS' | 'RETRY_FAILED_ITEMS' | 'CLEAR_FAILED_ITEMS'
+  | 'EXPORT_BACKUP' | 'RESTORE_BACKUP_SECTION';
 
 type UsernamePayload = { username: string };
 type MediaFilterPayload = UsernamePayload & { filterType?: 'all' | 'images' | 'videos' | 'gifs'; dateFrom?: string; dateTo?: string; keyword?: string };
@@ -32,7 +34,7 @@ type EmptyMessageType =
   | 'GET_STORAGE_SUMMARY' | 'PRUNE_STORAGE' | 'CLEAR_ALL_PROFILE_STORAGE'
   | 'GET_FOLLOWING_SCAN_STATE' | 'STOP_FOLLOWING_SCAN'
   | 'GET_SCHEDULES' | 'GET_NOTIFICATIONS' | 'MARK_NOTIFICATIONS_READ' | 'EXPORT_ERROR_REPORT'
-  | 'GET_FAILED_ITEMS';
+  | 'GET_FAILED_ITEMS' | 'EXPORT_BACKUP';
 
 export type ExtensionMessage =
   | { type: 'MEDIA_FOUND'; payload: { username: string; mediaItems: MediaItem[] } }
@@ -67,6 +69,7 @@ export type ExtensionMessage =
   | { type: 'OFFSCREEN_SAVE_BLOB'; payload: { url: string; filename: string; username?: string } }
   | { type: 'RETRY_FAILED_ITEMS'; payload: { ids: string[] } }
   | { type: 'CLEAR_FAILED_ITEMS'; payload: { ids?: string[] } }
+  | { type: 'RESTORE_BACKUP_SECTION'; payload: { section: BackupSection; items: unknown[]; username?: string } }
   | { type: EmptyMessageType; payload?: Record<never, never> };
 
 export type ParsedRuntimeMessage = ExtensionMessage | {
@@ -144,6 +147,8 @@ export interface MessageResponseMap {
   GET_FAILED_ITEMS: { items: FailedItem[] };
   RETRY_FAILED_ITEMS: { ok: boolean; profiles?: number; files?: number; resolved?: number; missing?: number; error?: string };
   CLEAR_FAILED_ITEMS: { ok: boolean; removed?: number; error?: string };
+  EXPORT_BACKUP: { json?: string; profiles?: number; urls?: number; error?: string };
+  RESTORE_BACKUP_SECTION: { ok: boolean; count?: number; error?: string };
 }
 
 export type ResponseFor<T extends MessageType> = T extends keyof MessageResponseMap
@@ -170,6 +175,7 @@ const MESSAGE_TYPES: ReadonlySet<string> = new Set<MessageType>([
   'GET_SCHEDULES', 'SET_JOB_SCHEDULE', 'GET_NOTIFICATIONS', 'MARK_NOTIFICATIONS_READ', 'DOWNLOAD_ZIP_CHUNKS',
   'OFFSCREEN_SAVE_BLOB',
   'GET_FAILED_ITEMS', 'RETRY_FAILED_ITEMS', 'CLEAR_FAILED_ITEMS',
+  'EXPORT_BACKUP', 'RESTORE_BACKUP_SECTION',
 ]);
 
 const PAYLOAD_KEYS: Readonly<Record<MessageType, readonly string[]>> = {
@@ -202,6 +208,7 @@ const PAYLOAD_KEYS: Readonly<Record<MessageType, readonly string[]>> = {
   DOWNLOAD_ZIP_CHUNKS: ['username', 'filterType', 'dateFrom', 'dateTo', 'keyword', 'chunkSize'],
   OFFSCREEN_SAVE_BLOB: ['url', 'filename', 'username'],
   GET_FAILED_ITEMS: [], RETRY_FAILED_ITEMS: ['ids'], CLEAR_FAILED_ITEMS: ['ids'],
+  EXPORT_BACKUP: [], RESTORE_BACKUP_SECTION: ['section', 'items', 'username'],
 };
 
 /** Commands a content script on X/Telegram may send. Everything else is popup/options/Download Center only. */

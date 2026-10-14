@@ -82,6 +82,18 @@ async function setSchedule(raw: unknown): Promise<JobSchedule | null> {
   });
 }
 
+/** F5: lịch hiện có (để xuất backup). */
+export function listJobSchedules(): Promise<JobSchedule[]> {
+  return listSchedules();
+}
+
+/** F5: khôi phục lịch từ backup — chỉ cho Saved Job đang tồn tại, tạo lại alarm. */
+export async function restoreSchedules(raw: readonly unknown[]): Promise<number> {
+  let restored = 0;
+  for (const item of raw) if (await setSchedule(item)) restored++;
+  return restored;
+}
+
 /** Called when a Saved Job is deleted: its alarm must stop firing. */
 export function removeSchedule(jobId: string): Promise<void> {
   return updateSchedules(async (schedules) => {

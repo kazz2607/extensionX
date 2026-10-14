@@ -20,6 +20,7 @@ import { migrateOptionsStorage, OPTIONS_SCHEMA_VERSION } from '../shared/storage
 import type { ResponseFor } from '../shared/messages.ts';
 import type { StorageSummary } from '../types.ts';
 import { clampConcurrency, clampDownloadDelay } from '../shared/download-throttle.ts';
+import { chunkByJsonSize, parseBackupFile, summarizeBackup, type BackupData, type BackupSection } from '../shared/backup.ts';
 
 // Mọi id dùng qua helper này đều trỏ tới input/select tĩnh có sẵn trong
 // options.html — cast trực tiếp thay vì ts-ignore từng dòng, không đổi hành vi.
@@ -405,6 +406,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('import-file-input')?.click();
   });
   document.getElementById('import-file-input')?.addEventListener('change', importSettings);
+  document.getElementById('btn-backup-export')?.addEventListener('click', () => void exportBackup());
+  document.getElementById('btn-backup-import')?.addEventListener('click', () => {
+    document.getElementById('backup-file-input')?.click();
+  });
+  document.getElementById('backup-file-input')?.addEventListener('change', (event) => void importBackup(event));
   document.getElementById('btn-reset')?.addEventListener('click', resetSettings);
   document.getElementById('btn-clear-all-downloaded')?.addEventListener('click', clearAllDownloadedHistory);
   document.getElementById('btn-export-diagnostics')?.addEventListener('click', exportLocalDiagnostics);
@@ -490,6 +496,93 @@ async function importSettings(event: Event): Promise<void> {
   } catch (err) {
     console.error('[Options] importSettings error:', err);
     alert(t('opt_import_failed', { error: err instanceof Error ? err.message : String(err) }));
+  }
+}
+
+// ─── F5: Backup/Restore toàn bộ dữ liệu cục bộ ───────────────────────────────
+function setBackupStatus(text: string): void {
+  el<HTMLElement>('backup-status').textContent = text;
+}
+
+function setBackupBusy(busy: boolean): void {
+  el<HTMLButtonElement>('btn-backup-export').disabled = busy;
+  el<HTMLButtonElement>('btn-backup-import').disabled = busy;
+}
+
+async function exportBackup(): Promise<void> {
+  setBackupBusy(true);
+  setBackupStatus(t('opt_backup_working'));
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'EXPORT_BACKUP' }) as ResponseFor<'EXPORT_BACKUP'>;
+    if (!response?.json) throw new Error(response?.error || t('opt_backup_failed'));
+    const url = URL.createObjectURL(new Blob([response.json], { type: 'application/json' }));
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    await chrome.downloads.download({ url, filename: `extensionx_backup_${dateStr}.json`, saveAs: false })
+      .finally(() => setTimeout(() => URL.revokeObjectURL(url), 5_000));
+    setBackupStatus(t('opt_backup_done', { profiles: response.profiles ?? 0, urls: response.urls ?? 0 }));
+  } catch (err) {
+    setBackupStatus(t('opt_backup_failed_detail', { error: err instanceof Error ? err.message : String(err) }));
+  } finally {
+    setBackupBusy(false);
+  }
+}
+
+async function sendBackupSection(section: BackupSection, items: unknown[], username?: string): Promise<void> {
+  for (const chunk of chunkByJsonSize(items)) {
+    const response = await chrome.runtime.sendMessage({
+      type: 'RESTORE_BACKUP_SECTION',
+      payload: { section, items: chunk, ...(username ? { username } : {}) },
+    }) as ResponseFor<'RESTORE_BACKUP_SECTION'>;
+    if (!response?.ok) throw new Error(response?.error || t('opt_restore_failed'));
+  }
+}
+
+async function importBackup(event: Event): Promise<void> {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  target.value = ''; // chọn lại cùng file vẫn kích hoạt change
+  if (!file) return;
+  let data: BackupData | null = null;
+  try {
+    data = parseBackupFile(JSON.parse(await file.text()));
+  } catch {
+    data = null;
+  }
+  if (!data) { setBackupStatus(t('opt_restore_invalid')); return; }
+
+  const summary = summarizeBackup(data);
+  if (!confirm(t('opt_restore_confirm', { ...summary, date: data.exportedAt.slice(0, 10) || '?' }))) return;
+
+  setBackupBusy(true);
+  try {
+    // Cấu hình: lọc theo DEFAULT_OPTIONS như Import Settings, ghi đè cấu hình hiện tại.
+    setBackupStatus(t('opt_restore_step', { step: t('opt_restore_step_settings') }));
+    const options = sanitizeImportedOptions(DEFAULT_OPTIONS, migrateOptionsStorage(data.options));
+    await chrome.storage.sync.set({ options: { ...options, schemaVersion: OPTIONS_SCHEMA_VERSION } });
+
+    // Thứ tự: Saved Jobs trước lịch (lịch của job không tồn tại bị bỏ qua).
+    const steps: Array<[BackupSection, unknown[], string]> = [
+      ['savedJobs', data.savedJobs, 'opt_restore_step_jobs'],
+      ['schedules', data.schedules, 'opt_restore_step_schedules'],
+      ['queue', data.queue, 'opt_restore_step_queue'],
+      ['history', data.history, 'opt_restore_step_history'],
+    ];
+    for (const [section, items, label] of steps) {
+      if (!items.length) continue;
+      setBackupStatus(t('opt_restore_step', { step: t(label) }));
+      await sendBackupSection(section, items);
+    }
+    const profiles = Object.entries(data.downloaded);
+    for (const [index, [username, urls]] of profiles.entries()) {
+      setBackupStatus(t('opt_restore_step_downloaded', { n: index + 1, total: profiles.length }));
+      await sendBackupSection('downloaded', urls, username);
+    }
+    setBackupStatus(t('opt_restore_done'));
+    setTimeout(() => location.reload(), 1_500);
+  } catch (err) {
+    setBackupStatus(t('opt_restore_failed_detail', { error: err instanceof Error ? err.message : String(err) }));
+  } finally {
+    setBackupBusy(false);
   }
 }
 

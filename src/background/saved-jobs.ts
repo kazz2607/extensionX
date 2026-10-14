@@ -44,3 +44,8 @@ export async function deleteSavedJob(id: string): Promise<boolean> {
 export async function getSavedJob(id: string): Promise<SavedJob | undefined> {
   return (await listSavedJobs()).find((job) => job.id === id);
 }
+
+/** F5: ghi lại toàn bộ danh sách Saved Jobs (đã qua parser) khi khôi phục backup. */
+export async function replaceSavedJobs(jobs: readonly SavedJob[]): Promise<void> {
+  await chromeApi.storage.local.set({ [STORAGE_KEY]: createSavedJobsSnapshot(jobs) });
+}
