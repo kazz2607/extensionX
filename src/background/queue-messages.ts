@@ -17,6 +17,7 @@ import {
   toggleQueuePause,
 } from './queue.ts';
 import { retryLastDownload, stopDownload } from './downloader.ts';
+import { t } from '../lib/i18n.ts';
 
 const QUEUE_ID_PATTERN = /^[A-Za-z0-9_-]{1,120}$/;
 
@@ -53,7 +54,7 @@ export const handleQueueMessage: DomainMessageHandler = (message, _sender, sendR
       const { id } = payload || {};
       if (typeof id !== 'string' || !QUEUE_ID_PATTERN.test(id)) { sendResponse({ error: 'Invalid queue id' }); return false; }
       if (profileQueue.some(q => q.id === id && q.status === 'downloading')) {
-        sendResponse({ error: 'Stop the active download before removing it' }); return false;
+        sendResponse({ error: t('bg_err_queue_remove_active') }); return false;
       }
       setProfileQueue(profileQueue.filter(q => q.id !== id));
       persistQueue();
@@ -100,7 +101,7 @@ export const handleQueueMessage: DomainMessageHandler = (message, _sender, sendR
       sendResponse({ ok: true });
       return false;
     case 'START_QUEUE':
-      if (downloadCoordinator.isBusy) { sendResponse({ error: 'Download is already running' }); return false; }
+      if (downloadCoordinator.isBusy) { sendResponse({ error: t('bg_err_download_running') }); return false; }
       resumePausedQueueItems();
       sendResponse({ ok: true });
       void startNextInQueue().catch((err: unknown) => {

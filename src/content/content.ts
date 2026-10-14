@@ -13,7 +13,7 @@ import { onPageMessage, sendToPage } from './extension-bridge.ts';
 import { emitUi, onUi } from './ui-bus.ts';
 // window.i18n, FAB and snackbar live in this isolated world (closed shadow
 // roots), out of reach of page scripts.
-import '../lib/i18n.ts';
+// x-ui-i18n.ts registers the X UI strings once; fab/snackbar import it.
 import './fab.ts';
 import './snackbar.ts';
 
@@ -59,7 +59,11 @@ function safeSendMessage(message: unknown): Promise<unknown> {
 
 // ─── 1. Ngôn ngữ cho FAB/snackbar (window.i18n của isolated world) ───────────
 chrome.storage.local.get('lang')
-  .then((stored) => emitUi('XMD_LANG_UPDATE', { lang: typeof stored.lang === 'string' ? stored.lang : 'en' }))
+  .then((stored) => {
+    const lang = typeof stored.lang === 'string' ? stored.lang : 'en';
+    emitUi('XMD_LANG_UPDATE', { lang });
+    sendToPage('XMD_LANG_UPDATE', { lang });
+  })
   .catch((err: unknown) => console.debug('Failed to load lang', err));
 
 // ─── 2. Lấy username từ URL ───────────────────────────────────────────────────
@@ -418,6 +422,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes.lang) {
     emitUi('XMD_LANG_UPDATE', { lang: changes.lang.newValue });
+    sendToPage('XMD_LANG_UPDATE', { lang: changes.lang.newValue });
   }
   if (area === 'sync' && changes.options) readDiagnosticsFlag(changes.options.newValue);
 });

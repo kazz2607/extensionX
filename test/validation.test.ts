@@ -121,9 +121,9 @@ test('rejects malformed or oversized queue imports atomically', () => {
 });
 
 test('redacts raw download errors before they reach UI', () => {
-  assert.equal(formatDownloadError(new Error('Batch timeout: https://video.twimg.com/a?token=secret')), 'Hết thời gian chờ tải xuống');
-  assert.equal(formatDownloadError(new Error('Segment HTTP 403: https://video.twimg.com/a?token=secret')), 'Máy chủ trả về lỗi HTTP 403');
-  assert.equal(formatDownloadError(new Error('unknown internal failure https://x.com/?ct0=secret')), 'Không thể tải tệp này');
+  assert.equal(formatDownloadError(new Error('Batch timeout: https://video.twimg.com/a?token=secret')), 'Download timed out');
+  assert.equal(formatDownloadError(new Error('Segment HTTP 403: https://video.twimg.com/a?token=secret')), 'Server returned HTTP error 403');
+  assert.equal(formatDownloadError(new Error('unknown internal failure https://x.com/?ct0=secret')), 'Could not download this file');
 });
 
 test('keeps diagnostic exports aggregated and redacted', () => {
@@ -287,7 +287,7 @@ test('derives one accessible primary Queue action and summary from state', () =>
   const base = { filterType: 'all', skipDuplicates: true, addedAt: 1, mediaCount: 10 };
   const waiting = { ...base, id: 'w', username: 'wait', status: 'waiting' as const };
   assert.deepEqual(getQueuePresentation([waiting]), {
-    action: 'start', label: 'Bắt đầu', title: 'Bắt đầu hàng đợi', waiting: 1, downloading: 0, paused: 0, error: 0, done: 0,
+    action: 'start', label: 'Start', title: 'Start the queue', waiting: 1, downloading: 0, paused: 0, error: 0, done: 0,
   });
   assert.equal(getQueuePresentation([{ ...waiting, status: 'paused' }]).action, 'resume');
   assert.equal(getQueuePresentation([{ ...waiting, status: 'downloading' }]).action, 'pause');

@@ -2,6 +2,7 @@ import type { DomainMessageHandler } from './message-handler.ts';
 import { getFollowingScrollState, startFollowingScroll, stopFollowingScroll } from './following-scroll.ts';
 import { isXUrl } from '../shared/validation.ts';
 import { beginFollowingScan, getFollowingScanState, ingestFollowingPage, runUnfollowQueue, stopFollowingOperation } from './following-scanner.ts';
+import { t } from '../lib/i18n.ts';
 
 export const handleFollowingMessage: DomainMessageHandler = (message, sender, sendResponse) => {
   const { type, payload } = message;
@@ -27,7 +28,7 @@ export const handleFollowingMessage: DomainMessageHandler = (message, sender, se
     case 'START_FOLLOWING_SCAN': {
       const targetUrl = payload?.targetUrl;
       if (!isXUrl(targetUrl) || !new URL(targetUrl).pathname.endsWith('/following')) {
-        sendResponse({ error: 'Invalid following URL' }); return false;
+        sendResponse({ error: t('bg_err_following_url_invalid') }); return false;
       }
       const state = beginFollowingScan();
       void startFollowingScroll(targetUrl).catch((error: unknown) => console.error('[following-scan]', error));
@@ -49,7 +50,7 @@ export const handleFollowingMessage: DomainMessageHandler = (message, sender, se
     case 'START_UNFOLLOW':
       if (payload?.confirmed !== true) { sendResponse({ error: 'Explicit confirmation required' }); return false; }
       if (!Array.isArray(payload.ids) || payload.ids.length < 1 || payload.ids.length > 100) {
-        sendResponse({ error: 'Invalid unfollow selection' }); return false;
+        sendResponse({ error: t('bg_err_unfollow_selection_invalid') }); return false;
       }
       sendResponse({ ok: true });
       void runUnfollowQueue(payload.ids).catch((error: unknown) => console.error('[following-unfollow]', error));

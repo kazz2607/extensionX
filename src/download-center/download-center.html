@@ -1,111 +1,112 @@
 <!doctype html>
-<html lang="vi">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Download Center · ExtensionX</title>
+  <title data-i18n="dc_page_title">Download Center · ExtensionX</title>
+  <link rel="stylesheet" href="../shared/tokens.css" />
   <link rel="stylesheet" href="download-center.css" />
 </head>
 <body>
   <header class="topbar">
     <div>
-      <p class="eyebrow">EXTENSIONX · v7.2.2</p>
-      <h1>Download Center</h1>
-      <p class="subtitle">Quản lý Queue, Saved Jobs và lịch sử tải tại một nơi.</p>
+      <p class="eyebrow">EXTENSIONX · <span data-manifest-version></span></p>
+      <h1 data-i18n="dc_title">Download Center</h1>
+      <p class="subtitle" data-i18n="dc_subtitle">Manage the Queue, Saved Jobs and download history in one place.</p>
     </div>
     <div class="top-actions">
-      <button id="btn-refresh" class="button secondary" type="button">Làm mới</button>
-      <button id="btn-start-queue" class="button primary" type="button">Bắt đầu Queue</button>
-      <button id="btn-stop" class="button danger" type="button">Dừng tải</button>
+      <button id="btn-refresh" class="button secondary" type="button" data-i18n="dc_btn_refresh">Refresh</button>
+      <button id="btn-start-queue" class="button primary" type="button" data-i18n="dc_btn_start_queue">Start Queue</button>
+      <button id="btn-stop" class="button danger" type="button" data-i18n="dc_btn_stop">Stop download</button>
     </div>
   </header>
 
   <main>
-    <section class="summary-grid" aria-label="Tổng quan">
-      <article class="summary-card"><span>Queue đang chờ</span><strong id="summary-waiting">0</strong></article>
-      <article class="summary-card"><span>Đang tải</span><strong id="summary-active">0</strong></article>
-      <article class="summary-card"><span>Saved Jobs</span><strong id="summary-jobs">0</strong></article>
-      <article class="summary-card"><span>Lượt tải gần đây</span><strong id="summary-history">0</strong></article>
+    <section class="summary-grid" aria-label="Overview" data-i18n-aria-label="dc_summary_aria">
+      <article class="summary-card"><span data-i18n="dc_summary_waiting">Queue waiting</span><strong id="summary-waiting">0</strong></article>
+      <article class="summary-card"><span data-i18n="dc_summary_active">Downloading</span><strong id="summary-active">0</strong></article>
+      <article class="summary-card"><span data-i18n="dc_summary_jobs">Saved Jobs</span><strong id="summary-jobs">0</strong></article>
+      <article class="summary-card"><span data-i18n="dc_summary_history">Recent downloads</span><strong id="summary-history">0</strong></article>
     </section>
 
-    <section class="toolbar" aria-label="Bộ lọc Download Center">
+    <section class="toolbar" aria-label="Download Center filters" data-i18n-aria-label="dc_toolbar_aria">
       <label class="search-field">
-        <span>Tìm kiếm</span>
-        <input id="search" type="search" maxlength="80" placeholder="Tên job hoặc @username" autocomplete="off" />
+        <span data-i18n="dc_search_label">Search</span>
+        <input id="search" type="search" maxlength="80" placeholder="Job name or @username" data-i18n-placeholder="dc_search_placeholder" autocomplete="off" />
       </label>
       <label>
-        <span>Trạng thái Queue</span>
+        <span data-i18n="dc_status_filter_label">Queue status</span>
         <select id="status-filter">
-          <option value="all">Tất cả</option>
-          <option value="waiting">Đang chờ</option>
-          <option value="paused">Tạm dừng</option>
-          <option value="downloading">Đang tải</option>
-          <option value="cancelled">Đã hủy</option>
-          <option value="done">Hoàn tất</option>
-          <option value="error">Lỗi</option>
+          <option value="all" data-i18n="dc_status_all">All</option>
+          <option value="waiting" data-i18n="dc_status_waiting">Waiting</option>
+          <option value="paused" data-i18n="dc_status_paused">Paused</option>
+          <option value="downloading" data-i18n="dc_status_downloading">Downloading</option>
+          <option value="cancelled" data-i18n="dc_status_cancelled">Cancelled</option>
+          <option value="done" data-i18n="dc_status_done">Done</option>
+          <option value="error" data-i18n="dc_status_error">Error</option>
         </select>
       </label>
-      <p id="connection-status" class="connection" role="status" aria-live="polite">Đang tải dữ liệu…</p>
+      <p id="connection-status" class="connection" role="status" aria-live="polite" data-i18n="dc_loading_data">Loading data…</p>
     </section>
 
     <section class="panel" aria-labelledby="p2-heading">
       <div class="panel-heading">
-        <div><p class="section-kicker">P2 TOOLKIT</p><h2 id="p2-heading">Lập kế hoạch, Gallery và ZIP</h2></div>
+        <div><p class="section-kicker">P2 TOOLKIT</p><h2 id="p2-heading" data-i18n="dc_p2_heading">Planning, Gallery and ZIP</h2></div>
         <div class="item-actions">
-          <button id="btn-error-report" class="button secondary" type="button">Xuất báo cáo lỗi</button>
-          <button id="btn-notifications" class="button secondary" type="button">Thông báo <span id="notification-count">0</span></button>
+          <button id="btn-error-report" class="button secondary" type="button" data-i18n="dc_btn_error_report">Export error report</button>
+          <button id="btn-notifications" class="button secondary" type="button"><span data-i18n="dc_btn_notifications">Notifications</span> <span id="notification-count">0</span></button>
         </div>
       </div>
       <div class="p2-controls">
-        <label><span>Profile</span><input id="p2-username" maxlength="50" placeholder="NASA" /></label>
-        <label><span>Loại media</span><select id="p2-filter"><option value="all">Tất cả</option><option value="images">Ảnh</option><option value="videos">Video</option><option value="gifs">GIF</option></select></label>
-        <label class="wide"><span>Quy tắc thư mục</span><input id="p2-folder-rule" maxlength="300" value="{username}/{year}/{month}/{type}" /></label>
+        <label><span data-i18n="dc_profile_label">Profile</span><input id="p2-username" maxlength="50" placeholder="NASA" /></label>
+        <label><span data-i18n="dc_media_type_label">Media type</span><select id="p2-filter"><option value="all" data-i18n="tab_all">All</option><option value="images" data-i18n="tab_images">Images</option><option value="videos" data-i18n="tab_videos">Videos</option><option value="gifs" data-i18n="tab_gifs">GIFs</option></select></label>
+        <label class="wide"><span data-i18n="dc_folder_rule_label">Folder rule</span><input id="p2-folder-rule" maxlength="300" value="{username}/{year}/{month}/{type}" /></label>
       </div>
-      <p id="p2-preview" class="item-detail" role="status">Nhập profile để xem trước.</p>
+      <p id="p2-preview" class="item-detail" role="status" data-i18n="dc_p2_preview_hint">Enter a profile to preview.</p>
       <div class="item-actions p2-actions">
-        <button id="btn-estimate" class="button primary" type="button">Ước tính</button>
-        <button id="btn-gallery" class="button secondary" type="button">Mở Gallery</button>
-        <button id="btn-zip" class="button secondary" type="button">Tải ZIP theo phần</button>
+        <button id="btn-estimate" class="button primary" type="button" data-i18n="dc_btn_estimate">Estimate</button>
+        <button id="btn-gallery" class="button secondary" type="button" data-i18n="dc_btn_gallery">Open Gallery</button>
+        <button id="btn-zip" class="button secondary" type="button" data-i18n="dc_btn_zip">Download ZIP in parts</button>
       </div>
       <div id="estimate-result" class="estimate-grid" aria-live="polite"></div>
       <div id="gallery-grid" class="gallery-grid"></div>
-      <button id="btn-gallery-more" class="button secondary hidden" type="button">Tải thêm</button>
+      <button id="btn-gallery-more" class="button secondary hidden" type="button" data-i18n="dc_btn_gallery_more">Load more</button>
     </section>
 
     <section class="panel" aria-labelledby="schedule-heading">
-      <div class="panel-heading"><div><p class="section-kicker">MV3 SCHEDULE</p><h2 id="schedule-heading">Lịch tải thủ công</h2></div></div>
+      <div class="panel-heading"><div><p class="section-kicker">MV3 SCHEDULE</p><h2 id="schedule-heading" data-i18n="dc_schedule_heading">Manual download schedule</h2></div></div>
       <div class="p2-controls">
-        <label class="wide"><span>Saved Job</span><select id="schedule-job"><option value="">Chọn Saved Job</option></select></label>
-        <label><span>Chu kỳ</span><select id="schedule-interval"><option value="60">Mỗi giờ</option><option value="360">Mỗi 6 giờ</option><option value="1440">Mỗi ngày</option><option value="10080">Mỗi tuần</option></select></label>
-        <label class="checkbox"><input id="schedule-enabled" type="checkbox" /><span>Bật lịch</span></label>
+        <label class="wide"><span data-i18n="dc_saved_job_label">Saved Job</span><select id="schedule-job"><option value="" data-i18n="dc_select_saved_job">Select a Saved Job</option></select></label>
+        <label><span data-i18n="dc_interval_label">Interval</span><select id="schedule-interval"><option value="60" data-i18n="dc_interval_hourly">Every hour</option><option value="360" data-i18n="dc_interval_6h">Every 6 hours</option><option value="1440" data-i18n="dc_interval_daily">Every day</option><option value="10080" data-i18n="dc_interval_weekly">Every week</option></select></label>
+        <label class="checkbox"><input id="schedule-enabled" type="checkbox" /><span data-i18n="dc_schedule_enabled">Enable schedule</span></label>
       </div>
-      <div class="item-actions p2-actions"><button id="btn-save-schedule" class="button primary" type="button">Lưu lịch</button></div>
+      <div class="item-actions p2-actions"><button id="btn-save-schedule" class="button primary" type="button" data-i18n="dc_btn_save_schedule">Save schedule</button></div>
       <div id="schedule-list" class="item-list"></div>
     </section>
 
     <section id="notifications-panel" class="panel hidden" aria-labelledby="notifications-heading">
-      <div class="panel-heading"><div><p class="section-kicker">LOCAL ONLY</p><h2 id="notifications-heading">Notification Center</h2></div><button id="btn-mark-read" class="button secondary" type="button">Đánh dấu đã đọc</button></div>
+      <div class="panel-heading"><div><p class="section-kicker">LOCAL ONLY</p><h2 id="notifications-heading" data-i18n="dc_notifications_heading">Notification Center</h2></div><button id="btn-mark-read" class="button secondary" type="button" data-i18n="dc_btn_mark_read">Mark as read</button></div>
       <div id="notifications-list" class="item-list"></div>
     </section>
 
     <section class="panel" aria-labelledby="queue-heading">
       <div class="panel-heading">
-        <div><p class="section-kicker">QUEUE</p><h2 id="queue-heading">Công việc tải</h2></div>
+        <div><p class="section-kicker">QUEUE</p><h2 id="queue-heading" data-i18n="dc_queue_heading">Download jobs</h2></div>
       </div>
       <div id="queue-list" class="item-list"></div>
     </section>
 
     <section class="panel" aria-labelledby="jobs-heading">
       <div class="panel-heading">
-        <div><p class="section-kicker">REUSABLE</p><h2 id="jobs-heading">Saved Jobs</h2></div>
-        <button id="btn-new-job" class="button primary" type="button">+ Lưu cấu hình</button>
+        <div><p class="section-kicker">REUSABLE</p><h2 id="jobs-heading" data-i18n="dc_jobs_heading">Saved Jobs</h2></div>
+        <button id="btn-new-job" class="button primary" type="button" data-i18n="dc_btn_new_job">+ Save configuration</button>
       </div>
       <div id="jobs-list" class="item-list"></div>
     </section>
 
     <section class="panel" aria-labelledby="history-heading">
       <div class="panel-heading">
-        <div><p class="section-kicker">HISTORY</p><h2 id="history-heading">Lịch sử theo profile</h2></div>
+        <div><p class="section-kicker">HISTORY</p><h2 id="history-heading" data-i18n="dc_history_heading">History by profile</h2></div>
       </div>
       <div id="history-list" class="item-list"></div>
     </section>
@@ -114,30 +115,30 @@
   <dialog id="job-dialog" aria-labelledby="job-dialog-title">
     <form id="job-form" method="dialog">
       <div class="dialog-heading">
-        <div><p class="section-kicker">SAVED JOB</p><h2 id="job-dialog-title">Lưu cấu hình tải</h2></div>
-        <button id="btn-close-dialog" class="icon-button" type="button" aria-label="Đóng">×</button>
+        <div><p class="section-kicker">SAVED JOB</p><h2 id="job-dialog-title" data-i18n="dc_dialog_title">Save download configuration</h2></div>
+        <button id="btn-close-dialog" class="icon-button" type="button" aria-label="Close" data-i18n-aria-label="dc_close">×</button>
       </div>
       <input id="job-id" type="hidden" />
       <div class="form-grid">
-        <label><span>Tên job</span><input id="job-name" required maxlength="80" placeholder="Ảnh tháng này" /></label>
-        <label><span>Username</span><input id="job-username" required maxlength="50" pattern="[A-Za-z0-9_]+" placeholder="NASA" /></label>
-        <label><span>Loại media</span><select id="job-filter"><option value="all">Tất cả</option><option value="images">Ảnh</option><option value="videos">Video</option><option value="gifs">GIF</option></select></label>
-        <label><span>Từ khóa</span><input id="job-keyword" maxlength="200" placeholder="#launch" /></label>
-        <label><span>Từ ngày</span><input id="job-date-from" type="date" /></label>
-        <label><span>Đến ngày</span><input id="job-date-to" type="date" /></label>
-        <label class="wide"><span>Thư mục lưu / rule</span><input id="job-folder" maxlength="500" placeholder="{username}/{year}/{month}/{type}" /></label>
-        <label class="wide"><span>Filename template</span><input id="job-template" maxlength="200" placeholder="{username}_{tweetId}.{ext}" /></label>
-        <label class="checkbox wide"><input id="job-dedup" type="checkbox" checked /><span>Bỏ qua file đã tải</span></label>
+        <label><span data-i18n="dc_job_name_label">Job name</span><input id="job-name" required maxlength="80" placeholder="This month's images" data-i18n-placeholder="dc_job_name_placeholder" /></label>
+        <label><span data-i18n="dc_username_label">Username</span><input id="job-username" required maxlength="50" pattern="[A-Za-z0-9_]+" placeholder="NASA" /></label>
+        <label><span data-i18n="dc_media_type_label">Media type</span><select id="job-filter"><option value="all" data-i18n="tab_all">All</option><option value="images" data-i18n="tab_images">Images</option><option value="videos" data-i18n="tab_videos">Videos</option><option value="gifs" data-i18n="tab_gifs">GIFs</option></select></label>
+        <label><span data-i18n="dc_keyword_label">Keyword</span><input id="job-keyword" maxlength="200" placeholder="#launch" /></label>
+        <label><span data-i18n="dc_date_from_label">From date</span><input id="job-date-from" type="date" /></label>
+        <label><span data-i18n="dc_date_to_label">To date</span><input id="job-date-to" type="date" /></label>
+        <label class="wide"><span data-i18n="dc_folder_label">Save folder / rule</span><input id="job-folder" maxlength="500" placeholder="{username}/{year}/{month}/{type}" /></label>
+        <label class="wide"><span data-i18n="dc_template_label">Filename template</span><input id="job-template" maxlength="200" placeholder="{username}_{tweetId}.{ext}" /></label>
+        <label class="checkbox wide"><input id="job-dedup" type="checkbox" checked /><span data-i18n="dc_dedup_label">Skip downloaded files</span></label>
       </div>
       <p id="form-error" class="form-error" role="alert"></p>
       <div class="dialog-actions">
-        <button id="btn-cancel-job" class="button secondary" type="button">Hủy</button>
-        <button class="button primary" type="submit">Lưu Saved Job</button>
+        <button id="btn-cancel-job" class="button secondary" type="button" data-i18n="dc_btn_cancel">Cancel</button>
+        <button class="button primary" type="submit" data-i18n="dc_btn_save_job">Save Saved Job</button>
       </div>
     </form>
   </dialog>
 
-  <template id="empty-template"><div class="empty"><strong>Chưa có dữ liệu</strong><span></span></div></template>
+  <template id="empty-template"><div class="empty"><strong>No data yet</strong><span></span></div></template>
   <script type="module" src="download-center.ts"></script>
 </body>
 </html>

@@ -1,3 +1,5 @@
+// Translations first: handlers wait on i18nReady before producing text.
+import './i18n-ready.ts';
 import './messages.ts';
 import { loadPersistedQueue, broadcastQueueUpdate } from './queue.ts';
 import { stopCollectingForTab } from './scraper.ts';

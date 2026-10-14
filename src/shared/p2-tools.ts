@@ -1,5 +1,9 @@
 import { normalizeUrlForDedup } from './validation.ts';
 import type { HistoryEntry, MediaItem } from '../types.ts';
+import { registerTranslations, t } from '../lib/i18n.ts';
+import { SHARED_UI_STRINGS } from '../lib/i18n/background.ts';
+
+registerTranslations(SHARED_UI_STRINGS);
 
 export const GALLERY_PAGE_MAX = 100;
 export const ZIP_MAX_FILES = 200;
@@ -45,7 +49,7 @@ export function estimateMedia(items: readonly MediaItem[], downloaded: ReadonlyS
   }
   const selected = Math.max(0, items.length - duplicates);
   const warning = selected > ZIP_MAX_FILES || estimatedBytes > ZIP_MAX_ESTIMATED_BYTES
-    ? 'Job lớn: nên tải trực tiếp hoặc chia thành nhiều ZIP.'
+    ? t('shared_estimate_large_job')
     : undefined;
   return { total: items.length, images, videos, gifs, duplicates, selected, estimatedBytes, unknownSize, warning };
 }

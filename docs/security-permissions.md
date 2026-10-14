@@ -1,6 +1,6 @@
 # Audit bảo mật và quyền extension
 
-> Rà soát cho **7.3.1** | Cập nhật: 2026-10-14
+> Rà soát cho **7.4.0** | Cập nhật: 2026-10-14
 
 ## Quyền Manifest
 
@@ -24,6 +24,8 @@ Host permissions chỉ bao phủ X/Twitter, các CDN media X cần tải và Tel
 Download Center và P2 không thêm permission hoặc host. Saved Jobs chạy trực tiếp hoặc theo lịch mà người dùng chủ động bật; lịch tối thiểu 60 phút, bỏ qua khi coordinator bận và không polling nền. ZIP chỉ fetch host media X đã allowlist, giới hạn 200 file/operation và 500 MiB/chunk. Dữ liệu cấu hình/lịch/thông báo nằm trong `chrome.storage.local`; không cloud sync token, URL media hoặc lịch sử.
 
 Đánh giá optional permission cho P1 đã hoàn tất: Telegram host và `notifications` tiếp tục là quyền bắt buộc trong nhánh 7.0.x vì content script Telegram được khai báo tĩnh và thông báo hoàn tất có thể xảy ra sau khi popup đóng; chuyển sang optional ngay sẽ tạo prompt giữa workflow và làm mất hành vi hiện có. Không mở rộng thêm host/quyền cho Following Scanner: scan dùng trang X đang đăng nhập, unfollow chỉ chạy sau preview/xác nhận và token phiên chỉ nằm trong RAM.
+
+Từ 7.4.0 popup và Options không còn tải font từ Google Fonts: các trang extension không gửi request mạng nào khi mở, khớp với cam kết chỉ xử lý cục bộ.
 
 ## Bridge trang X ↔ content script
 

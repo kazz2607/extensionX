@@ -1,5 +1,4 @@
 import { fetchHLS } from '../lib/hls-fetcher.js';
-import '../lib/jszip.min.ts';
 
 interface ZipArchive {
   file(name: string, data: ArrayBuffer): void;
@@ -65,6 +64,9 @@ async function processZipChunks(msg: OffscreenMessage) {
   if (zipRunning) throw new Error('A ZIP operation is already running');
   zipRunning = true;
   try {
+    // P14: JSZip (~100 KB) loads only for ZIP work, not on every offscreen
+    // start for HLS. The UMD bundle registers itself on globalThis.
+    await import('../lib/jszip.min.ts');
     const JSZip = (globalThis as unknown as { JSZip: new () => ZipArchive }).JSZip;
     const username = String(msg.username || 'media').replace(/[^A-Za-z0-9_-]/g, '_');
     const chunkSize = Math.max(1, Math.min(200, Number(msg.chunkSize) || 50));

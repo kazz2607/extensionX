@@ -6,6 +6,7 @@
  */
 import type { HistoryEntry } from '../types.ts';
 import { migrateDownloadHistoryStorage } from '../shared/download-history.ts';
+import { t } from '../lib/i18n.ts';
 
 export type { HistoryEntry };
 
@@ -46,10 +47,9 @@ function _renderHistoryPage(): void {
   if (!historyList) return;
 
   if (!downloadHistory.length) {
-    const emptyTxt = window.i18n ? window.i18n.t('history_empty') : 'No download history';
     const empty = document.createElement('li');
     empty.className = 'history-empty';
-    empty.textContent = emptyTxt;
+    empty.textContent = t('history_empty');
     historyList.replaceChildren(empty);
     return;
   }
@@ -84,7 +84,7 @@ function _renderHistoryPage(): void {
     showMoreBtn.className = 'history-show-more';
     showMoreBtn.id = 'history-show-more-btn';
     const btn = document.createElement('button');
-    btn.textContent = `Xem thêm (${downloadHistory.length - _historyShowCount} mục)`;
+    btn.textContent = t('popup_history_show_more', { n: downloadHistory.length - _historyShowCount });
     btn.addEventListener('click', () => {
       _historyShowCount += HISTORY_PAGE_SIZE;
       _renderHistoryPage();

@@ -2,6 +2,18 @@
 /**
  * options.js — Logic trang Cài đặt (v5.7.0)
  */
+import { registerTranslations, t } from '../lib/i18n.ts';
+import { initTheme, onThemeChange, parseThemePreference, setThemePreference } from '../shared/theme.ts';
+import { COMMON_STRINGS } from '../lib/i18n/common.ts';
+import { OPTIONS_STRINGS } from '../lib/i18n/options.ts';
+
+registerTranslations(COMMON_STRINGS, OPTIONS_STRINGS);
+
+/** Version labels read the manifest, so they cannot go stale across releases. */
+document.querySelectorAll('[data-manifest-version]').forEach((el) => {
+  el.textContent = `v${chrome.runtime.getManifest().version}`;
+});
+
 import { sanitizeImportedOptions } from '../shared/options-import.ts';
 import { renderFilenameTemplate } from '../shared/filename-template.ts';
 import { migrateOptionsStorage, OPTIONS_SCHEMA_VERSION } from '../shared/storage-migrations.ts';
@@ -159,7 +171,7 @@ async function saveOptions() {
   // UI-03: Reset text về "✓ Saved" sau khi lưu xong (có thể đang là "Saving...")
   const statusEl = document.getElementById('save-status');
   if (statusEl) {
-    statusEl.textContent = window.i18n ? window.i18n.t('save_success') : '✓ Saved';
+    statusEl.textContent = t('save_success');
     statusEl.classList.add('show');
     setTimeout(() => statusEl.classList.remove('show'), 2500);
   }
@@ -322,6 +334,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.i18n.lang = newLang;
         window.i18n.applyToDOM();
       }
+      // Text dựng động (không có data-i18n) cần render lại theo ngôn ngữ mới
+      renderStorageView();
       await chrome.storage.local.set({ lang: newLang });
     });
   }
@@ -357,7 +371,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function showSavingIndicator() {
     const el = document.getElementById('save-status');
     if (!el) return;
-    el.textContent = '⏳ Saving...';
+    el.textContent = t('opt_status_saving');
     el.classList.add('show');
   }
 
@@ -387,44 +401,32 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ─── Theme ─────────────────────────────────────────────────────────────────
+// Shared with popup/Download Center: default 'system', follows OS changes.
 async function applyTheme(): Promise<void> {
-  const stored: Record<string, unknown> = await chrome.storage.local.get('theme').catch(() => ({}));
-  let theme = (stored.theme as string) || 'dark';
+  const preference = await initTheme();
   const themeSelect = document.getElementById('opt-theme-select') as HTMLSelectElement | null;
-  if (themeSelect) themeSelect.value = theme;
-
-  if (theme === 'system') {
-    theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  }
-  document.documentElement.setAttribute('data-theme', theme);
+  if (themeSelect) themeSelect.value = preference;
+  // The popup's theme button can change it while Options is open.
+  onThemeChange((next) => { if (themeSelect) themeSelect.value = next; });
 }
 
 function setTheme(next: string): void {
-  chrome.storage.local.set({ theme: next });
-  if (next === 'system') {
-    const active = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', active);
-  } else {
-    document.documentElement.setAttribute('data-theme', next);
-  }
+  void setThemePreference(parseThemePreference(next));
 }
 
-// v4.1.0: System theme auto switch
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', async (e) => {
-  const stored = await chrome.storage.local.get('theme').catch(() => ({})) as { theme?: string };
-  if (stored.theme === 'system') {
-    document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
-  }
-});
-
 // ─── v5.3.1: Export / Import / Reset ──────────────────────────────────────────────────
+
+// Thông điệp lỗi hiển thị cho người dùng (đã dịch khi không có message)
+function errorText(err: unknown): string {
+  return err instanceof Error ? err.message : t('opt_error_unknown');
+}
 
 async function exportSettings() {
   try {
     const stored = await chrome.storage.sync.get('options').catch(() => ({})) as { options?: Record<string, unknown> };
     const opts = migrateOptionsStorage(stored.options || DEFAULT_OPTIONS);
     const exportData = {
-      _version: '7.2.2',
+      _version: chrome.runtime.getManifest().version,
       _exportedAt: new Date().toISOString(),
       options: opts,
     };
@@ -436,10 +438,10 @@ async function exportSettings() {
       filename: `extensionx_settings_${dateStr}.json`,
       saveAs: false,
     });
-    showSaveStatus('✓ Exported successfully');
+    showSaveStatus(t('opt_status_exported'));
   } catch (err) {
     console.error('[Options] exportSettings error:', err);
-    alert('Export thất bại: ' + (err instanceof Error ? err.message : String(err)));
+    alert(t('opt_export_failed', { error: err instanceof Error ? err.message : String(err) }));
   }
 }
 
@@ -457,7 +459,7 @@ async function importSettings(event: Event): Promise<void> {
 
     // Validate cơ bản
     if (!parsed.options || typeof parsed.options !== 'object') {
-      throw new Error('File không hợp lệ: thiếu trường options');
+      throw new Error(t('opt_import_invalid'));
     }
 
     // Only known fields with the right type/bounds are kept; missing or
@@ -467,55 +469,51 @@ async function importSettings(event: Event): Promise<void> {
     await chrome.storage.sync.set({ options: { ...merged, schemaVersion: OPTIONS_SCHEMA_VERSION } });
 
     // Reload page để apply
-    showSaveStatus('✓ Imported! Reloading...');
+    showSaveStatus(t('opt_status_imported'));
     setTimeout(() => location.reload(), 800);
   } catch (err) {
     console.error('[Options] importSettings error:', err);
-    alert('Import thất bại: ' + (err instanceof Error ? err.message : String(err)));
+    alert(t('opt_import_failed', { error: err instanceof Error ? err.message : String(err) }));
   }
 }
 
 async function resetSettings() {
-  const confirmed = confirm(
-    'Reset toàn bộ cài đặt về mặc định?\n\nHành động này không thể hoàn tác.'
-  );
+  const confirmed = confirm(t('opt_reset_confirm'));
   if (!confirmed) return;
 
   try {
     await chrome.storage.sync.set({ options: { ...DEFAULT_OPTIONS, schemaVersion: OPTIONS_SCHEMA_VERSION } });
-    showSaveStatus('✓ Reset! Reloading...');
+    showSaveStatus(t('opt_status_reset'));
     setTimeout(() => location.reload(), 600);
   } catch (err) {
     console.error('[Options] resetSettings error:', err);
-    alert('Reset thất bại: ' + (err instanceof Error ? err.message : String(err)));
+    alert(t('opt_reset_failed', { error: err instanceof Error ? err.message : String(err) }));
   }
 }
 
-function showSaveStatus(msg = '✓ Saved successfully') {
+function showSaveStatus(msg = t('save_success')) {
   const statusEl = document.getElementById('save-status');
   if (!statusEl) return;
-  const prev = statusEl.textContent;
   statusEl.textContent = msg;
   statusEl.classList.add('show');
   setTimeout(() => {
     statusEl.classList.remove('show');
-    statusEl.textContent = prev;
+    // Khôi phục text mặc định theo ngôn ngữ hiện tại (có thể đã đổi trong lúc chờ)
+    statusEl.textContent = t('save_success');
   }, 2500);
 }
 
 async function clearAllDownloadedHistory() {
-  const confirmed = confirm(
-    'Xóa toàn bộ lịch sử các file đã tải của TẤT CẢ profile?\n\nSau khi xóa, bạn có thể tải lại bất kỳ file nào mà không bị tính năng chống trùng bỏ qua.'
-  );
+  const confirmed = confirm(t('opt_clear_history_confirm'));
   if (!confirmed) return;
 
   try {
     await chrome.runtime.sendMessage({ type: 'CLEAR_ALL_DOWNLOADED' });
-    showSaveStatus('✓ Đã xóa toàn bộ lịch sử tải!');
-    alert('✓ Đã xóa thành công toàn bộ lịch sử tải của tất cả profile! Bạn có thể tải lại bất kỳ file nào.');
+    showSaveStatus(t('opt_status_history_cleared'));
+    alert(t('opt_history_cleared_alert'));
   } catch (err) {
     console.error('[Options] clearAllDownloadedHistory error:', err);
-    alert('Lỗi: ' + (err instanceof Error ? err.message : String(err)));
+    alert(t('opt_error_generic', { error: err instanceof Error ? err.message : String(err) }));
   }
 }
 
@@ -523,26 +521,26 @@ async function exportLocalDiagnostics() {
   try {
     const response = await chrome.runtime.sendMessage({ type: 'EXPORT_LOCAL_DIAGNOSTICS' });
     const diagnostics = response?.diagnostics;
-    if (!diagnostics) throw new Error('Không đọc được diagnostic');
+    if (!diagnostics) throw new Error(t('opt_diag_read_failed'));
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const dataUrl = `data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(diagnostics, null, 2))}`;
     await chrome.downloads.download({ url: dataUrl, filename: `extensionx_diagnostics_${dateStr}.json`, saveAs: false });
-    showSaveStatus('✓ Đã xuất diagnostic cục bộ');
+    showSaveStatus(t('opt_status_diag_exported'));
   } catch (err) {
     console.error('[Options] exportLocalDiagnostics error:', err);
-    alert(`Không thể xuất diagnostic: ${err instanceof Error ? err.message : 'Lỗi không xác định'}`);
+    alert(t('opt_diag_export_failed', { error: errorText(err) }));
   }
 }
 
 async function clearLocalDiagnostics() {
-  if (!confirm('Xóa toàn bộ diagnostic cục bộ?')) return;
+  if (!confirm(t('opt_diag_clear_confirm'))) return;
   try {
     const response = await chrome.runtime.sendMessage({ type: 'CLEAR_LOCAL_DIAGNOSTICS' });
-    if (!response?.ok) throw new Error('Không thể xóa diagnostic');
-    showSaveStatus('✓ Đã xóa diagnostic cục bộ');
+    if (!response?.ok) throw new Error(t('opt_diag_clear_error'));
+    showSaveStatus(t('opt_status_diag_cleared'));
   } catch (err) {
     console.error('[Options] clearLocalDiagnostics error:', err);
-    alert(`Không thể xóa diagnostic: ${err instanceof Error ? err.message : 'Lỗi không xác định'}`);
+    alert(t('opt_diag_clear_failed', { error: errorText(err) }));
   }
 }
 
@@ -553,84 +551,113 @@ function formatBytes(value: number): string {
   return `${(value / (1024 ** index)).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
-function renderStorageSummary(summary: StorageSummary): void {
+// Trạng thái hiện tại của khối dung lượng — giữ lại để render lại khi đổi ngôn ngữ.
+// `text` dùng cho lỗi trả về nguyên văn từ background (không dịch được).
+type StorageView =
+  | { kind: 'summary'; summary: StorageSummary }
+  | { kind: 'key'; key: string }
+  | { kind: 'text'; text: string };
+
+let storageView: StorageView = { kind: 'key', key: 'opt_storage_not_loaded' };
+
+function setStorageView(view: StorageView): void {
+  storageView = view;
+  renderStorageView();
+}
+
+function renderStorageView(): void {
   const root = document.getElementById('storage-summary');
   if (!root) return;
+  if (storageView.kind === 'summary') {
+    renderStorageSummary(root, storageView.summary);
+  } else {
+    root.textContent = storageView.kind === 'key' ? t(storageView.key) : storageView.text;
+  }
+}
+
+function renderStorageSummary(root: HTMLElement, summary: StorageSummary): void {
   root.replaceChildren();
   const total = document.createElement('div');
-  total.textContent = `${summary.profiles.length} profile · ${summary.totalMediaItems.toLocaleString()} media · ${summary.totalDownloadedUrls.toLocaleString()} URL đã tải · khoảng ${formatBytes(summary.approximateBytes)}`;
+  total.textContent = t('opt_storage_total', {
+    profiles: summary.profiles.length,
+    media: summary.totalMediaItems.toLocaleString(),
+    urls: summary.totalDownloadedUrls.toLocaleString(),
+    size: formatBytes(summary.approximateBytes),
+  });
   root.append(total);
   for (const profile of summary.profiles) {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;gap:8px;align-items:center;justify-content:space-between;border-top:1px solid var(--border);padding:6px 0';
     const label = document.createElement('span');
-    label.textContent = `@${profile.username}: ${profile.mediaItems.toLocaleString()} media, ${profile.downloadedUrls.toLocaleString()} URL (${formatBytes(profile.approximateBytes)})`;
+    label.textContent = t('opt_storage_profile_row', {
+      username: profile.username,
+      media: profile.mediaItems.toLocaleString(),
+      urls: profile.downloadedUrls.toLocaleString(),
+      size: formatBytes(profile.approximateBytes),
+    });
     const button = document.createElement('button');
     button.className = 'btn-data btn-data--danger';
     button.type = 'button';
     button.dataset.clearProfile = profile.username;
-    button.textContent = 'Xóa';
-    button.setAttribute('aria-label', `Xóa dữ liệu profile @${profile.username}`);
+    button.textContent = t('opt_storage_clear_profile');
+    button.setAttribute('aria-label', t('opt_storage_clear_profile_aria', { username: profile.username }));
     row.append(label, button);
     root.append(row);
   }
 }
 
 async function refreshStorageSummary(): Promise<void> {
-  const root = document.getElementById('storage-summary');
-  if (root) root.textContent = 'Đang tính dung lượng…';
+  setStorageView({ kind: 'key', key: 'opt_storage_calculating' });
   const response = await chrome.runtime.sendMessage({ type: 'GET_STORAGE_SUMMARY' }) as ResponseFor<'GET_STORAGE_SUMMARY'>;
   if (!response.summary) {
-    if (root) root.textContent = response.error || 'Không đọc được dung lượng.';
+    setStorageView(response.error ? { kind: 'text', text: response.error } : { kind: 'key', key: 'opt_storage_read_failed' });
     return;
   }
-  renderStorageSummary(response.summary);
+  setStorageView({ kind: 'summary', summary: response.summary });
 }
 
 async function pruneStorage(): Promise<void> {
-  if (!confirm('Dọn media và lịch sử duplicate quá 180 ngày hoặc vượt giới hạn lưu trữ?')) return;
+  if (!confirm(t('opt_prune_confirm'))) return;
   const button = document.getElementById('btn-prune-storage') as HTMLButtonElement | null;
-  const originalLabel = button?.textContent || 'Dọn dữ liệu cũ';
-  if (button) { button.disabled = true; button.textContent = 'Đang dọn…'; }
+  if (button) { button.disabled = true; button.textContent = t('opt_storage_pruning'); }
   try {
     const response = await chrome.runtime.sendMessage({ type: 'PRUNE_STORAGE' }) as ResponseFor<'PRUNE_STORAGE'>;
-    if (!response?.ok || !response.summary) throw new Error(response?.error || 'Không thể dọn dữ liệu');
-    renderStorageSummary(response.summary);
-    showSaveStatus(`✓ Đã dọn ${response.removed ?? 0} bản ghi`);
+    if (!response?.ok || !response.summary) throw new Error(response?.error || t('opt_prune_error'));
+    setStorageView({ kind: 'summary', summary: response.summary });
+    showSaveStatus(t('opt_status_pruned', { n: response.removed ?? 0 }));
   } catch (error) {
     console.error('[Options] pruneStorage error:', error);
-    alert(`Không thể dọn dữ liệu: ${error instanceof Error ? error.message : 'Lỗi không xác định'}`);
+    alert(t('opt_prune_failed', { error: errorText(error) }));
   } finally {
-    if (button) { button.disabled = false; button.textContent = originalLabel; }
+    if (button) { button.disabled = false; button.textContent = t('opt_btn_storage_prune'); }
   }
 }
 
 async function clearAllProfileStorage(): Promise<void> {
-  if (!confirm('Xóa TOÀN BỘ media đã thu thập và lịch sử chống trùng của tất cả profile? Hành động này không thể hoàn tác.')) return;
+  if (!confirm(t('opt_clear_all_storage_confirm'))) return;
   const button = document.getElementById('btn-clear-all-storage') as HTMLButtonElement | null;
-  const originalLabel = button?.textContent || 'Xóa toàn bộ dữ liệu media';
-  if (button) { button.disabled = true; button.textContent = 'Đang xóa…'; }
+  if (button) { button.disabled = true; button.textContent = t('opt_storage_clearing'); }
   try {
     const response = await chrome.runtime.sendMessage({ type: 'CLEAR_ALL_PROFILE_STORAGE' }) as ResponseFor<'CLEAR_ALL_PROFILE_STORAGE'>;
-    if (!response?.ok || !response.summary) throw new Error(response?.error || 'Không thể xóa toàn bộ dữ liệu');
-    renderStorageSummary(response.summary);
-    showSaveStatus('✓ Đã xóa toàn bộ dữ liệu media cục bộ');
+    if (!response?.ok || !response.summary) throw new Error(response?.error || t('opt_clear_all_storage_error'));
+    setStorageView({ kind: 'summary', summary: response.summary });
+    showSaveStatus(t('opt_status_all_storage_cleared'));
   } catch (error) {
     console.error('[Options] clearAllProfileStorage error:', error);
-    alert(`Không thể xóa toàn bộ dữ liệu: ${error instanceof Error ? error.message : 'Lỗi không xác định'}`);
+    alert(t('opt_clear_all_storage_failed', { error: errorText(error) }));
   } finally {
-    if (button) { button.disabled = false; button.textContent = originalLabel; }
+    if (button) { button.disabled = false; button.textContent = t('opt_btn_storage_clear_all'); }
   }
 }
 
 async function handleStorageSummaryClick(event: Event): Promise<void> {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-clear-profile]');
   const username = button?.dataset.clearProfile;
-  if (!username || !confirm(`Xóa toàn bộ media và lịch sử duplicate của @${username}?`)) return;
+  if (!username || !confirm(t('opt_clear_profile_confirm', { username }))) return;
   const response = await chrome.runtime.sendMessage({ type: 'CLEAR_PROFILE_STORAGE', payload: { username } }) as ResponseFor<'CLEAR_PROFILE_STORAGE'>;
-  if (!response.ok || !response.summary) { alert(response.error || 'Không thể xóa dữ liệu profile'); return; }
-  renderStorageSummary(response.summary);
-  showSaveStatus(`✓ Đã xóa dữ liệu @${username}`);
+  if (!response.ok || !response.summary) { alert(response.error || t('opt_clear_profile_error')); return; }
+  setStorageView({ kind: 'summary', summary: response.summary });
+  showSaveStatus(t('opt_status_profile_cleared', { username }));
 }
 
 window.exportSettings = exportSettings;

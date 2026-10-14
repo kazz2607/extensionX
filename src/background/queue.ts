@@ -6,6 +6,7 @@ import { parseQueueItems } from '../shared/validation.ts';
 import { createQueueStorageSnapshot, migrateQueueStorage } from '../shared/storage-migrations.ts';
 import { recoverQueueItemAfterRestart, transitionQueueItem, findInterruptedIds, resetDownloadingItemsAfterStop } from '../shared/queue-state.ts';
 import { chromeApi } from './chrome-api.ts';
+import { t } from '../lib/i18n.ts';
 
 export let profileQueue: QueueItem[] = [];
 export function setProfileQueue(q: QueueItem[]) { profileQueue = q; }
@@ -128,7 +129,7 @@ loadPersistedQueue().then(() => {
 
 function exportQueue(): QueueExportData {
   return {
-    _version: '7.2.2',
+    _version: chrome.runtime.getManifest().version,
     _exportedAt: new Date().toISOString(),
     queue: profileQueue,
   };
@@ -141,7 +142,7 @@ function importQueue(items: unknown): { added: number; skipped: number; error?: 
   // bao giờ chạy cho nhánh import.
   const interruptedIds = findInterruptedIds(items);
   const parsedItems = parseQueueItems(items);
-  if (!parsedItems) return { added: 0, skipped: 0, error: 'Invalid queue data' };
+  if (!parsedItems) return { added: 0, skipped: 0, error: t('bg_err_queue_data_invalid') };
   let added = 0;
   let skipped = 0;
 

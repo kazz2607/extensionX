@@ -6,6 +6,8 @@
  * (giống hệt cách pref_skip_duplicates/compactMode/theme đã lưu trực tiếp).
  */
 
+import { t } from '../lib/i18n.ts';
+
 export type ShowToastFn = (msg: string, type?: string) => void;
 
 export interface FilterPreset {
@@ -35,7 +37,7 @@ async function savePreset(): Promise<void> {
   const username = _deps?.getUsername();
   if (!_deps) return;
   if (!username) {
-    _deps.showToast('Chưa xác định profile', 'error');
+    _deps.showToast(t('popup_toast_no_profile'), 'error');
     return;
   }
   const { dateFrom, dateTo, keyword } = _deps.getDateRange();
@@ -47,25 +49,25 @@ async function savePreset(): Promise<void> {
     keyword,
   };
   await chrome.storage.local.set({ [presetKey(username)]: preset });
-  _deps.showToast(`💾 Đã lưu bộ lọc cho @${username}`, 'success');
+  _deps.showToast(t('popup_toast_preset_saved', { username }), 'success');
 }
 
 async function loadPreset(): Promise<void> {
   const username = _deps?.getUsername();
   if (!_deps) return;
   if (!username) {
-    _deps.showToast('Chưa xác định profile', 'error');
+    _deps.showToast(t('popup_toast_no_profile'), 'error');
     return;
   }
   const key = presetKey(username);
   const stored: Record<string, unknown> = await chrome.storage.local.get(key).catch(() => ({}));
   const preset = stored[key] as FilterPreset | undefined;
   if (!preset) {
-    _deps.showToast(`@${username} chưa có bộ lọc đã lưu`, 'info');
+    _deps.showToast(t('popup_toast_preset_missing', { username }), 'info');
     return;
   }
   _deps.onApplyPreset(preset);
-  _deps.showToast(`📂 Đã nạp bộ lọc đã lưu cho @${username}`, 'success');
+  _deps.showToast(t('popup_toast_preset_loaded', { username }), 'success');
 }
 
 export function initPresets(deps: PresetsDeps): void {

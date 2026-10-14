@@ -6,6 +6,7 @@
 import type { QueueItem } from '../types.ts';
 import { getQueuePresentation } from '../shared/queue-presentation.ts';
 import type { MessageType, ResponseFor } from '../shared/messages.ts';
+import { t } from '../lib/i18n.ts';
 
 export type SendBGFn = <T extends MessageType>(type: T, payload?: Record<string, unknown>) => Promise<ResponseFor<T> | null>;
 export type ShowToastFn = (msg: string, type?: string) => void;
@@ -42,8 +43,8 @@ export function initQueuePanel(deps: QueuePanelDeps): void {
     const res = await _deps.sendBG('QUEUE_BULK_ACTION', { action: button.dataset.bulkAction, ids: [...selectedQueueIds] });
     if (res?.ok) {
       selectedQueueIds.clear();
-      _deps.showToast(`Đã cập nhật ${Number(res.changed) || 0} mục`, 'success');
-    } else _deps.showToast(res?.error || 'Không thể cập nhật Queue', 'error');
+      _deps.showToast(t('popup_toast_queue_bulk_updated', { n: Number(res.changed) || 0 }), 'success');
+    } else _deps.showToast(res?.error || t('popup_toast_queue_update_failed'), 'error');
   });
   const list = document.getElementById('queue-list');
   if (list && !_listBound) {
@@ -64,13 +65,13 @@ export function initQueuePanel(deps: QueuePanelDeps): void {
       if (!id) return;
       if (button.classList.contains('btn-queue-remove')) {
         await _deps.sendBG('REMOVE_FROM_QUEUE', { id });
-        _deps.showToast('Đã xóa khỏi hàng đợi', 'info');
+        _deps.showToast(t('popup_toast_queue_removed'), 'info');
       } else if (button.classList.contains('btn-queue-stop')) {
         await _deps.sendBG('STOP_DOWNLOAD', {});
-        _deps.showToast('⏹ Đang dừng download...', 'info');
+        _deps.showToast(t('popup_toast_stopping_download'), 'info');
       } else if (button.classList.contains('btn-queue-retry')) {
         const res = await _deps.sendBG('RETRY_QUEUE_ITEM', { id });
-        _deps.showToast(res?.ok ? 'Đang thử lại...' : 'Không thể thử lại', res?.ok ? 'info' : 'error');
+        _deps.showToast(res?.ok ? t('popup_toast_retrying_item') : t('popup_toast_retry_failed'), res?.ok ? 'info' : 'error');
       } else if (button.classList.contains('btn-queue-pause')) {
         await _deps.sendBG('TOGGLE_QUEUE_PAUSE', { id });
       } else if (button.classList.contains('btn-queue-move')) {
@@ -91,9 +92,9 @@ export function initQueuePanel(deps: QueuePanelDeps): void {
         ? await _deps.sendBG('STOP_DOWNLOAD', {})
         : await _deps.sendBG('START_QUEUE', {});
       if (res?.ok) {
-        _deps.showToast(action === 'pause' ? 'Hàng đợi đã tạm dừng' : 'Hàng đợi đã bắt đầu', 'success');
+        _deps.showToast(t(action === 'pause' ? 'popup_toast_queue_paused' : 'popup_toast_queue_started'), 'success');
       } else {
-        _deps.showToast((res && 'error' in res ? res.error : '') || (action === 'pause' ? 'Không thể tạm dừng hàng đợi' : 'Không thể bắt đầu hàng đợi'), 'error');
+        _deps.showToast((res && 'error' in res ? res.error : '') || t(action === 'pause' ? 'popup_toast_queue_pause_failed' : 'popup_toast_queue_start_failed'), 'error');
       }
     } finally {
       startButton.disabled = false;
@@ -153,10 +154,10 @@ export function renderQueue(): void {
   const summary = document.getElementById('queue-summary');
   if (summary) {
     const metrics: Array<[string, number, string]> = [
-      ['Đang tải', presentation.downloading, 'active'],
-      ['Chờ', presentation.waiting, 'waiting'],
-      ['Tạm dừng', presentation.paused, 'paused'],
-      ['Lỗi', presentation.error, 'error'],
+      [t('popup_queue_status_downloading'), presentation.downloading, 'active'],
+      [t('popup_queue_status_waiting'), presentation.waiting, 'waiting'],
+      [t('popup_queue_status_paused'), presentation.paused, 'paused'],
+      [t('popup_queue_status_error'), presentation.error, 'error'],
     ];
     summary.replaceChildren(...metrics.map(([label, value, state]) => {
       const metric = document.createElement('span');
@@ -188,16 +189,23 @@ export function renderQueue(): void {
     empty.className = 'queue-empty';
     empty.id = 'queue-empty';
     const label = document.createElement('span');
-    label.textContent = 'Hàng đợi trống';
+    label.textContent = t('popup_queue_empty');
     const hint = document.createElement('span');
     hint.className = 'queue-empty-hint';
-    hint.textContent = 'Thêm profile vào queue để tải tuần tự mà không cần giám sát';
+    hint.textContent = t('popup_queue_empty_hint');
     empty.append(label, hint);
     list.replaceChildren(empty);
     return;
   }
 
-  const statusLabels: Record<string, string> = { waiting: 'Chờ', downloading: 'Đang tải', paused: 'Tạm dừng', done: 'Xong', error: 'Lỗi', cancelled: 'Đã hủy' };
+  const statusLabels: Record<string, string> = {
+    waiting: t('popup_queue_status_waiting'),
+    downloading: t('popup_queue_status_downloading'),
+    paused: t('popup_queue_status_paused'),
+    done: t('popup_queue_status_done'),
+    error: t('popup_queue_status_error'),
+    cancelled: t('popup_queue_status_cancelled'),
+  };
   const filterIcons: Record<string, string> = { all: '📦', images: '🖼️', videos: '🎬', gifs: '🎞️' };
 
   const fragment = document.createDocumentFragment();
@@ -207,9 +215,9 @@ export function renderQueue(): void {
   visibleEntries.forEach(({ item, index }) => {
     const icon = filterIcons[item.filterType || 'all'] || '📦';
     const isPaused = item.status === 'paused';
-    const statusLabel = isPaused ? 'Tạm dừng' : statusLabels[item.status] || String(item.status || '');
+    const statusLabel = isPaused ? statusLabels.paused : statusLabels[item.status] || String(item.status || '');
     const metaText = item.result
-      ? (item.result.error ? String(item.result.error).slice(0, 500) : `${Number(item.result.success) || 0}/${Number(item.result.total) || 0} files`)
+      ? (item.result.error ? String(item.result.error).slice(0, 500) : t('popup_queue_result_files', { success: Number(item.result.success) || 0, total: Number(item.result.total) || 0 }))
       : `${Number(item.mediaCount) || 0} media · ${icon} ${String(item.filterType || '').slice(0, 30)}`;
     const canRemove = item.status !== 'downloading';
     const id = String(item.id || '').slice(0, 120);
@@ -221,7 +229,7 @@ export function renderQueue(): void {
     row.setAttribute('aria-label', `@${username}: ${statusLabel}`);
     const select = document.createElement('input');
     select.type = 'checkbox'; select.className = 'queue-select'; select.checked = selectedQueueIds.has(id);
-    select.setAttribute('aria-label', `Chọn @${username}`);
+    select.setAttribute('aria-label', t('popup_select_user', { username }));
     select.addEventListener('change', () => select.checked ? selectedQueueIds.add(id) : selectedQueueIds.delete(id));
     const avatar = document.createElement('div'); avatar.className = 'queue-item-avatar'; avatar.textContent = username.slice(0, 2).toUpperCase();
     const info = document.createElement('div'); info.className = 'queue-item-info';
@@ -230,13 +238,13 @@ export function renderQueue(): void {
     info.append(name, meta);
     if (item.result) {
       const details = document.createElement('details'); details.className = 'queue-result-details';
-      const detailsSummary = document.createElement('summary'); detailsSummary.textContent = 'Chi tiết';
+      const detailsSummary = document.createElement('summary'); detailsSummary.textContent = t('popup_queue_details');
       const detailText = document.createElement('div');
-      detailText.textContent = `Thành công ${item.result.success} · Bỏ qua ${item.result.skipped} · Lỗi ${item.result.failed}${item.result.error ? ` · ${String(item.result.error).slice(0, 300)}` : ''}`;
+      detailText.textContent = `${t('popup_queue_result_detail', { success: item.result.success, skipped: item.result.skipped, failed: item.result.failed })}${item.result.error ? ` · ${String(item.result.error).slice(0, 300)}` : ''}`;
       details.append(detailsSummary, detailText); info.append(details);
     }
     if (item.status === 'downloading') {
-      const count = document.createElement('span'); count.className = 'queue-file-count'; count.id = `qfc-${id}`; count.textContent = '📥 đang tải...'; info.append(count);
+      const count = document.createElement('span'); count.className = 'queue-file-count'; count.id = `qfc-${id}`; count.textContent = t('popup_queue_downloading_badge'); info.append(count);
     }
     const status = document.createElement('span'); status.className = `queue-status ${safeStatus}`; status.textContent = statusLabel;
 
@@ -246,28 +254,29 @@ export function renderQueue(): void {
     if (item.status === 'waiting' || item.status === 'paused') {
       const up = document.createElement('button');
       up.className = 'btn-queue-move'; up.dataset.id = id; up.dataset.dir = 'up';
-      up.title = 'Di chuyển lên'; up.textContent = '▲'; up.disabled = index === 0;
-      up.setAttribute('aria-label', `Di chuyển @${username} lên`);
+      up.title = t('popup_queue_move_up'); up.textContent = '▲'; up.disabled = index === 0;
+      up.setAttribute('aria-label', t('popup_queue_move_up_aria', { username }));
       const down = document.createElement('button');
       down.className = 'btn-queue-move'; down.dataset.id = id; down.dataset.dir = 'down';
-      down.title = 'Di chuyển xuống'; down.textContent = '▼'; down.disabled = index === downloadQueue.length - 1;
-      down.setAttribute('aria-label', `Di chuyển @${username} xuống`);
+      down.title = t('popup_queue_move_down'); down.textContent = '▼'; down.disabled = index === downloadQueue.length - 1;
+      down.setAttribute('aria-label', t('popup_queue_move_down_aria', { username }));
       const pause = document.createElement('button');
       pause.className = 'btn-queue-pause'; pause.dataset.id = id;
-      pause.title = isPaused ? 'Tiếp tục' : 'Tạm dừng'; pause.textContent = isPaused ? '▶' : '⏸';
-      pause.setAttribute('aria-label', `${isPaused ? 'Tiếp tục' : 'Tạm dừng'} @${username}`);
+      const pauseLabel = t(isPaused ? 'popup_queue_resume' : 'popup_queue_pause');
+      pause.title = pauseLabel; pause.textContent = isPaused ? '▶' : '⏸';
+      pause.setAttribute('aria-label', `${pauseLabel} @${username}`);
       actions.append(up, down, pause);
     }
     if (item.status === 'error') {
       const retry = document.createElement('button');
       retry.className = 'btn-queue-retry'; retry.dataset.id = id;
-      retry.title = 'Thử lại'; retry.textContent = '↻';
-      retry.setAttribute('aria-label', `Thử lại @${username}`);
+      retry.title = t('popup_retry'); retry.textContent = '↻';
+      retry.setAttribute('aria-label', `${t('popup_retry')} @${username}`);
       actions.append(retry);
     }
     const action = document.createElement('button'); action.className = canRemove ? 'btn-queue-remove' : 'btn-queue-stop'; action.dataset.id = id;
-    action.title = canRemove ? 'Xóa khỏi queue' : 'Dừng download'; action.textContent = canRemove ? '×' : '⏹';
-    action.setAttribute('aria-label', `${canRemove ? 'Xóa khỏi hàng đợi' : 'Dừng tải'} @${username}`);
+    action.title = t(canRemove ? 'popup_queue_remove_title' : 'popup_queue_stop_title'); action.textContent = canRemove ? '×' : '⏹';
+    action.setAttribute('aria-label', `${t(canRemove ? 'popup_queue_remove_aria' : 'popup_queue_stop_aria')} @${username}`);
     actions.append(action);
 
     row.append(select, avatar, info, status, actions);
@@ -276,7 +285,7 @@ export function renderQueue(): void {
   if (queueRenderLimit < downloadQueue.length) {
     const more = document.createElement('li'); more.className = 'queue-load-more-row';
     const button = document.createElement('button'); button.type = 'button'; button.className = 'queue-load-more';
-    button.textContent = `Hiển thị thêm (${downloadQueue.length - queueRenderLimit})`;
+    button.textContent = t('popup_queue_show_more', { n: downloadQueue.length - queueRenderLimit });
     more.append(button); fragment.append(more);
   }
   list.replaceChildren(fragment);
@@ -342,7 +351,7 @@ function applyQueueItemProgress(payload: QueueProgressPayload): void {
   // FEA-03: file count badge rõ ràng hơn
   const fileCountEl = document.querySelector<HTMLElement>(`#qfc-${active.id}`);
   if (fileCountEl) {
-    fileCountEl.textContent = `📥 ${current} / ${total} files · ${percent}%`;
+    fileCountEl.textContent = t('popup_queue_file_progress', { current, total, percent });
   }
 }
 
@@ -357,7 +366,7 @@ export interface AddToQueueInput {
 export async function addCurrentToQueue(input: AddToQueueInput): Promise<void> {
   if (!input.username) return;
   if (input.mediaCount === 0) {
-    _deps!.showToast('Chưa có media — hãy thu thập trước', 'error');
+    _deps!.showToast(t('popup_toast_queue_no_media'), 'error');
     return;
   }
   const res = await _deps!.sendBG('ADD_TO_QUEUE', {
@@ -367,12 +376,12 @@ export async function addCurrentToQueue(input: AddToQueueInput): Promise<void> {
     keyword: input.keyword,
   });
   if (res?.error === 'Already in queue') {
-    _deps!.showToast(`@${input.username} đã trong hàng đợi`, 'info');
+    _deps!.showToast(t('popup_toast_queue_exists', { username: input.username }), 'info');
   } else if (res?.ok) {
-    _deps!.showToast(`✓ Đã thêm @${input.username} vào queue`, 'success');
+    _deps!.showToast(t('popup_toast_queue_added', { username: input.username }), 'success');
     // Switch to queue tab
     document.getElementById('nav-queue')?.click();
   } else {
-    _deps!.showToast('Lỗi khi thêm vào queue', 'error');
+    _deps!.showToast(t('popup_toast_queue_add_failed'), 'error');
   }
 }

@@ -16,6 +16,11 @@
  *   - Mặc định TẮT — user phải bật trong Settings
  */
 
+// Not '../lib/i18n.ts': this script shares X's isolated world with content.ts,
+// and a second copy of that module would replace content.ts's window.i18n.
+import { SHORTCUT_STRINGS, translateFrom } from '../lib/i18n/content.ts';
+import type { TranslationVars } from '../lib/i18n.ts';
+
 (function () {
   'use strict';
 
@@ -85,11 +90,31 @@
 
   loadConfig();
 
-  // Lắng nghe config thay đổi realtime
+  // ─── i18n (toast text, translated at show time) ───────────────────────────────
+  let lang = 'en';
+  const tr = (key: string, vars?: TranslationVars): string => translateFrom(SHORTCUT_STRINGS, lang, key, vars);
+
+  function loadLang() {
+    try {
+      chrome.storage.local.get('lang', (result: { lang?: unknown }) => {
+        lang = typeof result?.lang === 'string' ? result.lang : 'en';
+      });
+    } catch (_) {
+      // Extension context invalidated — giữ ngôn ngữ hiện tại
+    }
+  }
+
+  loadLang();
+
+  // Lắng nghe config/ngôn ngữ thay đổi realtime
   try {
     chrome.storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageChange }, area: string) => {
       if (area === 'sync' && changes.options) {
         loadConfig();
+      }
+      if (area === 'local' && changes.lang) {
+        const next: unknown = changes.lang.newValue;
+        lang = typeof next === 'string' ? next : 'en';
       }
     });
   } catch (_) {}
@@ -252,7 +277,7 @@
 
     if (url) {
       copyToClipboard(url);
-      showToast('✓ Copied link: ' + truncateUrl(url, 55));
+      showToast(tr('sc_copied_link', { url: truncateUrl(url, 55) }));
     }
   }
 
@@ -266,13 +291,13 @@
         type: 'SHORTCUT_DOWNLOAD',
         payload: { url }
       }).then((res: { error?: string } | undefined) => {
-        if (res?.error) showToast('✗ Download blocked');
+        if (res?.error) showToast(tr('sc_download_blocked'));
       }).catch(() => {});
-      showToast('⬇ Downloading...');
+      showToast(tr('sc_downloading'));
     } catch (_) {
       // Fallback: mở ảnh trong tab mới để user tự save
       window.open(url, '_blank');
-      showToast('⬇ Opened in new tab');
+      showToast(tr('sc_opened_new_tab'));
     }
   }
 
@@ -281,7 +306,7 @@
     const url = getBestImageSrc(img);
     if (url) {
       copyToClipboard(url);
-      showToast('✓ Copied image URL: ' + truncateUrl(url, 50));
+      showToast(tr('sc_copied_image_url', { url: truncateUrl(url, 50) }));
     }
   }
 
@@ -290,7 +315,7 @@
     const url = getBestImageSrc(img);
     if (url) {
       window.open(url, '_blank');
-      showToast('🌐 Opened original image');
+      showToast(tr('sc_opened_original'));
     }
   }
 
@@ -300,7 +325,7 @@
     if (url) {
       const lensUrl = 'https://lens.google.com/uploadbyurl?url=' + encodeURIComponent(url);
       window.open(lensUrl, '_blank');
-      showToast('🔍 Opening Google Lens...');
+      showToast(tr('sc_opening_lens'));
     }
   }
 

@@ -105,3 +105,28 @@ test('page scripts only parse media on routes that can collect it', () => {
     assert.equal(routeCollectsMedia(`https://x.com${path}`), false, path);
   }
 });
+
+test('v7.4.0 theme preference defaults to system and the toggle cycles all three modes', async () => {
+  const { nextThemePreference, parseThemePreference, resolveTheme } = await import('../src/shared/theme.ts');
+  assert.equal(parseThemePreference(undefined), 'system');
+  assert.equal(parseThemePreference('bogus'), 'system');
+  assert.equal(parseThemePreference('light'), 'light');
+  assert.deepEqual(['system', 'light', 'dark'].map((mode) => nextThemePreference(mode as 'system')), ['light', 'dark', 'system']);
+  assert.equal(resolveTheme('system', true), 'dark');
+  assert.equal(resolveTheme('system', false), 'light');
+  assert.equal(resolveTheme('light', true), 'light');
+});
+
+test('v7.4.0 translations interpolate variables and fall back to English, then the key', async () => {
+  const { registerTranslations, t } = await import('../src/lib/i18n.ts');
+  registerTranslations({ en: { test_count: '{n} items for {user}', test_only_en: 'English only' }, vi: { test_count: '{n} mục của {user}' } });
+  assert.equal(t('test_count', { n: 3, user: 'NASA' }), '3 items for NASA');
+  assert.equal(t('test_only_en'), 'English only');
+  assert.equal(t('test_missing_key'), 'test_missing_key');
+  assert.equal(t('test_count', { n: 1 }), '1 items for {user}', 'unknown placeholders stay visible');
+  const { translateFrom } = await import('../src/lib/i18n/content.ts');
+  const table = { en: { k: 'Hello {name}' }, vi: { k: 'Xin chào {name}' } };
+  assert.equal(translateFrom(table, 'vi', 'k', { name: 'A' }), 'Xin chào A');
+  assert.equal(translateFrom(table, 'fr', 'k', { name: 'A' }), 'Hello A');
+  assert.equal(translateFrom({ en: { k: 'Only en' }, vi: {} }, 'vi', 'k'), 'Only en');
+});

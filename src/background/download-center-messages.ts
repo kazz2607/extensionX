@@ -6,6 +6,7 @@ import { loadPersistedQueue, profileQueue } from './queue.ts';
 import { deleteSavedJob, getSavedJob, listSavedJobs, saveSavedJob } from './saved-jobs.ts';
 import { removeSchedule } from './p2-messages.ts';
 import { listDownloadHistory } from './download-history.ts';
+import { t } from '../lib/i18n.ts';
 
 const JOB_ID_PATTERN = /^[A-Za-z0-9_-]{1,120}$/;
 export const handleDownloadCenterMessage: DomainMessageHandler = (message, _sender, sendResponse) => {
@@ -32,8 +33,8 @@ export const handleDownloadCenterMessage: DomainMessageHandler = (message, _send
       return true;
     case 'SAVE_SAVED_JOB': {
       const input = parseSavedJobInput(payload?.job);
-      if (!input) { sendResponse({ error: 'Invalid saved job' }); return false; }
-      void saveSavedJob(input).then((job) => sendResponse(job ? { ok: true, job } : { error: 'Saved job limit reached' }));
+      if (!input) { sendResponse({ error: t('bg_err_saved_job_invalid') }); return false; }
+      void saveSavedJob(input).then((job) => sendResponse(job ? { ok: true, job } : { error: t('bg_err_saved_job_limit') }));
       return true;
     }
     case 'DELETE_SAVED_JOB': {
@@ -47,10 +48,10 @@ export const handleDownloadCenterMessage: DomainMessageHandler = (message, _send
     case 'RUN_SAVED_JOB': {
       const id = payload?.id;
       if (typeof id !== 'string' || !JOB_ID_PATTERN.test(id)) { sendResponse({ error: 'Invalid saved job id' }); return false; }
-      if (downloadCoordinator.isBusy) { sendResponse({ error: 'Download is already running' }); return false; }
+      if (downloadCoordinator.isBusy) { sendResponse({ error: t('bg_err_download_running') }); return false; }
       void (async () => {
         const job = await getSavedJob(id);
-        if (!job) { sendResponse({ error: 'Saved job not found' }); return; }
+        if (!job) { sendResponse({ error: t('bg_err_saved_job_not_found') }); return; }
         sendResponse({ ok: true, username: job.username });
         void startDownload(job.username, {
           filterType: job.filterType,

@@ -11,6 +11,7 @@ import { recordDiagnostic } from './diagnostics.ts';
 import { isTelegramDownloadUrl, isTelegramWebUrl } from '../shared/telegram-media.ts';
 import type { Stats, MediaItem } from '../types.ts';
 import { collectMediaMatches, createMediaMatcher, type MediaQueryCriteria } from '../shared/media-query.ts';
+import { t } from '../lib/i18n.ts';
 
 const MAX_MEDIA_BATCH = 200;
 const MEDIA_PROCESS_CONCURRENCY = 4;
@@ -185,7 +186,7 @@ export function handleMediaMessage(
     }
 
     case 'GET_MEDIA_COUNT': {
-      if (!isValidUsername(payload?.username)) { sendResponse({ error: 'Invalid username' }); return false; }
+      if (!isValidUsername(payload?.username)) { sendResponse({ error: t('bg_err_invalid_username') }); return false; }
       (async () => {
         const store = await ensureMediaStoreLoaded(payload.username);
         sendResponse({ count: store?.size || 0 });
@@ -194,7 +195,7 @@ export function handleMediaMessage(
     }
 
     case 'GET_STATS': {
-      if (!isValidUsername(payload?.username)) { sendResponse({ error: 'Invalid username' }); return false; }
+      if (!isValidUsername(payload?.username)) { sendResponse({ error: t('bg_err_invalid_username') }); return false; }
       (async () => {
         await ensureMediaStoreLoaded(payload.username);
         sendResponse({ stats: statsStore.get(payload.username) || { image: 0, video: 0, gif: 0, hls: 0 } });
@@ -212,7 +213,7 @@ export function handleMediaMessage(
     }
 
     case 'GET_TAB_STATE': {
-      if (!isValidUsername(payload?.username)) { sendResponse({ error: 'Invalid username' }); return false; }
+      if (!isValidUsername(payload?.username)) { sendResponse({ error: t('bg_err_invalid_username') }); return false; }
       let isCollecting = false;
       let scrollCount = 0;
       tabState.forEach((state, tid) => {
@@ -229,8 +230,8 @@ export function handleMediaMessage(
       const senderIsXTab = isXUrl(sender.tab?.url);
       if (!isValidUsername(payload?.username) || (senderIsXTab && !isMatchingXTab(sender, payload.username))) { sendResponse({ error: 'Invalid username or tab' }); return false; }
       void startCollecting(payload.username, senderIsXTab ? sender.tab?.id : undefined)
-        .then((started) => sendResponse(started ? { ok: true } : { error: 'Không tìm thấy tab media phù hợp hoặc phiên thu thập chưa sẵn sàng' }))
-        .catch(() => sendResponse({ error: 'Không thể bắt đầu thu thập' }));
+        .then((started) => sendResponse(started ? { ok: true } : { error: t('bg_err_collect_no_tab') }))
+        .catch(() => sendResponse({ error: t('bg_err_collect_start_failed') }));
       return true;
     }
 
@@ -248,7 +249,7 @@ export function handleMediaMessage(
         sendResponse({ error: 'Invalid download request' }); return false;
       }
       if (downloadCoordinator.isBusy) {
-        sendResponse({ error: 'Download is already running' });
+        sendResponse({ error: t('bg_err_download_running') });
         return false;
       }
       startDownload(username, options);
@@ -299,7 +300,7 @@ export function handleMediaMessage(
     // v4.1.0: Lấy số lượng file đã tải của username (gọi loadDownloadedUrls trước để chống cold SW)
     case 'GET_DOWNLOADED_COUNT': {
       (async () => {
-        if (!isValidUsername(payload?.username)) { sendResponse({ error: 'Invalid username' }); return; }
+        if (!isValidUsername(payload?.username)) { sendResponse({ error: t('bg_err_invalid_username') }); return; }
         await loadDownloadedUrls(payload.username);
         const set = downloadedStore.get(payload.username);
         sendResponse({ count: set?.size || 0 });
@@ -309,7 +310,7 @@ export function handleMediaMessage(
 
     // v4.1.0: Xóa lịch sử đã tải của username
     case 'CLEAR_DOWNLOADED': {
-      if (!isValidUsername(payload?.username)) { sendResponse({ error: 'Invalid username' }); return false; }
+      if (!isValidUsername(payload?.username)) { sendResponse({ error: t('bg_err_invalid_username') }); return false; }
       const username = payload.username;
       cancelDownloadedPersist(username);
       downloadedStore.delete(username);
@@ -338,7 +339,7 @@ export function handleMediaMessage(
     // Xóa toàn bộ media đã thu thập và lịch sử tải của username
     case 'CLEAR_MEDIA': {
       const u = payload.username;
-      if (!isValidUsername(u)) { sendResponse({ error: 'Invalid username' }); return false; }
+      if (!isValidUsername(u)) { sendResponse({ error: t('bg_err_invalid_username') }); return false; }
       if (u) {
         mediaStore.delete(u);
         statsStore.delete(u);
@@ -394,7 +395,7 @@ export function handleMediaMessage(
 
     case 'RESTORE_SESSION': {
       const { username } = payload;
-      if (!isValidUsername(username)) { sendResponse({ error: 'Invalid username' }); return false; }
+      if (!isValidUsername(username)) { sendResponse({ error: t('bg_err_invalid_username') }); return false; }
       (async () => {
         try {
           const key = `session_${username}`;
@@ -443,7 +444,7 @@ export function handleMediaMessage(
 
     case 'RESTORE_SESSION_CANCEL': {
       const { username } = payload;
-      if (!isValidUsername(username)) { sendResponse({ error: 'Invalid username' }); return false; }
+      if (!isValidUsername(username)) { sendResponse({ error: t('bg_err_invalid_username') }); return false; }
       clearSession(username);
       sendResponse({ ok: true });
       return false;

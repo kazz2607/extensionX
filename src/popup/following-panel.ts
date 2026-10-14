@@ -10,6 +10,7 @@
 // ─── Types ────────────────────────────────────────────────────────────────────
 import type { FollowingCandidate, FollowingScanState } from '../types.ts';
 import type { MessageType, ResponseFor } from '../shared/messages.ts';
+import { t } from '../lib/i18n.ts';
 
 export type FollowingUser = { username: string; displayName: string; bio: string; order: number };
 export type ShowToastFn   = (msg: string, type?: string) => void;
@@ -37,8 +38,8 @@ function getHTML(): string {
         </svg>
       </div>
       <div class="following-hero-text">
-        <h2 class="following-hero-title">Following Scanner</h2>
-        <p class="following-hero-sub">Tìm tài khoản following cũ nhất</p>
+        <h2 class="following-hero-title">${t('popup_following_title')}</h2>
+        <p class="following-hero-sub">${t('popup_following_sub')}</p>
       </div>
     </div>
 
@@ -46,7 +47,7 @@ function getHTML(): string {
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;color:var(--accent)">
         <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
       </svg>
-      <p>Tự động scroll trang <code>/following</code> xuống cuối để lộ ra các tài khoản <strong>following cũ nhất</strong> — hữu ích khi muốn unfollow hàng loạt.</p>
+      <p>${t('popup_following_info', { path: '<code>/following</code>', oldest: `<strong>${t('popup_following_info_oldest')}</strong>` })}</p>
     </div>
 
     <div class="following-card">
@@ -55,7 +56,7 @@ function getHTML(): string {
           <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
           <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
         </svg>
-        Target URL
+        ${t('popup_following_target')}
       </label>
       <div class="cleanup-url-wrap">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -70,13 +71,13 @@ function getHTML(): string {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polygon points="5 3 19 12 5 21 5 3"/>
         </svg>
-        <span id="btn-cleanup-start-text">Start Scan</span>
+        <span id="btn-cleanup-start-text">${t('popup_following_start')}</span>
       </button>
       <button class="btn btn--stop-dl" id="btn-cleanup-stop" style="display:none">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="3" y="3" width="18" height="18" rx="2"/>
         </svg>
-        Stop
+        ${t('popup_stop')}
       </button>
     </div>
 
@@ -85,28 +86,28 @@ function getHTML(): string {
         <div class="cleanup-progress-bar" id="cleanup-progress-bar" style="width:0%"></div>
       </div>
       <div class="cleanup-progress-info">
-        <span id="cleanup-users-count">0 users found</span>
-        <span id="cleanup-scroll-count">Scroll: 0</span>
+        <span id="cleanup-users-count">${t('popup_following_users_found', { n: 0 })}</span>
+        <span id="cleanup-scroll-count">${t('popup_following_scroll', { n: 0 })}</span>
       </div>
     </div>
 
     <div class="cleanup-status" id="cleanup-status" style="display:none">
       <span class="cleanup-status-dot" id="cleanup-status-dot"></span>
-      <span id="cleanup-status-text">Scanning...</span>
+      <span id="cleanup-status-text">${t('popup_following_scanning')}</span>
     </div>
 
     <div class="cleanup-results" id="cleanup-results" style="display:none">
       <div class="cleanup-results-header">
-        <span id="cleanup-results-title">Oldest Following</span>
+        <span id="cleanup-results-title">${t('popup_following_oldest')}</span>
         <div class="cleanup-export-btns">
-          <button class="btn-queue-export" id="btn-cleanup-copy" title="Copy usernames">
+          <button class="btn-queue-export" id="btn-cleanup-copy" title="${t('popup_following_copy_title')}">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="9" y="9" width="13" height="13" rx="2"/>
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
             </svg>
-            Copy
+            ${t('popup_copy')}
           </button>
-          <button class="btn-queue-export" id="btn-cleanup-csv" title="Export CSV">
+          <button class="btn-queue-export" id="btn-cleanup-csv" title="${t('popup_following_csv_title')}">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
               <polyline points="14 2 14 8 20 8"/>
@@ -116,14 +117,14 @@ function getHTML(): string {
         </div>
       </div>
       <div class="cleanup-actions" style="padding:8px 0;flex-wrap:wrap">
-        <label class="following-label" for="following-inactive-filter">Hoạt động</label>
+        <label class="following-label" for="following-inactive-filter">${t('popup_following_activity')}</label>
         <select id="following-inactive-filter" class="cleanup-url-input" style="width:auto">
-          <option value="all">Tất cả</option><option value="3">Không hoạt động 3 tháng</option>
-          <option value="6">Không hoạt động 6 tháng</option><option value="12">Không hoạt động 12 tháng</option>
-          <option value="unknown">Chưa xác định</option>
+          <option value="all">${t('tab_all')}</option><option value="3">${t('popup_following_inactive_months', { n: 3 })}</option>
+          <option value="6">${t('popup_following_inactive_months', { n: 6 })}</option><option value="12">${t('popup_following_inactive_months', { n: 12 })}</option>
+          <option value="unknown">${t('popup_following_unknown')}</option>
         </select>
-        <button class="btn-queue-export" id="btn-following-select-visible">Chọn đang hiển thị</button>
-        <button class="btn btn--stop-dl" id="btn-following-unfollow" disabled>Preview &amp; Unfollow</button>
+        <button class="btn-queue-export" id="btn-following-select-visible">${t('popup_following_select_visible')}</button>
+        <button class="btn btn--stop-dl" id="btn-following-unfollow" disabled>${t('popup_following_unfollow')}</button>
       </div>
       <ul class="cleanup-user-list" id="cleanup-user-list"></ul>
     </div>
@@ -148,10 +149,19 @@ function renderFollowingCandidates(state: FollowingScanState): void {
   results.style.display = 'flex';
   const visible = filteredCandidates();
   const selectedCount = _candidates.filter((item) => item.selected).length;
-  if (title) title.textContent = `Following (${visible.length}/${_candidates.length}) · đã chọn ${selectedCount}`;
+  if (title) title.textContent = t('popup_following_candidates_title', { visible: visible.length, total: _candidates.length, selected: selectedCount });
   const unfollow = document.getElementById('btn-following-unfollow') as HTMLButtonElement | null;
   if (unfollow) unfollow.disabled = selectedCount === 0 || state.status === 'unfollowing';
   list.replaceChildren();
+  if (visible.length === 0) {
+    const empty = document.createElement('li');
+    empty.className = 'cleanup-user-item';
+    empty.style.cssText = 'justify-content:center;color:var(--text-muted);font-size:11px';
+    empty.textContent = t('popup_following_empty');
+    list.append(empty);
+    return;
+  }
+  const dateLocale = window.i18n?.lang === 'vi' ? 'vi-VN' : 'en-US';
   for (const candidate of visible.slice(0, 100)) {
     const row = document.createElement('li');
     row.className = 'cleanup-user-item';
@@ -159,7 +169,7 @@ function renderFollowingCandidates(state: FollowingScanState): void {
     checkbox.type = 'checkbox';
     checkbox.checked = candidate.selected;
     checkbox.dataset.followingId = candidate.userId;
-    checkbox.setAttribute('aria-label', `Chọn @${candidate.username}`);
+    checkbox.setAttribute('aria-label', t('popup_select_user', { username: candidate.username }));
     const info = document.createElement('div');
     info.className = 'cleanup-user-info';
     const name = document.createElement('div');
@@ -167,10 +177,12 @@ function renderFollowingCandidates(state: FollowingScanState): void {
     name.textContent = candidate.displayName;
     const handle = document.createElement('div');
     handle.className = 'cleanup-user-handle';
-    const activity = candidate.lastActiveAt ? new Date(candidate.lastActiveAt).toLocaleDateString() : 'chưa xác định';
+    const activity = candidate.lastActiveAt
+      ? new Date(candidate.lastActiveAt).toLocaleDateString(dateLocale)
+      : t('popup_following_activity_unknown');
     // The unfollow acts on the numeric account ID, so show it next to the handle.
-    handle.textContent = `@${candidate.username} · ID ${candidate.userId} · hoạt động: ${activity}`;
-    handle.title = `Account ID ${candidate.userId}`;
+    handle.textContent = t('popup_following_handle', { username: candidate.username, id: candidate.userId, activity });
+    handle.title = t('popup_following_account_id', { id: candidate.userId });
     info.append(name, handle);
     row.append(checkbox, info);
     list.append(row);
@@ -178,7 +190,7 @@ function renderFollowingCandidates(state: FollowingScanState): void {
   if (visible.length > 100) {
     const more = document.createElement('li');
     more.className = 'cleanup-user-item';
-    more.textContent = `Hiển thị 100/${visible.length}; dùng bộ lọc để thu hẹp.`;
+    more.textContent = t('popup_following_showing_limit', { shown: 100, total: visible.length });
     list.append(more);
   }
 }
@@ -198,7 +210,7 @@ export function followingSetScrolling(isScrolling: boolean): void {
   if (progress)  { progress.style.display  = isScrolling ? 'flex' : progress.style.display; }
   if (statusEl)  { statusEl.style.display  = 'flex'; }
   if (statusDot) { statusDot.className = 'cleanup-status-dot' + (isScrolling ? '' : ' done'); }
-  if (statusTxt) { statusTxt.textContent   = isScrolling ? 'Scrolling...' : 'Done!'; }
+  if (statusTxt) { statusTxt.textContent   = t(isScrolling ? 'popup_following_scrolling' : 'popup_following_done_short'); }
   if (urlInput)  { urlInput.disabled       = isScrolling; }
 }
 
@@ -226,14 +238,14 @@ export function followingRenderResults(
 
   const usersEl  = document.getElementById('cleanup-users-count');
   const scrollEl = document.getElementById('cleanup-scroll-count');
-  if (usersEl)  { usersEl.textContent  = `${total} users found`; }
-  if (scrollEl) { scrollEl.textContent = `Scroll: ${scrollCount}`; }
+  if (usersEl)  { usersEl.textContent  = t('popup_following_users_found', { n: total }); }
+  if (scrollEl) { scrollEl.textContent = t('popup_following_scroll', { n: scrollCount }); }
 
   const statusMsg = stopped
-    ? `Stopped — ${total} users collected`
+    ? t('popup_following_stopped_msg', { n: total })
     : reachedEnd
-      ? `Done! ${total} following (oldest first)`
-      : `Reached limit — ${total} users`;
+      ? t('popup_following_done_msg', { n: total })
+      : t('popup_following_limit_msg', { n: total });
   followingSetStatus(stopped ? 'stopped' : 'done', statusMsg);
 
   const resultsEl = document.getElementById('cleanup-results');
@@ -242,7 +254,7 @@ export function followingRenderResults(
   if (!resultsEl || !listEl) return;
 
   resultsEl.style.display = 'flex';
-  if (titleEl) { titleEl.textContent = `Oldest Following (${total})`; }
+  if (titleEl) { titleEl.textContent = t('popup_following_oldest_count', { n: total }); }
 
   const shown = users.slice(0, 50);
   listEl.replaceChildren();
@@ -261,7 +273,7 @@ export function followingRenderResults(
     if (isParody) {
       const badge = document.createElement('span');
       badge.className = 'parody-badge';
-      badge.textContent = '🎭 Giễu nhại';
+      badge.textContent = t('popup_following_parody');
       name.append(' ', badge);
     }
     const handle = document.createElement('div');
@@ -279,7 +291,7 @@ export function followingRenderResults(
     link.href = `https://x.com/${encodeURIComponent(u.username)}`;
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
-    link.title = 'Open profile';
+    link.title = t('popup_following_open_profile');
     link.textContent = '↗';
     item.append(rank, info, link);
     listEl.append(item);
@@ -289,11 +301,11 @@ export function followingRenderResults(
     const more = document.createElement('li');
     more.className = 'cleanup-user-item';
     more.style.cssText = 'justify-content:center;color:var(--text-muted);font-size:11px';
-    more.textContent = `...and ${total - 50} more — export CSV to see all`;
+    more.textContent = t('popup_following_more', { n: total - 50 });
     listEl.append(more);
   }
 
-  showToast?.(`✓ Done! ${total} following (oldest first)`, 'success');
+  showToast?.(`✓ ${t('popup_following_done_msg', { n: total })}`, 'success');
 }
 
 // ─── Main Init ────────────────────────────────────────────────────────────────
@@ -328,12 +340,12 @@ export function initFollowingPanel(deps: FollowingPanelDeps): void {
 
   btnStart.addEventListener('click', async () => {
     let rawUrl = urlInput.value.trim();
-    if (!rawUrl) { showToast('Nhập URL trang /following', 'error'); return; }
+    if (!rawUrl) { showToast(t('popup_following_need_url'), 'error'); return; }
     if (!rawUrl.startsWith('http')) rawUrl = 'https://' + rawUrl;
     if (!/\/following/.test(rawUrl)) rawUrl = rawUrl.replace(/\/?$/, '/following');
 
     const res = await sendBG('START_FOLLOWING_SCAN', { targetUrl: rawUrl }) as { error?: string } | null;
-    if (res?.error) { showToast(`Lỗi: ${res.error}`, 'error'); return; }
+    if (res?.error) { showToast(t('popup_error_prefix', { error: res.error }), 'error'); return; }
 
     const progressEl = document.getElementById('cleanup-progress');
     if (progressEl) progressEl.style.display = 'flex';
@@ -343,7 +355,7 @@ export function initFollowingPanel(deps: FollowingPanelDeps): void {
 
   btnStop?.addEventListener('click', async () => {
     await sendBG('STOP_FOLLOWING_SCAN', {});
-    showToast('⏹ Đang dừng scan...', 'info');
+    showToast(t('popup_following_stopping'), 'info');
   });
 
   filter?.addEventListener('change', async () => {
@@ -365,21 +377,21 @@ export function initFollowingPanel(deps: FollowingPanelDeps): void {
     const selected = _candidates.filter((item) => item.selected);
     if (!selected.length) return;
     const preview = selected.slice(0, 10).map((item) => `@${item.username} (ID ${item.userId})`).join('\n');
-    if (!confirm(`Unfollow ${selected.length} tài khoản?\n\n${preview}${selected.length > 10 ? '…' : ''}\n\nHành động này không thể tự động hoàn tác.`)) return;
+    if (!confirm(t('popup_following_unfollow_confirm', { n: selected.length, preview: `${preview}${selected.length > 10 ? '…' : ''}` }))) return;
     const response = await sendBG('START_UNFOLLOW', { ids: selected.map((item) => item.userId), confirmed: true }) as { ok?: boolean; error?: string } | null;
-    if (!response?.ok) showToast(response?.error || 'Unfollow chưa hoàn tất', 'error');
+    if (!response?.ok) showToast(response?.error || t('popup_following_unfollow_incomplete'), 'error');
   });
 
   btnCopy?.addEventListener('click', () => {
-    if (_users.length === 0) { showToast('Chưa có dữ liệu', 'error'); return; }
+    if (_users.length === 0) { showToast(t('popup_toast_no_data'), 'error'); return; }
     navigator.clipboard
       .writeText(_users.map(u => `@${u.username}`).join('\n'))
-      .then(() => showToast(`✓ Copied ${_users.length} usernames`, 'success'))
-      .catch(() => showToast('Copy thất bại', 'error'));
+      .then(() => showToast(t('popup_following_copied', { n: _users.length }), 'success'))
+      .catch(() => showToast(t('popup_following_copy_failed'), 'error'));
   });
 
   btnCsv?.addEventListener('click', () => {
-    if (_users.length === 0) { showToast('Chưa có dữ liệu', 'error'); return; }
+    if (_users.length === 0) { showToast(t('popup_toast_no_data'), 'error'); return; }
     const urlRaw = urlInput.value.replace(/^https?:\/\//, '');
     const match = urlRaw.match(/\/([A-Za-z0-9_]+)\/following/);
     const targetUser = match?.[1] || 'unknown';
@@ -399,7 +411,7 @@ export function initFollowingPanel(deps: FollowingPanelDeps): void {
       filename: `following_${targetUser}_oldest_${dateStr}.csv`,
       saveAs: false,
     });
-    showToast(`✓ Exported ${_users.length} users to CSV`, 'success');
+    showToast(t('popup_following_exported', { n: _users.length }), 'success');
   });
 }
 
@@ -420,12 +432,13 @@ export function handleFollowingMessage(
       const scrollEl   = document.getElementById('cleanup-scroll-count');
       const statusEl   = document.getElementById('cleanup-status-text');
       const progressBar = document.getElementById('cleanup-progress-bar') as HTMLElement | null;
-      if (usersEl)  { usersEl.textContent  = `${payload['usersFound']} users found`; }
-      if (scrollEl) { scrollEl.textContent = `Scroll: ${payload['scrollCount']}`; }
+      const usersFound = Number(payload['usersFound']) || 0;
+      if (usersEl)  { usersEl.textContent  = t('popup_following_users_found', { n: usersFound }); }
+      if (scrollEl) { scrollEl.textContent = t('popup_following_scroll', { n: Number(payload['scrollCount']) || 0 }); }
       if (statusEl) {
         statusEl.textContent = payload['isHidden']
-          ? 'Tab hidden — pausing...'
-          : `Scanning... (${payload['usersFound']} found)`;
+          ? t('popup_following_tab_hidden')
+          : t('popup_following_scanning_count', { n: usersFound });
       }
       if (progressBar) {
         const pct = Math.min(20 + ((payload['scrollCount'] as number) % 10) * 7, 90);
@@ -448,8 +461,8 @@ export function handleFollowingMessage(
 
     case 'FOLLOWING_SCROLL_ERROR':
       followingSetScrolling(false);
-      followingSetStatus('error', `Error: ${payload['error']}`);
-      showToast(`Scroll lỗi: ${payload['error']}`, 'error');
+      followingSetStatus('error', t('popup_error_prefix', { error: String(payload['error']) }));
+      showToast(t('popup_following_scroll_error', { error: String(payload['error']) }), 'error');
       break;
     case 'FOLLOWING_SCAN_STATE': {
       const state = payload as unknown as FollowingScanState;
@@ -458,8 +471,13 @@ export function handleFollowingMessage(
       renderFollowingCandidates(state);
       const status = document.getElementById('cleanup-status-text');
       if (status) status.textContent = state.status === 'unfollowing'
-        ? `Unfollow ${state.processed}/${state.processed + state.candidates.filter((item) => item.selected).length} · thành công ${state.succeeded} · lỗi ${state.failed}`
-        : `${state.status} · ${state.scanned} tài khoản`;
+        ? t('popup_following_unfollow_progress', {
+          processed: state.processed,
+          total: state.processed + state.candidates.filter((item) => item.selected).length,
+          succeeded: state.succeeded,
+          failed: state.failed,
+        })
+        : t('popup_following_state', { status: state.status, n: state.scanned });
       break;
     }
   }

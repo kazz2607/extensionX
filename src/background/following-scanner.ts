@@ -3,6 +3,7 @@ import { FOLLOWING_SCAN_MAX_RECORDS, validateUnfollowSelection } from '../shared
 import { broadcastToPopup } from './utils.ts';
 import { userCsrfToken } from './state.ts';
 import { unfollowXUser } from './tweet-api.ts';
+import { t } from '../lib/i18n.ts';
 
 let state: FollowingScanState = emptyState();
 let candidates = new Map<string, FollowingCandidate>();
@@ -94,11 +95,11 @@ function waitOrAbort(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 export function runUnfollowQueue(ids: unknown): Promise<{ ok: boolean; error?: string }> {
-  if (unfollowRun) return Promise.resolve({ ok: false, error: 'Previous unfollow run is still stopping' });
-  if (state.status !== 'ready' && state.status !== 'stopped') return Promise.resolve({ ok: false, error: 'Scan is not ready' });
+  if (unfollowRun) return Promise.resolve({ ok: false, error: t('bg_err_unfollow_still_stopping') });
+  if (state.status !== 'ready' && state.status !== 'stopped') return Promise.resolve({ ok: false, error: t('bg_err_scan_not_ready') });
   const selected = validateUnfollowSelection(ids, [...candidates.values()]);
-  if (!selected) return Promise.resolve({ ok: false, error: 'Invalid unfollow selection' });
-  if (!userCsrfToken) return Promise.resolve({ ok: false, error: 'Open X.com and refresh the page before unfollowing' });
+  if (!selected) return Promise.resolve({ ok: false, error: t('bg_err_unfollow_selection_invalid') });
+  if (!userCsrfToken) return Promise.resolve({ ok: false, error: t('bg_err_unfollow_need_refresh') });
   const controller = new AbortController();
   abortController = controller;
   unfollowRun = unfollowSequentially(selected, controller.signal).finally(() => { unfollowRun = null; });

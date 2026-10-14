@@ -3,12 +3,13 @@ import { releasePersistedEntries, restoreDirtyBatch, takeDirtyBatch } from '../s
 import { mediaStore, dirtyMediaStore, statsStore, tabState, downloadedStore, userCsrfToken, setCsrfToken, touchMediaCache, trimMediaCache } from './state.ts';
 import { fetchVideoForTweet } from './tweet-api.ts';
 import { updateBadge, broadcastToPopup, updateFAB, broadcastFABState, sleep, waitForTabLoad, sanitizeFolder } from './utils.ts';
-import { mediaRepository } from './indexeddb.ts';
+import { MEDIA_RETENTION_MAX_ENTRIES, mediaRepository } from './indexeddb.ts';
 import { MediaItem, Options, CollectState, Stats } from '../types.ts';
 import { filterMediaItems, isVideoThumbnailUrl } from '../shared/media-filter.ts';
 import { recordDiagnostic } from './diagnostics.ts';
 import { canTransitionCollectPhase, type CollectPhase } from '../shared/collect-state.ts';
 import { isXProfileUrlForUsername, normalizeUrlForDedup } from '../shared/validation.ts';
+import { t } from '../lib/i18n.ts';
 
 // ─── BUG-03 FIX: Options Cache — tránh gọi storage.sync N lần per session ────
 let _optionsCache: Options | null = null;
@@ -86,7 +87,35 @@ function tweetDateFromId(tweetId: string | number | undefined) {
 // ─── Add Media Items ──────────────────────────────────────────────────────────
 const MEMORY_WARN_THRESHOLD = 50_000;
 const _warnedUsers = new Set<string>(); // tránh spam warning mỗi item
-const _mediaRetentionChecked = new Set<string>();
+// P10: retention prunes when the daily check is due (remembered across
+// service-worker restarts) or when the profile has grown past the retention
+// cap by a meaningful step since the last prune — so heavy collection stays
+// bounded without pruning on every persist.
+const RETENTION_CHECK_KEY = 'media_retention_checked_v1';
+const RETENTION_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const RETENTION_GROWTH_STEP = 1_000;
+const _retentionDailyChecked = new Set<string>();
+const _sizeAtLastPrune = new Map<string, number>();
+
+async function isDailyRetentionDue(username: string): Promise<boolean> {
+  if (_retentionDailyChecked.has(username)) return false;
+  _retentionDailyChecked.add(username);
+  const stored = await chrome.storage.local.get(RETENTION_CHECK_KEY).catch(() => ({})) as Record<string, unknown>;
+  const checked = (stored[RETENTION_CHECK_KEY] ?? {}) as Record<string, number>;
+  if (Date.now() - (checked[username] ?? 0) < RETENTION_CHECK_INTERVAL_MS) return false;
+  // Keep the map small: drop entries older than the interval.
+  const fresh = Object.fromEntries(Object.entries(checked).filter(([, at]) => Date.now() - at < RETENTION_CHECK_INTERVAL_MS));
+  await chrome.storage.local.set({ [RETENTION_CHECK_KEY]: { ...fresh, [username]: Date.now() } }).catch(() => {});
+  return true;
+}
+
+async function shouldRunRetention(username: string): Promise<boolean> {
+  const size = mediaStore.get(username)?.size ?? 0;
+  const overCap = size > MEDIA_RETENTION_MAX_ENTRIES && size - (_sizeAtLastPrune.get(username) ?? 0) >= RETENTION_GROWTH_STEP;
+  const due = overCap || await isDailyRetentionDue(username);
+  if (due) _sizeAtLastPrune.set(username, size);
+  return due;
+}
 
 // Đảm bảo mediaStore và statsStore được nạp từ IndexedDB nếu SW vừa restart
 async function ensureMediaStoreLoaded(username: string): Promise<Map<string, MediaItem>> {
@@ -485,8 +514,7 @@ async function persistSession(username: string) {
         const dirtyItems = dirtyEntries.map(([, item]) => item);
         // v4.4.0: Lưu dirty items vào IndexedDB (Delta Write)
         await mediaRepository.saveMediaItems(username, dirtyItems);
-        if (!_mediaRetentionChecked.has(username)) {
-          _mediaRetentionChecked.add(username);
+        if (await shouldRunRetention(username)) {
           await mediaRepository.pruneMediaItems(username).catch(() => 0);
         }
         // Items added or replaced while the write was pending stay dirty.
@@ -640,16 +668,16 @@ async function showDownloadNotification(username: string, success: number, faile
 
     const emoji  = failed > 0 ? '⚠️' : '✅';
     const detail = failed > 0
-      ? `${success} thành công, ${failed} lỗi`
-      : `${success} file đã tải xong`;
-    const skipNote = skipped > 0 ? ` (bỏ qua ${skipped} đã có)` : '';
+      ? t('bg_notif_detail_partial', { success, failed })
+      : t('bg_notif_detail_done', { success });
+    const skipNote = skipped > 0 ? t('bg_notif_skip_note', { skipped }) : '';
 
     chrome.notifications.create(`download_done_${Date.now()}`, {
       type:    'basic',
       iconUrl: chrome.runtime.getURL('icons/icon128.png'),
       title:   `${emoji} X Media Downloader`,
       message: `@${username}: ${detail}${skipNote}`,
-      contextMessage: `Tổng: ${total} files`,
+      contextMessage: t('bg_notif_total', { total }),
       priority: 1,
     });
   } catch (err) {

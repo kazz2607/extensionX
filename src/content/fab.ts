@@ -16,6 +16,7 @@ import { buildFabDom } from './fab-dom.ts';
 import { initDrag } from './fab-drag.ts';
 import { initFabEvents } from './fab-events.ts';
 import { createClosedShadowRoot } from './shadow-host.ts';
+import { watchXModals } from './x-modal-watch.ts';
 
 (function () {
   'use strict';
@@ -29,4 +30,12 @@ import { createClosedShadowRoot } from './shadow-host.ts';
   const elements = buildFabDom(root);
   const { closePanel } = initFabEvents(elements);
   initDrag(elements, closePanel);
+
+  // U13: the FAB sits above everything, so step aside while X shows a
+  // lightbox, compose box or dialog instead of covering its controls.
+  const host = root.host as HTMLElement;
+  watchXModals((open) => {
+    host.style.display = open ? 'none' : '';
+    if (open) closePanel();
+  });
 })();

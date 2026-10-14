@@ -18,6 +18,7 @@ import { transitionQueueItem } from '../shared/queue-state.ts';
 import { isVideoThumbnailUrl } from '../shared/media-filter.ts';
 import { listDownloadHistory, recordDownloadHistory } from './download-history.ts';
 import { addNotificationEvent } from './notification-events.ts';
+import { t } from '../lib/i18n.ts';
 
 // ─── BUG-2 FIX: Keep-alive alarm để SW không bị Chrome terminate ───────────────
 const KEEPALIVE_ALARM = 'sw-keepalive';
@@ -114,6 +115,9 @@ chrome.downloads.onChanged.addListener((delta) => {
 });
 // ─── Download — từng file, không ZIP ─────────────────────────────────────────
 let activeErrors: string[] = []; // Mảng chứa chi tiết lỗi
+const PROGRESS_INTERVAL_MS = 250;
+const PROGRESS_ERROR_LIMIT = 20;
+const _progressTimeByOp = new Map<string, number>();
 
 // ─── PERF-02: Offscreen Document cache ───────────────────────────────────────
 // Tránh gọi chrome.runtime.getContexts() (async I/O) mỗi file HLS.
@@ -280,7 +284,7 @@ async function handleDownloadTweet(tweetId: string, username: string | undefined
 
     // 3. Vẫn không có → thông báo lỗi
     if (!mediaItems.length) {
-      sendResult('error', { message: 'No media found for this tweet' });
+      sendResult('error', { message: t('bg_err_tweet_no_media') });
       return;
     }
 
@@ -313,7 +317,7 @@ async function handleDownloadTweet(tweetId: string, username: string | undefined
     if (success > 0) {
       sendResult('done', { success, failed, total: mediaItems.length });
     } else {
-      sendResult('error', { message: 'All downloads failed' });
+      sendResult('error', { message: t('bg_err_tweet_all_failed') });
     }
 
   } catch (err: unknown) {
@@ -369,7 +373,7 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
     const transitioned = qItem && transitionQueueItem(qItem, 'error');
     if (qItem && transitioned) {
       Object.assign(qItem, transitioned);
-      qItem.result = { success: 0, failed: 0, total: 0, skipped: 0, error: 'Media storage unavailable' };
+      qItem.result = { success: 0, failed: 0, total: 0, skipped: 0, error: t('bg_err_media_storage_unavailable') };
       await persistQueueImmediately();
       broadcastQueueUpdate();
     }
@@ -407,7 +411,7 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
       const transitioned = qItem && transitionQueueItem(qItem, emptyIsError ? 'error' : 'done');
       if (qItem && transitioned) {
         Object.assign(qItem, transitioned);
-        qItem.result = { success: 0, failed: 0, total: 0, skipped, ...(emptyIsError ? { error: 'No media found' } : {}) };
+        qItem.result = { success: 0, failed: 0, total: 0, skipped, ...(emptyIsError ? { error: t('bg_err_no_media_found') } : {}) };
         await persistQueueImmediately();
         broadcastQueueUpdate();
       }
@@ -480,14 +484,21 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
 
     if (!downloadCoordinator.isCurrent(operationId)) return;
 
+    // P7: at most ~4 progress messages per second (the last one always goes
+    // out), and only the latest errors — the full list grew O(n²) in total.
+    const finished = success + failed === total;
+    const nowProgress = Date.now();
+    if (!finished && nowProgress - (_progressTimeByOp.get(operationId) || 0) < PROGRESS_INTERVAL_MS) return;
+    _progressTimeByOp.set(operationId, nowProgress);
+
     broadcastToPopup('DOWNLOAD_PROGRESS', {
       username,
       current: success + failed,
       total,
       success,
       failed,
-      errors: activeErrors,
-      done: success + failed === total,
+      errors: activeErrors.slice(-PROGRESS_ERROR_LIMIT),
+      done: finished,
       percent: Math.round(((success + failed) / total) * 100),
       currentFile: filename.split('/').pop(),
     });
@@ -544,14 +555,17 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
   } catch (err: unknown) {
     console.error('[SW] Critical download error:', err);
   } finally {
+    // Throttle state is per operation; drop it even when the run was stopped
+    // or superseded, or the maps grow for the service worker's lifetime.
+    _fabProgressTimeByOp.delete(operationId); // P3: dọn per-operation throttle state
+    _progressTimeByOp.delete(operationId);
     if (!downloadCoordinator.isCurrent(operationId)) return;
     stopKeepAlive(); // BUG-2 FIX: Tắt keep-alive khi xong
-    _fabProgressTimeByOp.delete(operationId); // P3: dọn per-operation throttle state
     await recordDownloadHistory(username, options.filterType ?? 'all', { success, failed, skipped }).catch(() => {});
     await addNotificationEvent(
       failed > 0 ? (success > 0 ? 'warning' : 'error') : 'success',
-      failed > 0 ? 'Download hoàn tất một phần' : 'Download hoàn tất',
-      `@${username}: ${success} thành công, ${failed} lỗi, ${skipped} bỏ qua.`,
+      t(failed > 0 ? 'bg_event_download_partial' : 'bg_event_download_done'),
+      t('bg_event_download_summary', { username, success, failed, skipped }),
     ).catch(() => {});
     // UI-01: Truyền errors array để popup có thể hiện chi tiết lỗi
     broadcastToPopup('DOWNLOAD_DONE', { username, success, failed, total, skipped, errors: activeErrors.slice(0, 20) });
@@ -823,7 +837,7 @@ async function buildManifest(username: string): Promise<{ json: string; csv: str
   const history = allHistory.filter((entry) => entry.username === username);
 
   const json = JSON.stringify({
-    _version: '7.2.2',
+    _version: chrome.runtime.getManifest().version,
     _exportedAt: new Date().toISOString(),
     username,
     history,

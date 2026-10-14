@@ -8,6 +8,7 @@ import { handleQueueMessage } from './queue-messages.ts';
 import { handleStorageMessage } from './storage-messages.ts';
 import { handleP2Message } from './p2-messages.ts';
 import { isQueueHydrated, loadPersistedQueue } from './queue.ts';
+import { i18nReady, isI18nReady } from './i18n-ready.ts';
 import type { MessageType, ParsedRuntimeMessage } from '../shared/messages.ts';
 
 const handlers: readonly DomainMessageHandler[] = [
@@ -42,8 +43,12 @@ chrome.runtime.onMessage.addListener((rawMessage, sender, sendResponse) => {
     sendResponse({ error: 'Invalid message' });
     return false;
   }
-  if (QUEUE_TYPES.has(message.type) && !isQueueHydrated()) {
-    void loadPersistedQueue().then(() => dispatch(message, sender, sendResponse));
+  // Wait for the stored language (error texts) and, for queue commands, the
+  // persisted queue; both settle once per service-worker start.
+  const needsQueue = QUEUE_TYPES.has(message.type) && !isQueueHydrated();
+  if (needsQueue || !isI18nReady()) {
+    void Promise.all([i18nReady, needsQueue ? loadPersistedQueue() : undefined])
+      .then(() => dispatch(message, sender, sendResponse));
     return true;
   }
   return dispatch(message, sender, sendResponse);

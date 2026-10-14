@@ -1,7 +1,7 @@
 # Kế hoạch nâng cấp v7.3 → v8.0
 
 > Lập ngày: 2026-10-14 | Baseline: **v7.2.2** (`npm run check` xanh: 42 unit, 2 e2e, build, budget)
-> Trạng thái: **Đang thực hiện** — v7.2.3 (L1–L5), v7.3.0 (hardening) và v7.3.1 (phần dở của 7.3.0) đã hoàn thành ngày 2026-10-14; v7.4.0 là mốc tiếp theo.
+> Trạng thái: **Đang thực hiện** — v7.2.3, v7.3.0, v7.3.1 và v7.4.0 đã hoàn thành ngày 2026-10-14; v8.0.0 (tính năng mới) chờ chốt phạm vi.
 
 Kế hoạch này dựa trên audit đọc mã nguồn ngày 2026-10-14, chia 4 nhóm: **logic**, **bảo mật**, **hiệu năng**, **UI/UX**, kèm phần tư vấn tính năng mới. Mỗi hạng mục có mã ID, vị trí mã, cách sửa và tiêu chí nghiệm thu. Vị trí dòng (`file:line`) tính theo v7.2.2 và có thể lệch nhẹ khi sửa.
 
@@ -11,7 +11,7 @@ Kế hoạch này dựa trên audit đọc mã nguồn ngày 2026-10-14, chia 4 
 | --- | --- | --- |
 | **v7.2.3 — Hotfix** ✅ | L1–L5 (+ S4 cho phím tắt) | Sửa lỗi làm hỏng chức năng hoặc mất dữ liệu — **đã phát hành** |
 | **v7.3.0 — Hardening** ✅ | L6–L15, S1–S11, P1–P3 (+ P9, P11) | Bảo mật bridge, ổn định Queue/Saved Job, giảm tải trên X/Telegram |
-| **v7.4.0 — Performance & UI** | P4–P15, U1–U15 | i18n đầy đủ, theme/token thống nhất, accessibility, tối ưu batch/IndexedDB |
+| **v7.4.0 — Performance & UI** ✅ | P4–P15, U1–U15 | i18n đầy đủ, theme/token thống nhất, accessibility, tối ưu batch/IndexedDB |
 | **v8.0.0 — Tính năng mới** | F1–F8 (chọn lọc) | Mở rộng nguồn tải và quản lý thư viện |
 
 Mức độ: **P0** = hỏng chức năng/mất dữ liệu/rủi ro tài khoản · **P1** = ảnh hưởng rõ tới người dùng · **P2** = cải thiện.
@@ -90,11 +90,11 @@ Các mục đã làm (Queue/Download Center windowing, coalesce progress bằng 
 | **P3** ✅ | Telegram quét lại toàn bộ document và ép layout mỗi frame khi chat thay đổi. | `content/tg-content.ts:269-275`, `:397-399`, `:444-502` | Chỉ quét các root mới thêm; selector `:not([data-ext-x-telegram-download])`; kiểm tra viewer rẻ trước `isOnScreen`; throttle khoảng 4 Hz. |
 | **P4** ✅ | `MEDIA_FOUND` xử lý từng item: 200 item gây khoảng 1.000 lượt IPC/storage (badge, popup, FAB, persist, diagnostic). | `media-messages.ts:121-130`, `scraper.ts:127-171` | Lọc theo mảng, gọi `addMediaItems` một lần, mỗi batch chỉ một lần cập nhật badge/popup/FAB. Content chia batch > 200 thay vì để SW loại cả batch. |
 | **P5** ✅ | Mỗi `video_placeholder` quét O(n) toàn profile (tới 50k item). | `media-messages.ts:98-107` | Duy trì `Set<tweetId>` video theo profile. |
-| **P6** | `tweet-btn` giữ `btnMap` chứa nút của mọi tweet → rò cả cây `<article>` đã detach; observer trên `document.body` quét lại toàn bộ article. | `content/tweet-btn.ts:193`, `:286-314` | Dùng `WeakMap` hoặc tra bằng `data-xmd-btn`; chỉ xử lý root mới thêm; observe primaryColumn. |
-| **P7** | `DOWNLOAD_PROGRESS` gửi toàn bộ mảng lỗi mỗi file (tăng O(n²)), không throttle, mỗi lần còn gọi `tabs.get`. | `downloader.ts:475-485`, `:541-546`, `popup.ts:1094` | Chỉ gửi 20 lỗi cuối hoặc số đếm; throttle khoảng 4 Hz. |
+| **P6** ✅ | `tweet-btn` giữ `btnMap` chứa nút của mọi tweet → rò cả cây `<article>` đã detach; observer trên `document.body` quét lại toàn bộ article. | `content/tweet-btn.ts:193`, `:286-314` | Dùng `WeakMap` hoặc tra bằng `data-xmd-btn`; chỉ xử lý root mới thêm; observe primaryColumn. |
+| **P7** ✅ | `DOWNLOAD_PROGRESS` gửi toàn bộ mảng lỗi mỗi file (tăng O(n²)), không throttle, mỗi lần còn gọi `tabs.get`. | `downloader.ts:475-485`, `:541-546`, `popup.ts:1094` | Chỉ gửi 20 lỗi cuối hoặc số đếm; throttle khoảng 4 Hz. |
 | **P8** ✅ | dom-scanner quét toàn document mỗi 500 ms khi cuộn, tạo `new URL()` cho mọi `<img>` trước khi kiểm tra trùng, `discovered` không giới hạn, chạy cả trên Home/Explore. | `content/dom-scanner.ts:58-72`, `:223-231` | Dedupe theo `src` thô trước; bỏ qua route không có username; giới hạn/clear khi điều hướng; fallback theo scroll mỗi 2 s. |
 | **P9** ✅ | Bộ script MAIN khoảng 50 KB bị inject hai lần mỗi lần load trang (manifest và `<script>`); `i18n.js` không có guard. | `content.ts:55-81` | Gộp với S11 — bỏ `injectScript`. |
-| **P10** | Prune retention `getAll()` tới 50k record trong transaction readwrite sau mỗi lần SW restart. | `indexeddb.ts:129-153`, `:242-266`, `scraper.ts:459` | Index `[username, addedAt]`; `count()` trước, rồi dùng cursor từ bản ghi cũ nhất; lưu trạng thái đã kiểm tra trong storage. |
+| **P10** ✅ | Prune retention `getAll()` tới 50k record trong transaction readwrite sau mỗi lần SW restart. | `indexeddb.ts:129-153`, `:242-266`, `scraper.ts:459` | Index `[username, addedAt]`; `count()` trước, rồi dùng cursor từ bản ghi cũ nhất; lưu trạng thái đã kiểm tra trong storage. |
 
 ### P2
 
@@ -102,9 +102,9 @@ Các mục đã làm (Queue/Download Center windowing, coalesce progress bằng 
 | --- | --- | --- |
 | **P11** ✅ | HLS ghép segment bằng cách copy sang một `Uint8Array` → RAM khoảng 2× kích thước video (`hls-fetcher.ts:69-78`). | `new Blob(segments, {type})`, không copy. |
 | **P12** ✅ | `performance.mark/measure` không bao giờ được clear trong trang X (`dom-scanner.ts:52`, `:183`). | Dùng hiệu `performance.now()`, hoặc clear sau khi đo. |
-| **P13** | `icon128.png` thực chất là JPEG 1024×1024, nặng 300 KB. | Xuất lại PNG 128 px. |
-| **P14** | JSZip (103 KB) được import tĩnh ở mỗi lần mở offscreen (`offscreen.ts:3`). | `await import()` trong `processZipChunks`. |
-| **P15** | Download Center fetch lại toàn bộ dữ liệu ở mỗi `QUEUE_UPDATE` (`download-center.ts:322`). | Dùng `payload.queue`, chỉ gọi `renderQueue()`. |
+| **P13** ✅ | `icon128.png` thực chất là JPEG 1024×1024, nặng 300 KB. | Xuất lại PNG 128 px. |
+| **P14** ✅ | JSZip (103 KB) được import tĩnh ở mỗi lần mở offscreen (`offscreen.ts:3`). | `await import()` trong `processZipChunks`. |
+| **P15** ✅ | Download Center fetch lại toàn bộ dữ liệu ở mỗi `QUEUE_UPDATE` (`download-center.ts:322`). | Dùng `payload.queue`, chỉ gọi `renderQueue()`. |
 
 Nhỏ: bỏ index `url` không dùng trên `media_items`; `waitForTabLoad` không gỡ listener khi timeout (`background/utils.ts:71-82`); popup init có khoảng 8 `await` tuần tự (`popup.ts:204-226`) có thể chạy song song bằng `Promise.all`.
 
@@ -120,30 +120,32 @@ Nhỏ: bỏ index `url` không dùng trên `media_items`; `waitForTabLoad` khôn
 
 ## 4. Giao diện (UI/UX)
 
+> v7.4.0: U1–U15 hoàn thành, trừ U9 một phần (nút icon đã có title/aria-label đa ngôn ngữ; ký tự `×` chưa thay bằng SVG). Phần "Dọn dẹp" (selector trùng, `!important`, style inline) chưa làm. P10 thay index `[username, addedAt]` (cần nâng IndexedDB, phá rollback) bằng cursor + kiểm tra retention hằng ngày hoặc khi profile vượt ngưỡng thêm 1.000 mục.
+
 ### P0/P1
 
 | ID | Vấn đề | Vị trí | Cách sửa |
 | --- | --- | --- | --- |
-| **U1** | Nút tải tweet quay mãi trên `/home`, `/search`, `/bookmarks` (xem L5). | `tweet-btn.ts:213` | Trạng thái lỗi, timeout, hoặc chỉ inject trên route được hỗ trợ. |
-| **U2** | Khoảng 200 dòng tiếng Việt hard-code ngoài `t()`, trong khi ngôn ngữ mặc định là English → giao diện lẫn ngôn ngữ. Nhiều nhất ở popup.ts (64), download-center.ts (35), options.ts (35), queue-panel.ts (29), following-panel.ts (16). | nhiều file | Đưa vào `TRANSLATIONS`, thêm helper nội suy `t(key, {n})`; CI lint chặn chuỗi có dấu tiếng Việt ngoài `i18n.ts`. |
-| **U3** | Key i18n chưa định nghĩa nên hiển thị nguyên tên key: `opt_filename_template(_desc)`, `preview_to_download`, `preview_skipped`. | `options.html:552-553`, `popup.html:346`, `:350` | Bổ sung 4 key cho en/vi; test đối chiếu `data-i18n` với `TRANSLATIONS`. |
-| **U4** | 21 toggle trong Options dùng `display:none` cho input → không dùng được bằng bàn phím/screen reader; Options không có `:focus-visible`, input đặt `outline:none`. | `options.html:141`, `:164`, `:174`, `:195` | Ẩn input về mặt thị giác (opacity 0, phủ toàn toggle); thêm style `:focus-visible`. |
-| **U5** | Light theme hỏng: `<style>` inline trong popup.html hard-code màu tối (`rgba(255,255,255,…)`) → modal confirm tối trên nền sáng, thanh progress và divider biến mất. | `popup.html:12-73` | Chuyển sang popup.css và dùng token `--bg-card`, `--border`, `--red`… |
-| **U6** | Biến CSS không được định nghĩa: `--surface`, `--text-sec` → nút bulk Queue không có nền, mất phân cấp chữ. | `popup.css:1382`, `:1388`, `:1904`, `popup.html:17-60` | Thay bằng `--bg-hover`, `--text-secondary`. |
-| **U7** | Ba trang có ba bộ token khác nhau; Download Center chỉ có dark theme và bảng màu khác hẳn; token z-index khai báo nhưng không dùng. | `options.html:10-38`, `download-center.css:1-14`, `popup.css:37-39` | Tạo `src/shared/tokens.css` dùng chung; Download Center áp `data-theme`. |
-| **U8** | Theme mặc định là dark thay vì system; bấm toggle một lần làm mất lựa chọn "system". | `popup.ts:288-299`, `options.ts:391` | Mặc định `system`; toggle xoay vòng system → light → dark và hiển thị trạng thái. |
+| **U1** ✅ | Nút tải tweet quay mãi trên `/home`, `/search`, `/bookmarks` (xem L5). | `tweet-btn.ts:213` | Trạng thái lỗi, timeout, hoặc chỉ inject trên route được hỗ trợ. |
+| **U2** ✅ | Khoảng 200 dòng tiếng Việt hard-code ngoài `t()`, trong khi ngôn ngữ mặc định là English → giao diện lẫn ngôn ngữ. Nhiều nhất ở popup.ts (64), download-center.ts (35), options.ts (35), queue-panel.ts (29), following-panel.ts (16). | nhiều file | Đưa vào `TRANSLATIONS`, thêm helper nội suy `t(key, {n})`; CI lint chặn chuỗi có dấu tiếng Việt ngoài `i18n.ts`. |
+| **U3** ✅ | Key i18n chưa định nghĩa nên hiển thị nguyên tên key: `opt_filename_template(_desc)`, `preview_to_download`, `preview_skipped`. | `options.html:552-553`, `popup.html:346`, `:350` | Bổ sung 4 key cho en/vi; test đối chiếu `data-i18n` với `TRANSLATIONS`. |
+| **U4** ✅ | 21 toggle trong Options dùng `display:none` cho input → không dùng được bằng bàn phím/screen reader; Options không có `:focus-visible`, input đặt `outline:none`. | `options.html:141`, `:164`, `:174`, `:195` | Ẩn input về mặt thị giác (opacity 0, phủ toàn toggle); thêm style `:focus-visible`. |
+| **U5** ✅ | Light theme hỏng: `<style>` inline trong popup.html hard-code màu tối (`rgba(255,255,255,…)`) → modal confirm tối trên nền sáng, thanh progress và divider biến mất. | `popup.html:12-73` | Chuyển sang popup.css và dùng token `--bg-card`, `--border`, `--red`… |
+| **U6** ✅ | Biến CSS không được định nghĩa: `--surface`, `--text-sec` → nút bulk Queue không có nền, mất phân cấp chữ. | `popup.css:1382`, `:1388`, `:1904`, `popup.html:17-60` | Thay bằng `--bg-hover`, `--text-secondary`. |
+| **U7** ✅ | Ba trang có ba bộ token khác nhau; Download Center chỉ có dark theme và bảng màu khác hẳn; token z-index khai báo nhưng không dùng. | `options.html:10-38`, `download-center.css:1-14`, `popup.css:37-39` | Tạo `src/shared/tokens.css` dùng chung; Download Center áp `data-theme`. |
+| **U8** ✅ | Theme mặc định là dark thay vì system; bấm toggle một lần làm mất lựa chọn "system". | `popup.ts:288-299`, `options.ts:391` | Mặc định `system`; toggle xoay vòng system → light → dark và hiển thị trạng thái. |
 
 ### P2
 
 | ID | Vấn đề | Cách sửa |
 | --- | --- | --- |
-| **U9** | Nút chỉ có icon: `title` tiếng Việt hard-code, thiếu `aria-label`, dùng ký tự `×`/`✕` làm icon; nhãn bottom-nav hard-code tiếng Anh dù đã có key `nav_*`. | Thêm `data-i18n-title`/`data-i18n-aria-label`; icon close dạng SVG. |
-| **U10** | Download Picker không có trạng thái loading/error; lỗi bị hiển thị thành "không có media"; khi không có username thì grid của profile cũ vẫn còn. | Skeleton với `aria-busy`, trạng thái lỗi có nút Retry, clear grid và selection. |
-| **U11** | Danh sách Following trống trơn khi filter không khớp; định dạng ngày theo locale trình duyệt thay vì ngôn ngữ app. | Thêm empty-state; `toLocaleDateString(lang)`. |
-| **U12** | Trạng thái nút tweet chỉ hiện qua `title`, không có `aria-label`/`aria-busy`. | Cập nhật đồng bộ cùng `title`. |
-| **U13** | FAB/snackbar dùng z-index tối đa → che lightbox/modal của X; snackbar trùng vị trí toast của X; `min-width:340px` tràn trên màn hẹp. | Ẩn/hạ FAB khi có `[aria-modal="true"]`; dời snackbar; `min-width: min(340px, calc(100vw - 40px))`. |
-| **U14** | 23 key i18n không dùng (`nav_*`, `stat_*`, `date_preset_*`…) trong khi UI tương ứng hard-code; `<html lang>` cố định. | Nối các key sẵn có; đặt `document.documentElement.lang` sau `loadI18n`. |
-| **U15** | Popup/Options tải font Inter từ Google Fonts → request ngoài (mâu thuẫn cam kết "chỉ xử lý cục bộ"), FOUT, không có font khi offline. | Đóng gói woff2 cục bộ hoặc dùng system font stack. |
+| **U9** ✅ (một phần) | Nút chỉ có icon: `title` tiếng Việt hard-code, thiếu `aria-label`, dùng ký tự `×`/`✕` làm icon; nhãn bottom-nav hard-code tiếng Anh dù đã có key `nav_*`. | Thêm `data-i18n-title`/`data-i18n-aria-label`; icon close dạng SVG. |
+| **U10** ✅ | Download Picker không có trạng thái loading/error; lỗi bị hiển thị thành "không có media"; khi không có username thì grid của profile cũ vẫn còn. | Skeleton với `aria-busy`, trạng thái lỗi có nút Retry, clear grid và selection. |
+| **U11** ✅ | Danh sách Following trống trơn khi filter không khớp; định dạng ngày theo locale trình duyệt thay vì ngôn ngữ app. | Thêm empty-state; `toLocaleDateString(lang)`. |
+| **U12** ✅ | Trạng thái nút tweet chỉ hiện qua `title`, không có `aria-label`/`aria-busy`. | Cập nhật đồng bộ cùng `title`. |
+| **U13** ✅ | FAB/snackbar dùng z-index tối đa → che lightbox/modal của X; snackbar trùng vị trí toast của X; `min-width:340px` tràn trên màn hẹp. | Ẩn/hạ FAB khi có `[aria-modal="true"]`; dời snackbar; `min-width: min(340px, calc(100vw - 40px))`. |
+| **U14** ✅ | 23 key i18n không dùng (`nav_*`, `stat_*`, `date_preset_*`…) trong khi UI tương ứng hard-code; `<html lang>` cố định. | Nối các key sẵn có; đặt `document.documentElement.lang` sau `loadI18n`. |
+| **U15** ✅ | Popup/Options tải font Inter từ Google Fonts → request ngoài (mâu thuẫn cam kết "chỉ xử lý cục bộ"), FOUT, không có font khi offline. | Đóng gói woff2 cục bộ hoặc dùng system font stack. |
 
 Dọn dẹp: gộp selector trùng `.queue-status` (`popup.css:1365`, `:1443`); bỏ 3 `!important` không cần thiết; chuyển khoảng 50 `style=""` inline (HTML và template TS) thành class.
 
@@ -172,8 +174,17 @@ Dọn dẹp: gộp selector trùng `.queue-status` (`popup.css:1365`, `:1443`); 
 1. ~~Xác minh L1 trên Chromium~~ — đã xác nhận lỗi.
 2. ~~**v7.2.3**: L1–L5 + regression test~~ — hoàn thành 2026-10-14.
 3. ~~**v7.3.0**~~ — hoàn thành 2026-10-14: S1/S3/S11/P9 làm cùng nhau (cùng thay đổi kiến trúc bridge content ↔ page), sau đó S2, S4–S10, L6–L15, P1–P3.
-4. **v7.4.0**: U2/U3/U14 (i18n) → U5–U8 (token/theme) → U4/U9–U13 (accessibility) → P4–P15.
+4. ~~**v7.4.0**~~ — hoàn thành 2026-10-14: U2/U3/U14 (i18n) → U5–U8 (token/theme) → U4/U9–U13 (accessibility) → P4–P15.
 5. **v8.0.0**: F1, F2, F3 là cốt lõi; F4, F5 nếu còn thời gian.
+
+## 6b. Tồn đọng sau v7.4.0
+
+Các mốc v7.2.3 → v7.4.0 đã phát hành (xem `CHANGELOG.md`). Còn lại:
+
+- **U9 (phần còn lại):** thay ký tự `×`/`✕` trên nút đóng bằng icon SVG.
+- **Dọn CSS:** gộp selector trùng `.queue-status`, bỏ `!important` không cần, chuyển `style=""` inline sang class.
+- **Test:** Chromium fixture cho tweet có media tải muộn (nút tải được gắn lại), và kiểm thử thủ công trên X/Telegram thật (đổi ngôn ngữ, lightbox ẩn FAB, HLS, Following Scanner).
+- **v8.0.0:** F1–F5 cần chốt phạm vi trước khi triển khai.
 
 ## 7. Tiêu chí hoàn thành chung
 

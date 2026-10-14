@@ -8,7 +8,7 @@ const DOWNLOADED_STORE_NAME = 'downloaded_urls';
 const META_STORE_NAME = 'schema_meta';
 const DOWNLOADED_HISTORY_MAX_ENTRIES = 50_000;
 const DOWNLOADED_HISTORY_TTL_MS = 180 * 24 * 60 * 60 * 1000;
-const MEDIA_RETENTION_MAX_ENTRIES = 50_000;
+export const MEDIA_RETENTION_MAX_ENTRIES = 50_000;
 const MEDIA_RETENTION_TTL_MS = 180 * 24 * 60 * 60 * 1000;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -141,22 +141,29 @@ export async function pruneMediaItems(username: string, now = Date.now(), maxEnt
   return new Promise<number>((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
-    const request = store.index('username').getAll(username);
+    // P10: walk the profile with a cursor and keep only {id, addedAt} instead of
+    // materialising every full record (tweet text included) with getAll().
+    const request = store.index('username').openCursor(IDBKeyRange.only(username));
+    const expiresBefore = now - ttlMs;
+    const expired: string[] = [];
+    const retained: Array<{ id: string; addedAt: number }> = [];
     let removed = 0;
     request.onsuccess = () => {
-      const records = request.result as Array<MediaItem & { id: string; addedAt?: number }>;
-      const expiresBefore = now - ttlMs;
-      // Records created before retention metadata existed have no reliable
-      // timestamp. An explicit manual prune treats those legacy records as
-      // old; otherwise they can never be removed by the retention tool.
-      const expired = records.filter((record) => {
+      const cursor = request.result;
+      if (cursor) {
+        const record = cursor.value as { id: string; addedAt?: number };
         const addedAt = Number(record.addedAt);
-        return !Number.isFinite(addedAt) || addedAt <= 0 || addedAt < expiresBefore;
-      });
-      const expiredIds = new Set(expired.map((record) => record.id));
-      const retained = records.filter((record) => !expiredIds.has(record.id)).sort((a, b) => Number(a.addedAt || 0) - Number(b.addedAt || 0));
-      const overflow = retained.slice(0, Math.max(0, retained.length - maxEntries));
-      for (const record of [...expired, ...overflow]) { store.delete(record.id); removed++; }
+        // Records created before retention metadata existed have no reliable
+        // timestamp. An explicit manual prune treats those legacy records as
+        // old; otherwise they can never be removed by the retention tool.
+        if (!Number.isFinite(addedAt) || addedAt <= 0 || addedAt < expiresBefore) expired.push(record.id);
+        else retained.push({ id: record.id, addedAt });
+        cursor.continue();
+        return;
+      }
+      retained.sort((a, b) => a.addedAt - b.addedAt);
+      const overflow = retained.slice(0, Math.max(0, retained.length - maxEntries)).map((record) => record.id);
+      for (const id of [...expired, ...overflow]) { store.delete(id); removed++; }
     };
     tx.oncomplete = () => resolve(removed);
     tx.onerror = () => reject(tx.error);

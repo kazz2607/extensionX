@@ -4,6 +4,7 @@ import { releasePersistedEntries } from '../shared/dirty-batch.ts';
 import { mediaRepository } from './indexeddb.ts';
 import { cancelDownloadedPersist, reloadMediaCache } from './scraper.ts';
 import { isValidUsername } from '../shared/validation.ts';
+import { t } from '../lib/i18n.ts';
 
 const PRUNE_CONCURRENCY = 8;
 
@@ -26,7 +27,7 @@ export const handleStorageMessage: DomainMessageHandler = (message, _sender, sen
     case 'GET_STORAGE_SUMMARY':
       void mediaRepository.getStorageSummary()
         .then((summary) => sendResponse({ summary }))
-        .catch(() => sendResponse({ error: 'Unable to inspect local storage' }));
+        .catch(() => sendResponse({ error: t('bg_err_storage_inspect') }));
       return true;
     case 'PRUNE_STORAGE':
       void (async () => {
@@ -59,13 +60,13 @@ export const handleStorageMessage: DomainMessageHandler = (message, _sender, sen
           });
           sendResponse({ ok: true, removed, summary: await mediaRepository.getStorageSummary() });
         } catch {
-          sendResponse({ error: 'Unable to prune local storage' });
+          sendResponse({ error: t('bg_err_storage_prune') });
         }
       })();
       return true;
     case 'CLEAR_PROFILE_STORAGE': {
       const username = payload?.username;
-      if (!isValidUsername(username)) { sendResponse({ error: 'Invalid username' }); return false; }
+      if (!isValidUsername(username)) { sendResponse({ error: t('bg_err_invalid_username') }); return false; }
       void (async () => {
         try {
           await Promise.all([
@@ -79,7 +80,7 @@ export const handleStorageMessage: DomainMessageHandler = (message, _sender, sen
           dirtyMediaStore.delete(username);
           sendResponse({ ok: true, summary: await mediaRepository.getStorageSummary() });
         } catch {
-          sendResponse({ error: 'Unable to clear profile storage' });
+          sendResponse({ error: t('bg_err_storage_clear_profile') });
         }
       })();
       return true;
@@ -98,7 +99,7 @@ export const handleStorageMessage: DomainMessageHandler = (message, _sender, sen
           dirtyMediaStore.clear();
           sendResponse({ ok: true, summary: await mediaRepository.getStorageSummary() });
         } catch {
-          sendResponse({ error: 'Unable to clear local media storage' });
+          sendResponse({ error: t('bg_err_storage_clear_media') });
         }
       })();
       return true;

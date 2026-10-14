@@ -1,6 +1,6 @@
 # Hướng dẫn cài đặt và sử dụng
 
-> X Media Downloader **7.3.1** | Cập nhật: 2026-10-14
+> X Media Downloader **7.4.0** | Cập nhật: 2026-10-14
 
 Extension tải ảnh, video và GIF từ X.com, đồng thời hỗ trợ tải media trực tiếp trên Telegram Web A/K.
 
@@ -24,7 +24,7 @@ Extension tải ảnh, video và GIF từ X.com, đồng thời hỗ trợ tải
 4. Mở `chrome://extensions`.
 5. Bật **Developer mode**.
 6. Chọn **Load unpacked** và trỏ tới thư mục `dist/`.
-7. Kiểm tra popup hiển thị version **7.3.1**.
+7. Kiểm tra popup hiển thị version **7.4.0**.
 
 ## Cập nhật extension
 
@@ -66,6 +66,12 @@ Queue chỉ tải ảnh bài viết độc lập. Ảnh bìa/thumbnail dùng đ�
 - **FAB và nút tweet:** thao tác tải nhanh trực tiếp trên X.com.
 - **Following Scanner:** thu GraphQL có giới hạn, lọc hoạt động, preview và unfollow tuần tự có throttle; dừng ở lỗi xác thực/rate-limit.
 
+## Ngôn ngữ và giao diện
+
+- Giao diện mặc định là **English**. Đổi sang **Tiếng Việt** trong Options → Appearance → Language; popup, Options, Download Center, FAB, snackbar và nút tải trên tweet/Telegram đổi theo (tab X/Telegram đang mở nhận ngôn ngữ mới ngay, không cần tải lại).
+- Theme mặc định **theo hệ thống**. Nút mặt trời/mặt trăng trên popup xoay vòng Theo hệ thống → Sáng → Tối và hiện chế độ đang dùng khi rê chuột; Options có ô chọn tương ứng. Lựa chọn áp dụng cho cả ba trang.
+- FAB trên X.com tự ẩn khi X mở ảnh phóng to, hộp soạn tweet hoặc hộp thoại, và hiện lại khi đóng. Snackbar tiến độ nằm ở góc dưới bên trái.
+
 ## Tải media từ Telegram Web
 
 - Extension hỗ trợ `https://web.telegram.org/a/` và `/k/`.
@@ -81,6 +87,7 @@ Trang Options cho phép cấu hình:
 - Số download đồng thời.
 - Bỏ qua file đã tải.
 - Template tên file.
+- Ngôn ngữ (English / Tiếng Việt) và giao diện (Theo hệ thống / Sáng / Tối).
 - Smart Auto-Stop, snackbar, notification và feature toggle.
 - **Tự động bắt đầu thu thập** khi vào `/media`; tùy chọn này mặc định tắt.
 - Diagnostic cục bộ opt-in, export và xóa dữ liệu diagnostic.
@@ -99,7 +106,7 @@ Các thay đổi được tự động lưu; kiểm tra trạng thái **Saved** 
 
 ### Queue không bắt đầu
 
-- Xác nhận popup và `dist/manifest.json` cùng version 7.3.1.
+- Xác nhận popup và `dist/manifest.json` cùng version 7.4.0.
 - Reload extension và mở lại popup.
 - Mục có `0 media` sẽ chuyển Error; kiểm tra profile khác còn dữ liệu hay không.
 - Mở Service Worker console và tìm `START_QUEUE`, `Queue IndexedDB load failed` hoặc lỗi download.
@@ -119,6 +126,7 @@ Các thay đổi được tự động lưu; kiểm tra trạng thái **Saved** 
 
 ### Không thấy FAB hoặc nút tải
 
+- FAB tự ẩn khi X đang mở ảnh phóng to/hộp thoại; đóng chúng để FAB hiện lại.
 - Reload tab sau khi cập nhật extension.
 - Kiểm tra feature toggle trong Options.
 - Xác nhận extension có quyền chạy trên domain hiện tại.

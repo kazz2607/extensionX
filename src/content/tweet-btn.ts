@@ -13,6 +13,15 @@
 
 import { onExtensionMessage, sendToExtension } from './page-bridge.ts';
 import { onNavigation } from './page-navigation.ts';
+// MAIN world: no chrome.storage / window.i18n — the language arrives from
+// content.ts over the page bridge and strings come straight from the table.
+import { TWEET_BUTTON_STRINGS, translateFrom } from '../lib/i18n/content.ts';
+
+type ButtonState = 'idle' | 'loading' | 'done' | 'error';
+
+interface TweetDownloadButton extends HTMLButtonElement {
+  __xmdTimer?: ReturnType<typeof setTimeout> | null;
+}
 
 (function () {
   'use strict';
@@ -192,17 +201,44 @@ import { onNavigation } from './page-navigation.ts';
     return '';
   }
 
-  // ─── Map lưu state của các nút: tweetId → { btn, timer } ────────────────────
-  const btnMap = new Map(); // tweetId → button element
+  // ─── i18n ────────────────────────────────────────────────────────────────────
+  let lang = 'en';
+  const tr = (key: string): string => translateFrom(TWEET_BUTTON_STRINGS, lang, key);
+
+  /** title + aria-label + aria-busy cho một trạng thái nút. */
+  function applyStateLabel(btn: HTMLButtonElement, state: ButtonState): void {
+    const title = state === 'loading' ? tr('tb_loading')
+      : state === 'done' ? tr('tb_done')
+        : state === 'error' ? tr('tb_error')
+          : tr('tb_idle_title');
+    btn.title = title;
+    btn.setAttribute('aria-label', state === 'idle' ? tr('tb_idle_aria') : title);
+    if (state === 'loading') btn.setAttribute('aria-busy', 'true');
+    else btn.removeAttribute('aria-busy');
+  }
+
+  function currentState(btn: HTMLButtonElement): ButtonState {
+    if (btn.classList.contains('xmd-loading')) return 'loading';
+    if (btn.classList.contains('xmd-done')) return 'done';
+    if (btn.classList.contains('xmd-error')) return 'error';
+    return 'idle';
+  }
+
+  // ─── Map lưu state của các nút: tweetId → button ────────────────────────────
+  // P6: no tweetId → button map. X virtualises the timeline, and a map kept
+  // every detached <article> (with its images) alive for the whole session.
+  // Buttons are looked up in the DOM by data-xmd-btn instead.
+  function buttonsFor(tweetId: string): TweetDownloadButton[] {
+    if (!/^\d{1,25}$/.test(tweetId)) return [];
+    return Array.from(document.querySelectorAll<TweetDownloadButton>(`button[data-xmd-btn="${tweetId}"]`));
+  }
 
   // ─── Tạo nút download ────────────────────────────────────────────────────────
-// @ts-ignore
-  function createDownloadBtn(tweetId) {
-    const btn = document.createElement('button');
+  function createDownloadBtn(tweetId: string): TweetDownloadButton {
+    const btn: TweetDownloadButton = document.createElement('button');
     btn.className = 'xmd-dl-btn';
     btn.setAttribute('data-xmd-btn', tweetId);
-    btn.setAttribute('title', 'Download media (X Media Downloader)');
-    btn.setAttribute('aria-label', 'Download tweet media');
+    applyStateLabel(btn, 'idle');
     btn.innerHTML = SVG.download + SVG.spin + SVG.done + SVG.error;
 
     btn.addEventListener('click', (e) => {
@@ -225,10 +261,11 @@ import { onNavigation } from './page-navigation.ts';
   const LOADING_TIMEOUT_MS = 120_000;
 
   /** Cập nhật trạng thái nút */
-// @ts-ignore
-  function setButtonState(tweetId, state) {
-    const btn = btnMap.get(tweetId);
-    if (!btn) return;
+  function setButtonState(tweetId: string, state: string) {
+    buttonsFor(tweetId).forEach((btn) => applyButtonState(btn, state));
+  }
+
+  function applyButtonState(btn: TweetDownloadButton, state: string) {
 
     // Xóa timer cũ nếu có
     const existing = btn.__xmdTimer;
@@ -239,30 +276,32 @@ import { onNavigation } from './page-navigation.ts';
 
     if (state === 'loading') {
       btn.classList.add('xmd-loading');
-      btn.title = 'Đang tải...';
+      applyStateLabel(btn, 'loading');
       // Safety net: never leave the button stuck if no result ever arrives.
       btn.__xmdTimer = setTimeout(() => {
         btn.classList.remove('xmd-loading');
-        btn.title = 'Download media (X Media Downloader)';
+        applyStateLabel(btn, 'idle');
       }, LOADING_TIMEOUT_MS);
     } else if (state === 'done') {
       btn.classList.add('xmd-done');
-      btn.title = 'Đã tải xong! ✓';
+      applyStateLabel(btn, 'done');
       // Reset về idle sau 3s
       btn.__xmdTimer = setTimeout(() => {
         btn.classList.remove('xmd-done');
-        btn.title = 'Download media (X Media Downloader)';
+        applyStateLabel(btn, 'idle');
       }, 3000);
     } else if (state === 'error') {
       btn.classList.add('xmd-error');
-      btn.title = 'Lỗi! Thử lại';
+      applyStateLabel(btn, 'error');
       // Reset về idle sau 3s
       btn.__xmdTimer = setTimeout(() => {
         btn.classList.remove('xmd-error');
-        btn.title = 'Download media (X Media Downloader)';
+        applyStateLabel(btn, 'idle');
       }, 3000);
+    } else {
+      // 'idle' = không có class nào = default
+      applyStateLabel(btn, 'idle');
     }
-    // 'idle' = không có class nào = default
   }
 
   // ─── Inject nút vào action bar của tweet ────────────────────────────────────
@@ -290,36 +329,39 @@ import { onNavigation } from './page-navigation.ts';
 
     // Thêm vào cuối action bar (sau nút Share / Bookmark)
     actionBar.appendChild(wrapper);
-
-    btnMap.set(tweetId, btn);
   }
 
   // ─── Scan toàn bộ articles hiện tại ─────────────────────────────────────────
-  function scanArticles() {
-    document.querySelectorAll('article').forEach(injectButton);
+  function scanArticles(root: ParentNode = document) {
+    if (root instanceof HTMLElement && root.tagName === 'ARTICLE') injectButton(root);
+    root.querySelectorAll('article').forEach(injectButton);
   }
 
   // ─── MutationObserver — phát hiện tweet mới ──────────────────────────────────
-// @ts-ignore
-  let scanDebounce;
+  // P6: only the subtrees that were just added are scanned (debounced), not
+  // every article on the page each time X appends a tweet.
+  const pendingRoots = new Set<Element>();
+  let scanDebounce: ReturnType<typeof setTimeout> | undefined;
   const observer = new MutationObserver((mutations) => {
-    const hasNewArticle = mutations.some(m =>
-      Array.from(m.addedNodes).some(n =>
-        n.nodeType === 1 && (
-// @ts-ignore
-          n.tagName === 'ARTICLE' ||
-// @ts-ignore
-          n.querySelector?.('article')
-        )
-      )
-    );
-
-    if (hasNewArticle) {
-// @ts-ignore
-      clearTimeout(scanDebounce);
-      // Debounce nhỏ hơn dom-scanner (500ms) để nút xuất hiện nhanh hơn
-      scanDebounce = setTimeout(scanArticles, 500);
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (!(node instanceof Element)) continue;
+        // Media or an action bar can arrive inside an existing article after
+        // it was first scanned (or X re-renders the bar and drops our button):
+        // rescan that article too.
+        const host = node.closest('article');
+        if (host) pendingRoots.add(host);
+        else if (node.tagName === 'ARTICLE' || node.querySelector('article')) pendingRoots.add(node);
+      }
     }
+    if (pendingRoots.size === 0) return;
+    clearTimeout(scanDebounce);
+    // Debounce nhỏ hơn dom-scanner (500ms) để nút xuất hiện nhanh hơn
+    scanDebounce = setTimeout(() => {
+      const roots = Array.from(pendingRoots);
+      pendingRoots.clear();
+      roots.filter((root) => root.isConnected).forEach((root) => scanArticles(root));
+    }, 500);
   });
 
   function startObserver() {
@@ -335,15 +377,24 @@ import { onNavigation } from './page-navigation.ts';
   startObserver();
 
   // Scan ngay sau khi script load
-  setTimeout(scanArticles, 1000);
+  setTimeout(() => scanArticles(), 1000);
   // Scan lần 2 để bắt tweets render chậm
-  setTimeout(scanArticles, 2500);
+  setTimeout(() => scanArticles(), 2500);
 
   // ─── Nhận kết quả từ content.js ──────────────────────────────────────────────
   onExtensionMessage('XMD_TWEET_BTN_UPDATE', (detail) => {
     const { tweetId, state } = (detail || {}) as { tweetId?: string; state?: string };
     if (!tweetId || !state) return;
     setButtonState(tweetId, state);
+  });
+
+  // ─── Ngôn ngữ từ content.ts (qua page bridge) ────────────────────────────────
+  onExtensionMessage('XMD_LANG_UPDATE', (detail) => {
+    const next = (detail as { lang?: unknown } | null)?.lang;
+    lang = next === 'vi' ? 'vi' : 'en';
+    document.querySelectorAll<HTMLButtonElement>('button.xmd-dl-btn[data-xmd-btn]').forEach((btn) => {
+      applyStateLabel(btn, currentState(btn));
+    });
   });
 
   // ─── Theo dõi SPA navigation: scan lại khi URL thay đổi ─────────────────────
@@ -353,11 +404,9 @@ import { onNavigation } from './page-navigation.ts';
   onNavigation(() => {
     if (location.pathname === lastPath) return;
     lastPath = location.pathname;
-    // Clear map khi navigate (tweet IDs cũ không còn trên DOM)
-    btnMap.clear();
     // Scan lại sau navigation
-    setTimeout(scanArticles, 1500);
-    setTimeout(scanArticles, 3000);
+    setTimeout(() => scanArticles(), 1500);
+    setTimeout(() => scanArticles(), 3000);
   });
 
 })();

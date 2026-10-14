@@ -3,6 +3,18 @@
  * Sprint 1 fixes: BUG-L5 (sendBG timeout), SEC-03 (XSS escapeHtml),
  * UI-03 (toast queue), UI-08 (custom confirm modal)
  */
+import { registerTranslations, t } from '../lib/i18n.ts';
+import { getThemePreference, initTheme, nextThemePreference, onThemeChange, setThemePreference, type ThemePreference } from '../shared/theme.ts';
+import { COMMON_STRINGS } from '../lib/i18n/common.ts';
+import { POPUP_STRINGS } from '../lib/i18n/popup.ts';
+
+registerTranslations(COMMON_STRINGS, POPUP_STRINGS);
+
+/** Version labels read the manifest, so they cannot go stale across releases. */
+document.querySelectorAll('[data-manifest-version]').forEach((el) => {
+  el.textContent = `v${chrome.runtime.getManifest().version}`;
+});
+
 import { initFollowingPanel, handleFollowingMessage } from './following-panel.js';
 import { setStatus, showProgress } from './status-bar.ts';
 import { showToast } from './toast.ts';
@@ -283,29 +295,26 @@ function toggleCompactMode() {
 }
 
 // ─── Theme ─────────────────────────────────────────────────────────────────
+// U8: default follows the OS; the header button cycles System → Light → Dark
+// and its label says which mode is active (it no longer drops "System").
+function renderThemeButton(preference: ThemePreference) {
+  const label = t('popup_theme_state', { mode: t(`popup_theme_mode_${preference}`) });
+  els.btnTheme.title = label;
+  els.btnTheme.setAttribute('aria-label', label);
+  els.btnTheme.dataset.themePreference = preference;
+}
+
 async function applyTheme() {
-  const stored = await chrome.storage.local.get('theme').catch(() => ({})) as { theme?: string };
-  let theme = stored.theme || 'dark';
-  if (theme === 'system') {
-    theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  }
-  document.documentElement.setAttribute('data-theme', theme);
+  renderThemeButton(await initTheme());
+  // Keep the label in sync when the theme is changed from Options.
+  onThemeChange(renderThemeButton);
 }
 
-function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme') || 'dark';
-  const next = current === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', next);
-  chrome.storage.local.set({ theme: next });
+async function toggleTheme() {
+  const next = nextThemePreference(getThemePreference());
+  await setThemePreference(next);
+  renderThemeButton(next);
 }
-
-// v4.1.0: System theme auto switch
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', async (e) => {
-  const stored = await chrome.storage.local.get('theme').catch(() => ({})) as { theme?: string };
-  if (stored.theme === 'system') {
-    document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
-  }
-});
 
 // ─── v5.0.3: Bottom Nav ───────────────────────────────────────────────────────
 function setupBottomNav() {
@@ -364,9 +373,9 @@ async function checkSavedSession() {
     if (!session?.username || !session?.mediaCount) return;
 
     const minutesAgo = Math.round((Date.now() - (session.savedAt || 0)) / 60000);
-    const timeStr = minutesAgo < 1   ? 'vừa xong'
-                  : minutesAgo < 60  ? `${minutesAgo} phút trước`
-                  : `${Math.round(minutesAgo / 60)} giờ trước`;
+    const timeStr = minutesAgo < 1   ? t('popup_time_just_now')
+                  : minutesAgo < 60  ? t('popup_time_minutes_ago', { n: minutesAgo })
+                  : t('popup_time_hours_ago', { n: Math.round(minutesAgo / 60) });
 
     showRestoreBanner(session.username, session.mediaCount, session.scrollCount || 0, timeStr);
   } catch (_) {}
@@ -379,7 +388,7 @@ function showRestoreBanner(username: string, count: number, scrolls: number, tim
   const usernameEl = document.getElementById('restore-username');
   if (usernameEl) usernameEl.textContent = `@${username}`;
   const detailEl = document.getElementById('restore-detail');
-  if (detailEl) detailEl.textContent = `${count} media · ${scrolls} scrolls · ${timeStr}`;
+  if (detailEl) detailEl.textContent = t('popup_restore_detail', { count, scrolls, time: timeStr });
 
   banner.style.display = 'flex';
 
@@ -388,10 +397,10 @@ function showRestoreBanner(username: string, count: number, scrolls: number, tim
     banner.style.display = 'none';
     const res = await sendBG('RESTORE_SESSION', { username });
     if (res?.ok) {
-      showToast(`✓ Đã khôi phục ${res.count} media của @${username}`, 'success');
+      showToast(t('popup_toast_restored', { count: res.count ?? 0, username }), 'success');
       await setCurrentUser(username);
     } else {
-      showToast('Ảnh/video cũ không tìm thấy', 'error');
+      showToast(t('popup_toast_restore_missing'), 'error');
     }
   };
 
@@ -399,7 +408,7 @@ function showRestoreBanner(username: string, count: number, scrolls: number, tim
   if (btnCancel) btnCancel.onclick = async () => {
     banner.style.display = 'none';
     await sendBG('RESTORE_SESSION_CANCEL', { username });
-    showToast('Đã hủy phiên cũ', 'info');
+    showToast(t('popup_toast_restore_cancelled'), 'info');
   };
 }
 
@@ -418,18 +427,18 @@ async function detectCurrentTab() {
   
   if (url.includes('web.telegram.org')) {
     els.username.textContent = 'Telegram Web';
-    els.hint.textContent = 'Sử dụng nút tải xuống trên ảnh/video';
+    els.hint.textContent = t('popup_telegram_hint');
     els.profileCard.classList.add('active');
     els.avatar.textContent = 'TG';
     if (els.btnCollect) els.btnCollect.disabled = true;
     if (els.btnDownload) els.btnDownload.disabled = true;
-    setStatus('idle', 'Đang ở Telegram Web', '✓');
+    setStatus('idle', t('popup_telegram_status'), '✓');
     updateOnboardingState();
     return;
   }
   
   if (!url.includes('x.com') && !url.includes('twitter.com')) {
-    setStatus('idle', window.i18n ? window.i18n.t('profile_hint_default') : 'Mở X.com để bắt đầu', '⏳');
+    setStatus('idle', t('profile_hint_default'), '⏳');
     updateOnboardingState(); // UI-04: không phải X.com → hiện onboarding
     return;
   }
@@ -449,12 +458,12 @@ async function setCurrentUser(username: string) {
   updateOnboardingState(); // UI-04: ẩn onboarding khi biết profile
 
   els.username.textContent = `@${username}`;
-  els.hint.textContent = window.i18n ? window.i18n.t('profile_hint_active') : 'Profile đang được xem';
+  els.hint.textContent = t('profile_hint_active');
   els.profileCard.classList.add('active');
   els.avatar.textContent = username.slice(0, 2).toUpperCase();
 
   // Cập nhật queue add bar hint
-  if (els.queueAddHint) els.queueAddHint.textContent = `@${username} — thêm vào hàng đợi`;
+  if (els.queueAddHint) els.queueAddHint.textContent = t('popup_queue_add_hint_user', { username });
   if (els.btnQueueAddBar) els.btnQueueAddBar.disabled = false;
   if (els.btnQueueAdd)    els.btnQueueAdd.disabled    = false;
 
@@ -484,7 +493,7 @@ async function setCurrentUser(username: string) {
     els.btnWatchToggle.classList.toggle('watching', watching);
     if (watching) {
       const delta = await checkWatchedProfile(username, currentMediaCount);
-      if (delta) showToast(`👁 +${delta} media mới ở @${username} kể từ lần xem trước`, 'info');
+      if (delta) showToast(t('popup_toast_watch_new', { n: delta, username }), 'info');
     }
   }
 
@@ -499,8 +508,7 @@ async function setCurrentUser(username: string) {
   if (els.downloadedBadge) {
     if (dlCount > 0) {
       els.downloadedBadge.style.display = 'inline-block';
-      const doneTxt = window.i18n ? window.i18n.t('status_done') : 'đã tải';
-      els.downloadedBadge.textContent = `${dlCount} ${doneTxt}`;
+      els.downloadedBadge.textContent = t('popup_downloaded_count', { n: dlCount });
       if (els.btnClearDownloaded) els.btnClearDownloaded.style.display = 'inline-block';
     } else {
       els.downloadedBadge.style.display = 'none';
@@ -520,21 +528,18 @@ async function setCurrentUser(username: string) {
   if (dlStateRes?.isDownloading) {
     isDownloading = true;
     showProgress(true);
-    const downloadingTxt = window.i18n ? window.i18n.t('status_downloading') : 'Đang tải...';
-    setStatus('downloading', downloadingTxt, '⬇️');
+    setStatus('downloading', t('status_downloading'), '⬇️');
   }
 
   if (stateRes?.isCollecting) {
     isCollecting = true;
     els.scrollSec.style.display = 'block';
     els.scrollCount.textContent = String(stateRes.scrollCount || 0);
-    const collectingTxt = window.i18n ? window.i18n.t('status_collecting') : 'Đang thu thập media...';
-    setStatus('collecting', collectingTxt, '🔍');
+    setStatus('collecting', t('status_collecting'), '🔍');
   } else if (!dlStateRes?.isDownloading) {
     isCollecting = false;
     els.scrollSec.style.display = 'none';
-    const readyTxt = window.i18n ? window.i18n.t('status_ready') : 'Sẵn sàng';
-    setStatus('ready', `${readyTxt} — @${username}`, '●');
+    setStatus('ready', `${t('status_ready')} — @${username}`, '●');
   }
 
   updateButtons();
@@ -578,12 +583,11 @@ function selectFilterTab(filterType: string): void {
   _csvOffset = 0; // PERF-04: reset CSV pagination khi đổi filter
   updateButtons();
 
-  const dlTxt = window.i18n ? window.i18n.t('btn_download') : 'Download';
   const labels: Record<string, string> = {
-    all: dlTxt,
-    images: window.i18n ? window.i18n.t('tab_images') : 'Ảnh',
-    videos: window.i18n ? window.i18n.t('tab_videos') : 'Video',
-    gifs: window.i18n ? window.i18n.t('tab_gifs') : 'GIF',
+    all: t('btn_download'),
+    images: t('tab_images'),
+    videos: t('tab_videos'),
+    gifs: t('tab_gifs'),
   };
   const cnt = getFilteredCount();
   els.btnDownloadTxt.textContent = cnt > 0 ? `${labels[activeFilter]} (${cnt})` : labels[activeFilter];
@@ -625,10 +629,10 @@ function updateButtons() {
 
   if (isCollecting) {
     els.btnCollect.classList.add('collecting');
-    els.btnCollectTxt.textContent = window.i18n ? window.i18n.t('btn_collect_stop') : 'Dừng Thu Thập';
+    els.btnCollectTxt.textContent = t('btn_collect_stop');
   } else {
     els.btnCollect.classList.remove('collecting');
-    els.btnCollectTxt.textContent = window.i18n ? window.i18n.t('btn_collect_start') : 'Bắt đầu Thu Thập';
+    els.btnCollectTxt.textContent = t('btn_collect_start');
   }
 
   // P4-3: Preview trước download
@@ -651,13 +655,13 @@ function updateDownloadPreview() {
   const toDownload = Math.max(0, filteredCount - skipped);
 
   if (els.previewCount) {
-    els.previewCount.textContent = `${toDownload} file`;
+    els.previewCount.textContent = t('popup_file_count', { n: toDownload });
   }
 
   if (els.previewSkipRow && els.previewSkipped) {
     if (skipped > 0) {
       els.previewSkipRow.style.display = 'flex';
-      els.previewSkipped.textContent = `${skipped} file`;
+      els.previewSkipped.textContent = t('popup_file_count', { n: skipped });
     } else {
       els.previewSkipRow.style.display = 'none';
     }
@@ -666,10 +670,10 @@ function updateDownloadPreview() {
   if (els.previewWarning && els.previewWarningText) {
     if (_concurrency >= 4) {
       els.previewWarning.style.display = 'flex';
-      els.previewWarningText.textContent = `Concurrency=${_concurrency}: tải nhiều luồng song song có thể tăng tải mạng.`;
+      els.previewWarningText.textContent = t('popup_warn_concurrency', { n: _concurrency });
     } else if (stats.hls > 0 || (stats.video > 0 && activeFilter === 'videos')) {
       els.previewWarning.style.display = 'flex';
-      els.previewWarningText.textContent = 'Một số video X.com sử dụng HLS stream (mất vài giây ghép file).';
+      els.previewWarningText.textContent = t('popup_warn_hls');
     } else {
       els.previewWarning.style.display = 'none';
     }
@@ -686,7 +690,7 @@ function updateScrollSpeed(newCount: number) {
 
   if (elapsed > 0 && delta > 0) {
     const rate = (delta / elapsed * 60).toFixed(0);
-    els.statusSpeed.textContent = `${rate}/min`;
+    els.statusSpeed.textContent = t('popup_rate_per_min', { rate });
   }
 
   lastScrollCount = newCount;
@@ -700,13 +704,12 @@ async function beginDownload(extraOptions: Partial<DownloadOptions> = {}) {
   if (!currentUsername || isDownloading) return;
   if (!extraOptions.selectedUrls?.length) {
     const filteredCount = getFilteredCount();
-    if (filteredCount === 0) { showToast('Không có media để tải', 'error'); return; }
+    if (filteredCount === 0) { showToast(t('popup_toast_no_media'), 'error'); return; }
   }
 
   isDownloading = true;
   updateButtons();
-  const preparingTxt = window.i18n ? window.i18n.t('status_downloading') : 'Chuẩn bị download...';
-  setStatus('downloading', preparingTxt, '📦');
+  setStatus('downloading', t('status_downloading'), '📦');
   showProgress(true);
 
   const { dateFrom, dateTo, keyword } = getDateRange();
@@ -735,8 +738,7 @@ function setupListeners() {
     if (isCollecting) {
       isCollecting = false;
       await sendBG('STOP_COLLECTING', { username: currentUsername });
-      const stoppedTxt = window.i18n ? window.i18n.t('status_stopped') : 'Đã dừng';
-      setStatus('ready', `${stoppedTxt} — @${currentUsername}`, '●');
+      setStatus('ready', `${t('status_stopped')} — @${currentUsername}`, '●');
       els.statusSpeed.textContent = '';
     } else {
       lastScrollCount = parseInt(els.badge.textContent) || 0;
@@ -745,13 +747,12 @@ function setupListeners() {
       const response = await sendBG('START_COLLECTING', { username: currentUsername });
       if (!response?.ok) {
         isCollecting = false;
-        showToast(response?.error || 'Không thể bắt đầu thu thập. Hãy tải lại tab X và thử lại.', 'error');
+        showToast(response?.error || t('popup_toast_collect_failed'), 'error');
         updateButtons();
         return;
       }
       isCollecting = true;
-      const collectingTxt = window.i18n ? window.i18n.t('status_collecting') : 'Đang thu thập media...';
-      setStatus('collecting', collectingTxt, '🔍');
+      setStatus('collecting', t('status_collecting'), '🔍');
       els.scrollSec.style.display = 'block';
     }
     updateButtons();
@@ -773,9 +774,9 @@ function setupListeners() {
   // Queue Clear
   if (els.btnQueueClear) {
     els.btnQueueClear.addEventListener('click', async () => {
-      if (!await showConfirmModal('Xóa toàn bộ hàng đợi (không xóa item đang tải)?')) return;
+      if (!await showConfirmModal(t('popup_confirm_clear_queue'))) return;
       await sendBG('CLEAR_QUEUE', {});
-      showToast('Đã xóa hàng đợi', 'info');
+      showToast(t('popup_toast_queue_cleared'), 'info');
     });
   }
 
@@ -783,12 +784,12 @@ function setupListeners() {
   if (els.btnQueueExport) {
     els.btnQueueExport.addEventListener('click', async () => {
       const res = await sendBG('EXPORT_QUEUE', {});
-      if (!res?.ok || !res.data) { showToast('Không có dữ liệu để xuất', 'error'); return; }
+      if (!res?.ok || !res.data) { showToast(t('popup_toast_no_export_data'), 'error'); return; }
       const json = JSON.stringify(res.data, null, 2);
       const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
       const dataUrl = 'data:application/json;charset=utf-8,' + encodeURIComponent(json);
       chrome.downloads.download({ url: dataUrl, filename: `extensionx_queue_${dateStr}.json`, saveAs: false });
-      showToast(`✓ Đã xuất ${res.data.queue?.length || 0} profile(s)`, 'success');
+      showToast(t('popup_toast_queue_exported', { n: res.data.queue?.length || 0 }), 'success');
     });
   }
 
@@ -802,12 +803,12 @@ function setupListeners() {
         const text = await file.text();
         const res = await sendBG('IMPORT_QUEUE', { data: text });
         if (!res || res.error) {
-          showToast(`Import lỗi: ${res?.error || 'Không có phản hồi'}`, 'error');
+          showToast(t('popup_toast_import_error', { error: res?.error || t('popup_no_response') }), 'error');
         } else {
-          showToast(`✓ Đã import ${res.added} profile(s) (bỏ qua ${res.skipped})`, 'success');
+          showToast(t('popup_toast_queue_imported', { added: res.added ?? 0, skipped: res.skipped ?? 0 }), 'success');
         }
       } catch (err) {
-        showToast(`Import thất bại: ${err instanceof Error ? err.message : String(err)}`, 'error');
+        showToast(t('popup_toast_import_failed', { error: err instanceof Error ? err.message : String(err) }), 'error');
       }
     });
   }
@@ -821,7 +822,7 @@ function setupListeners() {
       offset: _csvOffset,  // PERF-04: pagination
     });
 
-    if (!res?.csv) { showToast('Không có dữ liệu để xuất', 'error'); return; }
+    if (!res?.csv) { showToast(t('popup_toast_no_export_data'), 'error'); return; }
 
     const dataUrl = 'data:text/csv;charset=utf-8,' + encodeURIComponent(res.csv);
     const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
@@ -836,12 +837,16 @@ function setupListeners() {
     if (res.truncated) {
       _csvOffset = res.nextOffset ?? 0; // chuẩn bị sẵn offset trang tiếp
       showToast(
-        `Đã xuất trang ${pageNum}: ${(res.exported ?? 0).toLocaleString()}/${(res.total ?? 0).toLocaleString()} URLs — bấm lại để xuất tiếp`,
+        t('popup_toast_csv_page', {
+          page: pageNum,
+          exported: (res.exported ?? 0).toLocaleString(),
+          total: (res.total ?? 0).toLocaleString(),
+        }),
         'warning'
       );
     } else {
       _csvOffset = 0; // reset sau khi xuất hết
-      showToast(`Đã xuất ${(res.exported ?? 0).toLocaleString()} URLs ra CSV`, 'success');
+      showToast(t('popup_toast_csv_done', { n: (res.exported ?? 0).toLocaleString() }), 'success');
     }
   });
 
@@ -849,9 +854,9 @@ function setupListeners() {
   const exportManifest = async (format: 'json' | 'csv') => {
     if (!currentUsername) return;
     const res = await sendBG('EXPORT_MANIFEST', { username: currentUsername });
-    if (!res) { showToast('Không có phản hồi từ Service Worker', 'error'); return; }
+    if (!res) { showToast(t('popup_toast_no_sw_response'), 'error'); return; }
     const body = format === 'json' ? res?.json : res?.csv;
-    if (!body) { showToast('Không có dữ liệu để xuất', 'error'); return; }
+    if (!body) { showToast(t('popup_toast_no_export_data'), 'error'); return; }
 
     const mime = format === 'json' ? 'application/json' : 'text/csv';
     const dataUrl = `data:${mime};charset=utf-8,` + encodeURIComponent(body);
@@ -861,8 +866,11 @@ function setupListeners() {
       filename: `${currentUsername}_manifest_${dateStr}.${format}`,
       saveAs: false,
     });
-    const truncatedNote = res.truncated ? ` (đã cắt còn ${(res.exported ?? 0).toLocaleString()}/${(res.total ?? 0).toLocaleString()})` : '';
-    showToast(`✓ Đã xuất manifest ${format.toUpperCase()}: ${(res.exported ?? 0).toLocaleString()} file${truncatedNote}`, 'success');
+    const exported = (res.exported ?? 0).toLocaleString();
+    const truncatedNote = res.truncated
+      ? t('popup_manifest_truncated', { exported, total: (res.total ?? 0).toLocaleString() })
+      : '';
+    showToast(t('popup_toast_manifest_exported', { format: format.toUpperCase(), n: exported, note: truncatedNote }), 'success');
   };
   document.getElementById('btn-export-manifest-json')?.addEventListener('click', () => void exportManifest('json'));
   document.getElementById('btn-export-manifest-csv')?.addEventListener('click', () => void exportManifest('csv'));
@@ -874,7 +882,7 @@ function setupListeners() {
       const mediaCount = parseInt(els.badge.textContent) || 0;
       const watching = await toggleWatch(currentUsername, mediaCount);
       els.btnWatchToggle.classList.toggle('watching', watching);
-      showToast(watching ? `👁 Đang theo dõi @${currentUsername}` : `Đã bỏ theo dõi @${currentUsername}`, 'info');
+      showToast(t(watching ? 'popup_toast_watching' : 'popup_toast_unwatched', { username: currentUsername }), 'info');
     });
   }
 
@@ -885,8 +893,8 @@ function setupListeners() {
       updateDownloadPreview();
       showToast(
         els.skipCheckbox.checked
-          ? '✓ Sẽ bỏ qua các file đã tải trước đó'
-          : '⚠ Sẽ tải lại tất cả file (kể cả file đã tải)',
+          ? t('popup_toast_skip_on')
+          : t('popup_toast_skip_off'),
         'info'
       );
     });
@@ -901,14 +909,14 @@ function setupListeners() {
       if (els.downloadedBadge) els.downloadedBadge.style.display = 'none';
       els.btnClearDownloaded.style.display = 'none';
       updateDownloadPreview();
-      showToast(`✓ Đã xóa lịch sử tải của @${currentUsername}! Bạn có thể tải lại toàn bộ file.`, 'success');
+      showToast(t('popup_toast_downloaded_cleared', { username: currentUsername }), 'success');
     });
   }
 
   // Clear — UI-08: dùng custom modal thay vì window.confirm()
   els.btnClear.addEventListener('click', async () => {
     if (!currentUsername) return;
-    const confirmed = await showConfirmModal(`Xóa toàn bộ media và lịch sử tải của @${currentUsername}?`);
+    const confirmed = await showConfirmModal(t('popup_confirm_clear_media', { username: currentUsername }));
     if (!confirmed) return;
 
     await sendBG('CLEAR_MEDIA', { username: currentUsername });
@@ -918,8 +926,8 @@ function setupListeners() {
     updateMediaCount(0);
     if (els.downloadedBadge) els.downloadedBadge.style.display = 'none';
     if (els.btnClearDownloaded) els.btnClearDownloaded.style.display = 'none';
-    setStatus('ready', 'Đã xóa');
-    showToast('Đã xóa danh sách media & lịch sử tải', 'info');
+    setStatus('ready', t('popup_status_cleared'));
+    showToast(t('popup_toast_media_cleared'), 'info');
   });
 
   // Settings
@@ -948,9 +956,9 @@ function setupListeners() {
       await sendBG('STOP_DOWNLOAD', {});
       isDownloading = false;
       showProgress(false);
-      setStatus('ready', 'Đã dừng tải');
+      setStatus('ready', t('popup_status_download_stopped'));
       updateButtons();
-      showToast('⏹ Đã dừng tải xuống', 'info');
+      showToast(t('popup_toast_download_stopped'), 'info');
     });
   }
 
@@ -958,15 +966,15 @@ function setupListeners() {
   if (els.btnCopyErrors) {
     els.btnCopyErrors.addEventListener('click', async () => {
       if (!_lastErrors.length) {
-        showToast('Không có lỗi để copy', 'info');
+        showToast(t('popup_toast_no_errors'), 'info');
         return;
       }
       const text = `[ExtensionX Error Log - ${new Date().toISOString()}]\n` + _lastErrors.join('\n');
       try {
         await navigator.clipboard.writeText(text);
-        showToast('✓ Đã copy log lỗi vào clipboard', 'success');
+        showToast(t('popup_toast_errors_copied'), 'success');
       } catch {
-        showToast('Không thể copy vào clipboard', 'error');
+        showToast(t('popup_toast_copy_failed'), 'error');
       }
     });
   }
@@ -974,7 +982,7 @@ function setupListeners() {
     els.btnRetry.addEventListener('click', async () => {
       els.errorDetails.style.display = 'none';
       await sendBG('RETRY_FAILED', {});
-      showToast('Đang retry các file lỗi...', 'info');
+      showToast(t('popup_toast_retrying'), 'info');
       isDownloading = true;
       showProgress(true);
       updateButtons();
@@ -987,7 +995,7 @@ function setupListeners() {
   }
 
   // Theme toggle
-  els.btnTheme.addEventListener('click', toggleTheme);
+  els.btnTheme.addEventListener('click', () => void toggleTheme());
 
   // Compact Mode toggle
   if (els.btnCompact) {
@@ -997,7 +1005,7 @@ function setupListeners() {
   // History clear
   els.btnHistClear.addEventListener('click', async () => {
     await clearHistory();
-    showToast('Đã xóa lịch sử', 'info');
+    showToast(t('popup_toast_history_cleared'), 'info');
   });
 }
 
@@ -1019,7 +1027,7 @@ function listenToMessages() {
       case 'MEDIA_MEMORY_WARNING':
         if (payload.username !== currentUsername) break;
         showToast(
-          `⚠️ ${(payload.count as number).toLocaleString()} media trong bộ nhớ — nên tải xuống trước khi thu thập thêm`,
+          t('popup_toast_memory_warning', { n: (payload.count as number).toLocaleString() }),
           'warning'
         );
         break;
@@ -1036,7 +1044,7 @@ function listenToMessages() {
         
         // P1: Adaptive Speed
         if (payload.adaptiveSpeed) {
-          els.statusSpeed.textContent = ` (Adaptive speed: ${(payload.adaptiveSpeed / 1000).toFixed(1)}s)`;
+          els.statusSpeed.textContent = ` ${t('popup_adaptive_speed', { s: (payload.adaptiveSpeed / 1000).toFixed(1) })}`;
         } else {
           els.statusSpeed.textContent = '';
         }
@@ -1059,12 +1067,12 @@ function listenToMessages() {
         if (els.scrollNew)   els.scrollNew.textContent   = '';
         {
           const reasonMsg = payload.reachedEnd
-            ? `✓ Hoàn tất! ${payload.mediaCount} media`
+            ? t('popup_collect_done', { n: payload.mediaCount })
             : payload.reason === 'max_scrolls'
-              ? `Đạt giới hạn scroll — ${payload.mediaCount} media`
+              ? t('popup_collect_max_scrolls', { n: payload.mediaCount })
               : payload.reason === 'auto_stop'
-                ? `⏹ Auto-Stop sau ${payload.autoStopAfter ?? 10} scroll không có mới — ${payload.mediaCount} media`
-                : `Đã dừng — ${payload.mediaCount} media`;
+                ? t('popup_collect_auto_stop', { scrolls: payload.autoStopAfter ?? 10, n: payload.mediaCount })
+                : t('popup_collect_stopped', { n: payload.mediaCount });
           setStatus('done', reasonMsg, '✓');
           showToast(reasonMsg, payload.reason === 'auto_stop' ? 'info' : 'success');
         }
@@ -1081,7 +1089,7 @@ function listenToMessages() {
       case 'DOWNLOAD_STARTED':
         if (payload.username === currentUsername) {
           const label = activeFilter !== 'all' ? ` (${activeFilter})` : '';
-          setStatus('downloading', `Đang tải ${payload.total} files${label}...`, '⬇️');
+          setStatus('downloading', t('popup_status_downloading_total', { total: payload.total, label }), '⬇️');
         }
         break;
 
@@ -1093,12 +1101,12 @@ function listenToMessages() {
         if (payload.done) {
           if (payload.failed > 0) {
             const errDetails = (payload.errors || []).join(' | ');
-            setStatus('error', `Hoàn tất ${payload.success}/${payload.total} (Lỗi: ${errDetails})`, '⚠️');
+            setStatus('error', t('popup_status_done_with_errors', { success: payload.success, total: payload.total, errors: errDetails }), '⚠️');
           } else {
-            setStatus('success', `✓ Hoàn tất ${payload.success}/${payload.total} files`, '✓');
+            setStatus('success', t('popup_status_done_files', { success: payload.success, total: payload.total }), '✓');
           }
         } else {
-          setStatus('downloading', `Đang tải: ${payload.currentFile || ''} (${payload.success}/${payload.total})`, '⬇️');
+          setStatus('downloading', t('popup_status_downloading_file', { file: payload.currentFile || '', success: payload.success, total: payload.total }), '⬇️');
         }
         updateQueueItemProgress(payload); // UI-06: live progress trong Queue tab
         break;
@@ -1138,22 +1146,22 @@ function listenToMessages() {
 
       case 'HLS_PROGRESS':
         if (payload.username === currentUsername) {
-          setStatus('downloading', `HLS: ${payload.fetched}/${payload.total} segments`, '🎞️');
+          setStatus('downloading', t('popup_status_hls', { fetched: payload.fetched, total: payload.total }), '🎞️');
         }
         break;
 
       case 'IDM_DETECTED':
-        showToast('⚠️ IDM đang chiếm quyền download! File sẽ không vào thư mục username. Hãy tắt IDM Integration Module.', 'warning');
-        setStatus('error', '⚠️ IDM detected — file không vào đúng thư mục', '⚠️');
+        showToast(t('popup_toast_idm'), 'warning');
+        setStatus('error', t('popup_status_idm'), '⚠️');
         break;
 
       case 'DOWNLOAD_DONE': {
         isDownloading = false;
         showProgress(false);
         const { success, failed, total, skipped } = payload;
-        const doneTxt = window.i18n ? window.i18n.t('status_done') : 'Done';
-        const skipTxt = skipped > 0 ? ` (skipped ${skipped})` : '';
-        const doneMsg = `✓ ${doneTxt} ${success}/${total} files${failed > 0 ? ` (${failed} error)` : ''}${skipTxt}`;
+        const failedTxt = failed > 0 ? t('popup_download_done_failed', { n: failed }) : '';
+        const skipTxt = skipped > 0 ? t('popup_download_done_skipped', { n: skipped }) : '';
+        const doneMsg = t('popup_download_done', { done: t('status_done'), success, total, failed: failedTxt, skipped: skipTxt });
         setStatus('done', doneMsg, '✓');
         showToast(doneMsg, success > 0 ? 'success' : 'error');
         updateButtons();
@@ -1162,8 +1170,8 @@ function listenToMessages() {
         if (failed > 0 && els.errorDetails) {
           _lastErrors = (Array.isArray(payload.errors) && payload.errors.length > 0)
             ? payload.errors.map((e: unknown) => String(e))
-            : [`${failed} file tải thất bại`];
-          els.errorDetailsCount.textContent = `${failed} file lỗi`;
+            : [t('popup_error_files_failed', { n: failed })];
+          els.errorDetailsCount.textContent = t('popup_error_count', { n: failed });
           const errors = document.createDocumentFragment();
           (Array.isArray(payload.errors) ? payload.errors : []).slice(0, 10).forEach((error: unknown) => {
             const item = document.createElement('li');
@@ -1189,8 +1197,7 @@ function listenToMessages() {
               updateDownloadPreview();
               els.skipWrap.style.display = 'flex';
               els.downloadedBadge.style.display = 'inline-block';
-              const dTxt = window.i18n ? window.i18n.t('status_done') : 'downloaded';
-              els.downloadedBadge.textContent = `${count} ${dTxt}`;
+              els.downloadedBadge.textContent = t('popup_downloaded_count', { n: count });
             }
           });
         }
@@ -1243,7 +1250,7 @@ async function updateFolderDisplay(username: string) {
 
     const folderPathEl = document.getElementById('folder-path-text');
     if (folderPathEl) {
-      const prefix = window.i18n ? window.i18n.t('folder_prefix') : 'Downloads/';
+      const prefix = t('folder_prefix');
       const parts = folder
         ? `${prefix}${folder}/${username}/`
         : `${prefix}${username}/`;

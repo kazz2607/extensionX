@@ -4,6 +4,7 @@
  */
 
 import type { MessageType, ResponseFor } from '../shared/messages.ts';
+import { t } from '../lib/i18n.ts';
 export type SendBGFn = <T extends MessageType>(type: T, payload?: Record<string, unknown>) => Promise<ResponseFor<T> | null>;
 
 export interface DateRangeDeps {
@@ -187,7 +188,7 @@ function updateDateRangeCount(els: DateRangeEls): void {
     const count = res?.count ?? 0;
     if (els.daterangeCountRow) els.daterangeCountRow.style.display = 'flex';
     if (els.daterangeCountText) {
-      els.daterangeCountText.textContent = `${count} item${count !== 1 ? 's' : ''} match filter`;
+      els.daterangeCountText.textContent = t(count === 1 ? 'popup_filter_match_one' : 'popup_filter_match_many', { count });
     }
   }, 200);
 }

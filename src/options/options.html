@@ -3,41 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Settings — X Media Downloader</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <title data-i18n="opt_page_title">Settings — X Media Downloader</title>
+  <link rel="stylesheet" href="../shared/tokens.css" />
   <style>
-    :root {
-      --bg: #0f0f0f;
-      --bg-card: #1a1a1a;
-      --bg-hover: #222;
-      --border: #2a2a2a;
-      --border-focus: #1D9BF0;
-      --accent: #1D9BF0;
-      --text: #f0f0f0;
-      --text-sec: #888;
-      --text-muted: #555;
-      --green: #00ba7c;
-      --red: #f4212e;
-      --orange: #ff7a00;
-      --radius: 12px;
-      --font: 'Inter', sans-serif;
-    }
-
-    [data-theme="light"] {
-      --bg: #f5f7fa;
-      --bg-card: #ffffff;
-      --bg-hover: #edf0f5;
-      --border: #dde2ea;
-      --border-focus: #1D9BF0;
-      --accent: #1D9BF0;
-      --text: #0f1923;
-      --text-sec: #536471;
-      --text-muted: #aab8c2;
-      --green: #00a86b;
-      --red: #e0283a;
-      --orange: #e86c00;
-    }
+    /* Design tokens: src/shared/tokens.css */
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -68,7 +37,7 @@
     }
 
     h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
-    h1 span { color: var(--text-sec); font-weight: 400; font-size: 14px; display: block; margin-top: 2px; }
+    h1 span { color: var(--text-secondary); font-weight: 400; font-size: 14px; display: block; margin-top: 2px; }
 
     /* Sections */
     .section { margin-bottom: 28px; }
@@ -98,7 +67,7 @@
 
     .option-label { flex: 1; min-width: 0; }
     .option-label strong { display: block; font-size: 13px; font-weight: 500; }
-    .option-label span { display: block; font-size: 11px; color: var(--text-sec); margin-top: 3px; line-height: 1.5; }
+    .option-label span { display: block; font-size: 11px; color: var(--text-secondary); margin-top: 3px; line-height: 1.5; }
 
     .storage-management-row { display: block; }
     .storage-heading { display: grid; gap: 12px; }
@@ -160,8 +129,12 @@
     .folder-preview span { color: var(--accent); }
 
     /* ── Toggle ── */
+    input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
     .toggle { position: relative; width: 42px; height: 24px; flex-shrink: 0; }
-    .toggle input { display: none; }
+    /* U4: the checkbox stays in the accessibility tree and tab order; it is
+       transparent and covers the switch so clicks still land on it. */
+    .toggle input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; z-index: 1; }
+    .toggle input:focus-visible + .toggle-track { outline: 2px solid var(--accent); outline-offset: 2px; }
     .toggle-track { width:100%; height:100%; background:var(--border); border-radius:12px; cursor:pointer; transition:background 0.2s; }
     .toggle input:checked + .toggle-track { background: var(--accent); }
     .toggle-thumb { position:absolute; top:3px; left:3px; width:18px; height:18px; background:white; border-radius:50%; transition:transform 0.2s; pointer-events:none; box-shadow:0 1px 4px rgba(0,0,0,0.3); }
@@ -200,7 +173,7 @@
     .checkbox-group { display: flex; gap: 12px; flex-shrink: 0; }
     .checkbox-item { display: flex; align-items: center; gap: 6px; cursor: pointer; }
     .checkbox-item input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
-    .checkbox-item span { font-size: 12px; color: var(--text-sec); }
+    .checkbox-item span { font-size: 12px; color: var(--text-secondary); }
 
     /* ── Info box ── */
     .info-box {
@@ -212,8 +185,8 @@
       margin-top: 10px;
     }
     .info-box-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
-    .info-box p { font-size: 12px; color: var(--text-sec); line-height: 1.6; }
-    .info-box code { background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 4px; font-size: 11px; color: var(--accent); }
+    .info-box p { font-size: 12px; color: var(--text-secondary); line-height: 1.6; }
+    .info-box code { background: var(--overlay-2); padding: 1px 5px; border-radius: 4px; font-size: 11px; color: var(--accent); }
 
     /* ── Save row ── */
     .save-row {
@@ -285,11 +258,11 @@
 
       <div class="option-row">
         <div class="option-label">
-          <strong data-i18n="opt_flat_username">Merge into username folder</strong>
+          <strong id="opt-flat-username-label" data-i18n="opt_flat_username">Merge into username folder</strong>
           <span data-i18n="opt_flat_username_desc">Save all media directly inside the username folder without separating into images/videos/gifs subfolders.</span>
         </div>
         <label class="toggle">
-          <input type="checkbox" id="opt-flat-username" />
+          <input type="checkbox" id="opt-flat-username" aria-labelledby="opt-flat-username-label" />
           <div class="toggle-track"></div>
           <div class="toggle-thumb"></div>
         </label>
@@ -303,17 +276,17 @@
     <div class="card">
       <div class="option-row">
         <div class="option-label">
-          <strong data-i18n="opt_media_types">Media types to download</strong>
+          <strong id="opt-filter-avatars-label" data-i18n="opt_media_types">Media types to download</strong>
           <span></span>
         </div>
         <div class="checkbox-group">
           <label class="checkbox-item">
             <input type="checkbox" id="opt-images" checked />
-            <span data-i18n="opt_media_images">🖼 Images</span>
+            <span>🖼 <span data-i18n="opt_media_images">Images</span></span>
           </label>
           <label class="checkbox-item">
             <input type="checkbox" id="opt-videos" checked />
-            <span data-i18n="opt_media_videos">🎬 Videos</span>
+            <span>🎬 <span data-i18n="opt_media_videos">Videos</span></span>
           </label>
           <label class="checkbox-item">
             <input type="checkbox" id="opt-gifs" checked />
@@ -344,11 +317,11 @@
 
       <div class="option-row">
         <div class="option-label">
-          <strong><span data-i18n="opt_filter_avatar">Lọc avatar &amp; banner</span></strong>
-          <span>Bỏ qua ảnh đại diện (<code>/profile_images/</code>) và banner (<code>/profile_banners/</code>) — những ảnh này không phải nội dung tweet.</span>
+          <strong><span data-i18n="opt_filter_avatar">Filter avatars &amp; banners</span></strong>
+          <span data-i18n="opt_filter_avatar_desc">Skip profile pictures (/profile_images/) and banners (/profile_banners/) — these are not tweet content.</span>
         </div>
         <label class="toggle">
-          <input type="checkbox" id="opt-filter-avatars" checked />
+          <input type="checkbox" id="opt-filter-avatars" aria-labelledby="opt-filter-avatars-label" checked />
           <div class="toggle-track"></div>
           <div class="toggle-thumb"></div>
         </label>
@@ -356,11 +329,11 @@
 
       <div class="option-row">
         <div class="option-label">
-          <strong><span data-i18n="opt_filter_card">Lọc ảnh preview link (Card)</span></strong>
-          <span>Bỏ qua thumbnail của link preview (<code>/card_img/</code>) — ảnh nhỏ đính kèm bài viết có chứa URL.</span>
+          <strong id="opt-filter-card-images-label"><span data-i18n="opt_filter_card">Filter link preview images (Cards)</span></strong>
+          <span data-i18n="opt_filter_card_desc">Skip link preview thumbnails (/card_img/) — small images attached to posts that contain a URL.</span>
         </div>
         <label class="toggle">
-          <input type="checkbox" id="opt-filter-card-images" checked />
+          <input type="checkbox" id="opt-filter-card-images" aria-labelledby="opt-filter-card-images-label" checked />
           <div class="toggle-track"></div>
           <div class="toggle-thumb"></div>
         </label>
@@ -368,25 +341,25 @@
 
       <div class="option-row">
         <div class="option-label">
-          <strong><span data-i18n="opt_min_size">Kích thước ảnh tối thiểu (px)</span></strong>
-          <span><span data-i18n="opt_min_size_desc">Lọc bỏ ảnh có chiều rộng hoặc chiều cao nhỏ hơn giá trị này. Chỉ áp dụng khi X.com trả về metadata kích thước. Đặt 0 để tắt.</span></span>
+          <strong id="opt-enable-following-scanner-label"><span data-i18n="opt_min_size">Minimum image size (px)</span></strong>
+          <span><span data-i18n="opt_min_size_desc">Ignore images with width or height smaller than this value. Only applies when X.com returns size metadata. Set to 0 to disable.</span></span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-            <span style="font-size:10px;color:var(--text-muted);">W</span>
-            <input type="number" id="opt-min-img-width" value="150" min="0" max="9999" style="width:70px;" />
+            <span style="font-size:10px;color:var(--text-muted);" data-i18n="opt_min_width_short" data-i18n-title="opt_min_width_title" title="Minimum width (px)">W</span>
+            <input type="number" id="opt-min-img-width" data-i18n-aria-label="opt_min_width_title" aria-label="Minimum width (px)" value="150" min="0" max="9999" style="width:70px;" />
           </div>
           <span style="color:var(--text-muted);font-size:14px;">×</span>
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-            <span style="font-size:10px;color:var(--text-muted);">H</span>
-            <input type="number" id="opt-min-img-height" value="150" min="0" max="9999" style="width:70px;" />
+            <span style="font-size:10px;color:var(--text-muted);" data-i18n="opt_min_height_short" data-i18n-title="opt_min_height_title" title="Minimum height (px)">H</span>
+            <input type="number" id="opt-min-img-height" data-i18n-aria-label="opt_min_height_title" aria-label="Minimum height (px)" value="150" min="0" max="9999" style="width:70px;" />
           </div>
         </div>
       </div>
 
       <div class="info-box" style="margin:10px 14px 14px;">
         <span class="info-box-icon">💡</span>
-        <p>Smart Filters hoạt động <strong>realtime khi thu thập</strong> — ảnh rác bị loại trước khi vào danh sách, không ảnh hưởng hiệu năng download. Tắt tất cả filter để thu thập mọi thứ kể cả avatar.</p>
+        <p data-i18n="opt_smart_filters_info">Smart Filters work in real time while collecting — junk images are dropped before they reach the list, with no impact on download performance. Turn off all filters to collect everything, including avatars.</p>
       </div>
 
     </div>
@@ -396,17 +369,17 @@
 
   <!-- ── Features ── -->
   <div class="section">
-    <p class="section-title">⚡ Features</p>
+    <p class="section-title" data-i18n="opt_section_features">⚡ Features</p>
     <div class="card">
 
       <!-- Following Scanner -->
       <div class="option-row">
         <div class="option-label">
-          <strong>👥 Following Scanner</strong>
-          <span>Hiện tab "Following" trong popup — cho phép tự động scroll trang /following để tìm tài khoản following cũ nhất. Tắt nếu bạn không dùng tính năng này.</span>
+          <strong data-i18n="opt_following_scanner">👥 Following Scanner</strong>
+          <span data-i18n="opt_following_scanner_desc">Show the "Following" tab in the popup — lets you auto-scroll the /following page to find your oldest followed accounts. Disable if you do not use this feature.</span>
         </div>
         <label class="toggle">
-          <input type="checkbox" id="opt-enable-following-scanner" checked />
+          <input type="checkbox" id="opt-enable-following-scanner" aria-labelledby="opt-enable-following-scanner-label" checked />
           <div class="toggle-track"></div>
           <div class="toggle-thumb"></div>
         </label>
@@ -415,11 +388,11 @@
       <!-- Bookmarks -->
       <div class="option-row">
         <div class="option-label">
-          <strong data-i18n="opt_enable_bookmarks">🔖 Bookmarks Scraper</strong>
-          <span data-i18n="opt_enable_bookmarks_desc">Cho phép quét trang /i/bookmarks để thu thập media từ bookmarks của bạn.</span>
+          <strong id="opt-enable-bookmarks-label" data-i18n="opt_enable_bookmarks">🔖 Bookmarks Scraper</strong>
+          <span data-i18n="opt_enable_bookmarks_desc">Allow scraping the /i/bookmarks page to collect media from your personal bookmarks. Disable if you do not use this feature.</span>
         </div>
         <label class="toggle">
-          <input type="checkbox" id="opt-enable-bookmarks" checked />
+          <input type="checkbox" id="opt-enable-bookmarks" aria-labelledby="opt-enable-bookmarks-label" checked />
           <div class="toggle-track"></div>
           <div class="toggle-thumb"></div>
         </label>
@@ -434,11 +407,11 @@
     <div class="card">
       <div class="option-row">
         <div class="option-label">
-          <strong data-i18n="opt_auto_scroll">Tự động bắt đầu thu thập</strong>
-          <span data-i18n="opt_auto_scroll_desc">Tự động thu thập và cuộn khi vào tab /media của người dùng. Mặc định tắt.</span>
+          <strong id="opt-auto-scroll-label" data-i18n="opt_auto_scroll">Automatically start collecting</strong>
+          <span data-i18n="opt_auto_scroll_desc">Start collecting and scrolling automatically when visiting a user's /media tab. Disabled by default.</span>
         </div>
         <label class="toggle">
-          <input type="checkbox" id="opt-auto-scroll" />
+          <input type="checkbox" id="opt-auto-scroll" aria-labelledby="opt-auto-scroll-label" />
           <div class="toggle-track"></div>
           <div class="toggle-thumb"></div>
         </label>
@@ -447,11 +420,11 @@
 
       <div class="option-row">
         <div class="option-label">
-          <strong data-i18n="opt_adaptive_scroll">Adaptive scroll speed</strong>
+          <strong id="opt-adaptive-scroll-label" data-i18n="opt_adaptive_scroll">Adaptive scroll speed</strong>
           <span data-i18n="opt_adaptive_scroll_desc">Dynamically adjust delay based on network speed (GraphQL response time).</span>
         </div>
         <label class="toggle">
-          <input type="checkbox" id="opt-adaptive-scroll" />
+          <input type="checkbox" id="opt-adaptive-scroll" aria-labelledby="opt-adaptive-scroll-label" />
           <div class="toggle-track"></div>
           <div class="toggle-thumb"></div>
         </label>
@@ -470,7 +443,7 @@
 
       <div class="option-row">
         <div class="option-label">
-          <strong data-i18n="opt_max_scrolls">Max scrolls</strong>
+          <strong id="opt-auto-stop-label" data-i18n="opt_max_scrolls">Max scrolls</strong>
           <span data-i18n="opt_max_scrolls_desc">Maximum number of scrolls per profile. 0 = unlimited.</span>
         </div>
         <input type="number" id="opt-max-scrolls" value="200" min="0" max="2000" />
@@ -479,19 +452,20 @@
       <!-- FEAT-08: Smart Auto-Stop -->
       <div class="option-row">
         <div class="option-label">
-          <strong>Smart Auto-Stop ✨</strong>
-          <span>Tự động dừng khi không có media mới sau N lần scroll liên tiếp.</span>
+          <strong data-i18n="opt_auto_stop">Smart Auto-Stop ✨</strong>
+          <span data-i18n="opt_auto_stop_desc">Automatically stop when no new media appears after N consecutive scrolls.</span>
         </div>
         <label class="toggle">
-          <input type="checkbox" id="opt-auto-stop" />
-          <span class="toggle-slider"></span>
+          <input type="checkbox" id="opt-auto-stop" aria-labelledby="opt-auto-stop-label" />
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
         </label>
       </div>
 
       <div class="option-row" id="row-auto-stop-after">
         <div class="option-label">
-          <strong>Dừng sau N scroll không có media mới</strong>
-          <span>Mặc định: 10 scroll. Tối thiểu: 3.</span>
+          <strong data-i18n="opt_auto_stop_after">Stop after N scrolls without new media</strong>
+          <span data-i18n="opt_auto_stop_after_desc">Default: 10 scrolls. Minimum: 3.</span>
         </div>
         <input type="number" id="opt-auto-stop-after" value="10" min="3" max="100" />
       </div>
@@ -504,7 +478,7 @@
     <div class="card">
       <div class="option-row">
         <div class="option-label">
-          <strong data-i18n="opt_concurrency">Concurrent downloads</strong>
+          <strong id="opt-save-as-label" data-i18n="opt_concurrency">Concurrent downloads</strong>
           <span data-i18n="opt_concurrency_desc">Download multiple files at once for faster speed (recommended: 3)</span>
         </div>
         <div class="range-wrap">
@@ -527,7 +501,7 @@
           <span data-i18n="opt_save_as_desc">Enable to let Chrome ask where to save every single file (not recommended)</span>
         </div>
         <label class="toggle">
-          <input type="checkbox" id="opt-save-as" />
+          <input type="checkbox" id="opt-save-as" aria-labelledby="opt-save-as-label" />
           <div class="toggle-track"></div>
           <div class="toggle-thumb"></div>
         </label>
@@ -535,12 +509,12 @@
 
       <div class="option-row">
         <div class="option-label">
-          <strong data-i18n="opt_filename_username">📝 Filename: Username_TweetID_Serial</strong>
+          <strong id="opt-filename-username-label" data-i18n="opt_filename_username">📝 Filename: Username_TweetID_Serial</strong>
           <span data-i18n="opt_filename_username_desc">Save filename with format:</span>
           <span><code style="background:rgba(29,155,240,0.1);color:var(--accent);padding:1px 6px;border-radius:4px;font-size:10px;">NASA_1234567890_ab3f2.jpg</code></span>
         </div>
         <label class="toggle">
-          <input type="checkbox" id="opt-filename-username" />
+          <input type="checkbox" id="opt-filename-username" aria-labelledby="opt-filename-username-label" />
           <div class="toggle-track"></div>
           <div class="toggle-thumb"></div>
         </label>
@@ -549,8 +523,8 @@
       <div class="option-row" style="flex-direction: column; align-items: flex-start; gap: 10px;">
         <div style="width:100%">
           <div class="option-label">
-            <strong data-i18n="opt_filename_template">🧩 Mẫu đặt tên file (nâng cao)</strong>
-            <span data-i18n="opt_filename_template_desc">Để trống để dùng mặc định ở trên. Token hỗ trợ: {username} {tweetId} {date} {type} {ext} {index}</span>
+            <strong data-i18n="opt_filename_template">🧩 Filename template (advanced)</strong>
+            <span data-i18n="opt_filename_template_desc">Leave empty to use the default above. Supported tokens: {username} {tweetId} {date} {type} {ext} {index}</span>
           </div>
           <input type="text" id="opt-filename-template" placeholder="{username}_{tweetId}_{date}.{ext}" maxlength="200" style="width:100%; margin-top:8px;" />
         </div>
@@ -559,11 +533,11 @@
 
       <div class="option-row">
         <div class="option-label">
-          <strong><span data-i18n="opt_snackbar">🔔 Hiển thị tiến trình trên trang (Snackbar)</span></strong>
-          <span><span data-i18n="opt_snackbar_desc">Hiện progress bar mini ngay trên trang X.com khi đang tải — không cần mở popup theo dõi.</span></span>
+          <strong id="opt-show-snackbar-label"><span data-i18n="opt_snackbar">🔔 Show progress on page (Snackbar)</span></strong>
+          <span><span data-i18n="opt_snackbar_desc">Show a mini progress bar right on the X.com page while downloading — no need to keep the popup open.</span></span>
         </div>
         <label class="toggle">
-          <input type="checkbox" id="opt-show-snackbar" checked />
+          <input type="checkbox" id="opt-show-snackbar" aria-labelledby="opt-show-snackbar-label" checked />
           <div class="toggle-track"></div>
           <div class="toggle-thumb"></div>
         </label>
@@ -571,11 +545,11 @@
       
       <div class="option-row">
         <div class="option-label">
-          <strong><span data-i18n="opt_notification">🔔 Hiển thị thông báo khi hoàn thành</span></strong>
-          <span><span data-i18n="opt_notification_desc">Hiện thông báo của trình duyệt (Chrome Notification) khi tải xong một tác vụ.</span></span>
+          <strong id="opt-show-notification-label"><span data-i18n="opt_notification">🔔 Show completion notification</span></strong>
+          <span><span data-i18n="opt_notification_desc">Show a browser notification (Chrome Notification) when a task finishes.</span></span>
         </div>
         <label class="toggle">
-          <input type="checkbox" id="opt-show-notification" checked />
+          <input type="checkbox" id="opt-show-notification" aria-labelledby="opt-show-notification-label" checked />
           <div class="toggle-track"></div>
           <div class="toggle-thumb"></div>
         </label>
@@ -589,7 +563,7 @@
     <div class="card">
       <div class="option-row">
         <div class="option-label">
-          <strong data-i18n="opt_language">Language</strong>
+          <strong id="opt-shortcuts-enabled-label" data-i18n="opt_language">Language</strong>
           <span data-i18n="opt_language_desc">Display language for the extension UI</span>
         </div>
         <select id="opt-language">
@@ -604,7 +578,7 @@
           <span data-i18n="opt_theme_desc">Toggle dark / light mode</span>
         </div>
         <select id="opt-theme-select">
-          <option value="system" data-i18n="opt_theme_system">System (Tự động) 🌓</option>
+          <option value="system" data-i18n="opt_theme_system">System (Auto) 🌓</option>
           <option value="dark" data-i18n="opt_theme_dark">Dark Mode 🌙</option>
           <option value="light" data-i18n="opt_theme_light">Light Mode ☀️</option>
         </select>
@@ -614,16 +588,16 @@
 
   <!-- ── Keyboard Shortcuts (v5.5.0) ── -->
   <div class="section">
-    <p class="section-title">⌨️ Keyboard Shortcuts (Global)</p>
+    <p class="section-title" data-i18n="opt_section_shortcuts">⌨️ Keyboard Shortcuts (Global)</p>
     <div class="card">
 
       <div class="option-row">
         <div class="option-label">
-          <strong>Bật phím tắt trên mọi trang web</strong>
-          <span>Kích hoạt phím tắt khi hover chuột vào ảnh trên bất kỳ trang web nào. Mặc định tắt.</span>
+          <strong data-i18n="opt_sc_enabled">Enable shortcuts on every website</strong>
+          <span data-i18n="opt_sc_enabled_desc">Activate shortcuts while hovering over an image on any website. Disabled by default.</span>
         </div>
         <label class="toggle">
-          <input type="checkbox" id="opt-shortcuts-enabled" />
+          <input type="checkbox" id="opt-shortcuts-enabled" aria-labelledby="opt-shortcuts-enabled-label" />
           <div class="toggle-track"></div>
           <div class="toggle-thumb"></div>
         </label>
@@ -633,11 +607,11 @@
 
         <div class="option-row">
           <div class="option-label">
-            <strong>🔗 Copy liên kết ảnh</strong>
-            <span>Hover ảnh + <code>Ctrl+C</code> → copy URL liên kết (<code>&lt;a&gt;</code> href) mà ảnh trỏ tới. Trên X.com sẽ copy link tweet.</span>
+            <strong id="opt-sc-copy-link-label" data-i18n="opt_sc_copy_link">🔗 Copy image link</strong>
+            <span data-i18n="opt_sc_copy_link_desc">Hover an image + Ctrl+C → copy the link URL (&lt;a&gt; href) the image points to. On X.com this copies the tweet link.</span>
           </div>
           <label class="toggle">
-            <input type="checkbox" id="opt-sc-copy-link" checked />
+            <input type="checkbox" id="opt-sc-copy-link" aria-labelledby="opt-sc-copy-link-label" checked />
             <div class="toggle-track"></div>
             <div class="toggle-thumb"></div>
           </label>
@@ -645,11 +619,11 @@
 
         <div class="option-row">
           <div class="option-label">
-            <strong>⬇️ Tải ảnh đang hover</strong>
-            <span>Hover ảnh + <code>Ctrl+S</code> → tải ảnh trực tiếp về máy.</span>
+            <strong id="opt-sc-download-label" data-i18n="opt_sc_download">⬇️ Download hovered image</strong>
+            <span data-i18n="opt_sc_download_desc">Hover an image + Ctrl+S → download the image directly to your computer.</span>
           </div>
           <label class="toggle">
-            <input type="checkbox" id="opt-sc-download" checked />
+            <input type="checkbox" id="opt-sc-download" aria-labelledby="opt-sc-download-label" checked />
             <div class="toggle-track"></div>
             <div class="toggle-thumb"></div>
           </label>
@@ -657,11 +631,11 @@
 
         <div class="option-row">
           <div class="option-label">
-            <strong>📋 Copy URL file ảnh gốc</strong>
-            <span>Hover ảnh + <code>Ctrl+Shift+C</code> → copy URL trực tiếp của file ảnh (src).</span>
+            <strong id="opt-sc-copy-img-url-label" data-i18n="opt_sc_copy_img_url">📋 Copy original image file URL</strong>
+            <span data-i18n="opt_sc_copy_img_url_desc">Hover an image + Ctrl+Shift+C → copy the direct URL of the image file (src).</span>
           </div>
           <label class="toggle">
-            <input type="checkbox" id="opt-sc-copy-img-url" checked />
+            <input type="checkbox" id="opt-sc-copy-img-url" aria-labelledby="opt-sc-copy-img-url-label" checked />
             <div class="toggle-track"></div>
             <div class="toggle-thumb"></div>
           </label>
@@ -669,11 +643,11 @@
 
         <div class="option-row">
           <div class="option-label">
-            <strong>🌐 Mở ảnh gốc trong tab mới</strong>
-            <span>Hover ảnh + <code>Ctrl+Shift+O</code> → mở ảnh chất lượng gốc trong tab trình duyệt mới.</span>
+            <strong id="opt-sc-open-original-label" data-i18n="opt_sc_open_original">🌐 Open original image in a new tab</strong>
+            <span data-i18n="opt_sc_open_original_desc">Hover an image + Ctrl+Shift+O → open the original-quality image in a new browser tab.</span>
           </div>
           <label class="toggle">
-            <input type="checkbox" id="opt-sc-open-original" checked />
+            <input type="checkbox" id="opt-sc-open-original" aria-labelledby="opt-sc-open-original-label" checked />
             <div class="toggle-track"></div>
             <div class="toggle-thumb"></div>
           </label>
@@ -681,11 +655,11 @@
 
         <div class="option-row">
           <div class="option-label">
-            <strong>🔍 Tìm kiếm ảnh (Google Lens)</strong>
-            <span>Hover ảnh + <code>Ctrl+Shift+G</code> → mở Google Lens để tìm kiếm ngược hình ảnh.</span>
+            <strong id="opt-sc-reverse-search-label" data-i18n="opt_sc_reverse_search">🔍 Search image (Google Lens)</strong>
+            <span data-i18n="opt_sc_reverse_search_desc">Hover an image + Ctrl+Shift+G → open Google Lens for a reverse image search.</span>
           </div>
           <label class="toggle">
-            <input type="checkbox" id="opt-sc-reverse-search" checked />
+            <input type="checkbox" id="opt-sc-reverse-search" aria-labelledby="opt-sc-reverse-search-label" checked />
             <div class="toggle-track"></div>
             <div class="toggle-thumb"></div>
           </label>
@@ -693,11 +667,11 @@
 
         <div class="option-row">
           <div class="option-label">
-            <strong>🔔 Hiện thông báo toast</strong>
-            <span>Hiện thông báo nhỏ trên trang khi thực hiện phím tắt (VD: "✓ Copied link").</span>
+            <strong id="opt-sc-show-toast-label" data-i18n="opt_sc_show_toast">🔔 Show toast notification</strong>
+            <span data-i18n="opt_sc_show_toast_desc">Show a small on-page notice when a shortcut runs (e.g. "✓ Copied link").</span>
           </div>
           <label class="toggle">
-            <input type="checkbox" id="opt-sc-show-toast" checked />
+            <input type="checkbox" id="opt-sc-show-toast" aria-labelledby="opt-sc-show-toast-label" checked />
             <div class="toggle-track"></div>
             <div class="toggle-thumb"></div>
           </label>
@@ -707,7 +681,7 @@
 
       <div class="info-box" style="margin:10px 14px 14px;">
         <span class="info-box-icon">💡</span>
-        <p>Shortcuts chỉ hoạt động khi hover chuột vào ảnh. Nếu đang select text, <code>Ctrl+C</code> sẽ copy text bình thường. Đang nhập liệu trong ô input cũng không bị ảnh hưởng.</p>
+        <p data-i18n="opt_sc_info">Shortcuts only work while hovering over an image. If text is selected, Ctrl+C copies the text as usual. Typing in input fields is not affected either.</p>
       </div>
 
     </div>
@@ -719,11 +693,11 @@
     <div class="card">
       <div class="option-row">
         <div class="option-label">
-          <strong data-i18n="opt_local_only">Local processing only</strong>
+          <strong id="opt-local-only-label" data-i18n="opt_local_only">Local processing only</strong>
           <span data-i18n="opt_local_only_desc">Does not send any data to external servers</span>
         </div>
         <label class="toggle">
-          <input type="checkbox" id="opt-local-only" checked disabled />
+          <input type="checkbox" id="opt-local-only" aria-labelledby="opt-local-only-label" checked disabled />
           <div class="toggle-track"></div>
           <div class="toggle-thumb"></div>
         </label>
@@ -738,16 +712,16 @@
 
       <div class="option-row">
         <div class="option-label">
-          <strong>📤 Export Settings</strong>
-          <span><span data-i18n="opt_export_desc">Xuất toàn bộ cài đặt ra file JSON — dùng để backup hoặc chuyển sang máy khác.</span></span>
+          <strong id="opt-local-diagnostics-label">📤 <span data-i18n="opt_export">Export Settings</span></strong>
+          <span><span data-i18n="opt_export_desc">Export all settings to a JSON file — useful for backups or moving to another computer.</span></span>
         </div>
         <button class="btn-data" id="btn-export" data-i18n="btn_export">📤 Export</button>
       </div>
 
       <div class="option-row">
         <div class="option-label">
-          <strong>📥 Import Settings</strong>
-          <span><span data-i18n="opt_import_desc">Nạp file JSON cài đặt đã export trước. Settings hiện tại sẽ bị ghi đè.</span></span>
+          <strong>📥 <span data-i18n="opt_import">Import Settings</span></strong>
+          <span><span data-i18n="opt_import_desc">Load a previously exported JSON file. Current settings will be overwritten.</span></span>
         </div>
         <button class="btn-data" id="btn-import" data-i18n="btn_import">📥 Import</button>
         <input type="file" id="import-file-input" accept=".json" style="display:none" />
@@ -755,44 +729,44 @@
 
       <div class="option-row">
         <div class="option-label">
-          <strong>🔄 Reset to Default</strong>
-          <span><span data-i18n="opt_reset_desc">Đặt lại toàn bộ cài đặt về giá trị mặc định. Hành động này không thể hoàn tác.</span></span>
+          <strong>🔄 <span data-i18n="opt_reset">Reset to Default</span></strong>
+          <span><span data-i18n="opt_reset_desc">Reset all settings to their default values. This action cannot be undone.</span></span>
         </div>
         <button class="btn-data btn-data--danger" id="btn-reset" data-i18n="btn_reset">🔄 Reset</button>
       </div>
 
       <div class="option-row">
         <div class="option-label">
-          <strong>🗑️ Xóa lịch sử tải (Duplicate History)</strong>
-          <span>Xóa toàn bộ lịch sử các file đã tải của tất cả profile để có thể tải lại toàn bộ từ đầu.</span>
+          <strong data-i18n="opt_clear_history">🗑️ Clear download history (Duplicate History)</strong>
+          <span data-i18n="opt_clear_history_desc">Clear the downloaded-file history of all profiles so everything can be downloaded again from scratch.</span>
         </div>
-        <button class="btn-data btn-data--danger" id="btn-clear-all-downloaded">🗑️ Xóa toàn bộ lịch sử</button>
+        <button class="btn-data btn-data--danger" id="btn-clear-all-downloaded" data-i18n="opt_btn_clear_history">🗑️ Clear all history</button>
       </div>
 
       <div class="option-row storage-management-row">
         <div class="option-label">
           <div class="storage-heading">
             <div class="storage-copy">
-              <strong>💾 Dung lượng dữ liệu cục bộ</strong>
-              <span>Xem dữ liệu theo profile, dọn bản ghi quá 180 ngày/vượt giới hạn hoặc xóa riêng từng profile sau khi xác nhận.</span>
+              <strong data-i18n="opt_storage_title">💾 Local data storage</strong>
+              <span data-i18n="opt_storage_desc">View data per profile, clean up records older than 180 days or over the limit, or clear an individual profile after confirmation.</span>
             </div>
             <div class="storage-actions">
-              <button class="btn-data" id="btn-refresh-storage">Làm mới</button>
-              <button class="btn-data btn-data--danger" id="btn-prune-storage">Dọn dữ liệu cũ</button>
-              <button class="btn-data btn-data--danger" id="btn-clear-all-storage">Xóa toàn bộ dữ liệu media</button>
+              <button class="btn-data" id="btn-refresh-storage" data-i18n="opt_btn_storage_refresh">Refresh</button>
+              <button class="btn-data btn-data--danger" id="btn-prune-storage" data-i18n="opt_btn_storage_prune">Clean up old data</button>
+              <button class="btn-data btn-data--danger" id="btn-clear-all-storage" data-i18n="opt_btn_storage_clear_all">Clear all media data</button>
             </div>
           </div>
-          <div id="storage-summary" role="status" aria-live="polite" style="margin-top:10px;line-height:1.6">Chưa tải thống kê.</div>
+          <div id="storage-summary" role="status" aria-live="polite" style="margin-top:10px;line-height:1.6">Statistics not loaded yet.</div>
         </div>
       </div>
 
       <div class="option-row">
         <div class="option-label">
-          <strong>📊 Diagnostic cục bộ (opt-in)</strong>
-          <span>Chỉ lưu số liệu tổng hợp trên máy này để chẩn đoán lỗi; không gửi dữ liệu qua mạng, không lưu URL, username hoặc token.</span>
+          <strong data-i18n="opt_local_diagnostics">📊 Local diagnostics (opt-in)</strong>
+          <span data-i18n="opt_local_diagnostics_desc">Only stores aggregate metrics on this device to diagnose errors; sends nothing over the network and never stores URLs, usernames or tokens.</span>
         </div>
         <label class="toggle">
-          <input type="checkbox" id="opt-local-diagnostics" />
+          <input type="checkbox" id="opt-local-diagnostics" aria-labelledby="opt-local-diagnostics-label" />
           <div class="toggle-track"></div>
           <div class="toggle-thumb"></div>
         </label>
@@ -800,11 +774,11 @@
 
       <div class="option-row">
         <div class="option-label">
-          <strong>🧾 Xuất diagnostic cục bộ</strong>
-          <span>Xuất JSON đã redaction để so sánh hiệu năng/lỗi giữa các phiên.</span>
+          <strong data-i18n="opt_export_diagnostics">🧾 Export local diagnostics</strong>
+          <span data-i18n="opt_export_diagnostics_desc">Export a redacted JSON file to compare performance/errors between sessions.</span>
         </div>
-        <button class="btn-data" id="btn-export-diagnostics">🧾 Xuất</button>
-        <button class="btn-data btn-data--danger" id="btn-clear-diagnostics">Xóa</button>
+        <button class="btn-data" id="btn-export-diagnostics" data-i18n="opt_btn_export_diagnostics">🧾 Export</button>
+        <button class="btn-data btn-data--danger" id="btn-clear-diagnostics" data-i18n="opt_btn_clear_diagnostics" data-i18n-aria-label="opt_btn_clear_diagnostics_aria" aria-label="Clear local diagnostics">Clear</button>
       </div>
 
     </div>
@@ -815,9 +789,8 @@
     <span class="save-status" id="save-status" data-i18n="save_success">✓ Saved successfully</span>
   </div>
 
-  <p class="version-tag">X Media Downloader v7.2.2</p>
+  <p class="version-tag">X Media Downloader <span data-manifest-version></span></p>
 
-  <script type="module" src="../lib/i18n.ts"></script>
   <script type="module" src="options.ts"></script>
 </body>
 </html>

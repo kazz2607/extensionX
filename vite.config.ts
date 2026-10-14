@@ -19,8 +19,7 @@ export default defineConfig({
       manifest: "manifest.json",
       additionalInputs: [
         "offscreen/offscreen.html",
-        "download-center/download-center.html",
-        "lib/i18n.ts"
+        "download-center/download-center.html"
       ],
     }),
   ],

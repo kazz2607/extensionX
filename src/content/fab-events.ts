@@ -5,6 +5,7 @@
 import type { FabElements } from './fab-dom.ts';
 import { setPanelButtonText, updateFabI18n } from './fab-i18n.ts';
 import { emitUi, onUi } from './ui-bus.ts';
+import { t } from './x-ui-i18n.ts';
 
 export function initFabEvents(elements: FabElements): { closePanel: () => void } {
   const { fab, panel, mainBtn, badge, countEl, scrollsEl, collectBtn, downloadBtn, scrollInfo } = elements;
@@ -40,7 +41,7 @@ export function initFabEvents(elements: FabElements): { closePanel: () => void }
     if (mediaCount > 0) {
       isDownloading = true;
       emitUi('XMD_FAB_ACTION', { action: 'START_DOWNLOAD' });
-      setPanelButtonText(downloadBtn, window.i18n ? window.i18n.t('fab_downloading') : '⏳ Đang tải...');
+      setPanelButtonText(downloadBtn, t('fab_downloading'));
       downloadBtn.disabled = true;
       // Đóng panel nếu đang mở
       closePanel();
@@ -66,14 +67,14 @@ export function initFabEvents(elements: FabElements): { closePanel: () => void }
     isCollecting = !isCollecting;
 
     if (isCollecting) {
-      setPanelButtonText(collectBtn, window.i18n ? window.i18n.t('fab_collect_stop') : '⏹ Dừng');
+      setPanelButtonText(collectBtn, t('fab_collect_stop'));
       collectBtn.classList.add('active');
       mainBtn.classList.add('collecting');
       scrollInfo.classList.add('visible');
       // Gửi lệnh START_COLLECTING qua custom event → content.js relay
       emitUi('XMD_FAB_ACTION', { action: 'START_COLLECTING' });
     } else {
-      setPanelButtonText(collectBtn, window.i18n ? window.i18n.t('fab_collect_start') : '▶ Thu Thập');
+      setPanelButtonText(collectBtn, t('fab_collect_start'));
       collectBtn.classList.remove('active');
       mainBtn.classList.remove('collecting');
       scrollInfo.classList.remove('visible');
@@ -87,7 +88,7 @@ export function initFabEvents(elements: FabElements): { closePanel: () => void }
     if (downloadBtn.disabled || isDownloading) return;
     isDownloading = true;
     emitUi('XMD_FAB_ACTION', { action: 'START_DOWNLOAD' });
-    setPanelButtonText(downloadBtn, window.i18n ? window.i18n.t('fab_downloading') : '⏳ Đang tải...');
+    setPanelButtonText(downloadBtn, t('fab_downloading'));
     downloadBtn.disabled = true;
   });
 
@@ -110,7 +111,7 @@ export function initFabEvents(elements: FabElements): { closePanel: () => void }
 
     if (state === 'COLLECT_DONE') {
       isCollecting = false;
-      setPanelButtonText(collectBtn, window.i18n ? window.i18n.t('fab_collect_start') : '▶ Thu Thập');
+      setPanelButtonText(collectBtn, t('fab_collect_start'));
       collectBtn.classList.remove('active');
       mainBtn.classList.remove('collecting');
       scrollInfo.classList.remove('visible');
@@ -123,7 +124,7 @@ export function initFabEvents(elements: FabElements): { closePanel: () => void }
 
     if (state === 'DOWNLOAD_DONE') {
       isDownloading = false; // FIX: reset flag để cho phép download lần tiếp
-      setPanelButtonText(downloadBtn, window.i18n ? window.i18n.t('fab_download') : '↓ Download');
+      setPanelButtonText(downloadBtn, t('fab_download'));
       downloadBtn.disabled = mediaCount === 0;
     }
   });

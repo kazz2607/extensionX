@@ -11,6 +11,7 @@
 import { broadcastToPopup, sleep, waitForTabLoad } from './utils.ts';
 import { FollowingUserEntry, FollowingScrollState } from '../types.ts';
 import { finishFollowingScan } from './following-scanner.ts';
+import { t } from '../lib/i18n.ts';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 let _scrollState: FollowingScrollState = {
@@ -82,7 +83,7 @@ export async function startFollowingScroll(targetUrl: string): Promise<void> {
     }
 
     if (!tabId) {
-      throw new Error('Không tìm được tab hợp lệ');
+      throw new Error(t('bg_err_no_valid_tab'));
     }
 
     // Navigate đến trang /following nếu chưa ở đó

@@ -4,6 +4,7 @@
  * item cụ thể trước khi tải (thay vì luôn tải toàn bộ theo filter hiện tại).
  */
 import type { MediaItem } from '../types.ts';
+import { t } from '../lib/i18n.ts';
 
 import type { MessageType, ResponseFor } from '../shared/messages.ts';
 export type SendBGFn = <T extends MessageType>(type: T, payload?: Record<string, unknown>) => Promise<ResponseFor<T> | null>;
@@ -28,16 +29,16 @@ function getHTML(): string {
   return `
     <div class="picker-toolbar">
       <div class="picker-toolbar-row">
-        <button class="btn-queue-export" id="picker-select-all">Chọn tất cả</button>
-        <button class="btn-queue-export" id="picker-select-none">Bỏ chọn</button>
-        <button class="btn-queue-export" id="picker-refresh">↻ Làm mới</button>
+        <button class="btn-queue-export" id="picker-select-all">${t('popup_picker_select_all')}</button>
+        <button class="btn-queue-export" id="picker-select-none">${t('popup_picker_select_none')}</button>
+        <button class="btn-queue-export" id="picker-refresh">${t('popup_picker_refresh')}</button>
       </div>
-      <span class="picker-summary" id="picker-summary">0 mục</span>
+      <span class="picker-summary" id="picker-summary">${t('popup_picker_items', { n: 0 })}</span>
     </div>
     <div class="download-preview-warning" id="picker-truncated-warning" style="display:none"></div>
     <div class="picker-grid" id="picker-grid"></div>
     <div class="picker-actions">
-      <button class="btn btn--download" id="picker-download-btn" disabled>Tải mục đã chọn (0)</button>
+      <button class="btn btn--download" id="picker-download-btn" disabled>${t('popup_picker_download', { n: 0 })}</button>
     </div>
   `;
 }
@@ -63,9 +64,9 @@ function itemThumb(item: MediaItem): HTMLElement {
 function updateSummary(): void {
   const summary = document.getElementById('picker-summary');
   const downloadBtn = document.getElementById('picker-download-btn') as HTMLButtonElement | null;
-  if (summary) summary.textContent = `${_selected.size}/${_items.length} mục đã chọn`;
+  if (summary) summary.textContent = t('popup_picker_summary', { selected: _selected.size, total: _items.length });
   if (downloadBtn) {
-    downloadBtn.textContent = `Tải mục đã chọn (${_selected.size})`;
+    downloadBtn.textContent = t('popup_picker_download', { n: _selected.size });
     downloadBtn.disabled = _selected.size === 0;
   }
 }
@@ -77,7 +78,7 @@ function renderGrid(): void {
   if (_items.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'picker-empty';
-    empty.textContent = 'Chưa có media nào khớp bộ lọc hiện tại';
+    empty.textContent = t('popup_picker_empty');
     grid.replaceChildren(empty);
     updateSummary();
     return;
@@ -114,31 +115,85 @@ function renderGrid(): void {
   updateSummary();
 }
 
-export async function loadPickerItems(): Promise<void> {
-  const username = _deps?.getUsername();
-  if (!username || !_deps) return;
+/** Loading / error / no-profile states share one grid message (U10). */
+function showGridMessage(key: string, retry = false): void {
+  const grid = document.getElementById('picker-grid');
+  if (!grid) return;
+  const box = document.createElement('div');
+  box.className = 'picker-empty';
+  box.setAttribute('role', 'status');
+  box.textContent = t(key);
+  if (retry) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'picker-retry';
+    button.textContent = t('popup_picker_retry');
+    button.addEventListener('click', () => void loadPickerItems());
+    box.append(document.createElement('br'), button);
+  }
+  grid.replaceChildren(box);
+}
 
+let _loadToken = 0;
+let _loadedUsername = '';
+
+export async function loadPickerItems(): Promise<void> {
+  if (!_deps) return;
+  const username = _deps.getUsername();
+  const grid = document.getElementById('picker-grid');
+  // Every call invalidates earlier in-flight loads, including the no-profile
+  // case, so a slow response for the previous profile can never render.
+  const token = ++_loadToken;
+  // While loading, on error and without a profile there is nothing to pick:
+  // drop the old items and selection so "Download selected" is disabled and
+  // cannot send the previous profile's URLs.
+  // Refresh/filter changes on the same profile keep the selection (restored
+  // below for items still listed); another profile starts empty.
+  const keep = username && username === _loadedUsername ? new Set(_selected) : new Set<string>();
+  _items = [];
+  _selected.clear();
+  updateSummary();
+  if (!username) {
+    _loadedUsername = '';
+    grid?.setAttribute('aria-busy', 'false');
+    showGridMessage('popup_picker_no_profile');
+    return;
+  }
+
+  grid?.setAttribute('aria-busy', 'true');
+  showGridMessage('popup_picker_loading');
   const { dateFrom, dateTo, keyword } = _deps.getDateRange();
-  const res = await _deps.sendBG('GET_MEDIA_ITEMS_FILTERED', {
-    username,
-    filterType: _deps.getActiveFilter(),
-    dateFrom,
-    dateTo,
-    keyword,
-  });
+  let res: ResponseFor<'GET_MEDIA_ITEMS_FILTERED'> | null = null;
+  try {
+    res = await _deps.sendBG('GET_MEDIA_ITEMS_FILTERED', {
+      username,
+      filterType: _deps.getActiveFilter(),
+      dateFrom,
+      dateTo,
+      keyword,
+    });
+  } catch {
+    res = null;
+  }
+  if (token !== _loadToken) return;
+  grid?.setAttribute('aria-busy', 'false');
+  if (!res || res.error) {
+    // A failed read is not "no media": say so and offer a retry.
+    showGridMessage('popup_picker_error', true);
+    return;
+  }
 
   _items = res?.items || [];
-  // Bỏ chọn các url không còn nằm trong danh sách vừa tải (đổi profile/filter)
+  // Giữ lại lựa chọn cũ chỉ với các url còn nằm trong danh sách vừa tải
+  _loadedUsername = username;
   const currentUrls = new Set(_items.map((i) => i.url));
-  for (const url of _selected) {
-    if (!currentUrls.has(url)) _selected.delete(url);
-  }
+  keep.forEach((url) => { if (currentUrls.has(url)) _selected.add(url); });
 
   const warning = document.getElementById('picker-truncated-warning');
   if (warning) {
     if (res?.truncated) {
       warning.style.display = 'flex';
-      warning.textContent = `⚠️ Đang hiển thị ${_items.length}/${res.total} mục khớp bộ lọc — thu hẹp bằng ngày/từ khóa để xem hết.`;
+      warning.textContent = t('popup_picker_truncated', { shown: _items.length, total: res.total ?? 0 });
     } else {
       warning.style.display = 'none';
     }

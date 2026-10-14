@@ -10,6 +10,36 @@ Chưa có thay đổi.
 
 ---
 
+## [7.4.0] — 2026-10-14 *(Performance & UI: i18n, theme, accessibility)*
+
+### Giao diện
+
+- **Song ngữ đầy đủ:** toàn bộ popup, Options, Download Center, FAB/snackbar, nút trên tweet, phím tắt, nút trên Telegram và thông báo/lỗi từ service worker đi qua bảng dịch English/Tiếng Việt (656 key). English là mặc định; trước đây giao diện lẫn tiếng Việt và hiện tên key thô (`opt_filename_template`, `preview_to_download`…).
+- **Theme thống nhất:** token màu dùng chung cho ba trang, theme sáng hiển thị đúng (hộp xác nhận, viền, thanh tiến độ không còn màu tối cứng), Download Center có theme sáng. Mặc định theo hệ thống; nút đổi theme xoay vòng Hệ thống → Sáng → Tối và cho biết chế độ hiện tại.
+- **Accessibility:** 21 công tắc trong Options dùng được bằng bàn phím và trình đọc màn hình; vòng focus hiển thị trên mọi trang; nút chỉ có icon có nhãn; nút tải trên tweet cập nhật `aria-label`/`aria-busy`; `<html lang>` theo ngôn ngữ đang dùng.
+- Download Picker có trạng thái đang tải, lỗi kèm nút Thử lại, và không còn giữ lưới của profile trước; danh sách Following có trạng thái trống và ngày theo ngôn ngữ ứng dụng.
+- FAB tự ẩn khi X mở lightbox/hộp soạn tweet/hộp thoại (kể cả khi X dựng lớp `#layers` muộn); snackbar chuyển sang góc dưới-trái để không đè toast của X và không tràn trên cửa sổ hẹp.
+- Đổi theme ở Options hoặc popup cập nhật ngay nhãn nút/ô chọn theme ở trang còn lại.
+- Download Picker không còn giữ lựa chọn của profile trước khi đang tải, lỗi hoặc không có profile (nút tải bị khóa); làm mới cùng profile vẫn giữ lựa chọn.
+- Bỏ Google Fonts: trang extension không còn gửi request ra ngoài khi mở; phiên bản hiển thị trên popup/Options/Download Center và trong file export (Manifest, Queue, Settings) đọc từ manifest thay vì ghi cứng `7.2.2`.
+
+### Hiệu năng
+
+- Progress tải gửi tối đa ~4 lần/giây kèm 20 lỗi gần nhất (trước đây gửi toàn bộ danh sách lỗi mỗi file).
+- Nút tải trên tweet không còn giữ các tweet đã bị X gỡ khỏi trang và chỉ quét phần DOM mới (kể cả media hoặc thanh hành động X thêm muộn vào tweet đã có).
+- Download Center cập nhật Queue tại chỗ thay vì đọc lại toàn bộ dữ liệu ở mỗi thay đổi.
+- JSZip chỉ được nạp khi tạo ZIP; offscreen ghép HLS khởi động nhẹ hơn.
+- Dọn retention duyệt bằng cursor; chạy khi đến hạn hằng ngày hoặc khi profile vượt ngưỡng 50.000 bản ghi thêm 1.000 mục, thay vì sau mỗi lần service worker khởi động.
+- Service worker chờ nạp ngôn ngữ trước khi xử lý message/lịch tải, nên thông báo tạo ngay sau khi worker thức dậy dùng đúng ngôn ngữ.
+- `icon128.png` từ JPEG 1024 px (300 KB) thành PNG 128 px (9 KB).
+
+### Kiểm thử
+
+- Thêm gate `npm run i18n` vào `npm run check`; tổng **60** unit test; Chromium kiểm tra ngôn ngữ mặc định, theme sáng và JSZip nạp động trong offscreen.
+- Ngưỡng tổng JavaScript nâng lên 460 KB cho dữ liệu bảng dịch; content script trên X nhỏ hơn trước.
+
+---
+
 ## [7.3.1] — 2026-10-14 *(Hoàn thiện phần còn dở của 7.3.0)*
 
 ### Bảo mật

@@ -5,67 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>X Media Downloader</title>
   <meta name="description" content="Download media from X.com" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../shared/tokens.css" />
   <link rel="stylesheet" href="popup.css" />
-  <style>
-    /* ── UI-04: Onboarding ── */
-    .onboarding-section { padding: 0 16px 8px; }
-    .onboarding-card { background: rgba(29,155,240,.06); border: 1px dashed rgba(29,155,240,.25); border-radius: 12px; padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start; }
-    .onboarding-steps { display: flex; flex-direction: column; gap: 8px; flex: 1; }
-    .onboarding-step { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-sec); }
-    .onboarding-step code { font-size: 11px; background: rgba(255,255,255,.07); padding: 1px 5px; border-radius: 4px; color: var(--accent); }
-    .step-num { min-width: 18px; height: 18px; background: var(--accent); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
-
-    /* ── UI-01: Error details panel ── */
-    .error-details { margin: 6px 16px; background: rgba(239,68,68,.07); border: 1px solid rgba(239,68,68,.2); border-radius: 10px; overflow: hidden; }
-    .error-details-header { display: flex; align-items: center; gap: 6px; padding: 7px 10px; }
-    .error-details-count { font-size: 12px; color: #ef4444; font-weight: 600; flex: 1; }
-    .btn-retry { font-size: 11px; display: flex; align-items: center; gap: 4px; background: rgba(239,68,68,.15); border: 1px solid rgba(239,68,68,.25); color: #ef4444; border-radius: 6px; padding: 3px 8px; cursor: pointer; }
-    .btn-retry:hover { background: rgba(239,68,68,.25); }
-    .btn-error-close { font-size: 14px; color: var(--text-sec); background: none; border: none; cursor: pointer; padding: 0 4px; line-height: 1; }
-    .error-list { list-style: none; padding: 0 10px 8px; margin: 0; max-height: 80px; overflow-y: auto; }
-    .error-list li { font-size: 11px; color: var(--text-sec); padding: 2px 0; border-top: 1px solid rgba(255,255,255,.04); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-    /* ── UI-06: Queue mini progress ── */
-    .queue-mini-progress { height: 3px; background: rgba(255,255,255,.1); border-radius: 2px; margin: 4px 0; overflow: hidden; }
-    .queue-mini-bar { height: 100%; background: var(--accent); border-radius: 2px; transition: width .3s; }
-
-    /* ── UI-08: Custom Confirm Modal ── */
-    #confirm-modal { display: none; position: fixed; inset: 0; z-index: 9999; align-items: center; justify-content: center; background: rgba(0,0,0,0.55); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); opacity: 0; transition: opacity 0.2s ease; }
-    #confirm-modal:not([hidden]) { display: flex; }
-    #confirm-modal.show { opacity: 1; }
-    .confirm-box { background: var(--surface, #1a1a1a); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 24px 20px 20px; max-width: 280px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.6); transform: scale(0.92) translateY(10px); transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), opacity 0.2s; opacity: 0; }
-    #confirm-modal.show .confirm-box { transform: scale(1) translateY(0); opacity: 1; }
-    #confirm-message { font-size: 14px; color: var(--text-primary, #fff); margin: 0 0 20px; line-height: 1.5; text-align: center; }
-    .confirm-actions { display: flex; gap: 10px; }
-    #confirm-cancel { flex: 1; padding: 9px 0; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: var(--text-primary, #fff); font-size: 13px; font-weight: 500; cursor: pointer; transition: background 0.15s; }
-    #confirm-cancel:hover { background: rgba(255,255,255,0.11); }
-    #confirm-ok { flex: 1; padding: 9px 0; border-radius: 10px; border: none; background: linear-gradient(135deg, #ef4444, #dc2626); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.15s, transform 0.1s; }
-    #confirm-ok:hover { opacity: 0.88; transform: scale(1.02); }
-    #confirm-ok:active { transform: scale(0.97); }
-
-
-    /* ── Bug 2: Stop Download button ── */
-    .btn--stop-dl { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.3); color: #ef4444; flex-shrink: 0; }
-    .btn--stop-dl:hover { background: rgba(239,68,68,.25); }
-    .btn-queue-stop { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.25); color: #ef4444; border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer; flex-shrink: 0; }
-    .btn-queue-stop:hover { background: rgba(239,68,68,.25); }
-
-    /* ── FEA-02: Queue Export/Import buttons ── */
-    .btn-queue-export, .btn-queue-import-label {
-      font-size: 11px; padding: 3px 8px; border-radius: 6px; cursor: pointer;
-      background: rgba(255,255,255,.05); border: 1px solid var(--border);
-      color: var(--text-sec); display: inline-flex; align-items: center; gap: 4px;
-      transition: background .15s, color .15s;
-    }
-    .btn-queue-export:hover, .btn-queue-import-label:hover { background: rgba(255,255,255,.1); color: var(--text); }
-    #input-queue-import { display: none; }
-
-    /* ── FEA-03: File count per profile ── */
-    .queue-file-count { font-size: 10px; color: var(--accent); font-weight: 500; margin-top: 2px; display: block; }
-  </style>
 </head>
 <body>
   <div class="app">
@@ -80,10 +21,10 @@
         </div>
         <div class="header-text">
           <h1 class="app-name">Media Downloader</h1>
-          <span class="app-version">v7.2.2</span>
+          <span class="app-version" data-manifest-version></span>
         </div>
       </div>
-      <button class="btn-icon btn-theme" id="btn-theme" title="Đổi giao diện">
+      <button class="btn-icon btn-theme" id="btn-theme" title="Toggle theme" aria-label="Toggle theme">
         <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="5"/>
           <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
@@ -95,25 +36,25 @@
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
         </svg>
       </button>
-      <button class="btn-icon btn-reload" id="btn-reload" title="Tải lại trang">
+      <button class="btn-icon btn-reload" id="btn-reload" title="Reload page" aria-label="Reload page" data-i18n-title="popup_reload_tab" data-i18n-aria-label="popup_reload_tab">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="23 4 23 10 17 10"/>
           <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
         </svg>
       </button>
-      <button class="btn-icon btn-compact" id="btn-compact" data-i18n-title="btn_compact_title">
+      <button class="btn-icon btn-compact" id="btn-compact" title="Compact mode" aria-label="Compact mode" data-i18n-title="btn_compact_title" data-i18n-aria-label="btn_compact_title">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/>
           <line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/>
         </svg>
       </button>
-      <button class="btn-icon" id="btn-download-center" title="Trung tâm tải xuống">
+      <button class="btn-icon" id="btn-download-center" title="Download Center" aria-label="Download Center" data-i18n-title="popup_download_center" data-i18n-aria-label="popup_download_center">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
         </svg>
       </button>
-      <button class="btn-icon" id="btn-settings" title="Cài đặt">
+      <button class="btn-icon" id="btn-settings" title="Settings" aria-label="Settings" data-i18n-title="popup_settings" data-i18n-aria-label="popup_settings">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3"/>
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
@@ -142,8 +83,8 @@
             </div>
           </div>
           <div class="restore-actions">
-            <button class="btn-restore-ok" id="btn-restore" title="Khôi phục phiên cũ">Tiếp tục</button>
-            <button class="btn-restore-cancel" id="btn-restore-cancel" title="Hủy phiên cũ">×</button>
+            <button class="btn-restore-ok" id="btn-restore" title="Restore previous session" data-i18n-title="popup_restore_title" data-i18n="popup_restore_continue">Continue</button>
+            <button class="btn-restore-cancel" id="btn-restore-cancel" title="Discard previous session" aria-label="Discard previous session" data-i18n-title="popup_restore_cancel" data-i18n-aria-label="popup_restore_cancel">×</button>
           </div>
         </section>
 
@@ -163,7 +104,7 @@
             <div class="profile-badge" id="media-count-badge">0</div>
             <!-- Pha 15: Watch mode (nhẹ, không poll ngầm) — chỉ so sánh số media với
                  lần xem trước khi mở lại popup, không phát sinh request X.com nào thêm -->
-            <button class="btn-watch-toggle" id="btn-watch-toggle" style="display:none" title="Theo dõi profile này (báo khi có media mới lần sau mở popup)">👁</button>
+            <button class="btn-watch-toggle" id="btn-watch-toggle" style="display:none" title="Watch this profile (get notified about new media next time you open the popup)" aria-label="Watch this profile (get notified about new media next time you open the popup)" data-i18n-title="popup_watch_title" data-i18n-aria-label="popup_watch_title">👁</button>
           </div>
         </section>
 
@@ -174,9 +115,9 @@
               <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.253 5.622L18.244 2.25z" fill="currentColor"/>
             </svg>
             <div class="onboarding-steps">
-              <div class="onboarding-step"><span class="step-num">1</span><span>Mở <code>x.com/username/media</code></span></div>
-              <div class="onboarding-step"><span class="step-num">2</span><span>Bấm <strong>Start Collecting</strong></span></div>
-              <div class="onboarding-step"><span class="step-num">3</span><span>Bấm <strong>Download</strong></span></div>
+              <div class="onboarding-step"><span class="step-num">1</span><span><span data-i18n="popup_onboarding_open">Open</span> <code>x.com/username/media</code></span></div>
+              <div class="onboarding-step"><span class="step-num">2</span><span><span data-i18n="popup_onboarding_click">Click</span> <strong data-i18n="btn_collect_start">Start Collecting</strong></span></div>
+              <div class="onboarding-step"><span class="step-num">3</span><span><span data-i18n="popup_onboarding_click">Click</span> <strong data-i18n="btn_download">Download</strong></span></div>
             </div>
           </div>
         </section>
@@ -214,11 +155,11 @@
                 <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
                 <line x1="3" y1="10" x2="21" y2="10"/>
               </svg>
-              <span>Date Range</span>
+              <span data-i18n="date_range_title">Date Range</span>
               <svg class="daterange-chevron" id="daterange-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-              <span class="daterange-active-badge" id="daterange-active-badge" style="display:none">Active</span>
+              <span class="daterange-active-badge" id="daterange-active-badge" style="display:none" data-i18n="popup_daterange_active">Active</span>
             </div>
-            <button class="btn-daterange-clear" id="btn-daterange-clear" style="display:none" title="Xóa bộ lọc ngày">×</button>
+            <button class="btn-daterange-clear" id="btn-daterange-clear" style="display:none" title="Clear date filter" aria-label="Clear date filter" data-i18n-title="popup_daterange_clear" data-i18n-aria-label="popup_daterange_clear">×</button>
           </div>
 
           <div class="daterange-panel" id="daterange-panel" style="display:none">
@@ -238,20 +179,20 @@
               <input type="text" id="filter-keyword" class="keyword-input" data-i18n-placeholder="keyword_placeholder" />
             </div>
             <div class="daterange-presets">
-              <button class="btn-preset" data-preset="7d">7 days</button>
-              <button class="btn-preset" data-preset="30d">30 days</button>
-              <button class="btn-preset" data-preset="90d">3 months</button>
-              <button class="btn-preset" data-preset="1y">This year</button>
+              <button class="btn-preset" data-preset="7d" data-i18n="date_preset_7">7 days</button>
+              <button class="btn-preset" data-preset="30d" data-i18n="date_preset_30">30 days</button>
+              <button class="btn-preset" data-preset="90d" data-i18n="date_preset_90">3 months</button>
+              <button class="btn-preset" data-preset="1y" data-i18n="date_preset_year">This year</button>
             </div>
             <div class="daterange-count-row" id="daterange-count-row" style="display:none">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-              <span id="daterange-count-text">0 items match</span>
+              <span id="daterange-count-text" data-i18n="filter_summary">0 items match</span>
             </div>
             <!-- Pha 11: Download Recipe/Preset theo profile. Class riêng (không phải
                  .btn-preset) — tránh bị date-range.ts gắn nhầm listener chọn nhanh ngày. -->
             <div class="daterange-presets" style="margin-top:6px">
-              <button class="btn-recipe-preset" id="btn-save-preset" title="Lưu bộ lọc hiện tại cho profile này">💾 Lưu bộ lọc</button>
-              <button class="btn-recipe-preset" id="btn-load-preset" title="Nạp bộ lọc đã lưu cho profile này">📂 Nạp bộ lọc</button>
+              <button class="btn-recipe-preset" id="btn-save-preset" title="Save the current filter for this profile" data-i18n-title="popup_preset_save_title" data-i18n="popup_preset_save">💾 Save filter</button>
+              <button class="btn-recipe-preset" id="btn-load-preset" title="Load the saved filter for this profile" data-i18n-title="popup_preset_load_title" data-i18n="popup_preset_load">📂 Load filter</button>
             </div>
           </div>
         </section>
@@ -276,17 +217,17 @@
         <!-- UI-01: Error Details Panel -->
         <div class="error-details" id="error-details" style="display:none">
           <div class="error-details-header">
-            <span class="error-details-count" id="error-details-count">0 lỗi</span>
+            <span class="error-details-count" id="error-details-count">0 failed files</span>
             <div style="display:flex; align-items:center; gap:6px;">
-              <button class="btn-copy-errors" id="btn-copy-errors" title="Copy danh sách lỗi vào clipboard">
+              <button class="btn-copy-errors" id="btn-copy-errors" title="Copy error list to clipboard" data-i18n-title="popup_copy_errors_title" data-i18n="popup_copy_log">
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                 Copy log
               </button>
-              <button class="btn-retry" id="btn-retry">
+              <button class="btn-retry" id="btn-retry" data-i18n="popup_retry">
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.36"/></svg>
                 Retry
               </button>
-              <button class="btn-error-close" id="btn-error-close" title="Đóng">×</button>
+              <button class="btn-error-close" id="btn-error-close" title="Close" aria-label="Close" data-i18n-title="popup_close" data-i18n-aria-label="popup_close">×</button>
             </div>
           </div>
           <ul class="error-list" id="error-list"></ul>
@@ -333,22 +274,22 @@
           <div class="skip-duplicates-wrap" id="skip-duplicates-wrap" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; padding: 2px 0;">
             <label for="opt-skip-duplicates" style="font-size:12px; color:var(--text-sec); display:flex; align-items:center; gap:6px; cursor:pointer;">
               <input type="checkbox" id="opt-skip-duplicates" checked style="accent-color:var(--accent); cursor:pointer;">
-              <span data-i18n="opt_skip_duplicates">Bỏ qua file đã tải</span>
+              <span data-i18n="opt_skip_duplicates">Skip downloaded</span>
             </label>
             <div style="display:flex; align-items:center; gap:6px;">
-              <span id="downloaded-count-badge" style="font-size:11px; background:rgba(29,155,240,0.1); color:var(--accent); padding:2px 6px; border-radius:10px; display:none;">0 đã tải</span>
-              <button class="btn-clear-downloaded" id="btn-clear-downloaded" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:11px; padding:2px 4px; text-decoration:underline; display:none;" title="Xóa lịch sử đã tải để tải lại toàn bộ file">Xóa lịch sử</button>
+              <span id="downloaded-count-badge" style="font-size:11px; background:rgba(29,155,240,0.1); color:var(--accent); padding:2px 6px; border-radius:10px; display:none;">0 downloaded</span>
+              <button class="btn-clear-downloaded" id="btn-clear-downloaded" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:11px; padding:2px 4px; text-decoration:underline; display:none;" title="Clear download history to re-download all files" data-i18n-title="popup_clear_downloaded_title" data-i18n="popup_clear_downloaded">Clear history</button>
             </div>
           </div>
 
           <div class="download-preview" id="download-preview" style="display:none">
             <div class="download-preview-row">
-              <span data-i18n="preview_to_download">Sẽ tải:</span>
-              <strong id="preview-count">0 file</strong>
+              <span data-i18n="preview_to_download">Will download:</span>
+              <strong id="preview-count">0 files</strong>
             </div>
             <div class="download-preview-row" id="preview-skip-row" style="display:none">
-              <span data-i18n="preview_skipped">Bỏ qua (đã tải):</span>
-              <span id="preview-skipped">0 file</span>
+              <span data-i18n="preview_skipped">Skipped (already downloaded):</span>
+              <span id="preview-skipped">0 files</span>
             </div>
             <div class="download-preview-warning" id="preview-warning" style="display:none">
               ⚠️ <span id="preview-warning-text"></span>
@@ -365,14 +306,14 @@
             </button>
 
             <!-- Bug 2: Nút dừng download — chỉ hiện khi đang tải -->
-            <button class="btn btn--stop-dl" id="btn-stop-download" style="display:none" title="Dừng download (hoàn tất file hiện tại rồi dừng)">
+            <button class="btn btn--stop-dl" id="btn-stop-download" style="display:none" title="Stop download (finish the current file, then stop)" data-i18n-title="popup_stop_download_title">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="3" width="18" height="18" rx="2"/>
               </svg>
-              <span>Stop</span>
+              <span data-i18n="popup_stop">Stop</span>
             </button>
 
-            <button class="btn btn--queue-add" id="btn-queue-add" disabled title="Thêm vào hàng đợi">
+            <button class="btn btn--queue-add" id="btn-queue-add" disabled title="Add to queue" aria-label="Add to queue" data-i18n-title="popup_queue_add_title" data-i18n-aria-label="popup_queue_add_title">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
                 <line x1="8" y1="18" x2="21" y2="18"/>
@@ -394,7 +335,7 @@
               <span data-i18n="btn_csv">CSV</span>
             </button>
 
-            <button class="btn btn--clear" id="btn-clear" disabled>
+            <button class="btn btn--clear" id="btn-clear" disabled title="Clear collected media" aria-label="Clear collected media" data-i18n-title="popup_clear_media" data-i18n-aria-label="popup_clear_media">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="3 6 5 6 21 6"/>
                 <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
@@ -413,32 +354,32 @@
             <span class="queue-count-badge" id="queue-count-badge" style="display:none">0</span>
           </div>
           <div class="queue-header-actions">
-            <button class="btn-text btn-queue-start" id="btn-queue-start" title="Bắt đầu hàng đợi" aria-label="Bắt đầu hàng đợi" data-action="disabled" disabled>
+            <button class="btn-text btn-queue-start" id="btn-queue-start" title="Start queue" aria-label="Start queue" data-action="disabled" disabled>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-              <span class="queue-primary-label">Bắt đầu</span>
+              <span class="queue-primary-label">Start</span>
             </button>
           </div>
         </div>
-        <div class="queue-tools" aria-label="Dữ liệu hàng đợi">
-          <span class="queue-tools-label">Dữ liệu</span>
-          <button class="btn-queue-export" id="btn-queue-export" title="Xuất queue ra file JSON">
+        <div class="queue-tools" aria-label="Queue data" data-i18n-aria-label="popup_queue_data_aria">
+          <span class="queue-tools-label" data-i18n="popup_queue_data">Data</span>
+          <button class="btn-queue-export" id="btn-queue-export" title="Export queue to a JSON file" data-i18n-title="popup_queue_export_title" data-i18n="popup_export">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               Export
           </button>
-          <label class="btn-queue-import-label" title="Nhập queue từ file JSON">
+          <label class="btn-queue-import-label" title="Import queue from a JSON file" data-i18n-title="popup_queue_import_title" data-i18n="popup_import">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Import
               <input type="file" id="input-queue-import" accept=".json" />
           </label>
-          <button class="btn-text btn-queue-clear" id="btn-queue-clear">Xóa tất cả</button>
+          <button class="btn-text btn-queue-clear" id="btn-queue-clear" data-i18n="popup_queue_clear_all">Clear all</button>
           <details class="queue-bulk-menu">
-            <summary>Hàng loạt</summary>
-            <div class="queue-bulk-actions" id="queue-bulk-actions" aria-label="Thao tác hàng loạt">
-              <button type="button" data-bulk-action="retry_errors">Thử lại lỗi</button>
-              <button type="button" data-bulk-action="pause_selected">Tạm dừng mục chọn</button>
-              <button type="button" data-bulk-action="resume_selected">Tiếp tục mục chọn</button>
-              <button type="button" data-bulk-action="clear_completed">Xóa mục hoàn tất</button>
-              <button type="button" data-bulk-action="undo_clear_completed">Hoàn tác</button>
+            <summary data-i18n="popup_queue_bulk">Bulk</summary>
+            <div class="queue-bulk-actions" id="queue-bulk-actions" aria-label="Bulk actions" data-i18n-aria-label="popup_queue_bulk_aria">
+              <button type="button" data-bulk-action="retry_errors" data-i18n="popup_bulk_retry_errors">Retry failed</button>
+              <button type="button" data-bulk-action="pause_selected" data-i18n="popup_bulk_pause">Pause selected</button>
+              <button type="button" data-bulk-action="resume_selected" data-i18n="popup_bulk_resume">Resume selected</button>
+              <button type="button" data-bulk-action="clear_completed" data-i18n="popup_bulk_clear_completed">Clear completed</button>
+              <button type="button" data-bulk-action="undo_clear_completed" data-i18n="popup_bulk_undo">Undo</button>
             </div>
           </details>
         </div>
@@ -450,9 +391,9 @@
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
             </svg>
-            <span id="queue-add-hint"><span data-i18n="btn_add_queue">Thêm profile hiện tại vào hàng đợi</span></span>
+            <span id="queue-add-hint"><span data-i18n="btn_add_queue">Add current profile to queue</span></span>
           </div>
-          <button class="btn-queue-add-bar" id="btn-queue-add-bar" disabled>
+          <button class="btn-queue-add-bar" id="btn-queue-add-bar" disabled data-i18n="popup_add">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
@@ -469,8 +410,8 @@
               <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/>
               <line x1="3" y1="18" x2="3.01" y2="18"/>
             </svg>
-            <span>Hàng đợi trống</span>
-            <span class="queue-empty-hint">Thêm profile vào queue để tải tuần tự mà không cần giám sát</span>
+            <span data-i18n="popup_queue_empty">Queue is empty</span>
+            <span class="queue-empty-hint" data-i18n="popup_queue_empty_hint">Add profiles to the queue to download them one after another, unattended</span>
           </li>
         </ul>
       </div><!-- /panel-queue -->
@@ -480,7 +421,7 @@
 
         <!-- Donut Chart -->
         <div class="stats-section">
-          <div class="stats-title">Media Breakdown</div>
+          <div class="stats-title" data-i18n="stats_title">Media Breakdown</div>
           <div class="donut-wrap" id="donut-wrap">
             <div class="donut-chart-area">
               <svg class="donut-svg" id="donut-svg" viewBox="0 0 100 100">
@@ -488,28 +429,28 @@
                 <circle class="donut-track" cx="50" cy="50" r="38" fill="none" stroke-width="12"/>
                 <g id="donut-arcs"></g>
                 <text x="50" y="47" text-anchor="middle" class="donut-total-num" id="donut-total-num">0</text>
-                <text x="50" y="57" text-anchor="middle" class="donut-total-lbl">total</text>
+                <text x="50" y="57" text-anchor="middle" class="donut-total-lbl" data-i18n="stat_total">total</text>
               </svg>
             </div>
             <div class="donut-legend" id="donut-legend">
               <div class="legend-item" data-type="image">
                 <span class="legend-dot" style="background:#1D9BF0"></span>
-                <span class="legend-label">Images</span>
+                <span class="legend-label" data-i18n="stat_images">Images</span>
                 <span class="legend-val" id="legend-images">0</span>
               </div>
               <div class="legend-item" data-type="video">
                 <span class="legend-dot" style="background:#a855f7"></span>
-                <span class="legend-label">Videos</span>
+                <span class="legend-label" data-i18n="stat_videos">Videos</span>
                 <span class="legend-val" id="legend-videos">0</span>
               </div>
               <div class="legend-item" data-type="gif">
                 <span class="legend-dot" style="background:#00ba7c"></span>
-                <span class="legend-label">GIFs</span>
+                <span class="legend-label" data-i18n="stat_gifs">GIFs</span>
                 <span class="legend-val" id="legend-gifs">0</span>
               </div>
               <div class="legend-item" data-type="hls">
                 <span class="legend-dot" style="background:#ff7a00"></span>
-                <span class="legend-label">HLS</span>
+                <span class="legend-label" data-i18n="stat_hls">HLS</span>
                 <span class="legend-val" id="legend-hls">0</span>
               </div>
             </div>
@@ -522,8 +463,8 @@
             <span class="history-title" data-i18n="history_title">History</span>
             <div class="history-header-actions">
               <!-- Pha 14: Manifest export (download history + per-file metadata cho profile hiện tại) -->
-              <button class="btn-text" id="btn-export-manifest-json" title="Xuất manifest JSON cho profile hiện tại">JSON</button>
-              <button class="btn-text" id="btn-export-manifest-csv" title="Xuất manifest CSV cho profile hiện tại">CSV</button>
+              <button class="btn-text" id="btn-export-manifest-json" title="Export JSON manifest for the current profile" data-i18n-title="popup_manifest_json_title">JSON</button>
+              <button class="btn-text" id="btn-export-manifest-csv" title="Export CSV manifest for the current profile" data-i18n-title="popup_manifest_csv_title">CSV</button>
               <button class="btn-text" id="btn-history-clear" data-i18n="history_clear">Clear</button>
             </div>
           </div>
@@ -544,24 +485,24 @@
     </div><!-- /tab-panels -->
 
     <!-- ─── Bottom Navigation ─────────────────────────────────── -->
-    <nav class="bottom-nav" role="tablist" aria-label="Tab navigation">
-      <button class="nav-tab active" id="nav-main" data-panel="panel-main" title="Main" role="tab" aria-controls="panel-main" aria-selected="true">
+    <nav class="bottom-nav" role="tablist" aria-label="Tab navigation" data-i18n-aria-label="popup_nav_aria">
+      <button class="nav-tab active" id="nav-main" data-panel="panel-main" title="Main" aria-label="Main" data-i18n-title="nav_main" data-i18n-aria-label="nav_main" role="tab" aria-controls="panel-main" aria-selected="true">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
           <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
           <polyline points="9 22 9 12 15 12 15 22"/>
         </svg>
-        <span>Main</span>
+        <span data-i18n="nav_main">Main</span>
       </button>
-      <button class="nav-tab" id="nav-picker" data-panel="panel-picker" title="Picker" role="tab" aria-controls="panel-picker" aria-selected="false" tabindex="-1">
+      <button class="nav-tab" id="nav-picker" data-panel="panel-picker" title="Picker" aria-label="Picker" data-i18n-title="popup_nav_picker" data-i18n-aria-label="popup_nav_picker" role="tab" aria-controls="panel-picker" aria-selected="false" tabindex="-1">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="3" width="7" height="7" rx="1"/>
           <rect x="14" y="3" width="7" height="7" rx="1"/>
           <rect x="3" y="14" width="7" height="7" rx="1"/>
           <path d="M16.5 17.5l2 2 4-4" transform="translate(-1 -1)"/>
         </svg>
-        <span>Picker</span>
+        <span data-i18n="popup_nav_picker">Picker</span>
       </button>
-      <button class="nav-tab" id="nav-queue" data-panel="panel-queue" title="Queue" role="tab" aria-controls="panel-queue" aria-selected="false" tabindex="-1">
+      <button class="nav-tab" id="nav-queue" data-panel="panel-queue" title="Queue" aria-label="Queue" data-i18n-title="nav_queue" data-i18n-aria-label="nav_queue" role="tab" aria-controls="panel-queue" aria-selected="false" tabindex="-1">
         <div class="nav-tab-icon-wrap">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
             <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
@@ -571,23 +512,23 @@
           </svg>
           <span class="nav-badge" id="nav-queue-badge" style="display:none">0</span>
         </div>
-        <span>Queue</span>
+        <span data-i18n="nav_queue">Queue</span>
       </button>
-      <button class="nav-tab" id="nav-stats" data-panel="panel-stats" title="Stats" role="tab" aria-controls="panel-stats" aria-selected="false" tabindex="-1">
+      <button class="nav-tab" id="nav-stats" data-panel="panel-stats" title="Stats" aria-label="Stats" data-i18n-title="nav_stats" data-i18n-aria-label="nav_stats" role="tab" aria-controls="panel-stats" aria-selected="false" tabindex="-1">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
           <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
           <line x1="6" y1="20" x2="6" y2="14"/>
         </svg>
-        <span>Stats</span>
+        <span data-i18n="nav_stats">Stats</span>
       </button>
-      <button class="nav-tab" id="nav-cleanup" data-panel="panel-cleanup" title="Following Scanner" role="tab" aria-controls="panel-cleanup" aria-selected="false" tabindex="-1">
+      <button class="nav-tab" id="nav-cleanup" data-panel="panel-cleanup" title="Following Scanner" aria-label="Following Scanner" data-i18n-title="popup_following_title" data-i18n-aria-label="popup_following_title" role="tab" aria-controls="panel-cleanup" aria-selected="false" tabindex="-1">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
           <circle cx="9" cy="7" r="4"/>
           <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
           <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
         </svg>
-        <span>Following</span>
+        <span data-i18n="popup_nav_following">Following</span>
       </button>
     </nav>
 
@@ -597,16 +538,15 @@
     <!-- UI-08: Custom Confirm Modal -->
     <div id="confirm-modal" hidden role="presentation">
       <div class="confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="confirm-message" tabindex="-1">
-        <p id="confirm-message">Bạn có chắc chắn không?</p>
+        <p id="confirm-message" data-i18n="popup_confirm_default">Are you sure?</p>
         <div class="confirm-actions">
-          <button id="confirm-cancel" type="button">Hủy</button>
-          <button id="confirm-ok" type="button">Xác nhận</button>
+          <button id="confirm-cancel" type="button" data-i18n="popup_cancel">Cancel</button>
+          <button id="confirm-ok" type="button" data-i18n="popup_confirm">Confirm</button>
         </div>
       </div>
     </div>
 
   </div>
-  <script type="module" src="../lib/i18n.ts"></script>
   <script type="module" src="popup.ts"></script>
 </body>
 </html>

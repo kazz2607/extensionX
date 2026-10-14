@@ -2,6 +2,7 @@
  * status-bar.ts — Trạng thái & progress bar của popup (Pha 8 refactor).
  * Tách nguyên vẹn từ popup.ts, không đổi hành vi.
  */
+import { t } from '../lib/i18n.ts';
 
 export function setStatus(state: string, text: string, phaseIcon?: string): void {
   const statusText = document.getElementById('status-text');
@@ -19,7 +20,7 @@ export function setStatus(state: string, text: string, phaseIcon?: string): void
   }
   if (statusDot) {
     statusDot.className = 'status-dot ' + (state || '');
-    statusDot.setAttribute('aria-label', `Trạng thái: ${state || 'idle'}`);
+    statusDot.setAttribute('aria-label', t('popup_status_aria', { state: state || 'idle' }));
   }
 }
 

@@ -1,4 +1,6 @@
 import type { ExtensionMessage } from '../shared/messages';
+import { loadI18n, registerTranslations, t } from '../lib/i18n.ts';
+import { TELEGRAM_STRINGS } from '../lib/i18n/content.ts';
 import {
   isTelegramStreamUrl,
   parseTelegramStreamInfo,
@@ -9,6 +11,8 @@ import {
 } from '../shared/telegram-media.ts';
 
 console.log('[ExtensionX] Telegram Web Content Script loaded.');
+
+registerTranslations(TELEGRAM_STRINGS);
 
 const VIEWER_SELECTOR = '.media-viewer-whole, #MediaViewer';
 
@@ -65,6 +69,17 @@ interface StreamStatusDetail {
   received?: unknown;
   total?: unknown;
   message?: unknown;
+  code?: unknown;
+}
+
+/** Error text from tg-main.ts: translated by code, else its raw (technical) message. */
+function streamErrorMessage(detail: StreamStatusDetail): string {
+  if (typeof detail.code === 'string' && /^[a-z_]{1,32}$/.test(detail.code)) {
+    const key = `tg_err_${detail.code}`;
+    const text = t(key);
+    if (text !== key) return text;
+  }
+  return typeof detail.message === 'string' ? detail.message : 'Stream download failed';
 }
 
 let _streamSeq = 0;
@@ -72,14 +87,14 @@ let _streamSeq = 0;
 /** Lỗi tải stream — message được hiện trong tooltip nút để người dùng biết lý do. */
 class StreamDownloadError extends Error {
   constructor(reason: string) {
-    super(`Không tải được video: ${reason}`);
+    super(t('tg_stream_failed', { reason }));
     this.name = 'StreamDownloadError';
   }
 }
 
 class StaleExtensionError extends Error {
   constructor() {
-    super('Extension vừa được cập nhật — hãy tải lại (F5) tab Telegram rồi thử lại');
+    super(t('tg_stale_extension'));
     this.name = 'StaleExtensionError';
   }
 }
@@ -100,21 +115,21 @@ function downloadViaStream(button: HTMLButtonElement, url: string, filename: str
       started = true;
       if (detail.state === 'started') {
         button.dataset.state = 'loading';
-        button.title = 'Đang tải…';
+        button.title = t('tg_loading');
       } else if (detail.state === 'progress') {
         const received = Number(detail.received);
         const total = Number(detail.total);
         const percent = total > 0 ? Math.min(100, Math.floor((received / total) * 100)) : 0;
         button.dataset.state = 'loading';
-        button.title = `Đang tải… ${percent}%`;
+        button.title = t('tg_loading_percent', { percent });
       } else if (detail.state === 'done') {
         finish(resolve);
       } else {
-        finish(() => reject(new Error(typeof detail.message === 'string' ? detail.message : 'Stream download failed')));
+        finish(() => reject(new Error(streamErrorMessage(detail))));
       }
     };
     const startTimer = window.setTimeout(() => {
-      if (!started) finish(() => reject(new Error('tg-main chưa sẵn sàng — hãy tải lại tab Telegram')));
+      if (!started) finish(() => reject(new Error(t('tg_main_not_ready'))));
     }, STREAM_START_TIMEOUT_MS);
 
     window.addEventListener(STREAM_STATUS_EVENT, onStatus);
@@ -122,13 +137,24 @@ function downloadViaStream(button: HTMLButtonElement, url: string, filename: str
   });
 }
 
+/** Idle title/aria-label; kind is kept on the button so a language change can re-apply it. */
+function applyIdleLabels(button: HTMLButtonElement): void {
+  if (button.dataset.extXViewer === 'true') {
+    button.title = t('tg_viewer_btn_title');
+    button.setAttribute('aria-label', t('tg_viewer_btn_aria'));
+    return;
+  }
+  button.title = t('tg_btn_title');
+  button.setAttribute('aria-label', button.dataset.extXKind === 'video' ? t('tg_btn_aria_video') : t('tg_btn_aria_image'));
+}
+
 function setButtonState(button: HTMLButtonElement, state: 'success' | 'error', message?: string): void {
   button.dataset.state = state;
-  button.title = message ?? (state === 'success' ? 'Đã bắt đầu tải xuống' : 'Không thể tải xuống');
+  button.title = message ?? (state === 'success' ? t('tg_download_started') : t('tg_download_failed'));
   // Thông báo tuỳ chỉnh (vd. cần F5 tab) cần thời gian đủ dài để đọc.
   window.setTimeout(() => {
     delete button.dataset.state;
-    button.title = 'Tải xuống (X Media Downloader)';
+    applyIdleLabels(button);
   }, message ? 6_000 : 1500);
 }
 
@@ -165,7 +191,7 @@ async function handleDownloadClick(
       } catch (streamError) {
         console.warn('[ExtensionX] Telegram stream download failed, trying native button:', streamError);
         delete button.dataset.state;
-        button.title = 'Tải xuống (X Media Downloader)';
+        applyIdleLabels(button);
         const native = findNativeDownloadButton(mediaElement);
         if (!native) throw new StreamDownloadError(streamError instanceof Error ? streamError.message : String(streamError));
         native.click();
@@ -230,8 +256,8 @@ function attachButtonToMedia(container: HTMLElement, mediaElement: HTMLElement, 
   const button = document.createElement('button');
   button.className = 'ext-x-tg-download-btn';
   button.type = 'button';
-  button.title = 'Tải xuống (X Media Downloader)';
-  button.setAttribute('aria-label', kind === 'video' ? 'Tải video Telegram' : 'Tải ảnh Telegram');
+  button.dataset.extXKind = kind;
+  applyIdleLabels(button);
   button.appendChild(createDownloadIcon());
   button.addEventListener('click', (event) => {
     event.preventDefault();
@@ -372,7 +398,7 @@ async function handleViewerDownload(button: HTMLButtonElement, viewer: HTMLEleme
   if (viewerShowsVideo(viewer)) {
     const source = await waitForViewerVideoSource(viewer);
     if (!source) {
-      setButtonState(button, 'error', 'Video chưa sẵn sàng — chờ video bắt đầu tải rồi thử lại');
+      setButtonState(button, 'error', t('tg_video_not_ready'));
       console.error('[ExtensionX] Telegram viewer shows a video but no stream URL is available yet');
       return;
     }
@@ -404,8 +430,8 @@ function ensureViewerButton(): HTMLButtonElement {
   button.className = 'ext-x-tg-download-btn ext-x-tg-viewer-download-btn';
   button.type = 'button';
   button.hidden = true;
-  button.title = 'Tải media đang xem (X Media Downloader)';
-  button.setAttribute('aria-label', 'Tải media Telegram đang xem');
+  button.dataset.extXViewer = 'true';
+  applyIdleLabels(button);
   button.appendChild(createDownloadIcon());
   // Viewer có thể đóng khi nhận pointer/mouse event bên ngoài vùng nội dung — chặn cả chuỗi sự kiện.
   for (const type of ['pointerdown', 'mousedown', 'mouseup', 'touchstart']) {
@@ -511,9 +537,29 @@ const observer = new MutationObserver((mutations) => {
   if (_pendingRoots.size > 0) scheduleProcessRoots();
 });
 
-observer.observe(document.body, { childList: true, subtree: true });
-processDOM();
-// Viewer open/close mostly toggles class/style (no added nodes), and Telegram
-// can re-render a container without re-adding its media; this slower full pass
-// catches both and restores any dropped buttons.
-window.setInterval(processDOM, 2_000);
+function start(): void {
+  observer.observe(document.body, { childList: true, subtree: true });
+  processDOM();
+  // Viewer open/close mostly toggles class/style (no added nodes), and Telegram
+  // can re-render a container without re-adding its media; this slower full pass
+  // catches both and restores any dropped buttons.
+  window.setInterval(processDOM, 2_000);
+}
+
+// Load the user's language before the first buttons are rendered
+// (loadI18n falls back to English on its own).
+void loadI18n().finally(start);
+
+try {
+  chrome.storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageChange }, area: string) => {
+    if (area !== 'local' || !changes.lang) return;
+    void loadI18n().then(() => {
+      document.querySelectorAll<HTMLButtonElement>('button.ext-x-tg-download-btn').forEach((button) => {
+        // Buttons showing a transient state get their idle labels back when it ends.
+        if (!button.dataset.state) applyIdleLabels(button);
+      });
+    });
+  });
+} catch {
+  // Extension context invalidated — keep the current language.
+}

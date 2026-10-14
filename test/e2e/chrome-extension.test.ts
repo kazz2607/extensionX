@@ -427,7 +427,7 @@ test('P1 Queue DOM and long-task budget covers 500 rows', { timeout: 60_000 }, a
     heap: (performance as Performance & { memory: { usedJSHeapSize: number } }).memory.usedJSHeapSize,
   }));
   assert.equal(metrics.rows, 50);
-  assert.equal(await popup.locator('.queue-load-more').textContent(), 'Hiển thị thêm (450)');
+  assert.equal(await popup.locator('.queue-load-more').textContent(), 'Show more (450)');
   assert.ok(renderMs < 300, `Queue render ${renderMs}ms exceeded 300ms`);
   assert.ok(metrics.maxLongTaskMs < 50, `Queue long task ${metrics.maxLongTaskMs}ms exceeded 50ms`);
   assert.ok(metrics.heap < 64 * 1024 * 1024, `Queue heap ${metrics.heap} exceeded 64 MiB`);
@@ -472,6 +472,29 @@ test('P1 responsive, keyboard and screenshot acceptance covers every primary sur
   const id = await extensionId(context);
   const popup = await context.newPage({ viewport: { width: 400, height: 700 } });
   await popup.goto(`chrome-extension://${id}/popup/popup.html`);
+  await popup.locator('#nav-main').waitFor();
+  // v7.4.0: English is the default language and the light theme is really light
+  // (the confirm dialog used to keep a hard-coded dark background).
+  assert.equal(await popup.evaluate(() => document.documentElement.lang), 'en');
+  await popup.evaluate(() => chrome.storage.local.set({ theme: 'light' }));
+  await popup.reload();
+  await popup.locator('#nav-main').waitFor();
+  const lightTheme = await popup.evaluate(() => {
+    const luminance = (color: string) => {
+      const [r, g, b] = (color.match(/\d+(\.\d+)?/g) ?? ['0', '0', '0']).slice(0, 3).map(Number);
+      return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    };
+    const box = document.querySelector('.confirm-box');
+    return {
+      theme: document.documentElement.dataset.theme,
+      body: luminance(getComputedStyle(document.body).backgroundColor),
+      confirm: box ? luminance(getComputedStyle(box).backgroundColor) : 1,
+    };
+  });
+  assert.equal(lightTheme.theme, 'light');
+  assert.ok(lightTheme.body > 0.85 && lightTheme.confirm > 0.85, `light theme surfaces are dark: ${JSON.stringify(lightTheme)}`);
+  await popup.evaluate(() => chrome.storage.local.set({ theme: 'dark' }));
+  await popup.reload();
   await popup.locator('#nav-main').waitFor();
   const surfaces = [
     ['main', '#nav-main', '#panel-main'],
@@ -603,6 +626,16 @@ test('v7.2.3 offscreen blobs are saved by the service worker, not chrome.downloa
   }), saved.downloadId);
   assert.deepEqual(download, { state: 'complete', bytes: 4096 });
 
+  // P14: JSZip is a lazily imported chunk; it must still load inside the
+  // offscreen document and produce a ZIP blob.
+  const zipBytes = await evaluateOffscreen(`(async () => {
+    await import('../jszip.min.js');
+    const zip = new globalThis.JSZip();
+    zip.file('a.txt', 'hello');
+    return (await zip.generateAsync({ type: 'blob' })).size;
+  })()`);
+  assert.ok(typeof zipBytes === 'number' && zipBytes > 0, `lazy JSZip did not produce a ZIP: ${String(zipBytes)}`);
+
   // Extension pages and tabs cannot use the offscreen-only save channel.
   const options = await context.newPage();
   await options.goto(`chrome-extension://${new URL(worker.url()).host}/options/options.html`);
@@ -675,6 +708,38 @@ test('v7.3.0 page scripts cannot read or forge the extension bridge; SPA navigat
     hostMounted: document.getElementById('__xmd_fab_host__') !== null,
   }));
   assert.deepEqual(pageSeesFab, { badge: false, shadowRoot: null, hostMounted: true });
+  // U13: X mounts #layers late and deep inside #react-root; opening a modal
+  // there hides the FAB and closing it shows the FAB again.
+  const fabDisplay = () => carol.evaluate(() => (document.getElementById('__xmd_fab_host__') as HTMLElement).style.display);
+  const waitForFabDisplay = async (expected: string) => {
+    const deadline = Date.now() + 5_000;
+    while ((await fabDisplay()) !== expected && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(await fabDisplay(), expected, `FAB display should be '${expected}'`);
+  };
+  await carol.evaluate(() => {
+    const root = document.createElement('div');
+    root.id = 'react-root';
+    root.innerHTML = '<div><div id="fixture-shell"></div></div>';
+    document.body.append(root);
+  });
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  // #layers appears later, nested — not as a direct child of <body>.
+  await carol.evaluate(() => {
+    const layers = document.createElement('div');
+    layers.id = 'layers';
+    document.getElementById('fixture-shell')!.append(layers);
+  });
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  await carol.evaluate(() => {
+    const modal = document.createElement('div');
+    modal.setAttribute('aria-modal', 'true');
+    modal.id = 'fixture-modal';
+    document.getElementById('layers')!.append(modal);
+  });
+  await waitForFabDisplay('none');
+  await carol.evaluate(() => document.getElementById('fixture-modal')!.remove());
+  await waitForFabDisplay('');
+
   // DevTools protocol can pierce closed shadow roots; use it to drive the FAB.
   const fabCdp = await context.newCDPSession(carol);
   const callOnFabElement = async (elementId: string, fn: string): Promise<unknown> => {

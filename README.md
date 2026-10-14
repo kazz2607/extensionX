@@ -2,7 +2,7 @@
 
 Extension Chrome mạnh mẽ cho phép bạn tải toàn bộ ảnh, video và GIF từ bất kỳ profile nào trên X.com (Twitter) với chất lượng gốc, hoàn toàn tự động và sắp xếp gọn gàng vào thư mục theo tên người dùng.
 
-> **Phiên bản hiện tại: 7.3.1** — FAB/snackbar trong closed shadow root, xử lý media theo batch và sửa Prune làm mất media chưa lưu.
+> **Phiên bản hiện tại: 7.4.0** — Giao diện English/Tiếng Việt đầy đủ, theme theo hệ thống, accessibility và tối ưu hiệu năng.
 
 ## ✨ Tính Năng Nổi Bật
 
@@ -24,6 +24,8 @@ Extension Chrome mạnh mẽ cho phép bạn tải toàn bộ ảnh, video và G
 - 🧩 **Template tên file:** Tự đặt tên file bằng `{username} {tweetId} {date} {type} {ext} {index}` kèm preview.
 - 👁 **Watch mode:** Báo media mới của profile theo dõi mỗi khi mở popup — không polling ngầm.
 - 🔒 **100% Xử lý cục bộ:** Toàn bộ quá trình quét, phân tích và tải xuống diễn ra trên máy của bạn, không có bất kỳ kết nối nào tới server bên thứ 3.
+- 🌐 **Song ngữ English / Tiếng Việt:** Toàn bộ popup, Options, Download Center, FAB, snackbar và thông báo; English là mặc định, đổi trong Options.
+- 🌓 **Theme theo hệ thống:** Sáng / Tối / Theo hệ thống, áp dụng đồng bộ cho popup, Options và Download Center.
 - ✈️ **Telegram Web:** Chèn nút tải trực tiếp lên ảnh/video, hỗ trợ media từ URL HTTP(S), `blob:`, `data:`, canvas và video stream của nhóm/chat riêng tư (tải theo từng đoạn Range, có % tiến độ) trên giao diện A/K.
 
 ## 🛠 Hướng Dẫn Cài Đặt
@@ -39,8 +41,8 @@ Vui lòng xem [mục lục tài liệu](docs/README.md) hoặc [hướng dẫn c
 ## 💻 Cách Sử Dụng
 
 1. Mở trang media của bất kỳ tài khoản X.com nào (ví dụ: `https://x.com/NASA/media`).
-2. Nhấn vào biểu tượng **Widget tròn màu xanh** ở góc phải màn hình, chọn **Thu Thập**.
-3. (Hoặc) Click vào biểu tượng Extension trên thanh công cụ của Chrome, chọn **Bắt đầu Thu Thập**.
+2. Nhấn vào biểu tượng **Widget tròn màu xanh** ở góc phải màn hình, chọn **Collect** (widget tự ẩn khi X đang mở ảnh phóng to hoặc hộp thoại).
+3. (Hoặc) Click vào biểu tượng Extension trên thanh công cụ của Chrome, chọn **Start Collecting**.
 4. Chờ extension cuộn trang và tìm kiếm media.
 5. Click **Download** để tải tất cả ảnh/video/gif xuống máy.
 
@@ -54,15 +56,18 @@ Click vào nút ⚙ (Cài đặt) trên popup của extension để tuỳ chỉn
 - Bật/tắt Smart Filters, ngưỡng kích thước tối thiểu cho ảnh.
 - Bật/tắt Progress Snackbar trên trang khi đang tải.
 - Đặt mẫu tên file tuỳ chỉnh (token `{username} {tweetId} {date} {type} {ext} {index}`).
+- Chọn ngôn ngữ (English / Tiếng Việt) và giao diện (Theo hệ thống / Sáng / Tối).
 
 ## 🔒 Quyền (Permissions) Giải Thích
 
 - `downloads`: Để extension có thể lưu file tự động vào máy bạn.
 - `storage`: Lưu cấu hình cài đặt và session restore.
-- `scripting`, `tabs`: Chạy thao tác cần MAIN world trên Telegram, xác định tab X/Twitter và gửi trạng thái về đúng tab. Extension không yêu cầu `activeTab`.
-- `alarms`: Keep-alive Service Worker khi đang tải nhiều file, tránh bị Chrome terminate.
-- `host_permissions` (`*.x.com`, `*.twitter.com`, `pbs.twimg.com`, `video.twimg.com`, `web.telegram.org`): Cho phép extension đọc media từ X/Twitter và gắn nút tải trên Telegram Web.
+- `scripting`: Kích hoạt tải Blob/stream trong trang Telegram Web. Extension không yêu cầu `tabs` hay `activeTab` (bỏ từ 7.3.0); URL tab X/Telegram đọc được nhờ host permission.
+- `offscreen`: Ghép video HLS và tạo ZIP theo chunk trong document ngầm.
+- `alarms`: Keep-alive Service Worker khi đang tải nhiều file và lịch Saved Job do người dùng bật.
+- `notifications`: Thông báo hệ thống khi tải xong (có thể tắt trong Options).
+- `host_permissions` (`*.x.com`, `*.twitter.com`, `pbs.twimg.com`, `video.twimg.com`, `cdn.syndication.twimg.com`, `web.telegram.org`): Cho phép extension đọc media từ X/Twitter và gắn nút tải trên Telegram Web.
 
 ---
 
-*Phát triển nội bộ — Phiên bản **7.3.1** | Cập nhật: 2026-10-14*
+*Phát triển nội bộ — Phiên bản **7.4.0** | Cập nhật: 2026-10-14*

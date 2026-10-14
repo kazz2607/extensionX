@@ -1,7 +1,7 @@
 /**
  * fab-i18n.ts — Cập nhật text i18n cho FAB (Pha 8 refactor).
- * Tách nguyên vẹn từ fab.ts, không đổi hành vi.
  */
+import { t } from './x-ui-i18n.ts';
 import type { FabElements } from './fab-dom.ts';
 
 export interface FabState {
@@ -19,15 +19,13 @@ export function setPanelButtonText(button: HTMLElement, label: string): void {
 }
 
 export function updateFabI18n(elements: FabElements, state: FabState): void {
-  if (!window.i18n) return;
-  const { lblMedia, lblScroll, collectBtn, downloadBtn, scrollInfo } = elements;
-  lblMedia.textContent = window.i18n.t('fab_media_collected');
-  lblScroll.textContent = window.i18n.t('fab_scroll');
-  setPanelButtonText(collectBtn, state.isCollecting ? window.i18n.t('fab_collect_stop') : window.i18n.t('fab_collect_start'));
+  const { lblMedia, lblScroll, collectBtn, downloadBtn, scrollInfo, dragHandle } = elements;
+  lblMedia.textContent = t('fab_media_collected');
+  lblScroll.textContent = t('fab_scroll');
+  setPanelButtonText(collectBtn, state.isCollecting ? t('fab_collect_stop') : t('fab_collect_start'));
   // BUG-F FIX: Dùng isDownloading flag thay vì check text content (ngược logic cũ)
   // text.includes('...') không tin cậy — nếu đang download thì không overwrite bằng text idle
-  setPanelButtonText(downloadBtn, state.isDownloading
-    ? window.i18n.t('fab_downloading')
-    : window.i18n.t('fab_download'));
-  scrollInfo.textContent = window.i18n.t('fab_scrolling');
+  setPanelButtonText(downloadBtn, state.isDownloading ? t('fab_downloading') : t('fab_download'));
+  scrollInfo.textContent = t('fab_scrolling');
+  dragHandle.title = t('fab_drag_handle');
 }

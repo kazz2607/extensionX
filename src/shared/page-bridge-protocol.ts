@@ -27,6 +27,8 @@ export const PAGE_TO_EXTENSION = [
 export const EXTENSION_TO_PAGE = [
   'XMD_TWEET_BTN_UPDATE',
   'XMD_SCAN_DOM',
+  // MAIN-world UI (tweet button) has no chrome.storage; content.ts sends the language.
+  'XMD_LANG_UPDATE',
 ] as const;
 
 export type PageToExtensionType = typeof PAGE_TO_EXTENSION[number];

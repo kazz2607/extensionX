@@ -12,6 +12,7 @@
 
 import { onUi } from './ui-bus.ts';
 import { createClosedShadowRoot } from './shadow-host.ts';
+import { t } from './x-ui-i18n.ts';
 
 interface ActiveDownload { filename: string; speedBps: number; bytesReceived: number; totalBytes: number }
 interface SnackbarUpdate {
@@ -42,10 +43,11 @@ interface SnackbarUpdate {
     #__xmd_snackbar__ {
       position: fixed;
       bottom: 28px;
-      left: 50%;
-      transform: translateX(-50%) translateY(120px);
+      /* Bottom-left: X shows its own toasts bottom-centre. */
+      left: 20px;
+      transform: translateY(120px);
       z-index: 2147483646;
-      min-width: 340px;
+      min-width: min(340px, calc(100vw - 40px));
       max-width: min(560px, calc(100vw - 40px));
       background: rgba(12, 12, 14, 0.92);
       border: 1px solid rgba(255,255,255,0.10);
@@ -65,12 +67,12 @@ interface SnackbarUpdate {
     }
 
     #__xmd_snackbar__.visible {
-      transform: translateX(-50%) translateY(0);
+      transform: translateY(0);
       opacity: 1;
     }
 
     #__xmd_snackbar__.hiding {
-      transform: translateX(-50%) translateY(120px);
+      transform: translateY(120px);
       opacity: 0;
     }
 
@@ -97,7 +99,7 @@ interface SnackbarUpdate {
       text-overflow: ellipsis;
     }
 
-    .__xmd_sb_title__ span {
+    .__xmd_sb_title__ #__xmd_sb_username__ {
       color: #1D9BF0;
     }
 
@@ -218,9 +220,10 @@ interface SnackbarUpdate {
   sb.innerHTML = `
     <div class="__xmd_sb_header__">
       <div class="__xmd_sb_title__" id="__xmd_sb_title__">
-        ⬇ Đang tải <span id="__xmd_sb_username__">...</span>
+        <span class="__xmd_sb_title_text__" id="__xmd_sb_title_text__"></span>
+        <span id="__xmd_sb_username__">...</span>
       </div>
-      <button class="__xmd_sb_close__" id="__xmd_sb_close__" title="Đóng">✕</button>
+      <button class="__xmd_sb_close__" id="__xmd_sb_close__">✕</button>
     </div>
     <div class="__xmd_sb_bar_wrap__">
       <div class="__xmd_sb_bar__ active" id="__xmd_sb_bar__" style="width:0%"></div>
@@ -234,13 +237,27 @@ interface SnackbarUpdate {
   root.appendChild(sb);
 
   // ─── Elements ────────────────────────────────────────────────────────────────
-  const titleEl    = sb.querySelector<HTMLElement>('#__xmd_sb_title__');
+  const titleTextEl = sb.querySelector<HTMLElement>('#__xmd_sb_title_text__');
   const usernameEl = sb.querySelector<HTMLElement>('#__xmd_sb_username__');
   const closeBtn   = sb.querySelector<HTMLElement>('#__xmd_sb_close__');
   const barEl      = sb.querySelector<HTMLElement>('#__xmd_sb_bar__');
   const counterEl  = sb.querySelector<HTMLElement>('#__xmd_sb_counter__');
   const filenameEl = sb.querySelector<HTMLElement>('#__xmd_sb_filename__');
   const doneMsgEl  = sb.querySelector<HTMLElement>('#__xmd_sb_done_msg__');
+
+  // Last DOWNLOAD_DONE payload, so a language change can re-render the summary.
+  let lastDone: { success: number; failed: number; username: string } | null = null;
+
+  /** Static strings (title, close button); re-run when the language changes. */
+  function applyStaticText(): void {
+    if (titleTextEl) titleTextEl.textContent = t('sb_title_downloading');
+    if (closeBtn) {
+      const label = t('sb_close');
+      closeBtn.title = label;
+      closeBtn.setAttribute('aria-label', label);
+    }
+  }
+  applyStaticText();
 
   // ─── State ───────────────────────────────────────────────────────────────────
 // @ts-ignore
@@ -289,18 +306,32 @@ interface SnackbarUpdate {
   }
 
   function setDoneMessage(success: number, failed: number, username: string) {
+    lastDone = { success, failed, username };
     const ok = document.createElement('span');
     ok.className = '__xmd_sb_done_success__';
-    ok.textContent = `${success} file`;
+    ok.textContent = t('sb_done_files', { count: success });
     doneMsgEl!.replaceChildren(document.createTextNode('✅  '), ok);
-    if (username) doneMsgEl!.append(` từ @${username}`);
+    if (username) doneMsgEl!.append(t('sb_done_from', { username }));
     if (failed > 0) {
       const error = document.createElement('span');
       error.className = '__xmd_sb_done_failed__';
-      error.textContent = `✗ ${failed} lỗi`;
+      error.textContent = t('sb_done_failed', { count: failed });
       doneMsgEl!.append('  —  ', error);
     }
   }
+
+  // ─── Event: language change ──────────────────────────────────────────────────
+  onUi('XMD_LANG_UPDATE', (detail) => {
+    const lang = (detail as { lang?: unknown } | null)?.lang;
+    if (typeof lang !== 'string') return;
+    // Same i18n instance as the FAB (both in content.ts's bundle); setting it
+    // here too keeps the snackbar correct even if the FAB did not mount.
+    if (window.i18n) window.i18n.lang = lang;
+    applyStaticText();
+    if (lastDone && sb.classList.contains('done')) {
+      setDoneMessage(lastDone.success, lastDone.failed, lastDone.username);
+    }
+  });
 
   // ─── Event: close button ─────────────────────────────────────────────────────
 // @ts-ignore
@@ -319,6 +350,7 @@ interface SnackbarUpdate {
       case 'DOWNLOAD_STARTED': {
         // Reset về trạng thái downloading
         sb.classList.remove('done');
+        lastDone = null;
 // @ts-ignore
         usernameEl.textContent = data.username ? '@' + String(data.username) : '';
 // @ts-ignore
