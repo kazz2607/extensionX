@@ -776,3 +776,56 @@ test('v7.3.0 page scripts cannot read or forge the extension bridge; SPA navigat
   while ((await isCollecting()) && Date.now() < navDeadline) await new Promise((resolve) => setTimeout(resolve, 200));
   assert.equal(await isCollecting(), false, 'SPA navigation to another profile did not stop collection');
 });
+
+test('tweet-btn re-attaches the download button when media arrives in an article after it was first scanned', { timeout: 30_000 }, async (t) => {
+  const extensionDir = await prepareTestExtension();
+  const profileDir = await mkdtemp(join(tmpdir(), 'extensionx-tweet-btn-profile-'));
+  const context = await chromium.launchPersistentContext(profileDir, {
+    executablePath: chromePath,
+    headless: process.env.PLAYWRIGHT_HEADED !== 'true',
+    args: [`--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`, '--no-first-run'],
+  });
+  t.after(async () => {
+    await context.close();
+    await rm(extensionDir, { recursive: true, force: true });
+    await rm(profileDir, { recursive: true, force: true });
+  });
+  // X renders the tweet shell (link, time, action bar) first and lazy-loads
+  // the media image into the same <article> a moment later — no media yet
+  // at first paint, so tweet-btn.ts must not inject a button up front.
+  const tweetId = '1850000000000000099';
+  await context.route('https://x.com/**', (route) => route.fulfill({
+    status: 200,
+    contentType: 'text/html',
+    body: `<!doctype html><html><body>
+      <article>
+        <a href="/Dana/status/${tweetId}"><time>now</time></a>
+        <div role="group"></div>
+      </article>
+    </body></html>`,
+  }));
+  await context.route('https://pbs.twimg.com/**', (route) => route.fulfill({ status: 200, contentType: 'image/jpeg', body: '' }));
+  const dana = await context.newPage();
+  await dana.goto('https://x.com/Dana');
+
+  const downloadBtn = () => dana.evaluate((id) => {
+    const btn = document.querySelector(`button.xmd-dl-btn[data-xmd-btn="${id}"]`);
+    return btn ? btn.closest('div[role="group"]') !== null : false;
+  }, tweetId);
+
+  // Initial scans (tweet-btn.ts fires at 1s and 2.5s after load) must not
+  // inject a button: the article has no media yet.
+  await new Promise((resolve) => setTimeout(resolve, 3_000));
+  assert.equal(await downloadBtn(), false, 'a button appeared before the tweet had any media');
+
+  // Media is appended into the SAME article X already rendered.
+  await dana.evaluate(() => {
+    const img = document.createElement('img');
+    img.src = 'https://pbs.twimg.com/media/dana-late.jpg?name=small';
+    document.querySelector('article')!.append(img);
+  });
+
+  const deadline = Date.now() + 10_000;
+  while (!(await downloadBtn()) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 200));
+  assert.equal(await downloadBtn(), true, 'tweet-btn did not re-scan the article and attach a button once media arrived');
+});

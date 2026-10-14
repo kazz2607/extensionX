@@ -223,7 +223,7 @@ interface SnackbarUpdate {
         <span class="__xmd_sb_title_text__" id="__xmd_sb_title_text__"></span>
         <span id="__xmd_sb_username__">...</span>
       </div>
-      <button class="__xmd_sb_close__" id="__xmd_sb_close__">✕</button>
+      <button class="__xmd_sb_close__" id="__xmd_sb_close__"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></button>
     </div>
     <div class="__xmd_sb_bar_wrap__">
       <div class="__xmd_sb_bar__ active" id="__xmd_sb_bar__" style="width:0%"></div>

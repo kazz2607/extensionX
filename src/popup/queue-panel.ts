@@ -275,7 +275,13 @@ export function renderQueue(): void {
       actions.append(retry);
     }
     const action = document.createElement('button'); action.className = canRemove ? 'btn-queue-remove' : 'btn-queue-stop'; action.dataset.id = id;
-    action.title = t(canRemove ? 'popup_queue_remove_title' : 'popup_queue_stop_title'); action.textContent = canRemove ? '×' : '⏹';
+    action.title = t(canRemove ? 'popup_queue_remove_title' : 'popup_queue_stop_title');
+    if (canRemove) {
+      // U9: icon đóng dạng SVG thay vì ký tự '×' — markup tĩnh, không nội suy dữ liệu nên an toàn với innerHTML.
+      action.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>';
+    } else {
+      action.textContent = '⏹';
+    }
     action.setAttribute('aria-label', `${t(canRemove ? 'popup_queue_remove_aria' : 'popup_queue_stop_aria')} @${username}`);
     actions.append(action);
 
