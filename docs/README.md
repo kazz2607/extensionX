@@ -11,6 +11,7 @@
 ## Dành cho phát triển và phát hành
 
 - [Roadmap và trạng thái triển khai hiện hành](roadmap.md)
+- [Kế hoạch nâng cấp v7.3 → v8.0 (đề xuất)](upgrade-plan-v7.3-v8.md)
 - [Quality gate](quality-gate.md)
 - [Baseline hiệu năng và build budget 7.2.2](performance-baseline.md)
 - [Audit bảo mật và quyền](security-permissions.md)

@@ -64,6 +64,8 @@ Các kế hoạch Pha 0–15 cũ đã hoàn thành và được hợp nhất và
 
 Hiện không còn backlog đã được phê duyệt. P0, P1 và phạm vi P2 đều đã hoàn thành; mốc tiếp theo chỉ được mở sau khi chốt phạm vi sản phẩm mới.
 
+**Đề xuất mới (2026-10-14):** [`upgrade-plan-v7.3-v8.md`](upgrade-plan-v7.3-v8.md) — audit logic, bảo mật, hiệu năng, UI và tư vấn tính năng v8.0; đang chờ chốt phạm vi.
+
 Bản vá v7.2.1 đã khép lại các lỗi hậu phát hành của P2: Start Collecting xác nhận đúng tab/profile, auto-collect có công tắc rõ ràng mặc định tắt, prune storage chạy bounded concurrency và popup có chiều rộng nội tại ổn định.
 
 Bản vá v7.2.2 hoàn thiện quản lý dữ liệu cục bộ: legacy record thiếu timestamp có thể được prune, thao tác xóa sạch media/duplicate URL tách riêng với xác nhận, và Options có regression responsive riêng.
