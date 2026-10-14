@@ -1,6 +1,6 @@
 # Audit bảo mật và quyền extension
 
-> Rà soát cho **8.2.1** | Cập nhật: 2026-10-14
+> Rà soát cho **8.2.2** | Cập nhật: 2026-10-14
 
 ## Quyền Manifest
 
@@ -60,6 +60,8 @@ Từ 8.2.0 (F5 sao lưu/khôi phục), không thêm quyền:
 Từ 8.2.1, không thêm quyền:
 - Khi `chrome.downloads` báo `SERVER_FAILED`, service worker gửi một `HEAD` tới đúng URL media đó để đọc mã HTTP (429 hay 5xx): chỉ với URL qua `isTrustedMediaUrl` (CDN X đã có trong host permission), `credentials: 'omit'`, không cache, hủy sau 3 giây; chỉ mã 429/5xx được dùng, không đọc nội dung. Nhiều luồng lỗi cùng lúc dùng chung một HEAD, và trong lúc đang tạm nghỉ vì 429 thì không gửi HEAD. Không dùng `webRequest` (đọc được mã thật của lượt tải) vì sẽ phải thêm quyền.
 - Script trang (MAIN world) không còn gắn URL request lên object XHR (`_interceptUrl`) — trang không đọc hay sửa được giá trị extension dùng để lọc GraphQL.
+
+Từ 8.2.2, không thêm quyền: bỏ thư viện bên thứ ba JSZip (giảm bề mặt mã vendor); ZIP do mã của dự án tạo trong offscreen, nguồn dữ liệu vẫn chỉ là URL CDN X đã kiểm tra, fetch không cookie.
 
 ## Bề mặt cần theo dõi
 

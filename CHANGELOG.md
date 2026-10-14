@@ -6,6 +6,12 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 
 ## [Unreleased]
 
+Chưa có thay đổi.
+
+---
+
+## [8.2.2] — 2026-10-14 *(sửa sau review 8.2.1, bỏ JSZip −20 % JS)*
+
 ### Sửa lỗi (sau review 8.2.1)
 
 - File lỗi do máy chủ (5xx) được lưu theo dạng bản 8.2.0 vẫn đọc được: rollback không còn làm mất các file này khỏi danh sách File lỗi.
@@ -16,6 +22,8 @@ Tất cả các thay đổi đáng chú ý của dự án **X Media Downloader**
 ### Hiệu năng
 
 - **Bỏ JSZip (96 KB):** ZIP được tạo bằng bộ ghi ZIP tối giản tích hợp (`src/shared/zip-store.ts`, không nén — ảnh/video đã nén sẵn). Tổng JavaScript giảm từ 478 KB xuống **382 KB (−20 %)**; ngưỡng budget hạ 480 → 420 KB. File ZIP mở được bằng mọi trình giải nén (unit test kiểm tra bằng `unzip -t`; Chromium acceptance tạo ZIP thật từ CDN giả).
+
+Không đổi quyền, schema IndexedDB hay storage key.
 
 ---
 

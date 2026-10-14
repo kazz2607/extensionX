@@ -200,6 +200,12 @@ Gate: 68 unit test, 2 e2e, `npm run check` xanh; ngân sách build nâng 480 KB 
 - **`@ts-ignore`:** 62 → 0 trong content script (vendor JSZip cũng đã bỏ sau 8.2.1, xem 6b).
 - **Chỉ tiêu đo:** đã đưa vào `quality-gate.md` với cách đo và trạng thái; mục 1 (phần diagnostic) và mục 4 (truy vấn/cold-load) đạt tự động, các mục cần X/Telegram thật vẫn chưa đo.
 
+## 5f. Kết quả v8.2.2
+
+- Sửa 9/10 finding review 8.2.1: `server` lưu dạng `other` + `serverError` (rollback 8.2.0 không mất mục); HEAD dò mã chỉ tin 429/5xx, dùng chung một request, không gửi khi đang nghỉ 429, hạn 3 s; nhận lại node video khác realm; backup đọc song song, giữ URL mới nhất trong giới hạn. Finding còn lại (đọc mã HTTP thật) cần quyền `webRequest` — không làm vì nguyên tắc không tăng quyền.
+- **Dung lượng:** bỏ JSZip (96 KB), ZIP bằng `src/shared/zip-store.ts` (STORE). Tổng JS 478 → 382 KB, ngưỡng 480 → 420 KB; còn ~38 KB cho tính năng mới. Service worker 116/120 KB vẫn sát ngưỡng file đơn — bước giảm tiếp theo nếu cần: tải bảng dịch theo ngôn ngữ đang dùng.
+- Gate: 76 unit test, Chromium 9/9.
+
 ## 6. Thứ tự thực hiện đề xuất
 
 1. ~~Xác minh L1 trên Chromium~~ — đã xác nhận lỗi.
@@ -212,17 +218,19 @@ Gate: 68 unit test, 2 e2e, `npm run check` xanh; ngân sách build nâng 480 KB 
 8. ~~**v8.1.0**: F4 + 2 việc nhỏ ở mục Hiệu năng~~ — hoàn thành 2026-10-14.
 9. ~~**v8.2.0**: F5~~ — hoàn thành 2026-10-14 (xem 5d).
 10. ~~**v8.2.1**: tiêu chí chung (Chromium acceptance, `@ts-ignore`, chỉ tiêu đo)~~ — hoàn thành 2026-10-14 (xem 5e).
-11. **Tiếp theo (tùy chọn):** X Lists cho F1; đổi chất lượng khi thử lại cho F3; F6 tải thread; đo các chỉ tiêu còn lại trên X/Telegram thật.
+11. ~~**v8.2.2**: sửa sau review, bỏ JSZip~~ — hoàn thành 2026-10-14 (xem 5f).
+12. **Tiếp theo (tùy chọn):** X Lists cho F1; đổi chất lượng khi thử lại cho F3; F6 tải thread; đo các chỉ tiêu còn lại trên X/Telegram thật.
 
-## 6b. Tồn đọng sau v8.2.1
+## 6b. Tồn đọng sau v8.2.2
 
-Các mốc v7.2.3 → v8.2.1 đã phát hành (xem `CHANGELOG.md`). Còn lại:
+Các mốc v7.2.3 → v8.2.2 đã phát hành (xem `CHANGELOG.md`). Còn lại:
 
 - **Kiểm thử thủ công trên X/Telegram thật:** Search/Hashtag (tab Media/Latest, hashtag tiếng Việt), Manifest có caption/like, panel File lỗi và thử lại, tự nghỉ khi gặp 429, sao lưu/khôi phục giữa hai máy; cùng các mục cũ (đổi ngôn ngữ, lightbox ẩn FAB, HLS, Following Scanner, icon SVG U9).
 - ~~**Test:** Chromium acceptance chưa chạy được ở dev; thiếu test Search/Hashtag và retry chọn lọc~~ — xong ở 8.2.1 (Chrome for Testing, 9/9 pass).
 - **Mở rộng F1/F3:** X Lists; nguồn Search trong Queue; đổi chất lượng khi thử lại (lưu variant video).
 - ~~**Chỉ tiêu đo hiệu năng** chưa vào `quality-gate.md`~~ — đã đưa vào ở 8.2.1; các mục cần X/Telegram thật (tần suất `MEDIA_FOUND`, % main thread, Telegram `processDOM`, heap HLS, DOM detach) **chưa đo**.
 - **Kiểm thử 429 thật từ X** cho luồng HEAD dò mã (8.2.1): đã kiểm chứng với CDN giả, chưa với X.
+- ~~**Dung lượng JS** chỉ còn ~2 KB dưới ngưỡng~~ — 8.2.2 bỏ JSZip, còn ~38 KB. Service worker 116/120 KB.
 
 ## 7. Tiêu chí hoàn thành chung
 

@@ -1,6 +1,6 @@
 # X Media Downloader — Roadmap
 
-> Phiên bản hiện tại: **8.2.1** | Cập nhật: 2026-10-14
+> Phiên bản hiện tại: **8.2.2** | Cập nhật: 2026-10-14
 
 Tài liệu này là nguồn duy nhất cho trạng thái sản phẩm, phần việc đã hoàn thành và backlog. Chi tiết từng bản phát hành nằm trong [`CHANGELOG.md`](../CHANGELOG.md).
 
@@ -68,6 +68,7 @@ src/
 | v8.1.0 | F4: tự tạm nghỉ 60 giây và xếp lại file khi X trả 429, nghỉ giữa các file (0–10 giây), tối đa 6 luồng; popup khởi động song song, sửa rò listener `waitForTabLoad` |
 | v8.2.0 | F5: sao lưu/khôi phục cấu hình, Saved Jobs, lịch, Queue, lịch sử và danh sách file đã tải trong một file (gộp khi khôi phục, kiểm tra lại từng phần) |
 | v8.2.1 | Tiêu chí chất lượng chung: nhận diện 429 thật (chrome.downloads báo chung `SERVER_FAILED`) để tự giảm tốc, sao lưu đủ file vừa tải, Chromium acceptance 9/9 trên Chrome for Testing, gỡ 62 `@ts-ignore`, bảng chỉ tiêu đo hiệu năng |
+| v8.2.2 | Sửa sau review 8.2.1 (lỗi máy chủ lưu tương thích rollback, dò mã 429 chỉ tin 429/5xx và dùng chung một HEAD), bỏ JSZip bằng bộ ghi ZIP STORE tích hợp: tổng JS 478 → 382 KB |
 
 Các kế hoạch Pha 0–15 cũ đã hoàn thành và được hợp nhất vào bảng này; không còn duy trì file kế hoạch riêng.
 
