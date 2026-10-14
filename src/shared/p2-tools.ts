@@ -1,3 +1,4 @@
+import { normalizeUrlForDedup } from './validation.ts';
 import type { HistoryEntry, MediaItem } from '../types.ts';
 
 export const GALLERY_PAGE_MAX = 100;
@@ -33,7 +34,7 @@ export function estimateMedia(items: readonly MediaItem[], downloaded: ReadonlyS
     if (item.type === 'image') images++;
     else if (item.type === 'gif') gifs++;
     else videos++;
-    const duplicate = downloaded.has(item.url);
+    const duplicate = downloaded.has(normalizeUrlForDedup(item.url));
     if (duplicate) { duplicates++; continue; }
     const pixels = Number(item.width || 0) * Number(item.height || 0);
     if (pixels > 0) estimatedBytes += Math.round(pixels * (item.type === 'image' ? 0.45 : 2.5));

@@ -1,6 +1,7 @@
 import type { DomainMessageHandler } from './message-handler.ts';
 import { mediaStore, statsStore, downloadedStore, dirtyMediaStore } from './state.ts';
 import { mediaRepository } from './indexeddb.ts';
+import { cancelDownloadedPersist } from './scraper.ts';
 import { isValidUsername } from '../shared/validation.ts';
 
 const PRUNE_CONCURRENCY = 8;
@@ -57,6 +58,7 @@ export const handleStorageMessage: DomainMessageHandler = (message, _sender, sen
           ]);
           mediaStore.delete(username);
           statsStore.delete(username);
+          cancelDownloadedPersist(username);
           downloadedStore.delete(username);
           dirtyMediaStore.delete(username);
           sendResponse({ ok: true, summary: await mediaRepository.getStorageSummary() });
@@ -75,6 +77,7 @@ export const handleStorageMessage: DomainMessageHandler = (message, _sender, sen
           ]);
           mediaStore.clear();
           statsStore.clear();
+          cancelDownloadedPersist();
           downloadedStore.clear();
           dirtyMediaStore.clear();
           sendResponse({ ok: true, summary: await mediaRepository.getStorageSummary() });

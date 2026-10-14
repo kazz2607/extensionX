@@ -2,6 +2,7 @@
 /**
  * options.js — Logic trang Cài đặt (v5.7.0)
  */
+import { sanitizeImportedOptions } from '../shared/options-import.ts';
 import { renderFilenameTemplate } from '../shared/filename-template.ts';
 import { migrateOptionsStorage, OPTIONS_SCHEMA_VERSION } from '../shared/storage-migrations.ts';
 import type { ResponseFor } from '../shared/messages.ts';
@@ -459,17 +460,11 @@ async function importSettings(event: Event): Promise<void> {
       throw new Error('File không hợp lệ: thiếu trường options');
     }
 
-    // Merge với DEFAULT_OPTIONS để đảm bảo các field bị thiếu được fill
-    const migrated = migrateOptionsStorage(parsed.options);
-    const merged = { ...DEFAULT_OPTIONS, ...migrated };
-    if (parsed.options.smartFilters) {
-      merged.smartFilters = { ...DEFAULT_OPTIONS.smartFilters, ...parsed.options.smartFilters };
-    }
-    if (parsed.options.mediaTypes) {
-      merged.mediaTypes = { ...DEFAULT_OPTIONS.mediaTypes, ...parsed.options.mediaTypes };
-    }
+    // Only known fields with the right type/bounds are kept; missing or
+    // invalid ones fall back to DEFAULT_OPTIONS (nested groups included).
+    const merged = sanitizeImportedOptions(DEFAULT_OPTIONS, migrateOptionsStorage(parsed.options));
 
-    await chrome.storage.sync.set({ options: merged });
+    await chrome.storage.sync.set({ options: { ...merged, schemaVersion: OPTIONS_SCHEMA_VERSION } });
 
     // Reload page để apply
     showSaveStatus('✓ Imported! Reloading...');

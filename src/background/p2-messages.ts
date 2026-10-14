@@ -1,3 +1,4 @@
+import { createMediaMatcher, type MediaQueryCriteria } from '../shared/media-query.ts';
 import type { JobSchedule, MediaItem } from '../types.ts';
 import { buildRedactedErrorReport, estimateMedia, GALLERY_PAGE_MAX, parseScheduleInput, renderFolderRule, validateFolderRule, ZIP_MAX_FILES } from '../shared/p2-tools.ts';
 import type { DomainMessageHandler } from './message-handler.ts';
@@ -23,24 +24,19 @@ async function ensureOffscreenDocument(): Promise<void> {
   }
 }
 
-function matches(item: MediaItem, payload: Record<string, unknown>): boolean {
-  const type = String(payload.filterType || 'all');
-  if (type === 'images' && item.type !== 'image') return false;
-  if (type === 'videos' && item.type !== 'video' && item.type !== 'hls') return false;
-  if (type === 'gifs' && item.type !== 'gif') return false;
-  const keyword = String(payload.keyword || '').trim().toLowerCase();
-  if (keyword && !`${item.tweetText || ''} ${item.tweetId || ''}`.toLowerCase().includes(keyword)) return false;
-  const timestamp = Number(item.tweetDate || 0);
-  if (payload.dateFrom && timestamp && timestamp < Date.parse(String(payload.dateFrom))) return false;
-  if (payload.dateTo && timestamp && timestamp > Date.parse(`${String(payload.dateTo)}T23:59:59.999`)) return false;
-  return true;
+// Estimate/Gallery/ZIP must select exactly what Download would fetch.
+function criteriaFrom(payload: Record<string, unknown>): MediaQueryCriteria {
+  const text = (value: unknown) => (typeof value === 'string' && value ? value : undefined);
+  const filterType = ['all', 'images', 'videos', 'gifs'].includes(String(payload.filterType)) ? payload.filterType as MediaQueryCriteria['filterType'] : 'all';
+  return { filterType, dateFrom: text(payload.dateFrom), dateTo: text(payload.dateTo), keyword: text(payload.keyword) };
 }
 
 async function collect(username: string, payload: Record<string, unknown>, cap = Number.POSITIVE_INFINITY): Promise<{ items: MediaItem[]; total: number }> {
   const items: MediaItem[] = [];
   let total = 0;
+  const matches = createMediaMatcher(criteriaFrom(payload));
   await mediaRepository.visitMediaItems(username, (item) => {
-    if (!matches(item, payload)) return;
+    if (!matches(item)) return;
     total++;
     if (items.length < cap) items.push(item);
   });
@@ -52,51 +48,87 @@ async function listSchedules(): Promise<JobSchedule[]> {
   return Array.isArray(stored[SCHEDULES_KEY]) ? (stored[SCHEDULES_KEY] as JobSchedule[]).filter((item) => parseScheduleInput(item)) : [];
 }
 
+// Every read-modify-write of the schedule list runs in order, so an alarm firing
+// while the user edits a schedule cannot write back a stale copy.
+let scheduleWrites: Promise<unknown> = Promise.resolve();
+function updateSchedules<T>(mutate: (schedules: JobSchedule[]) => Promise<T> | T): Promise<T> {
+  const run = scheduleWrites.then(async () => {
+    const schedules = await listSchedules();
+    const result = await mutate(schedules);
+    await chrome.storage.local.set({ [SCHEDULES_KEY]: schedules });
+    return result;
+  });
+  scheduleWrites = run.catch(() => undefined);
+  return run;
+}
+
 async function setSchedule(raw: unknown): Promise<JobSchedule | null> {
   const input = parseScheduleInput(raw);
   if (!input || !(await getSavedJob(input.jobId))) return null;
-  const schedules = await listSchedules();
-  const alarmName = `${ALARM_PREFIX}${input.jobId}`;
-  await chrome.alarms.clear(alarmName);
-  const schedule: JobSchedule = { ...input };
-  if (input.enabled) {
-    schedule.nextRunAt = Date.now() + input.intervalMinutes * 60_000;
-    chrome.alarms.create(alarmName, { delayInMinutes: input.intervalMinutes, periodInMinutes: input.intervalMinutes });
-  }
-  const next = schedules.filter((item) => item.jobId !== input.jobId);
-  next.push(schedule);
-  await chrome.storage.local.set({ [SCHEDULES_KEY]: next });
-  return schedule;
+  return updateSchedules(async (schedules) => {
+    const alarmName = `${ALARM_PREFIX}${input.jobId}`;
+    await chrome.alarms.clear(alarmName);
+    const schedule: JobSchedule = { ...input };
+    if (input.enabled) {
+      schedule.nextRunAt = Date.now() + input.intervalMinutes * 60_000;
+      await chrome.alarms.create(alarmName, { delayInMinutes: input.intervalMinutes, periodInMinutes: input.intervalMinutes });
+    }
+    const index = schedules.findIndex((item) => item.jobId === input.jobId);
+    if (index >= 0) schedules.splice(index, 1);
+    schedules.push(schedule);
+    return schedule;
+  });
 }
 
-void listSchedules().then(async (schedules) => {
-  const alarms = new Set((await chrome.alarms.getAll()).map((alarm) => alarm.name));
+/** Called when a Saved Job is deleted: its alarm must stop firing. */
+export function removeSchedule(jobId: string): Promise<void> {
+  return updateSchedules(async (schedules) => {
+    await chrome.alarms.clear(`${ALARM_PREFIX}${jobId}`);
+    const index = schedules.findIndex((item) => item.jobId === jobId);
+    if (index >= 0) schedules.splice(index, 1);
+  });
+}
+
+// Startup reconciliation: recreate missing alarms for enabled schedules and
+// clear alarms whose schedule was disabled or whose job no longer exists.
+void (async () => {
+  const schedules = await listSchedules();
+  const alarms = await chrome.alarms.getAll();
+  const wanted = new Set(schedules.filter((schedule) => schedule.enabled).map((schedule) => `${ALARM_PREFIX}${schedule.jobId}`));
+  for (const alarm of alarms) {
+    if (alarm.name.startsWith(ALARM_PREFIX) && !wanted.has(alarm.name)) await chrome.alarms.clear(alarm.name);
+  }
+  const existing = new Set(alarms.map((alarm) => alarm.name));
   for (const schedule of schedules) {
     const name = `${ALARM_PREFIX}${schedule.jobId}`;
-    if (schedule.enabled && !alarms.has(name)) chrome.alarms.create(name, { delayInMinutes: schedule.intervalMinutes, periodInMinutes: schedule.intervalMinutes });
+    if (schedule.enabled && !existing.has(name)) await chrome.alarms.create(name, { delayInMinutes: schedule.intervalMinutes, periodInMinutes: schedule.intervalMinutes });
   }
-}).catch(() => {});
+})().catch(() => {});
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (!alarm.name.startsWith(ALARM_PREFIX)) return;
   const jobId = alarm.name.slice(ALARM_PREFIX.length);
-  void (async () => {
-    const schedules = await listSchedules();
+  void updateSchedules(async (schedules) => {
     const schedule = schedules.find((item) => item.jobId === jobId && item.enabled);
     const job = await getSavedJob(jobId);
+    if (!job) await chrome.alarms.clear(alarm.name);
     if (!schedule || !job) return;
     schedule.lastRunAt = Date.now();
     schedule.nextRunAt = alarm.scheduledTime + schedule.intervalMinutes * 60_000;
-    if (downloadCoordinator.isBusy) {
-      schedule.lastStatus = 'skipped';
-      await addNotificationEvent('warning', 'Lịch tải đã bỏ qua', `Saved Job “${job.name}” bị bỏ qua vì đang có download khác.`);
-    } else {
-      schedule.lastStatus = 'completed';
-      await addNotificationEvent('info', 'Lịch tải đã bắt đầu', `Saved Job “${job.name}” đã được kích hoạt.`);
+    // startDownload claims the coordinator synchronously, so isBusy right after
+    // the call tells whether this run actually started.
+    let started = false;
+    if (!downloadCoordinator.isBusy) {
       void startDownload(job.username, job);
+      started = downloadCoordinator.isBusy;
     }
-    await chrome.storage.local.set({ [SCHEDULES_KEY]: schedules });
-  })();
+    schedule.lastStatus = started ? 'completed' : 'skipped';
+    if (started) {
+      await addNotificationEvent('info', 'Lịch tải đã bắt đầu', `Saved Job “${job.name}” đã được kích hoạt.`);
+    } else {
+      await addNotificationEvent('warning', 'Lịch tải đã bỏ qua', `Saved Job “${job.name}” bị bỏ qua vì đang có download khác.`);
+    }
+  }).catch(() => {});
 });
 
 export const handleP2Message: DomainMessageHandler = (message, _sender, sendResponse) => {

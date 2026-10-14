@@ -1,15 +1,18 @@
 /**
  * tweet-btn.js — Download Mini Button cho từng Tweet
- * Chạy trong PAGE CONTEXT (inject từ content.js)
+ * Chạy trong PAGE CONTEXT (MAIN world, bundle content/main-world.ts)
  *
  * Tính năng:
  *   - Theo dõi DOM bằng MutationObserver
  *   - Với mỗi tweet có media: inject nút ↓ cạnh nút Share
- *   - Click → CustomEvent XMD_TWEET_DOWNLOAD → content.js relay → SW
- *   - Nhận XMD_TWEET_BTN_UPDATE → cập nhật trạng thái nút
+ *   - Click → XMD_TWEET_DOWNLOAD qua page-bridge → content.js relay → SW
+ *   - Nhận XMD_TWEET_BTN_UPDATE qua page-bridge → cập nhật trạng thái nút
  *
  * State nút: idle → loading (spin) → done (✓) / error (✗, reset 3s)
  */
+
+import { onExtensionMessage, sendToExtension } from './page-bridge.ts';
+import { onNavigation } from './page-navigation.ts';
 
 (function () {
   'use strict';
@@ -213,9 +216,7 @@
       setButtonState(tweetId, 'loading');
 
       const username = getUsernameFromURL();
-      window.dispatchEvent(new CustomEvent('XMD_TWEET_DOWNLOAD', {
-        detail: { tweetId, username }
-      }));
+      sendToExtension('XMD_TWEET_DOWNLOAD', { tweetId, username });
     });
 
     return btn;
@@ -339,9 +340,8 @@
   setTimeout(scanArticles, 2500);
 
   // ─── Nhận kết quả từ content.js ──────────────────────────────────────────────
-  window.addEventListener('XMD_TWEET_BTN_UPDATE', (e) => {
-// @ts-ignore
-    const { tweetId, state } = e.detail || {};
+  onExtensionMessage('XMD_TWEET_BTN_UPDATE', (detail) => {
+    const { tweetId, state } = (detail || {}) as { tweetId?: string; state?: string };
     if (!tweetId || !state) return;
     setButtonState(tweetId, state);
   });
@@ -350,24 +350,14 @@
   // Do not observe the full document merely to detect a route change: timeline
   // updates are much more frequent than History API transitions.
   let lastPath = location.pathname;
-  function handleNavigation() {
-    if (location.pathname !== lastPath) {
-      lastPath = location.pathname;
-      // Clear map khi navigate (tweet IDs cũ không còn trên DOM)
-      btnMap.clear();
-      // Scan lại sau navigation
-      setTimeout(scanArticles, 1500);
-      setTimeout(scanArticles, 3000);
-    }
-  }
-  window.addEventListener('popstate', handleNavigation);
-  for (const method of ['pushState', 'replaceState'] as const) {
-    const original = history[method];
-    history[method] = function (...args: Parameters<typeof original>) {
-      const result = original.apply(this, args);
-      queueMicrotask(handleNavigation);
-      return result;
-    };
-  }
+  onNavigation(() => {
+    if (location.pathname === lastPath) return;
+    lastPath = location.pathname;
+    // Clear map khi navigate (tweet IDs cũ không còn trên DOM)
+    btnMap.clear();
+    // Scan lại sau navigation
+    setTimeout(scanArticles, 1500);
+    setTimeout(scanArticles, 3000);
+  });
 
 })();

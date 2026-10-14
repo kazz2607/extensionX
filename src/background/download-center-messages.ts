@@ -4,6 +4,7 @@ import { downloadCoordinator } from './state.ts';
 import { startDownload } from './downloader.ts';
 import { loadPersistedQueue, profileQueue } from './queue.ts';
 import { deleteSavedJob, getSavedJob, listSavedJobs, saveSavedJob } from './saved-jobs.ts';
+import { removeSchedule } from './p2-messages.ts';
 import { listDownloadHistory } from './download-history.ts';
 
 const JOB_ID_PATTERN = /^[A-Za-z0-9_-]{1,120}$/;
@@ -38,7 +39,9 @@ export const handleDownloadCenterMessage: DomainMessageHandler = (message, _send
     case 'DELETE_SAVED_JOB': {
       const id = payload?.id;
       if (typeof id !== 'string' || !JOB_ID_PATTERN.test(id)) { sendResponse({ error: 'Invalid saved job id' }); return false; }
-      void deleteSavedJob(id).then((ok) => sendResponse({ ok }));
+      void deleteSavedJob(id)
+        .then(async (ok) => { await removeSchedule(id).catch(() => {}); sendResponse({ ok }); })
+        .catch((error: unknown) => sendResponse({ error: error instanceof Error ? error.message : 'Delete failed' }));
       return true;
     }
     case 'RUN_SAVED_JOB': {

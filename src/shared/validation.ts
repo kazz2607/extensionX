@@ -1,3 +1,4 @@
+import { PUBLIC_DOWNLOAD_OPTION_KEYS } from './download-options.ts';
 import type { MediaItem, QueueItem } from '../types.ts';
 
 export const USERNAME_PATTERN = /^(?:[A-Za-z0-9_]{1,50}|_bookmarks_|[A-Za-z0-9_]{1,50}_likes)$/;
@@ -85,8 +86,11 @@ export function isValidMediaItem(value: unknown): value is MediaItem {
 
 export function isValidDownloadOptions(value: unknown): boolean {
   if (value === undefined) return true;
-  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length > 20) return false;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const options = value as Record<string, unknown>;
+  // Unknown keys (including internal _queue/_operation tracking) are rejected.
+  if (Object.keys(options).some((key) => !PUBLIC_DOWNLOAD_OPTION_KEYS.has(key))) return false;
+  if (options.filenameTemplate !== undefined && (typeof options.filenameTemplate !== 'string' || options.filenameTemplate.length > 200)) return false;
   const strings = ['dateFrom', 'dateTo', 'keyword', 'saveFolder'];
   const booleans = ['flatUsername', 'filenameUsername', 'showSnackbar', 'skipDuplicates'];
   if (strings.some((key) => options[key] !== undefined && (typeof options[key] !== 'string' || (options[key] as string).length > 1_000))) return false;

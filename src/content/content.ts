@@ -2,13 +2,14 @@
  * content.js — Content Script
  * Chạy trong isolated world (extension context) trên x.com
  * Nhiệm vụ:
- *   1. Inject page-interceptor.js vào page context — bắt URL video qua hook fetch/XHR (Layer 1)
- *   2. Inject dom-scanner.js — DOM fallback quét ảnh/video_placeholder (Layer 2)
- *   3. Inject fab.js — Floating Action Button
- *   4. Relay media events từ page → service worker
- *   5. Thực hiện auto-scroll theo lệnh từ service worker
- *   6. Cầu nối FAB ↔ service worker
+ *   1. Page scripts (page-interceptor, dom-scanner, FAB, tweet button, snackbar)
+ *      được manifest nạp vào MAIN world qua bundle content/main-world.ts
+ *   2. Relay media/FAB/tweet events từ page → service worker qua page-bridge
+ *      (MessagePort riêng — script của trang không đọc hay giả mạo được)
+ *   3. Thực hiện auto-scroll theo lệnh từ service worker
+ *   4. Cầu nối FAB ↔ service worker
  */
+import { onPageMessage, sendToPage } from './extension-bridge.ts';
 
 // ─── BUG-3 FIX: Guard kiểm tra extension context còn hợp lệ không ────────────
 function isExtensionValid() {
@@ -50,55 +51,11 @@ function safeSendMessage(message: unknown): Promise<unknown> {
   }
 }
 
-// ─── 1. Inject scripts vào page context ──────────────────────────────────────
-// @ts-ignore
-function injectScript(path, onLoad) {
-  const script = document.createElement('script');
-  script.src = chrome.runtime.getURL(path);
-  script.onload = () => {
-    script.remove();
-    onLoad?.();
-  };
-  (document.head || document.documentElement).prepend(script);
-}
-
-// Inject page-interceptor NGAY LẬP TỨC để bắt JSON.parse và fetch từ sớm
-// @ts-ignore
-injectScript('content/page-interceptor.js');
-
-// Inject i18n, DOM scanner, FAB và Tweet Mini Button
-async function injectAll() {
-// @ts-ignore
-  injectScript('lib/i18n.js');
-// @ts-ignore
-  injectScript('content/dom-scanner.js');
-// @ts-ignore
-  injectScript('content/fab.js');
-// @ts-ignore
-  injectScript('content/tweet-btn.js');
-// @ts-ignore
-  injectScript('content/snackbar.js');
-  
-  // Đọc lang và gửi cho page (để i18n.js trong page update)
-  let stored: Record<string, unknown> = {};
-  try {
-    stored = await chrome.storage.local.get('lang').catch(() => ({}));
-  } catch (err) {
-    console.debug('Failed to load lang', err);
-  }
-// @ts-ignore
-  const lang = stored.lang || 'en';
-  // Chờ một chút để các script được inject và parse
-  setTimeout(() => {
-    window.dispatchEvent(new CustomEvent('XMD_LANG_UPDATE', { detail: { lang } }));
-  }, 300);
-}
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', injectAll);
-} else {
-  injectAll();
-}
+// ─── 1. Gửi ngôn ngữ cho page scripts (FAB/snackbar dùng window.i18n) ────────
+// The bridge port queues messages until the MAIN world starts listening.
+chrome.storage.local.get('lang')
+  .then((stored) => sendToPage('XMD_LANG_UPDATE', { lang: typeof stored.lang === 'string' ? stored.lang : 'en' }))
+  .catch((err: unknown) => console.debug('Failed to load lang', err));
 
 // ─── 2. Lấy username từ URL ───────────────────────────────────────────────────
 function getUsernameFromURL(url = location.href) {
@@ -165,14 +122,14 @@ const VALID_ITEM_TYPES = ['image', 'video', 'gif', 'hls', 'video_placeholder'];
 const VALID_HOSTS      = ['pbs.twimg.com', 'video.twimg.com'];
 const VALID_EXTS       = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'ts', 'm3u8', 'mov'];
 
-// @ts-ignore
-function validateMediaItem(item) {
+function validateMediaItem(item: { type?: unknown; tweetId?: unknown; url?: unknown; ext?: unknown } | null): boolean {
   if (!item || typeof item !== 'object') return false;
+  if (typeof item.type !== 'string') return false;
   if (!VALID_ITEM_TYPES.includes(item.type)) return false;
   if (item.type === 'video_placeholder') {
-    return /^\d{10,20}$/.test(item.tweetId || '');
+    return typeof item.tweetId === 'string' && /^\d{10,20}$/.test(item.tweetId);
   }
-  const url = item.url || '';
+  const url = typeof item.url === 'string' ? item.url : '';
   if (!VALID_HOSTS.some(h => url.startsWith(`https://${h}/`))) return false;
   // SEC-03: Validate path structure — chỉ cho phép ký tự an toàn, chặn path traversal
   try {
@@ -181,14 +138,15 @@ function validateMediaItem(item) {
   } catch {
     return false;
   }
-  if (item.tweetId && !/^\d{10,20}$/.test(item.tweetId)) return false;
-  if (item.ext && !VALID_EXTS.includes(item.ext.toLowerCase())) return false;
+  if (item.tweetId !== undefined && (typeof item.tweetId !== 'string' || !/^\d{10,20}$/.test(item.tweetId))) return false;
+  if (item.ext !== undefined && (typeof item.ext !== 'string' || !VALID_EXTS.includes(item.ext.toLowerCase()))) return false;
   return true;
 }
 
 // ─── P3: Batch MEDIA_FOUND — gom items trong một rAF frame trước khi gửi SW ─
 // Tránh burst nhiều small message khi DOM scanner hoặc page-interceptor emit
 // nhiều event liên tiếp trong cùng một scroll event / GraphQL response.
+const MEDIA_BATCH_MAX = 200; // Service worker rejects larger MEDIA_FOUND batches
 let _mediaBatch: unknown[] = [];
 let _mediaBatchRaf: number | null = null;
 
@@ -201,28 +159,26 @@ function flushMediaBatch() {
   const username = getUsernameFromURL();
   if (!username) return;
 
-  const validItems = batch.filter(validateMediaItem);
-  if (!validItems.length) return;
-
-  safeSendMessage({
-    type: 'MEDIA_FOUND',
-    payload: {
-      username,
-      mediaItems: validItems,
-      sourceUrl: 'batched',
-      pageUrl: location.href,
-    }
-  }).catch(() => {});
+  const validItems = batch.filter((item) => validateMediaItem(item as Parameters<typeof validateMediaItem>[0]));
+  for (let start = 0; start < validItems.length; start += MEDIA_BATCH_MAX) {
+    safeSendMessage({
+      type: 'MEDIA_FOUND',
+      payload: {
+        username,
+        mediaItems: validItems.slice(start, start + MEDIA_BATCH_MAX),
+        sourceUrl: 'batched',
+        pageUrl: location.href,
+      }
+    }).catch(() => {});
+  }
 }
 
-window.addEventListener('X_MEDIA_FOUND', (event) => {
-// @ts-ignore
-  const { mediaItems } = event.detail;
-  if (!mediaItems?.length) return;
+onPageMessage('X_MEDIA_FOUND', (detail) => {
+  const mediaItems = (detail as { mediaItems?: unknown } | null)?.mediaItems;
+  if (!Array.isArray(mediaItems) || !mediaItems.length) return;
 
-  const username = getUsernameFromURL();
   // Bỏ qua nếu không xác định được username (trang Home, Explore...)
-  if (!username) return;
+  if (!getUsernameFromURL()) return;
 
   _mediaBatch.push(...mediaItems);
   if (_mediaBatchRaf === null) {
@@ -230,10 +186,17 @@ window.addEventListener('X_MEDIA_FOUND', (event) => {
   }
 });
 
+// Diagnostics are opt-in; when off (default) metrics never leave the page so
+// browsing X does not keep waking the service worker.
+let diagnosticsEnabled = false;
+function readDiagnosticsFlag(options: unknown) {
+  diagnosticsEnabled = (options as { localDiagnostics?: unknown } | undefined)?.localDiagnostics === true;
+}
+chrome.storage.sync.get('options').then((stored) => readDiagnosticsFlag(stored.options)).catch(() => {});
+
 const ALLOWED_DIAGNOSTIC_METRICS = new Set(['scan.duration_ms', 'observer.callback']);
-window.addEventListener('XMD_DIAGNOSTIC_METRIC', (event: Event) => {
-  const detail = (event as CustomEvent<unknown>).detail;
-  if (!detail || typeof detail !== 'object') return;
+onPageMessage('XMD_DIAGNOSTIC_METRIC', (detail) => {
+  if (!diagnosticsEnabled || !detail || typeof detail !== 'object') return;
   const metric = detail as { name?: unknown; value?: unknown };
   if (!ALLOWED_DIAGNOSTIC_METRICS.has(String(metric.name))) return;
   if (typeof metric.value !== 'number' || !Number.isFinite(metric.value) || metric.value < 0 || metric.value > 60_000) return;
@@ -242,9 +205,8 @@ window.addEventListener('XMD_DIAGNOSTIC_METRIC', (event: Event) => {
 
 
 // ─── 4. Lắng nghe FAB actions → relay sang service worker ────────────────────
-window.addEventListener('XMD_FAB_ACTION', (event) => {
-// @ts-ignore
-  const { action } = event.detail || {};
+onPageMessage('XMD_FAB_ACTION', (detail) => {
+  const action = (detail as { action?: unknown } | null)?.action;
   const username = getUsernameFromURL();
   if (!username) return;
 
@@ -259,9 +221,9 @@ window.addEventListener('XMD_FAB_ACTION', (event) => {
 
 // ─── SEC-04: Relay bearer token được capture từ page-interceptor lên SW ─────
 let _lastBearerRelayed = '';
-window.addEventListener('XMD_BEARER_TOKEN', (event: Event) => {
-  const { bearer } = (event as CustomEvent<{ bearer?: string }>).detail || {};
-  if (bearer && bearer !== _lastBearerRelayed) {
+onPageMessage('XMD_BEARER_TOKEN', (detail) => {
+  const bearer = (detail as { bearer?: unknown } | null)?.bearer;
+  if (typeof bearer === 'string' && bearer && bearer !== _lastBearerRelayed) {
     _lastBearerRelayed = bearer;
     safeSendMessage({ type: 'UPDATE_BEARER', payload: { bearer } }).catch(() => {});
   }
@@ -269,30 +231,27 @@ window.addEventListener('XMD_BEARER_TOKEN', (event: Event) => {
 
 // ─── Dynamic Query ID: relay từ page-interceptor lên SW ─────────────────────
 const _relayedQueryIds: Record<string, string> = {};
-window.addEventListener('XMD_QUERY_ID', (event: Event) => {
-  const { queryId, opName } = (event as CustomEvent<{ queryId?: string; opName?: string }>).detail || {};
-  if (!queryId || !opName) return;
+onPageMessage('XMD_QUERY_ID', (detail) => {
+  const { queryId, opName } = (detail || {}) as { queryId?: unknown; opName?: unknown };
+  if (typeof queryId !== 'string' || typeof opName !== 'string' || !queryId || !opName) return;
   if (_relayedQueryIds[opName] === queryId) return; // dedup
   _relayedQueryIds[opName] = queryId;
   safeSendMessage({ type: 'UPDATE_QUERY_ID', payload: { queryId, opName } }).catch(() => {});
 });
 
-window.addEventListener('XMD_FOLLOWING_PAGE', (event: Event) => {
-  const detail = (event as CustomEvent<unknown>).detail;
-  safeSendMessage({ type: 'FOLLOWING_SCAN_PAGE', payload: detail }).catch(() => {});
+onPageMessage('XMD_FOLLOWING_PAGE', (detail) => {
+  const { candidates, cursor } = (detail || {}) as { candidates?: unknown; cursor?: unknown };
+  safeSendMessage({ type: 'FOLLOWING_SCAN_PAGE', payload: { candidates, cursor } }).catch(() => {});
 });
 
 // ─── 4b. Relay XMD_TWEET_DOWNLOAD → service worker ───────────────────────────
-// Khi user bấm nút mini download trên tweet, tweet-btn.js dispatch event này
-window.addEventListener('XMD_TWEET_DOWNLOAD', (event) => {
-// @ts-ignore
-  const { tweetId, username } = event.detail || {};
-  if (!tweetId) return;
+// Khi user bấm nút mini download trên tweet, tweet-btn dispatch qua page-bridge
+onPageMessage('XMD_TWEET_DOWNLOAD', (detail) => {
+  const { tweetId, username } = (detail || {}) as { tweetId?: unknown; username?: unknown };
+  if (typeof tweetId !== 'string' || !tweetId) return;
 
-  const profile = username || getUsernameFromURL();
-  const reportError = () => window.dispatchEvent(new CustomEvent('XMD_TWEET_BTN_UPDATE', {
-    detail: { tweetId, state: 'error' }
-  }));
+  const profile = (typeof username === 'string' && username) || getUsernameFromURL();
+  const reportError = () => sendToPage('XMD_TWEET_BTN_UPDATE', { tweetId, state: 'error' });
   safeSendMessage({
     type: 'DOWNLOAD_TWEET',
     payload: profile ? { tweetId, username: profile } : { tweetId }
@@ -304,12 +263,9 @@ window.addEventListener('XMD_TWEET_DOWNLOAD', (event) => {
 // ─── 4c. P1: Lắng nghe X_ADAPTIVE_SPEED từ interceptor ────────────────────────
 let adaptiveAvg = 0;
 let contentIsCollecting = false;
-window.addEventListener('X_ADAPTIVE_SPEED', (event) => {
-// @ts-ignore
-  if (event.detail && event.detail.avgResponseTime) {
-// @ts-ignore
-    adaptiveAvg = event.detail.avgResponseTime;
-  }
+onPageMessage('X_ADAPTIVE_SPEED', (detail) => {
+  const avg = (detail as { avgResponseTime?: unknown } | null)?.avgResponseTime;
+  if (typeof avg === 'number' && Number.isFinite(avg) && avg > 0) adaptiveAvg = avg;
 });
 
 // ─── 5. Lắng nghe lệnh từ service worker ─────────────────────────────────────
@@ -357,8 +313,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       const isHidden = document.hidden;
 
       // Trigger DOM scan thủ công sau mỗi scroll
-// @ts-ignore
-      window.__scanDOM__?.();
+      sendToPage('XMD_SCAN_DOM');
       sendResponse({
         done: true,
         reachedEnd: !isHidden && isAtBottom && (newHeight <= prevHeight + 50),
@@ -425,25 +380,19 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   // Update FAB widget từ service worker
   if (message.type === 'FAB_UPDATE') {
-    window.dispatchEvent(new CustomEvent('XMD_FAB_UPDATE', {
-      detail: message.payload
-    }));
+    sendToPage('XMD_FAB_UPDATE', message.payload);
     return false;
   }
 
   // Kết quả download tweet từ mini button — relay về tweet-btn.js
   if (message.type === 'TWEET_DOWNLOAD_RESULT') {
-    window.dispatchEvent(new CustomEvent('XMD_TWEET_BTN_UPDATE', {
-      detail: message.payload
-    }));
+    sendToPage('XMD_TWEET_BTN_UPDATE', message.payload);
     return false;
   }
 
   // Progress Snackbar — relay SNACKBAR_UPDATE về snackbar.js trên trang
   if (message.type === 'SNACKBAR_UPDATE') {
-    window.dispatchEvent(new CustomEvent('XMD_SNACKBAR_UPDATE', {
-      detail: message.payload
-    }));
+    sendToPage('XMD_SNACKBAR_UPDATE', message.payload);
     return false;
   }
 
@@ -460,13 +409,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return false;
 });
 
-// Lắng nghe storage thay đổi (lang)
+// Lắng nghe storage thay đổi (lang, diagnostics opt-in)
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes.lang) {
-    window.dispatchEvent(new CustomEvent('XMD_LANG_UPDATE', { 
-      detail: { lang: changes.lang.newValue } 
-    }));
+    sendToPage('XMD_LANG_UPDATE', { lang: changes.lang.newValue });
   }
+  if (area === 'sync' && changes.options) readDiagnosticsFlag(changes.options.newValue);
 });
 
 // ─── 6. Thông báo khi trang load xong ────────────────────────────────────────
@@ -488,52 +436,23 @@ window.addEventListener('load', () => {
 });
 
 // ─── 7. Theo dõi navigation (X.com là SPA) ───────────────────────────────────
-// History events describe route changes directly. Observing the entire document
-// used to run for every timeline mutation, even when the route never changed.
+// X calls history.pushState in the MAIN world, which an isolated-world patch
+// never sees; page-navigation.ts reports route changes over the bridge instead.
 let lastUrl = location.href;
-function reportNavigation() {
-  if (location.href !== lastUrl) {
-    lastUrl = location.href;
-    // BUG-3 FIX: Kiểm tra context trước khi sendMessage
-    if (_contextDead || !isExtensionValid()) {
-      handleContextInvalidated();
-      return;
-    }
-
-    // P3: Khi SPA navigate sang route mới — teardown scanner cũ rồi re-inject
-    // để MutationObserver track đúng primaryColumn của route mới.
-    try {
-// @ts-ignore
-      if (typeof window.__disconnectDOMScanner__ === 'function') {
-// @ts-ignore
-        window.__disconnectDOMScanner__();
-      }
-    } catch (_) {}
-    // Re-inject dom-scanner sau một microtask để X.com kịp swap DOM
-    setTimeout(() => {
-// @ts-ignore
-      injectScript('content/dom-scanner.js');
-    }, 300);
-
-    const username = getUsernameFromURL();
-    if (username) {
-      const match = document.cookie.match(/(?:^|;\s*)ct0=([^;]*)/);
-      const ct0 = match ? match[1] : '';
-      safeSendMessage({
-        type: 'PAGE_LOADED',
-        payload: { username, url: location.href, isMediaPage: isMediaPage(), ct0 }
-      }).catch(() => {});
-    }
+onPageMessage('XMD_NAVIGATED', () => {
+  if (location.href === lastUrl) return;
+  lastUrl = location.href;
+  if (_contextDead || !isExtensionValid()) {
+    handleContextInvalidated();
+    return;
   }
-}
-
-window.addEventListener('popstate', reportNavigation);
-window.addEventListener('hashchange', reportNavigation);
-for (const method of ['pushState', 'replaceState'] as const) {
-  const original = history[method];
-  history[method] = function (...args: Parameters<typeof original>) {
-    const result = original.apply(this, args);
-    queueMicrotask(reportNavigation);
-    return result;
-  };
-}
+  const username = getUsernameFromURL();
+  if (username) {
+    const match = document.cookie.match(/(?:^|;\s*)ct0=([^;]*)/);
+    const ct0 = match ? match[1] : '';
+    safeSendMessage({
+      type: 'PAGE_LOADED',
+      payload: { username, url: location.href, isMediaPage: isMediaPage(), ct0 }
+    }).catch(() => {});
+  }
+});

@@ -6,8 +6,24 @@
  * Lắng nghe CustomEvent: XMD_SNACKBAR_UPDATE
  * Dispatch từ: content.js (relay từ service-worker)
  *
- * Chạy trong PAGE CONTEXT (được inject bởi content.js)
+ * Chạy trong PAGE CONTEXT (MAIN world, bundle content/main-world.ts)
  */
+
+import { onExtensionMessage } from './page-bridge.ts';
+
+interface ActiveDownload { filename: string; speedBps: number; bytesReceived: number; totalBytes: number }
+interface SnackbarUpdate {
+  type?: string;
+  username?: string;
+  percent?: number;
+  current?: number;
+  total?: number;
+  success?: number;
+  failed?: number;
+  currentFile?: string;
+  done?: boolean;
+  activeList?: ActiveDownload[];
+}
 
 (function () {
   'use strict';
@@ -289,9 +305,9 @@
   });
 
   // ─── Event: XMD_SNACKBAR_UPDATE ──────────────────────────────────────────────
-  window.addEventListener('XMD_SNACKBAR_UPDATE', (e) => {
-// @ts-ignore
-    const data = e.detail || {};
+  onExtensionMessage('XMD_SNACKBAR_UPDATE', (detail) => {
+    // Shape comes from the service worker's SNACKBAR_UPDATE payloads.
+    const data = (detail || {}) as SnackbarUpdate;
 
     switch (data.type) {
 

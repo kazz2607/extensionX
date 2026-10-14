@@ -10,6 +10,41 @@ Chưa có thay đổi.
 
 ---
 
+## [7.3.0] — 2026-10-14 *(Hardening: bridge, permissions, logic & performance)*
+
+### Bảo mật
+
+- Trao đổi giữa script trên trang X và content script chuyển từ `CustomEvent` trên `window` sang `MessagePort` riêng: script của x.com không còn đọc được dữ liệu bridge hay giả lệnh tải/thu thập, bearer, query ID và trang Following.
+- Mỗi lệnh runtime gắn với ngữ cảnh gửi hợp lệ: content script chỉ gửi được lệnh thu thập/tải; lệnh quản trị (unfollow, xóa dữ liệu, import Queue, lịch…) chỉ từ popup/Options/Download Center; offscreen chỉ nhận lệnh từ service worker.
+- Bỏ quyền `tabs`, `declarativeNetRequest` (cùng rule mở CORS cho `cdn.syndication.twimg.com`) và `web_accessible_resources`; script trang chỉ còn được nạp một lần.
+- HLS chỉ fetch HTTPS từ CDN media X (cả URL trong playlist) và không gửi cookie; tải Telegram chỉ nhận URL cùng origin hoặc `data:` ảnh/video.
+- `START_DOWNLOAD` từ chối field options lạ và field nội bộ của Queue; import settings chỉ giữ field đã biết, đúng kiểu và trong ngưỡng.
+- Following Scanner không cho gắn lại handle khác cho một account ID đã quét.
+
+### Sửa lỗi
+
+- Chuyển profile trong X (SPA) nay dừng phiên thu thập của profile cũ; trước đây vòng cuộn vẫn chạy và gom media của profile mới.
+- Bấm Stop rồi chạy lại Unfollow không còn tạo hai vòng unfollow song song.
+- **Thử lại file lỗi** sau khi tải từ Queue hoạt động trở lại.
+- Video HLS dài không còn bị đếm lỗi sau 105 giây trong khi vẫn đang tải; file lớn trên mạng chậm chỉ bị coi là treo khi 90 giây liền không có tiến độ, và download treo được hủy hẳn để không sinh bản "(1)".
+- Thao tác Queue ngay sau khi service worker thức dậy không còn bị ghi đè khi Queue đã lưu được nạp.
+- Saved Job không còn ghi đè thư mục/mẫu tên file chung bằng giá trị rỗng; xóa Saved Job dọn luôn lịch và alarm; trạng thái lịch phản ánh lần chạy thật.
+- Lọc ngày dùng ranh giới ngày theo giờ địa phương và thống nhất giữa Download, Picker, Estimate, Gallery và ZIP; `{date}` trong tên file theo giờ địa phương như quy tắc thư mục.
+- Xóa lịch sử đã tải không còn bị lượt ghi đang chờ khôi phục lại; IndexedDB mở lại được sau lỗi tạm thời.
+
+### Hiệu năng
+
+- Metric diagnostic không rời trang khi chưa bật (mặc định); duyệt X không còn đánh thức service worker liên tục.
+- Interceptor chỉ phân tích GraphQL trên trang profile/likes/bookmarks (và Following), XHR không parse hai lần, hook `JSON.parse` quét một lần thay vì năm.
+- Telegram chỉ quét phần DOM mới thêm, tối đa khoảng 4 lần/giây thay vì quét toàn trang mỗi khung hình.
+- Ghép HLS không còn giữ bản sao thứ hai của video trong bộ nhớ; batch media lớn được chia nhỏ thay vì bị loại.
+
+### Kiểm thử
+
+- Tổng **57** unit test (thêm 8 cho bridge, ngữ cảnh gửi, options, import settings, lọc ngày, URL Telegram, timeout và 1 cho HLS) và **6** Chromium acceptance (thêm kiểm tra trang không đọc/giả được bridge, FAB thật vẫn chạy, SPA navigation dừng thu thập, offscreen chỉ nghe service worker).
+
+---
+
 ## [7.2.3] — 2026-10-14 *(Hotfix: HLS/ZIP, collection & tweet button)*
 
 ### Sửa lỗi

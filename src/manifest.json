@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_appName__",
-  "version": "7.2.3",
+  "version": "7.3.0",
 
   "description": "__MSG_appDesc__",
   "default_locale": "en",
@@ -28,11 +28,7 @@
       "matches": ["https://x.com/*", "https://twitter.com/*"],
       "js": [
         "lib/i18n.ts",
-        "content/page-interceptor.ts",
-        "content/dom-scanner.ts",
-        "content/fab.ts",
-        "content/tweet-btn.ts",
-        "content/snackbar.ts"
+        "content/main-world.ts"
       ],
       "run_at": "document_start",
       "world": "MAIN"
@@ -75,8 +71,6 @@
     "downloads",
     "storage",
     "scripting",
-    "tabs",
-    "declarativeNetRequest",
     "offscreen",
     "alarms",
     "notifications"
@@ -89,31 +83,6 @@
     "https://cdn.syndication.twimg.com/*",
     "https://web.telegram.org/*"
   ],
-  "web_accessible_resources": [
-    {
-      "resources": [
-        "content/page-interceptor.js",
-        "content/dom-scanner.js",
-        "content/fab.js",
-        "content/tweet-btn.js",
-        "content/snackbar.js",
-        "lib/utils.js",
-        "lib/hls-fetcher.js",
-        "lib/i18n.js"
-      ],
-      "matches": ["https://x.com/*", "https://twitter.com/*"]
-    }
-  ],
-
-  "declarative_net_request": {
-    "rule_resources": [
-      {
-        "id": "ruleset_1",
-        "enabled": true,
-        "path": "rules.json"
-      }
-    ]
-  },
   "options_page": "options/options.html",
 
   "content_security_policy": {

@@ -1,6 +1,6 @@
 /**
  * dom-scanner.js — DOM Fallback Scanner
- * Chạy trong PAGE CONTEXT (inject từ content.js)
+ * Chạy trong PAGE CONTEXT (MAIN world, bundle content/main-world.ts)
  * Quét DOM tìm img/video elements khi GraphQL intercept không bắt được
  *
  * Kích hoạt khi:
@@ -10,6 +10,9 @@
  * P3: Observer chỉ observe primaryColumn (thu hẹp subtree), scroll debounced,
  *     teardown hook cho SPA navigation, Performance.mark/measure quanh scan.
  */
+
+import { onExtensionMessage, sendToExtension } from './page-bridge.ts';
+import { onNavigation } from './page-navigation.ts';
 
 (function () {
   'use strict';
@@ -55,7 +58,7 @@
     performance.mark(`${markName}-start`);
     const startedAt = performance.now();
 // @ts-ignore
-    const found = [];
+    const found: unknown[] = [];
 
     // ─── Images: <img> ─────────────────────────────────────────────────────
     selectAll<HTMLImageElement>(root, 'img[src]').forEach(img => {
@@ -173,10 +176,7 @@
     });
 
     if (found.length > 0) {
-      window.dispatchEvent(new CustomEvent('X_MEDIA_FOUND', {
-// @ts-ignore
-        detail: { mediaItems: found, sourceUrl: 'dom-scanner' }
-      }));
+      sendToExtension('X_MEDIA_FOUND', { mediaItems: found, sourceUrl: 'dom-scanner' });
     }
 
     // P3: Measure + emit diagnostic (allowlisted metric only)
@@ -185,9 +185,7 @@
 
     // Aggregated performance data only. The isolated content script validates
     // this allowlisted metric before it can reach extension storage.
-    window.dispatchEvent(new CustomEvent('XMD_DIAGNOSTIC_METRIC', {
-      detail: { name: 'scan.duration_ms', value: Math.round(performance.now() - startedAt) }
-    }));
+    sendToExtension('XMD_DIAGNOSTIC_METRIC', { name: 'scan.duration_ms', value: Math.round(performance.now() - startedAt) });
 
     return found.length;
   }
@@ -237,9 +235,7 @@
   const pendingRoots = new Set<Element>();
   const observer = new MutationObserver((mutations) => {
     if (document.hidden) return;
-    window.dispatchEvent(new CustomEvent('XMD_DIAGNOSTIC_METRIC', {
-      detail: { name: 'observer.callback', value: 1 }
-    }));
+    sendToExtension('XMD_DIAGNOSTIC_METRIC', { name: 'observer.callback', value: 1 });
     for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
         if (node.nodeType !== 1) continue;
@@ -287,24 +283,27 @@
     document.addEventListener('DOMContentLoaded', startObserver, { once: true });
   }
 
-  // ─── P3: Teardown hook — content.ts gọi khi SPA navigate sang route khác ──
-  // Disconnect observer + scroll listener, reset flag để re-inject sạch.
-// @ts-ignore
-  window.__disconnectDOMScanner__ = function () {
+  // ─── P3: SPA navigation — rebind observer to the new route's primaryColumn ─
+  // URLs seen on the previous route are forgotten so the set stays bounded.
+  let rebindTimer: ReturnType<typeof setTimeout> | null = null;
+  onNavigation(() => {
     observer.disconnect();
-    window.removeEventListener('scroll', onScroll);
-    document.removeEventListener('visibilitychange', handleVisibilityChange);
+    pendingRoots.clear();
+    discovered.clear();
     if (scanTimeout) { clearTimeout(scanTimeout); scanTimeout = null; }
-    if (_scrollTimer) { clearTimeout(_scrollTimer); _scrollTimer = null; }
-// @ts-ignore
-    window.__X_DOM_SCANNER_LOADED__ = false;
-  };
+    if (rebindTimer) clearTimeout(rebindTimer);
+    // Give X a moment to swap the route's DOM before observing it.
+    rebindTimer = setTimeout(() => {
+      rebindTimer = null;
+      startObserver();
+      scanDOM(getObserveRoot());
+    }, 300);
+  });
 
   // Scan ngay lần đầu sau khi trang render
   setTimeout(scanDOM, 2000);
 
-  // Expose để content.js có thể gọi thủ công
-// @ts-ignore
-  window.__scanDOM__ = scanDOM;
+  // content.ts asks for a scan after each auto-scroll step.
+  onExtensionMessage('XMD_SCAN_DOM', () => { scanDOM(document); });
 
 })();

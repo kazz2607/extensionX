@@ -118,6 +118,8 @@ export interface ActiveDownload {
   bytesReceived: number;
   totalBytes: number;
   username: string;
+  /** Called on byte progress so slow-but-alive downloads are not timed out. */
+  touch?: () => void;
 }
 
 export interface ShortcutAction {

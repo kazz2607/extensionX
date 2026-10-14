@@ -195,6 +195,26 @@ const PAYLOAD_KEYS: Readonly<Record<MessageType, readonly string[]>> = {
   OFFSCREEN_SAVE_BLOB: ['url', 'filename', 'username'],
 };
 
+/** Commands a content script on X/Telegram may send. Everything else is popup/options/Download Center only. */
+const CONTENT_SCRIPT_TYPES: ReadonlySet<MessageType> = new Set<MessageType>([
+  'MEDIA_FOUND', 'PAGE_LOADED', 'DIAGNOSTIC_METRIC', 'START_COLLECTING', 'STOP_COLLECTING', 'START_DOWNLOAD',
+  'UPDATE_BEARER', 'UPDATE_QUERY_ID', 'FOLLOWING_SCAN_PAGE', 'DOWNLOAD_TWEET', 'SHORTCUT_DOWNLOAD', 'TG_DOWNLOAD_MEDIA',
+]);
+const OFFSCREEN_TYPES: ReadonlySet<MessageType> = new Set<MessageType>(['HLS_DONE', 'OFFSCREEN_SAVE_BLOB']);
+export const OFFSCREEN_DOCUMENT_PATH = 'offscreen/offscreen.html';
+
+/**
+ * Every extension context shares sender.id, so the id alone cannot tell a
+ * content script (running beside page code) from the popup. Bind each command
+ * to the context that legitimately sends it, using the sender's URL.
+ */
+export function isAllowedSender(type: MessageType, senderUrl: string | undefined, extensionOrigin: string): boolean {
+  if (!senderUrl) return false;
+  if (senderUrl === `${extensionOrigin}${OFFSCREEN_DOCUMENT_PATH}`) return OFFSCREEN_TYPES.has(type);
+  if (senderUrl.startsWith(extensionOrigin)) return !OFFSCREEN_TYPES.has(type);
+  return CONTENT_SCRIPT_TYPES.has(type);
+}
+
 /** Cheap boundary check before command-specific validation in the service worker. */
 export function parseExtensionMessage(value: unknown): ParsedRuntimeMessage | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;

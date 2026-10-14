@@ -18,6 +18,9 @@ let _lastBulkRemoved: QueueItem[] = [];
 let _lastBulkRemovedAt = 0;
 
 let _queueLoadPromise: Promise<void> | null = null;
+let _queueHydrated = false;
+/** True once the persisted queue has been read after a service-worker start. */
+function isQueueHydrated(): boolean { return _queueHydrated; }
 function loadPersistedQueue(): Promise<void> {
   if (_queueLoadPromise) return _queueLoadPromise;
   _queueLoadPromise = (async () => {
@@ -37,6 +40,8 @@ function loadPersistedQueue(): Promise<void> {
       if (interruptedIds.size > 0) void persistQueueImmediately();
     } catch (_) {
       profileQueue = [];
+    } finally {
+      _queueHydrated = true;
     }
   })();
   return _queueLoadPromise;
@@ -261,7 +266,7 @@ function bulkQueueAction(action: 'retry_errors' | 'pause_selected' | 'resume_sel
 }
 
 export {
-  loadPersistedQueue, persistQueue, persistQueueImmediately, broadcastQueueUpdate, startNextInQueue, exportQueue, importQueue,
+  isQueueHydrated, loadPersistedQueue, persistQueue, persistQueueImmediately, broadcastQueueUpdate, startNextInQueue, exportQueue, importQueue,
   retryQueueItem, toggleQueuePause, resumePausedQueueItems, moveQueueItem, resetDownloadingQueueItems,
   bulkQueueAction,
 };

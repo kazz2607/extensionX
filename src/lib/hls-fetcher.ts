@@ -11,6 +11,8 @@
  * @param {function} onProgress - callback(fetched, total)
  * @returns {Promise<Blob>}
  */
+import { isTrustedMediaUrl } from '../shared/validation.ts';
+
 export async function fetchHLS(
   m3u8Url: string,
   onProgress?: (fetched: number, total: number) => void,
@@ -67,15 +69,9 @@ export async function fetchHLS(
   const validBuffers = blobs.filter(Boolean);
   if (validBuffers.length !== segments.length) throw new Error('HLS segment download incomplete');
 
-  const totalSize = validBuffers.reduce((s, b) => s + b.byteLength, 0);
-  const combined = new Uint8Array(totalSize);
-  let offset = 0;
-  for (const buf of validBuffers) {
-    combined.set(new Uint8Array(buf), offset);
-    offset += buf.byteLength;
-  }
-
-  return new Blob([combined], { type: 'video/mp4' }); // Ép kiểu mp4 để Chrome không tự đổi thành .txt
+  // Blob concatenates the segments itself; copying them into one Uint8Array
+  // first would hold about twice the video size in memory.
+  return new Blob(validBuffers, { type: 'video/mp4' }); // Ép kiểu mp4 để Chrome không tự đổi thành .txt
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -86,6 +82,7 @@ async function fetchText(url: string, signal?: AbortSignal): Promise<string | nu
     if (!res.ok) return null;
     return res.text();
   } catch (err) {
+    if (err instanceof Error && err.message === 'Blocked untrusted HLS URL') throw err;
     // AbortError phải được re-throw để caller có thể phân biệt cancel vs. lỗi mạng
     if (signal?.aborted || (err instanceof DOMException && err.name === 'AbortError')) throw err;
     return null;
@@ -95,11 +92,15 @@ async function fetchText(url: string, signal?: AbortSignal): Promise<string | nu
 // Network responses can be transient on X's video CDN. Retry only bounded
 // network/5xx failures and let AbortController end both a retry wait and fetch.
 async function fetchWithRetry(url: string, signal?: AbortSignal, maxAttempts = 3): Promise<Response> {
+  // Playlists may point anywhere; only X's HTTPS media CDN is ever fetched,
+  // and without cookies (the CDN needs none), so a tampered playlist cannot
+  // make the extension send credentialed requests to other hosts.
+  if (!isTrustedMediaUrl(url)) throw new Error('Blocked untrusted HLS URL');
   let lastError: unknown;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     throwIfAborted(signal);
     try {
-      const response = await fetch(url, { credentials: 'include', cache: 'no-store', signal });
+      const response = await fetch(url, { credentials: 'omit', cache: 'no-store', signal });
       if (response.ok) return response;
       if (response.status >= 400 && response.status < 500) throw new Error(`Segment HTTP ${response.status}`);
       lastError = new Error(`Segment HTTP ${response.status}`);

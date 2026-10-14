@@ -48,12 +48,21 @@ function applyDatabaseMigrations(db: IDBDatabase, transaction: IDBTransaction, o
 export function initDB(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
 
-  dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
+  // A failed or blocked open must not be cached: the next call retries instead
+  // of rejecting until the service worker restarts.
+  const opening = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onerror = () => reject(request.error);
+    request.onblocked = () => reject(new Error('IndexedDB open blocked by another connection'));
 
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      const db = request.result;
+      const forget = () => { if (dbPromise === opening) dbPromise = null; };
+      db.onversionchange = () => { db.close(); forget(); };
+      db.onclose = forget;
+      resolve(db);
+    };
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
@@ -61,8 +70,10 @@ export function initDB(): Promise<IDBDatabase> {
       applyDatabaseMigrations(db, request.transaction, event.oldVersion);
     };
   });
+  dbPromise = opening;
+  opening.catch(() => { if (dbPromise === opening) dbPromise = null; });
 
-  return dbPromise;
+  return opening;
 }
 
 // ─── Save Media Items (Delta Write) ──────────────────────────────────────────
@@ -178,10 +189,10 @@ export async function clearAllMediaItems(): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
-    const request = store.clear();
-
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
+    store.clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error || new Error('Clear media transaction aborted'));
   });
 }
 

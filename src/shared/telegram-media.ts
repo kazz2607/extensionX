@@ -17,6 +17,18 @@ const MIME_EXTENSIONS: Readonly<Record<string, string>> = {
 const IMAGE_EXTENSIONS = new Set(['avif', 'gif', 'jpeg', 'jpg', 'png', 'webp']);
 const VIDEO_EXTENSIONS = new Set(['m4v', 'mov', 'mp4', 'mpeg', 'mpg', 'ogv', 'webm']);
 
+/**
+ * URLs the Telegram content script may ask to save: same-origin blob/stream
+ * URLs or an image/video data URL rendered from a canvas. The URL is clicked
+ * in Telegram's page, so javascript: and foreign origins must never pass.
+ */
+export function isTelegramDownloadUrl(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length > 8_192) return false;
+  if (value.startsWith('blob:https://web.telegram.org/')) return true;
+  if (/^data:(?:image|video)\/[a-z0-9.+-]+[;,]/i.test(value)) return true;
+  return isTelegramWebUrl(value);
+}
+
 export function isTelegramWebUrl(value: unknown): value is string {
   if (typeof value !== 'string') return false;
   try {

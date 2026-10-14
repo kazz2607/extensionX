@@ -47,3 +47,20 @@ test('aborts HLS while waiting to retry a transient error', async () => {
     globalThis.fetch = originalFetch;
   }
 });
+
+test('v7.3.0: HLS only fetches X media CDN URLs, without cookies', async () => {
+  const originalFetch = globalThis.fetch;
+  const requests: { url: string; credentials?: RequestCredentials }[] = [];
+  globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
+    requests.push({ url: String(url), credentials: init?.credentials });
+    if (String(url).endsWith('playlist.m3u8')) return new Response('#EXTM3U\nhttp://127.0.0.1/steal.ts\n');
+    return new Response(new Uint8Array([1]).buffer);
+  }) as typeof fetch;
+  try {
+    await assert.rejects(fetchHLS('https://video.twimg.com/a/playlist.m3u8'), /Blocked untrusted HLS URL/);
+    await assert.rejects(fetchHLS('https://evil.example/playlist.m3u8'), /Blocked untrusted HLS URL/);
+    assert.deepEqual(requests, [{ url: 'https://video.twimg.com/a/playlist.m3u8', credentials: 'omit' }]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

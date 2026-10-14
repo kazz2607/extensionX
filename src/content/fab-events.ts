@@ -4,6 +4,7 @@
  */
 import type { FabElements } from './fab-dom.ts';
 import { setPanelButtonText, updateFabI18n } from './fab-i18n.ts';
+import { onExtensionMessage, sendToExtension } from './page-bridge.ts';
 
 export function initFabEvents(elements: FabElements): { closePanel: () => void } {
   const { fab, panel, mainBtn, badge, countEl, scrollsEl, collectBtn, downloadBtn, scrollInfo } = elements;
@@ -19,9 +20,10 @@ export function initFabEvents(elements: FabElements): { closePanel: () => void }
     panel.classList.remove('visible');
   }
 
-  window.addEventListener('XMD_LANG_UPDATE', (e) => {
-    if (window.i18n && (e as CustomEvent).detail?.lang) {
-      window.i18n.lang = (e as CustomEvent).detail.lang;
+  onExtensionMessage('XMD_LANG_UPDATE', (detail) => {
+    const lang = (detail as { lang?: unknown } | null)?.lang;
+    if (window.i18n && typeof lang === 'string') {
+      window.i18n.lang = lang;
       updateFabI18n(elements, { isCollecting, isDownloading });
     }
   });
@@ -37,9 +39,7 @@ export function initFabEvents(elements: FabElements): { closePanel: () => void }
     // Nếu có media và chưa đang download: bấm main btn = download luôn
     if (mediaCount > 0) {
       isDownloading = true;
-      window.dispatchEvent(new CustomEvent('XMD_FAB_ACTION', {
-        detail: { action: 'START_DOWNLOAD' },
-      }));
+      sendToExtension('XMD_FAB_ACTION', { action: 'START_DOWNLOAD' });
       setPanelButtonText(downloadBtn, window.i18n ? window.i18n.t('fab_downloading') : '⏳ Đang tải...');
       downloadBtn.disabled = true;
       // Đóng panel nếu đang mở
@@ -69,17 +69,13 @@ export function initFabEvents(elements: FabElements): { closePanel: () => void }
       mainBtn.classList.add('collecting');
       scrollInfo.classList.add('visible');
       // Gửi lệnh START_COLLECTING qua custom event → content.js relay
-      window.dispatchEvent(new CustomEvent('XMD_FAB_ACTION', {
-        detail: { action: 'START_COLLECTING' },
-      }));
+      sendToExtension('XMD_FAB_ACTION', { action: 'START_COLLECTING' });
     } else {
       setPanelButtonText(collectBtn, window.i18n ? window.i18n.t('fab_collect_start') : '▶ Thu Thập');
       collectBtn.classList.remove('active');
       mainBtn.classList.remove('collecting');
       scrollInfo.classList.remove('visible');
-      window.dispatchEvent(new CustomEvent('XMD_FAB_ACTION', {
-        detail: { action: 'STOP_COLLECTING' },
-      }));
+      sendToExtension('XMD_FAB_ACTION', { action: 'STOP_COLLECTING' });
     }
   });
 
@@ -88,27 +84,26 @@ export function initFabEvents(elements: FabElements): { closePanel: () => void }
     e.stopPropagation();
     if (downloadBtn.disabled || isDownloading) return;
     isDownloading = true;
-    window.dispatchEvent(new CustomEvent('XMD_FAB_ACTION', {
-      detail: { action: 'START_DOWNLOAD' },
-    }));
+    sendToExtension('XMD_FAB_ACTION', { action: 'START_DOWNLOAD' });
     setPanelButtonText(downloadBtn, window.i18n ? window.i18n.t('fab_downloading') : '⏳ Đang tải...');
     downloadBtn.disabled = true;
   });
 
   // ─── Update từ messages ──────────────────────────────────────────────────────
-  window.addEventListener('XMD_FAB_UPDATE', (e) => {
-    const { count, scrollCount, state } = (e as CustomEvent).detail || {};
+  onExtensionMessage('XMD_FAB_UPDATE', (detail) => {
+    const update = (detail || {}) as { count?: number; scrollCount?: number; state?: string; percent?: number; current?: number; total?: number };
+    const { count, scrollCount, state } = update;
 
     if (count !== undefined) {
       mediaCount = count;
-      countEl.textContent = count;
+      countEl.textContent = String(count);
       badge.textContent = count > 999 ? '999+' : String(count);
       badge.style.display = count > 0 ? 'flex' : 'none';
       downloadBtn.disabled = count === 0;
     }
 
     if (scrollCount !== undefined) {
-      scrollsEl.textContent = scrollCount;
+      scrollsEl.textContent = String(scrollCount);
     }
 
     if (state === 'COLLECT_DONE') {
@@ -120,9 +115,8 @@ export function initFabEvents(elements: FabElements): { closePanel: () => void }
     }
 
     // UI-05: FAB mini progress — hiện % khi đang download
-    if (state === 'DOWNLOAD_PROGRESS' && (e as CustomEvent).detail.percent !== undefined) {
-      const pct = (e as CustomEvent).detail.percent;
-      setPanelButtonText(downloadBtn, `⏳ ${pct}% (${(e as CustomEvent).detail.current}/${(e as CustomEvent).detail.total})`);
+    if (state === 'DOWNLOAD_PROGRESS' && update.percent !== undefined) {
+      setPanelButtonText(downloadBtn, `⏳ ${update.percent}% (${update.current}/${update.total})`);
     }
 
     if (state === 'DOWNLOAD_DONE') {

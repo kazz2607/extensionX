@@ -1,6 +1,6 @@
 import type { FollowingCandidate, FollowingScanState } from '../types.ts';
 import { FOLLOWING_SCAN_MAX_RECORDS, validateUnfollowSelection } from '../shared/following-scanner.ts';
-import { broadcastToPopup, sleep } from './utils.ts';
+import { broadcastToPopup } from './utils.ts';
 import { userCsrfToken } from './state.ts';
 import { unfollowXUser } from './tweet-api.ts';
 
@@ -46,7 +46,12 @@ export function ingestFollowingPage(rawCandidates: unknown, cursor?: unknown): n
         typeof item.username !== 'string' || !/^[A-Za-z0-9_]{1,15}$/.test(item.username) ||
         typeof item.displayName !== 'string' || item.displayName.length > 100 ||
         (item.lastActiveAt !== null && (typeof item.lastActiveAt !== 'number' || !Number.isFinite(item.lastActiveAt)))) continue;
-    if (!candidates.has(item.userId) && candidates.size < FOLLOWING_SCAN_MAX_RECORDS) added++;
+    // An account id keeps the handle it was first seen with, so a later page
+    // cannot re-label an id the user is about to select for unfollowing.
+    const known = candidates.get(item.userId);
+    if (known && known.username.toLowerCase() !== item.username.toLowerCase()) continue;
+    if (!known && candidates.size >= FOLLOWING_SCAN_MAX_RECORDS) continue;
+    if (!known) added++;
     candidates.set(item.userId, {
       userId: item.userId,
       username: item.username,
@@ -76,22 +81,41 @@ export function stopFollowingOperation(): void {
   publish();
 }
 
-export async function runUnfollowQueue(ids: unknown): Promise<{ ok: boolean; error?: string }> {
-  if (state.status !== 'ready' && state.status !== 'stopped') return { ok: false, error: 'Scan is not ready' };
+// The previous run may still be inside a request or the throttle wait after
+// Stop; a new run must not start until it has actually returned.
+let unfollowRun: Promise<{ ok: boolean; error?: string }> | null = null;
+
+function waitOrAbort(ms: number, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) return Promise.resolve();
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener('abort', () => { clearTimeout(timer); resolve(); }, { once: true });
+  });
+}
+
+export function runUnfollowQueue(ids: unknown): Promise<{ ok: boolean; error?: string }> {
+  if (unfollowRun) return Promise.resolve({ ok: false, error: 'Previous unfollow run is still stopping' });
+  if (state.status !== 'ready' && state.status !== 'stopped') return Promise.resolve({ ok: false, error: 'Scan is not ready' });
   const selected = validateUnfollowSelection(ids, [...candidates.values()]);
-  if (!selected) return { ok: false, error: 'Invalid unfollow selection' };
-  if (!userCsrfToken) return { ok: false, error: 'Open X.com and refresh the page before unfollowing' };
-  abortController = new AbortController();
+  if (!selected) return Promise.resolve({ ok: false, error: 'Invalid unfollow selection' });
+  if (!userCsrfToken) return Promise.resolve({ ok: false, error: 'Open X.com and refresh the page before unfollowing' });
+  const controller = new AbortController();
+  abortController = controller;
+  unfollowRun = unfollowSequentially(selected, controller.signal).finally(() => { unfollowRun = null; });
+  return unfollowRun;
+}
+
+async function unfollowSequentially(selected: FollowingCandidate[], signal: AbortSignal): Promise<{ ok: boolean; error?: string }> {
   state = { ...state, status: 'unfollowing', processed: 0, succeeded: 0, failed: 0, error: undefined };
   publish();
   for (const candidate of selected) {
-    if (abortController.signal.aborted) break;
+    if (signal.aborted) break;
     try {
-      await unfollowXUser(candidate.userId, userCsrfToken, abortController.signal);
+      await unfollowXUser(candidate.userId, userCsrfToken, signal);
       state.succeeded++;
       candidates.delete(candidate.userId);
     } catch (error) {
-      if (abortController.signal.aborted) break;
+      if (signal.aborted) break;
       state.failed++;
       const code = error instanceof Error ? error.message : 'UNFOLLOW_FAILED';
       if (/UNFOLLOW_STOP_(401|403|429)/.test(code)) {
@@ -104,9 +128,9 @@ export async function runUnfollowQueue(ids: unknown): Promise<{ ok: boolean; err
     }
     state.processed++;
     publish();
-    await sleep(1500 + Math.random() * 1000);
+    await waitOrAbort(1500 + Math.random() * 1000, signal);
   }
-  state.status = abortController.signal.aborted ? 'stopped' : state.failed > 0 ? 'error' : 'ready';
+  state.status = signal.aborted ? 'stopped' : state.failed > 0 ? 'error' : 'ready';
   publish();
-  return { ok: state.failed === 0 && !abortController.signal.aborted, error: state.error };
+  return { ok: state.failed === 0 && !signal.aborted, error: state.error };
 }

@@ -6,8 +6,9 @@ import { startNextInQueue, profileQueue, persistQueueImmediately, broadcastQueue
 import { DownloadOptions, MediaItem, ManifestItem } from '../types.ts';
 import { mediaRepository } from './indexeddb.ts';
 import { createTimedSettlement } from '../shared/timed-settlement.ts';
+import { mergeDownloadOptions, retryableDownloadOptions } from '../shared/download-options.ts';
 import { isTrustedMediaUrl, sanitizeFilename } from '../shared/validation.ts';
-import { createMediaMatcher } from '../shared/media-query.ts';
+import { createMediaMatcher, localDayKey } from '../shared/media-query.ts';
 import { renderFilenameTemplate } from '../shared/filename-template.ts';
 import { renderFolderRule } from '../shared/p2-tools.ts';
 import { formatDownloadError } from '../shared/download-errors.ts';
@@ -20,7 +21,9 @@ import { addNotificationEvent } from './notification-events.ts';
 
 // ─── BUG-2 FIX: Keep-alive alarm để SW không bị Chrome terminate ───────────────
 const KEEPALIVE_ALARM = 'sw-keepalive';
-const DOWNLOAD_TIMEOUT_MS = 90_000; // BUG-1 FIX: 90 giây timeout mỗi file
+// BUG-1 FIX: một file bị coi là treo khi 90 giây liền không nhận thêm byte nào
+// (inactivity timeout — video lớn trên mạng chậm vẫn tải tiếp miễn còn tiến độ).
+const DOWNLOAD_TIMEOUT_MS = 90_000;
 
 // UI-05: FAB progress throttle — per-operation (keyed by operationId) thay vì global
 // để tránh nhiều profile cùng lúc tranh nhau throttle chung.
@@ -73,7 +76,10 @@ chrome.downloads.onChanged.addListener((delta) => {
     bytesReceived?: { current?: number };
     totalBytes?: { current?: number };
   };
-  if (d.bytesReceived && d.bytesReceived.current !== undefined) tracked.bytesReceived = d.bytesReceived.current;
+  if (d.bytesReceived && d.bytesReceived.current !== undefined) {
+    if (d.bytesReceived.current > tracked.bytesReceived) tracked.touch?.();
+    tracked.bytesReceived = d.bytesReceived.current;
+  }
   if (d.totalBytes && d.totalBytes.current !== undefined) tracked.totalBytes = d.totalBytes.current;
 
   // v4.4.0: Throttled broadcast (max 2 lần/s) — chung cho active-downloads overlay
@@ -329,7 +335,7 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
 
   activeErrors = [];
   _lastDownloadUsername = username;
-  _lastDownloadOptions = options;
+  _lastDownloadOptions = retryableDownloadOptions(options);
 
   // BUG-2 FIX: Bật keep-alive để SW không bị Chrome terminate
   startKeepAlive();
@@ -338,8 +344,10 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
   let opts: DownloadOptions = { ...options };
   try {
     const stored = await chrome.storage.sync.get('options');
-    opts = { ...(stored.options || {}), ...options };
-  } catch (_) {}
+    opts = mergeDownloadOptions(stored.options as DownloadOptions | undefined, options);
+  } catch (err) {
+    console.warn('[SW] Could not read stored options; using request options only:', err instanceof Error ? err.message : String(err));
+  }
   if (!downloadCoordinator.isCurrent(operationId)) return;
 
   // Cold profiles stream from IndexedDB and retain only download candidates;
@@ -522,31 +530,11 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
         const item = items[cursor++];
         if (!item) break;
 
-        // Mỗi item có timeout riêng ở cấp batch (ngoài timeout 90s của downloadOne)
-        await Promise.race([
-          downloadOne(item),
-          new Promise((_, reject) =>
-            setTimeout(
-              () => reject(new Error(`Batch timeout: ${item.url?.slice(-50)}`)),
-              DOWNLOAD_TIMEOUT_MS + 15_000  // 90s + 15s buffer
-            )
-          ),
-        ]).catch((err: unknown) => {
-          // Chỉ xử lý ở đây nếu downloadOne() không tự catch được (batch-level timeout)
-          const errMsg = err instanceof Error ? err.message : String(err);
-          if (errMsg.startsWith('Batch timeout')) {
-            failed++;
-            activeErrors.push(formatDownloadError(err));
-            console.warn('[SW] Batch-level timeout:', errMsg);
-            broadcastToPopup('DOWNLOAD_PROGRESS', {
-              username, current: success + failed, total, success, failed,
-              errors: activeErrors, done: success + failed === total,
-              percent: Math.round(((success + failed) / total) * 100),
-              currentFile: '',
-            });
-          }
-          // Các lỗi khác đã được downloadOne() tự xử lý rồi → bỏ qua
-        });
+        // downloadOne settles every item exactly once: file downloads have an
+        // inactivity timeout and HLS a 5-minute one. A shorter outer race used
+        // to count slow HLS items as failed while they kept running, breaking
+        // the concurrency cap and letting success + failed exceed total.
+        await downloadOne(item).catch((err: unknown) => console.error('[SW] downloadOne crashed:', err));
       }
     };
 
@@ -637,9 +625,18 @@ function downloadFile(url: string, filename: string, username: string): Promise<
   if (!url.startsWith('data:') && !isExtensionBlobUrl(url) && !isTrustedMediaUrl(url)) {
     return Promise.reject(new Error('Blocked untrusted download URL'));
   }
+  let chromeDownloadId: number | undefined;
   const settlement = createTimedSettlement<number>(
     DOWNLOAD_TIMEOUT_MS,
-    () => new Error(`Download timeout (90s): ${filename.split('/').pop()}`),
+    () => {
+      // Stop the stalled Chrome download too, so it cannot finish later as an
+      // untracked file and leave a "(1)" duplicate behind on retry.
+      if (chromeDownloadId !== undefined) {
+        activeDownloads.delete(chromeDownloadId);
+        chrome.downloads.cancel(chromeDownloadId, () => { void chrome.runtime.lastError; });
+      }
+      return new Error(`Download stalled (no progress for 90s): ${filename.split('/').pop()}`);
+    },
   );
   const startTime = Date.now();
   const safeResolve = (value: number) => { settlement.resolve(value); };
@@ -658,6 +655,7 @@ function downloadFile(url: string, filename: string, username: string): Promise<
         }
 
         // Theo dõi completion qua onChanged
+        chromeDownloadId = downloadId;
         activeDownloads.set(downloadId, {
           resolve: safeResolve,
           reject: safeReject,
@@ -666,6 +664,7 @@ function downloadFile(url: string, filename: string, username: string): Promise<
           bytesReceived: 0,
           totalBytes: 0,
           username,
+          touch: settlement.touch,
         });
 
         // BUG-7 FIX: Race condition check — nếu download đã xong trước khi addListener kịp
@@ -730,7 +729,7 @@ function buildFilename(item: MediaItem, username = '', filenameUsername = false,
   const ext = item.ext || 'jpg';
 
   if (template && template.trim()) {
-    const date = item.tweetDate ? new Date(item.tweetDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
+    const date = localDayKey(item.tweetDate || Date.now());
     const rendered = renderFilenameTemplate(template, {
       username: username || 'unknown',
       tweetId: item.tweetId || item.mediaKey || 'media',

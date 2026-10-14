@@ -5,9 +5,19 @@ import { chromeApi } from './chrome-api.ts';
 const storageKey = 'local_diagnostics_v1';
 let writeChain = Promise.resolve();
 
-async function isEnabled(): Promise<boolean> {
-  const stored = await chromeApi.storage.sync.get('options');
-  return (stored.options as Options | undefined)?.localDiagnostics === true;
+// Cached opt-in flag: reading storage.sync for every metric was a storage
+// round trip per DOM mutation batch even with diagnostics off (the default).
+let enabledCache: Promise<boolean> | null = null;
+function isEnabled(): Promise<boolean> {
+  enabledCache ??= chromeApi.storage.sync.get('options')
+    .then((stored) => (stored.options as Options | undefined)?.localDiagnostics === true)
+    .catch(() => { enabledCache = null; return false; });
+  return enabledCache;
+}
+if (typeof chrome !== 'undefined' && chrome.storage?.onChanged) {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'sync' && changes.options) enabledCache = null;
+  });
 }
 
 export async function recordDiagnostic(name: string, value?: number, code?: string): Promise<void> {

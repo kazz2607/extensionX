@@ -571,6 +571,17 @@ function markDownloaded(username: string, url: string) {
 
 const _downloadedPersistTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const _dirtyDownloadedUrls = new Map<string, Set<string>>();
+
+/** Drop not-yet-written history so a clear is not undone by a pending persist. */
+function cancelDownloadedPersist(username?: string): void {
+  const usernames = username ? [username] : [..._downloadedPersistTimers.keys(), ..._dirtyDownloadedUrls.keys()];
+  for (const name of usernames) {
+    const timer = _downloadedPersistTimers.get(name);
+    if (timer) clearTimeout(timer);
+    _downloadedPersistTimers.delete(name);
+    _dirtyDownloadedUrls.delete(name);
+  }
+}
 function scheduleDownloadedPersist(username: string, normalizedUrl: string): void {
   // Only write the new key. IndexedDB upserts atomically and avoids serializing
   // the full history after every completed file.
@@ -624,5 +635,5 @@ export {
   addMediaItems, ensureMediaStoreLoaded, applyOptionsFilter, tweetDateFromId,
   checkAutoScroll, startCollecting, stopCollecting, stopCollectingForTab, scrollLoop,
   persistSession, clearSession,
-  loadDownloadedUrls, isAlreadyDownloaded, markDownloaded, showDownloadNotification
+  loadDownloadedUrls, isAlreadyDownloaded, markDownloaded, cancelDownloadedPersist, showDownloadNotification
 };

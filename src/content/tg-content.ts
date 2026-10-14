@@ -441,21 +441,24 @@ function syncViewerButton(): void {
   button.hidden = !viewerOpen;
 }
 
-function processDOM(): void {
-  syncViewerButton();
+/** Matches inside root, including root itself (an added node may be the media). */
+function queryAll<T extends Element>(root: ParentNode, selector: string): T[] {
+  const found = Array.from(root.querySelectorAll<T>(selector));
+  if (root instanceof Element && root.matches(selector)) found.unshift(root as T);
+  return found;
+}
 
-  const videos = document.querySelectorAll<HTMLVideoElement>(
+function processMedia(root: ParentNode): void {
+  queryAll<HTMLVideoElement>(root,
     '.message video, .Message video, .message-media video, .media-viewer video, .MediaViewer video, .VideoPlayer video, video.media-video',
-  );
-  videos.forEach((video) => {
+  ).forEach((video) => {
     if (video.closest(VIEWER_SELECTOR)) return;
     if (video.parentElement) attachButtonToMedia(video.parentElement, video, 'video');
   });
 
-  const images = document.querySelectorAll<HTMLImageElement>(
+  queryAll<HTMLImageElement>(root,
     'img.media-photo, .message-media img, .media-viewer-aspecter img, .Media img, .Photo img, .MediaViewer img, .album-item-media img',
-  );
-  images.forEach((image) => {
+  ).forEach((image) => {
     if (image.closest(VIEWER_SELECTOR)) return;
     if (image.closest('.avatar, .Avatar, .emoji, .Emoji, .sticker, .Sticker')) return;
     if (image.naturalWidth > 0 && image.naturalHeight > 0 && (image.naturalWidth < 120 || image.naturalHeight < 120)) return;
@@ -464,39 +467,53 @@ function processDOM(): void {
     if (image.parentElement) attachButtonToMedia(image.parentElement, image, 'image');
   });
 
-  document.querySelectorAll<HTMLCanvasElement>('.message-media canvas, .Media canvas').forEach((canvas) => {
+  queryAll<HTMLCanvasElement>(root, '.message-media canvas, .Media canvas').forEach((canvas) => {
     if (canvas.closest(VIEWER_SELECTOR)) return;
     if (isVideoThumbnail(canvas)) return;
     if (canvas.parentElement) attachButtonToMedia(canvas.parentElement, canvas, 'image');
   });
 }
 
+/** Full pass: viewer button plus every media element in the document. */
+function processDOM(): void {
+  syncViewerButton();
+  processMedia(document);
+}
+
 function isOwnNode(node: Node): boolean {
   return node instanceof Element && node.classList.contains('ext-x-tg-download-btn');
 }
 
-// Gộp nhiều đợt mutation vào 1 lần quét/khung hình, và bỏ qua mutation do chính nút của
-// extension gây ra — để không bao giờ tạo vòng lặp "gắn nút → mutation → quét lại".
-let _processScheduled = false;
-function scheduleProcessDOM(): void {
-  if (_processScheduled) return;
-  _processScheduled = true;
-  window.requestAnimationFrame(() => {
-    _processScheduled = false;
-    processDOM();
-  });
+// Mutations only rescan the subtrees they added, at most ~4 times per second,
+// instead of re-querying (and forcing style/layout on) the whole document every
+// animation frame while a chat scrolls. Own buttons never trigger a rescan, so
+// "attach button → mutation → rescan" cannot loop.
+const PROCESS_INTERVAL_MS = 250;
+const _pendingRoots = new Set<Element>();
+let _processTimer: number | null = null;
+function scheduleProcessRoots(): void {
+  if (_processTimer !== null) return;
+  _processTimer = window.setTimeout(() => {
+    _processTimer = null;
+    const roots = Array.from(_pendingRoots);
+    _pendingRoots.clear();
+    syncViewerButton();
+    for (const root of roots) if (root.isConnected) processMedia(root);
+  }, PROCESS_INTERVAL_MS);
 }
 
 const observer = new MutationObserver((mutations) => {
-  const hasForeignAddition = mutations.some((mutation) =>
-    Array.from(mutation.addedNodes).some((node) => !isOwnNode(node)),
-  );
-  if (hasForeignAddition) scheduleProcessDOM();
+  for (const mutation of mutations) {
+    for (const node of mutation.addedNodes) {
+      if (node instanceof Element && !isOwnNode(node)) _pendingRoots.add(node);
+    }
+  }
+  if (_pendingRoots.size > 0) scheduleProcessRoots();
 });
 
 observer.observe(document.body, { childList: true, subtree: true });
 processDOM();
-// Viewer mở/đóng chủ yếu đổi class/style (không thêm node) nên observer childList có thể bỏ sót.
-// MutationObserver handles normal changes; the slower watchdog only catches
-// Telegram style/class toggles that do not add DOM nodes.
-window.setInterval(syncViewerButton, 2_000);
+// Viewer open/close mostly toggles class/style (no added nodes), and Telegram
+// can re-render a container without re-adding its media; this slower full pass
+// catches both and restores any dropped buttons.
+window.setInterval(processDOM, 2_000);

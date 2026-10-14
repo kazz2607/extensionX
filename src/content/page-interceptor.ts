@@ -12,6 +12,8 @@ import { parseFollowingGraphqlPage } from '../shared/following-scanner.ts';
  *   → content.js relay → service-worker lưu vào mediaStore
  */
 
+import { sendToExtension } from './page-bridge.ts';
+
 (function () {
   'use strict';
 
@@ -96,12 +98,10 @@ import { parseFollowingGraphqlPage } from '../shared/following-scanner.ts';
       source: 'interceptor',
     };
 
-    window.dispatchEvent(new CustomEvent('X_MEDIA_FOUND', {
-      detail: {
+    sendToExtension('X_MEDIA_FOUND', {
         mediaItems: [mediaItem],
         sourceUrl: 'page-interceptor',
-      },
-    }));
+      });
   }
 
   // ─── P1: Adaptive Speed Tracker ───────────────────────────────────────────────
@@ -116,9 +116,7 @@ import { parseFollowingGraphqlPage } from '../shared/following-scanner.ts';
 // @ts-ignore
     const sum = recentDurations.reduce((a, b) => a + b, 0);
     const avg = Math.round(sum / recentDurations.length);
-    window.dispatchEvent(new CustomEvent('X_ADAPTIVE_SPEED', {
-      detail: { avgResponseTime: avg }
-    }));
+    sendToExtension('X_ADAPTIVE_SPEED', { avgResponseTime: avg });
   }
 
   // ─── SEC-04: Capture Authorization header từ API requests của X.com ────────
@@ -133,7 +131,7 @@ import { parseFollowingGraphqlPage } from '../shared/following-scanner.ts';
         authHeader = (h as Record<string, string>)['authorization'] || (h as Record<string, string>)['Authorization'] || '';
       }
       if (authHeader.startsWith('Bearer ')) {
-        window.dispatchEvent(new CustomEvent('XMD_BEARER_TOKEN', { detail: { bearer: authHeader } }));
+        sendToExtension('XMD_BEARER_TOKEN', { bearer: authHeader });
       }
     } catch (_) {}
   }
@@ -166,11 +164,23 @@ import { parseFollowingGraphqlPage } from '../shared/following-scanner.ts';
       const opName  = m[2];
       if (GRAPHQL_OPS_WITH_MEDIA.includes(opName) && _capturedQueryIds[opName] !== queryId) {
         _capturedQueryIds[opName] = queryId;
-        window.dispatchEvent(new CustomEvent('XMD_QUERY_ID', {
-          detail: { queryId, opName }
-        }));
+        sendToExtension('XMD_QUERY_ID', { queryId, opName });
       }
     } catch (_) {}
+  }
+
+  // Captured before JSON.parse is hooked below so our own parsing never walks a
+  // response a second time through the hook.
+  const nativeParse = JSON.parse;
+  const RESERVED_ROUTES = new Set(['home', 'explore', 'notifications', 'messages', 'search', 'settings', 'i', 'login', 'logout', 'compose']);
+
+  // Media is only kept on profile/likes/bookmarks routes (content.ts drops it
+  // elsewhere), so skip parsing X's Home, Explore, DM and notification traffic.
+  function routeCollectsMedia(): boolean {
+    const path = location.pathname;
+    if (path.startsWith('/i/bookmarks')) return true;
+    const first = path.split('/')[1] || '';
+    return /^[A-Za-z0-9_]{1,50}$/.test(first) && !RESERVED_ROUTES.has(first.toLowerCase());
   }
 
   // ─── 1. Hook window.fetch ────────────────────────────────────────────────────
@@ -195,23 +205,23 @@ import { parseFollowingGraphqlPage } from '../shared/following-scanner.ts';
     try {
       if (url.includes('/graphql/')) {
         reportResponseTime(duration);
+        const isFollowing = /\/graphql\/[A-Za-z0-9_-]+\/(Following|FollowingUsers)/.test(url);
+        const wantsMedia = routeCollectsMedia();
+        if (!isFollowing && !wantsMedia) return response;
         const clone = response.clone();
         clone.json().then(data => {
-          if (/\/graphql\/[A-Za-z0-9_-]+\/(Following|FollowingUsers)/.test(url)) {
+          if (isFollowing) {
             const page = parseFollowingGraphqlPage(data);
             if (page.candidates.length > 0) {
-              window.dispatchEvent(new CustomEvent('XMD_FOLLOWING_PAGE', { detail: page }));
+              sendToExtension('XMD_FOLLOWING_PAGE', page);
             }
           }
-// @ts-ignore
-          const mediaItems = [];
+          if (!wantsMedia) return;
+          const mediaItems: unknown[] = [];
 // @ts-ignore
           extractMediaFromResponse(data, mediaItems);
           if (mediaItems.length > 0) {
-            window.dispatchEvent(new CustomEvent('X_MEDIA_FOUND', {
-// @ts-ignore
-              detail: { mediaItems, sourceUrl: 'graphql-fetch' }
-            }));
+            sendToExtension('X_MEDIA_FOUND', { mediaItems, sourceUrl: 'graphql-fetch' });
           }
         }).catch(()=>{});
       }
@@ -324,17 +334,13 @@ import { parseFollowingGraphqlPage } from '../shared/following-scanner.ts';
         const url = this._interceptUrl || this.responseURL || '';
         if (url.includes('/graphql/')) {
           reportResponseTime(duration);
-          const text = this.responseText;
-          const data = JSON.parse(text);
-// @ts-ignore
-          const mediaItems = [];
+          if (!routeCollectsMedia()) return;
+          const data = nativeParse(this.responseText);
+          const mediaItems: unknown[] = [];
 // @ts-ignore
           extractMediaFromResponse(data, mediaItems);
           if (mediaItems.length > 0) {
-            window.dispatchEvent(new CustomEvent('X_MEDIA_FOUND', {
-// @ts-ignore
-              detail: { mediaItems, sourceUrl: 'graphql-xhr' }
-            }));
+            sendToExtension('X_MEDIA_FOUND', { mediaItems, sourceUrl: 'graphql-xhr' });
           }
         }
       } catch (_) {}
@@ -391,26 +397,17 @@ import { parseFollowingGraphqlPage } from '../shared/following-scanner.ts';
   }
 
   // ─── 5. Hook JSON.parse ──────────────────────────────────────────────────────
-  const _originalParse = JSON.parse;
+  // Every media object (entities and extended_entities) carries media_url_https,
+  // so one substring scan replaces the previous five per parsed string.
   JSON.parse = function(text, reviver) {
-    const result = _originalParse(text, reviver);
+    const result = nativeParse(text, reviver);
     try {
-      if (typeof text === 'string' && (
-        text.includes('extended_entities') ||
-        text.includes('video_info') ||
-        text.includes('media_url_https') ||
-        text.includes('media_url') ||
-        text.includes('pbs.twimg.com')
-      )) {
-// @ts-ignore
-        const mediaItems = [];
+      if (typeof text === 'string' && text.length > 200 && routeCollectsMedia() && text.includes('media_url_https')) {
+        const mediaItems: unknown[] = [];
 // @ts-ignore
         extractMediaFromResponse(result, mediaItems);
         if (mediaItems.length > 0) {
-          window.dispatchEvent(new CustomEvent('X_MEDIA_FOUND', {
-// @ts-ignore
-            detail: { mediaItems, sourceUrl: 'json-interceptor' }
-          }));
+          sendToExtension('X_MEDIA_FOUND', { mediaItems, sourceUrl: 'json-interceptor' });
         }
       }
     } catch (_) {}

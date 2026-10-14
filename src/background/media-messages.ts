@@ -1,14 +1,14 @@
 import { mediaStore, statsStore, tabState, downloadedStore, downloadCoordinator, pendingHlsRequests, setCsrfToken, dirtyMediaStore } from './state.ts';
 import { continueCollectOnPageLoad } from '../shared/collect-state.ts';
-import { addMediaItems, ensureMediaStoreLoaded, applyOptionsFilter, checkAutoScroll, startCollecting, stopCollecting, clearSession, fetchVideoForTweetWithRefresh, loadDownloadedUrls } from './scraper.ts';
+import { addMediaItems, cancelDownloadedPersist, ensureMediaStoreLoaded, applyOptionsFilter, checkAutoScroll, startCollecting, stopCollecting, clearSession, fetchVideoForTweetWithRefresh, loadDownloadedUrls } from './scraper.ts';
 import { startDownload, handleDownloadTweet, saveOffscreenBlob } from './downloader.ts';
 import { updateBadge, broadcastToPopup, updateFAB } from './utils.ts';
 import { mediaRepository } from './indexeddb.ts';
 import { setDynamicBearer, setDynamicQueryId } from './tweet-api.ts';
 import { isTrustedMediaUrl, isValidDownloadOptions, isValidMediaItem, isValidUsername, isXProfileUrlForUsername, isXUrl, normalizeMediaUrlToOrig } from '../shared/validation.ts';
-import type { ParsedRuntimeMessage } from '../shared/messages.ts';
+import { OFFSCREEN_DOCUMENT_PATH, type ParsedRuntimeMessage } from '../shared/messages.ts';
 import { recordDiagnostic } from './diagnostics.ts';
-import { isTelegramWebUrl } from '../shared/telegram-media.ts';
+import { isTelegramDownloadUrl, isTelegramWebUrl } from '../shared/telegram-media.ts';
 import type { Stats, MediaItem } from '../types.ts';
 import { collectMediaMatches, createMediaMatcher, type MediaQueryCriteria } from '../shared/media-query.ts';
 
@@ -77,7 +77,7 @@ export function handleMediaMessage(
   // Offscreen hands assembled HLS/ZIP blobs back because it cannot use chrome.downloads.
   if (message.type === 'OFFSCREEN_SAVE_BLOB') {
     const { url, filename, username } = message.payload;
-    const fromOffscreen = !sender.tab && sender.url === chrome.runtime.getURL('offscreen/offscreen.html');
+    const fromOffscreen = !sender.tab && sender.url === chrome.runtime.getURL(OFFSCREEN_DOCUMENT_PATH);
     if (!fromOffscreen || typeof url !== 'string' || !isSafeDownloadPath(filename)) {
       sendResponse({ error: 'Invalid offscreen save request' });
       return false;
@@ -320,25 +320,29 @@ export function handleMediaMessage(
     // v4.1.0: Xóa lịch sử đã tải của username
     case 'CLEAR_DOWNLOADED': {
       if (!isValidUsername(payload?.username)) { sendResponse({ error: 'Invalid username' }); return false; }
-      downloadedStore.delete(payload.username);
-      mediaRepository.clearDownloadedUrls(payload.username).catch(() => {});
-      chrome.storage.local.remove(`downloaded_${payload.username}`).catch(() => {}); // legacy cleanup
-      sendResponse({ ok: true, count: 0 });
-      return false;
+      const username = payload.username;
+      cancelDownloadedPersist(username);
+      downloadedStore.delete(username);
+      void Promise.all([
+        mediaRepository.clearDownloadedUrls(username),
+        chrome.storage.local.remove(`downloaded_${username}`), // legacy cleanup
+      ]).then(() => sendResponse({ ok: true, count: 0 }))
+        .catch((error: unknown) => sendResponse({ error: error instanceof Error ? error.message : 'Clear failed' }));
+      return true;
     }
 
     // Xóa toàn bộ lịch sử đã tải của TẤT CẢ username
     case 'CLEAR_ALL_DOWNLOADED': {
+      cancelDownloadedPersist();
       downloadedStore.clear();
-      mediaRepository.clearAllDownloadedUrls().catch(() => {});
-      chrome.storage.local.get(null, (allData) => {
+      void (async () => {
+        await mediaRepository.clearAllDownloadedUrls();
+        const allData = await chrome.storage.local.get(null);
         const keysToRemove = Object.keys(allData || {}).filter(k => k.startsWith('downloaded_'));
-        if (keysToRemove.length > 0) {
-          chrome.storage.local.remove(keysToRemove).catch(() => {});
-        }
-      });
-      sendResponse({ ok: true });
-      return false;
+        if (keysToRemove.length > 0) await chrome.storage.local.remove(keysToRemove);
+      })().then(() => sendResponse({ ok: true }))
+        .catch((error: unknown) => sendResponse({ error: error instanceof Error ? error.message : 'Clear failed' }));
+      return true;
     }
 
     // Xóa toàn bộ media đã thu thập và lịch sử tải của username
@@ -513,7 +517,7 @@ export function handleMediaMessage(
         return true;
       }
       const safeFilename = filename.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 200);
-      if (!safeFilename || url.length > 8_192) {
+      if (!safeFilename || !isTelegramDownloadUrl(url)) {
         sendResponse({ error: 'Invalid Telegram download request' });
         return false;
       }

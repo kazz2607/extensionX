@@ -607,5 +607,76 @@ test('v7.2.3 offscreen blobs are saved by the service worker, not chrome.downloa
   const options = await context.newPage();
   await options.goto(`chrome-extension://${new URL(worker.url()).host}/options/options.html`);
   const rejected = await options.evaluate(() => chrome.runtime.sendMessage({ type: 'OFFSCREEN_SAVE_BLOB', payload: { url: 'blob:chrome-extension://x/1', filename: 'a.ts' } }));
-  assert.equal((rejected as { error?: string }).error, 'Invalid offscreen save request');
+  assert.ok((rejected as { error?: string }).error, 'extension page reached the offscreen save channel');
+
+  // Offscreen work is driven by the service worker only.
+  const fromWorker = await worker.evaluate(() => chrome.runtime.sendMessage({ target: 'offscreen', type: 'CANCEL_HLS', requestId: 'none' }));
+  assert.deepEqual(fromWorker, { cancelled: false });
+  const fromPage = await options.evaluate(() => chrome.runtime.sendMessage({ target: 'offscreen', type: 'CANCEL_HLS', requestId: 'none' }).catch(() => 'no-receiver'));
+  assert.notDeepEqual(fromPage, { cancelled: false }, 'an extension page drove the offscreen document');
+});
+
+test('v7.3.0 page scripts cannot read or forge the extension bridge; SPA navigation reaches the worker', { timeout: 60_000 }, async (t) => {
+  const extensionDir = await prepareTestExtension();
+  const profileDir = await mkdtemp(join(tmpdir(), 'extensionx-bridge-profile-'));
+  const context = await chromium.launchPersistentContext(profileDir, {
+    executablePath: chromePath,
+    headless: process.env.PLAYWRIGHT_HEADED !== 'true',
+    args: [`--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`, '--no-first-run'],
+  });
+  t.after(async () => {
+    await context.close();
+    await rm(extensionDir, { recursive: true, force: true });
+    await rm(profileDir, { recursive: true, force: true });
+  });
+  // A hostile inline script that runs as early as any X script can.
+  const hostile = `<script>
+    window.__stolenPorts = 0;
+    window.addEventListener('message', (e) => { if (e.ports && e.ports.length && !(e.data && e.data.forged)) window.__stolenPorts++; }, true);
+    const fake = new MessageChannel();
+    fake.port1.onmessage = (e) => { window.__leaked = (window.__leaked || 0) + 1; };
+    window.postMessage({ __xmdBridge: 'port', forged: true }, location.origin, [fake.port2]);
+  </script>`;
+  await context.route('https://x.com/**', async (route) => {
+    const [, username = 'Carol'] = new URL(route.request().url()).pathname.split('/');
+    const body = mediaPage(username, username.toLowerCase()).replace('<head>', `<head>${hostile}`);
+    await route.fulfill({ status: 200, contentType: 'text/html', body });
+  });
+  await context.route('https://pbs.twimg.com/**', (route) => route.fulfill({ status: 200, contentType: 'image/jpeg', body: '' }));
+  const id = await extensionId(context);
+  const carol = await context.newPage();
+  await carol.goto('https://x.com/Carol/media');
+  const options = await context.newPage();
+  await options.goto(`chrome-extension://${id}/options/options.html`);
+  const send = (message: unknown) => options.evaluate((m) => chrome.runtime.sendMessage(m), message);
+  const mediaCount = async () => (await send({ type: 'GET_MEDIA_COUNT', payload: { username: 'Carol' } }) as { count: number }).count;
+  const isCollecting = async () => (await send({ type: 'GET_TAB_STATE', payload: { username: 'Carol' } }) as { isCollecting: boolean }).isCollecting;
+  await waitForCount(mediaCount, 1);
+
+  // Legacy window events and a forged port no longer reach the service worker.
+  await carol.evaluate(() => {
+    window.dispatchEvent(new CustomEvent('XMD_FAB_ACTION', { detail: { action: 'START_COLLECTING' } }));
+    window.dispatchEvent(new CustomEvent('X_MEDIA_FOUND', { detail: { mediaItems: [{ type: 'image', url: 'https://pbs.twimg.com/media/forged.jpg', tweetId: '1850000000000000009' }] } }));
+  });
+  await new Promise((resolve) => setTimeout(resolve, 1_500));
+  assert.equal(await isCollecting(), false, 'a page event started collection');
+  assert.equal(await mediaCount(), 1, 'a page event injected media');
+  const pageView = await carol.evaluate(() => ({
+    stolen: (window as unknown as { __stolenPorts: number }).__stolenPorts,
+    leaked: (window as unknown as { __leaked?: number }).__leaked ?? 0,
+  }));
+  assert.deepEqual(pageView, { stolen: 0, leaked: 0 }, 'page saw the bridge port or received bridge traffic');
+
+  // The real FAB still drives the worker, and worker updates still reach the FAB.
+  await carol.locator('#__xmd_badge__').filter({ hasText: '1' }).waitFor({ timeout: 10_000 });
+  await carol.evaluate(() => (document.getElementById('__xmd_collect_btn__') as HTMLButtonElement).click());
+  const deadline = Date.now() + 10_000;
+  while (!(await isCollecting()) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 200));
+  assert.equal(await isCollecting(), true, 'FAB click did not start collection');
+
+  // X navigates with pushState in the MAIN world; switching profile ends the run.
+  await carol.evaluate(() => history.pushState({}, '', '/Dave/media'));
+  const navDeadline = Date.now() + 10_000;
+  while ((await isCollecting()) && Date.now() < navDeadline) await new Promise((resolve) => setTimeout(resolve, 200));
+  assert.equal(await isCollecting(), false, 'SPA navigation to another profile did not stop collection');
 });

@@ -154,8 +154,15 @@ async function processHLSTask(task: HlsTask) {
 }
 
 // ─── Message Listener ─────────────────────────────────────────────────────────
+// Only the service worker (an extension context without a page or tab) may
+// drive offscreen work; popup/options pages and content scripts may not.
+function isServiceWorkerSender(sender: chrome.runtime.MessageSender): boolean {
+  return sender.id === chrome.runtime.id && !sender.tab &&
+    Boolean(sender.url?.startsWith(chrome.runtime.getURL(''))) && !sender.url?.endsWith('.html');
+}
+
 chrome.runtime.onMessage.addListener((msg: OffscreenMessage, sender, sendResponse) => {
-  if (sender.id !== chrome.runtime.id || msg.target !== 'offscreen') return false;
+  if (!isServiceWorkerSender(sender) || msg.target !== 'offscreen') return false;
 
   if (msg.type === 'DOWNLOAD_HLS') {
     if (typeof msg.requestId !== 'string' || typeof msg.url !== 'string' || typeof msg.filename !== 'string') {
