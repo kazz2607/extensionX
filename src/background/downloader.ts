@@ -1,6 +1,6 @@
 
 import { mediaStore, downloadedStore, tabState, downloadCoordinator, pendingHlsRequests, activeDownloads, trimMediaCache } from './state.ts';
-import { broadcastToPopup, broadcastToTab, sanitizeFolder, broadcastFABState } from './utils.ts';
+import { broadcastToPopup, broadcastToTab, sanitizeFolder, broadcastFABState, sleep } from './utils.ts';
 import { showDownloadNotification, fetchVideoForTweetWithRefresh, loadDownloadedUrls, isAlreadyDownloaded, markDownloaded, ensureMediaStoreLoaded } from './scraper.ts';
 import { startNextInQueue, profileQueue, persistQueueImmediately, broadcastQueueUpdate } from './queue.ts';
 import { DownloadOptions, MediaItem, ManifestItem } from '../types.ts';
@@ -11,7 +11,8 @@ import { isTrustedMediaUrl, sanitizeFilename } from '../shared/validation.ts';
 import { createMediaMatcher, localDayKey } from '../shared/media-query.ts';
 import { renderFilenameTemplate } from '../shared/filename-template.ts';
 import { renderFolderRule } from '../shared/p2-tools.ts';
-import { formatDownloadError } from '../shared/download-errors.ts';
+import { categorizeDownloadError, formatDownloadError } from '../shared/download-errors.ts';
+import { PauseGate, RATE_LIMIT_PAUSE_MS, clampConcurrency, clampDownloadDelay } from '../shared/download-throttle.ts';
 import { recordDiagnostic } from './diagnostics.ts';
 import { DIAGNOSTIC_ERROR_CODES } from '../shared/diagnostics.ts';
 import { transitionQueueItem } from '../shared/queue-state.ts';
@@ -438,7 +439,17 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
 
   // Thư mục lưu: {saveFolder}/{username}/{subfolder}/
   const saveFolder = sanitizeFolder(opts.saveFolder || '');
-  const CONCURRENCY = Math.min(Math.max(opts.concurrency || 3, 1), 5);
+  const CONCURRENCY = clampConcurrency(opts.concurrency);
+  // F4: nghỉ giữa các file và tự lùi khi X giới hạn tốc độ (429).
+  const delayMs = clampDownloadDelay(opts.downloadDelayMs);
+  const backoffOnRateLimit = opts.rateLimitBackoff !== false;
+  const pauseGate = new PauseGate();
+  const requeuedAfterRateLimit = new Set<string>();
+  // Chờ có thể ngắt: bấm Stop thì thoát ngay, không đợi hết thời gian nghỉ.
+  const waitUnlessStopped = async (ms: number) => {
+    const end = Date.now() + ms;
+    while (Date.now() < end && downloadCoordinator.isCurrent(operationId)) await sleep(Math.min(500, end - Date.now()));
+  };
   const filenameUsername = opts.filenameUsername || false;
   // Pha 13: {index} trong filename template — vị trí item trong danh sách đã lọc,
   // cố định trước khi worker pool bắt đầu (không phụ thuộc thứ tự hoàn thành).
@@ -477,6 +488,17 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
       markDownloaded(username, item.url);
     } catch (err: unknown) {
       if (!downloadCoordinator.isCurrent(operationId)) return;
+      // F4: X trả 429 → mọi luồng tạm nghỉ, file này được xếp lại cuối hàng một
+      // lần (chưa tính là lỗi). Lần 429 thứ hai mới ghi nhận lỗi bình thường.
+      if (backoffOnRateLimit && categorizeDownloadError(err) === 'rate_limited' && !requeuedAfterRateLimit.has(item.url)) {
+        requeuedAfterRateLimit.add(item.url);
+        const resumeAt = pauseGate.pause(Date.now(), RATE_LIMIT_PAUSE_MS);
+        items.push(item);
+        broadcastToPopup('DOWNLOAD_THROTTLED', { username, resumeAt });
+        if (snackEnabled) broadcastToTab(username, 'SNACKBAR_UPDATE', { type: 'DOWNLOAD_THROTTLED', resumeAt });
+        console.warn('[SW] Rate limited (429) — pausing all workers until', new Date(resumeAt).toISOString());
+        return;
+      }
       const errMsg = err instanceof Error ? err.message : String(err);
       failed++;
       activeErrors.push(formatDownloadError(err));
@@ -544,7 +566,12 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
     let cursor = 0;
 
     const runWorker = async () => {
+      let first = true;
       while (cursor < items.length) {
+        // F4: chờ hết thời gian tạm nghỉ do 429 và khoảng nghỉ giữa các file.
+        await waitUnlessStopped(pauseGate.remaining(Date.now()));
+        if (!first && delayMs > 0) await waitUnlessStopped(delayMs);
+        first = false;
         // Bug 2: Dừng worker nếu user yêu cầu stop
         if (!downloadCoordinator.isCurrent(operationId)) { cursor = items.length; break; }
         const item = items[cursor++];

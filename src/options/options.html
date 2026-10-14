@@ -482,9 +482,32 @@
           <span data-i18n="opt_concurrency_desc">Download multiple files at once for faster speed (recommended: 3)</span>
         </div>
         <div class="range-wrap">
-          <input type="range" id="opt-concurrency" min="1" max="5" step="1" value="3" />
+          <input type="range" id="opt-concurrency" min="1" max="6" step="1" value="3" />
           <span class="range-value" id="concurrency-val">3</span>
         </div>
+      </div>
+
+      <div class="option-row">
+        <div class="option-label">
+          <strong id="opt-download-delay-label" data-i18n="opt_download_delay">Pause between files</strong>
+          <span data-i18n="opt_download_delay_desc">Each download slot waits this long before its next file. Raise it if X often returns error 429 on large profiles.</span>
+        </div>
+        <div class="range-wrap">
+          <input type="range" id="opt-download-delay" min="0" max="10" step="0.5" value="0" aria-labelledby="opt-download-delay-label" />
+          <span class="range-value" id="download-delay-val">0s</span>
+        </div>
+      </div>
+
+      <div class="option-row">
+        <div class="option-label">
+          <strong id="opt-rate-limit-backoff-label" data-i18n="opt_rate_limit_backoff">Slow down when rate limited (429)</strong>
+          <span data-i18n="opt_rate_limit_backoff_desc">When X returns 429, all downloads pause for 60 seconds and the blocked file is retried once before it counts as failed.</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="opt-rate-limit-backoff" aria-labelledby="opt-rate-limit-backoff-label" checked />
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
       </div>
 
       <div class="option-row">

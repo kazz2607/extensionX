@@ -104,6 +104,10 @@ export interface DownloadOptions {
   filenameTemplate?: string;
   // Performance options
   concurrency?: number;
+  /** F4: nghỉ giữa hai file của cùng một luồng (ms, 0–10000). Chỉ đọc từ cài đặt. */
+  downloadDelayMs?: number;
+  /** F4: tạm dừng và xếp lại file khi X trả 429. Chỉ đọc từ cài đặt. */
+  rateLimitBackoff?: boolean;
   // UI options
   showSnackbar?: boolean;
   // Internal queue tracking
@@ -163,6 +167,10 @@ export interface Options {
   schemaVersion?: number;
   saveFolder?: string;
   concurrency?: number;
+  /** F4: nghỉ giữa hai file của cùng một luồng (ms). */
+  downloadDelayMs?: number;
+  /** F4: tự tạm dừng khi X giới hạn tốc độ (429). */
+  rateLimitBackoff?: boolean;
   filenameUsername?: boolean;
   flatUsername?: boolean;
   // Pha 13: template đặt tên file tuỳ chỉnh — {username} {tweetId} {date} {type} {ext} {index}

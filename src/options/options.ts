@@ -19,6 +19,7 @@ import { renderFilenameTemplate } from '../shared/filename-template.ts';
 import { migrateOptionsStorage, OPTIONS_SCHEMA_VERSION } from '../shared/storage-migrations.ts';
 import type { ResponseFor } from '../shared/messages.ts';
 import type { StorageSummary } from '../types.ts';
+import { clampConcurrency, clampDownloadDelay } from '../shared/download-throttle.ts';
 
 // Mọi id dùng qua helper này đều trỏ tới input/select tĩnh có sẵn trong
 // options.html — cast trực tiếp thay vì ts-ignore từng dòng, không đổi hành vi.
@@ -35,6 +36,8 @@ const DEFAULT_OPTIONS = {
   scrollDelay: 2,
   maxScrolls: 200,
   concurrency: 3,
+  downloadDelayMs: 0,
+  rateLimitBackoff: true,
   saveAs: false,
   maxMedia: 0,
   flatUsername: false,
@@ -78,7 +81,10 @@ async function loadOptions() {
   el('opt-adaptive-scroll').checked = opts.adaptiveScroll ?? true;
   el('opt-scroll-delay').value  = String(opts.scrollDelay || 2);
   el('opt-max-scrolls').value   = String(opts.maxScrolls || 200);
-  el('opt-concurrency').value   = String(opts.concurrency || 3);
+  el('opt-concurrency').value   = String(clampConcurrency(opts.concurrency));
+  el('opt-download-delay').value = String(clampDownloadDelay(opts.downloadDelayMs) / 1000);
+  updateDownloadDelayLabel(clampDownloadDelay(opts.downloadDelayMs) / 1000);
+  el('opt-rate-limit-backoff').checked = opts.rateLimitBackoff !== false;
   el('opt-save-as').checked     = opts.saveAs || false;
   el('opt-max-media').value     = String(opts.maxMedia || 0);
   el('opt-flat-username').checked = opts.flatUsername || false;
@@ -109,7 +115,7 @@ async function loadOptions() {
   updateShortcutsDetailState();
 
   updateScrollLabel(opts.scrollDelay || 2);
-  updateConcurrencyLabel(opts.concurrency || 3);
+  updateConcurrencyLabel(clampConcurrency(opts.concurrency));
 
   // FEAT-08: Smart Auto-Stop
   (document.getElementById('opt-auto-stop') as HTMLInputElement).checked = opts.autoStop ?? false;
@@ -135,7 +141,9 @@ async function saveOptions() {
     adaptiveScroll: el('opt-adaptive-scroll').checked,
     scrollDelay: parseFloat(el('opt-scroll-delay').value) || 2,
     maxScrolls:  parseInt(el('opt-max-scrolls').value) || 200,
-    concurrency: parseInt(el('opt-concurrency').value) || 3,
+    concurrency: clampConcurrency(parseInt(el('opt-concurrency').value)),
+    downloadDelayMs: clampDownloadDelay(Math.round(parseFloat(el('opt-download-delay').value) * 1000)),
+    rateLimitBackoff: el('opt-rate-limit-backoff').checked,
     saveAs:      el('opt-save-as').checked,
     maxMedia:    parseInt(el('opt-max-media').value) || 0,
     flatUsername: el('opt-flat-username').checked,
@@ -184,6 +192,10 @@ function updateScrollLabel(val: string | number): void {
 
 function updateConcurrencyLabel(val: string | number): void {
   el<HTMLElement>('concurrency-val').textContent = String(val);
+}
+
+function updateDownloadDelayLabel(seconds: string | number): void {
+  el<HTMLElement>('download-delay-val').textContent = `${seconds}s`;
 }
 
 function sanitizeFolder(str: unknown): string {
@@ -312,6 +324,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   el('opt-concurrency').addEventListener('input', (e) => {
     updateConcurrencyLabel((e.target as HTMLInputElement).value);
+  });
+
+  el('opt-download-delay').addEventListener('input', (e) => {
+    updateDownloadDelayLabel((e.target as HTMLInputElement).value);
   });
 
   // Live preview khi gõ tên folder hoặc toggle flat/filenameUsername

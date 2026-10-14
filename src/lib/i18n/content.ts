@@ -24,6 +24,7 @@ export const X_UI_STRINGS: TranslationTable = {
     // Snackbar
     sb_title_downloading: '⬇ Downloading',
     sb_close: 'Close',
+    sb_rate_limited: 'X is rate limiting — pausing {seconds}s, then resuming',
     sb_done_files: '{count} file(s)',
     sb_done_from: ' from @{username}',
     sb_done_failed: '✗ {count} failed',
@@ -43,6 +44,7 @@ export const X_UI_STRINGS: TranslationTable = {
     // Snackbar
     sb_title_downloading: '⬇ Đang tải',
     sb_close: 'Đóng',
+    sb_rate_limited: 'X đang giới hạn tốc độ — nghỉ {seconds} giây rồi tải tiếp',
     sb_done_files: '{count} file',
     sb_done_from: ' từ @{username}',
     sb_done_failed: '✗ {count} lỗi',

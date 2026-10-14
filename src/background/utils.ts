@@ -65,16 +65,20 @@ function broadcastToTab(username: string, type: string, payload: unknown) {
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
-function waitForTabLoad(tabId: number): Promise<void> {
+function waitForTabLoad(tabId: number, timeoutMs = 10_000): Promise<void> {
   return new Promise(resolve => {
+    // Gỡ listener và timer ở cả hai nhánh: trước đây hết giờ thì listener còn
+    // treo trên tabs.onUpdated suốt đời service worker.
+    const finish = () => {
+      clearTimeout(timer);
+      chrome.tabs.onUpdated.removeListener(listener);
+      resolve();
+    };
     function listener(id: number, info: chrome.tabs.OnUpdatedInfo) {
-      if (id === tabId && info.status === 'complete') {
-        chrome.tabs.onUpdated.removeListener(listener);
-        resolve();
-      }
+      if (id === tabId && info.status === 'complete') finish();
     }
     chrome.tabs.onUpdated.addListener(listener);
-    setTimeout(resolve, 10000);
+    const timer = setTimeout(finish, timeoutMs);
   });
 }
 

@@ -58,7 +58,7 @@ test('settings import keeps only known, well-typed and bounded values', () => {
     saveFolder: 'Media', concurrency: 999, autoStop: 'yes', injected: true,
     mediaTypes: { images: false, videos: 'no', extra: 1 }, filenameTemplate: 'x'.repeat(300),
   });
-  assert.deepEqual(imported, { saveFolder: 'Media', concurrency: 10, autoStop: false, mediaTypes: { images: false, videos: true }, filenameTemplate: '' });
+  assert.deepEqual(imported, { saveFolder: 'Media', concurrency: 6, autoStop: false, mediaTypes: { images: false, videos: true }, filenameTemplate: '' });
   assert.deepEqual(sanitizeImportedOptions(defaults, 'not an object'), defaults);
 });
 

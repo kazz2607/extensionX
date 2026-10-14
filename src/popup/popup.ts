@@ -217,8 +217,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     await window.i18n.load();
     window.i18n.applyToDOM();
   }
-  await applyTheme();
-  await applyCompactMode(); // v4.8.0
+  // Theme và compact mode độc lập nhau — đọc storage song song.
+  await Promise.all([applyTheme(), applyCompactMode()]); // v4.8.0
   initHistoryPanel({ onSelectUsername: setCurrentUser });
   initQueuePanel({ sendBG, showToast });
   initDownloadPicker({             // Pha 9
@@ -229,13 +229,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     showToast,
     onDownloadSelected: (selectedUrls) => void beginDownload({ selectedUrls }),
   });
-  await loadHistory();
-  await loadQueue();                // v5.0.3
-  await checkSavedSession();
-  try {
-    const stored = await chrome.storage.sync.get('options') as { options?: Record<string, unknown> };
-    if (stored?.options?.concurrency) _concurrency = Number(stored.options.concurrency) || 3;
-  } catch {}
+  // Lịch sử, Queue, phiên đã lưu và cấu hình không phụ thuộc nhau: chạy song
+  // song thay vì 4 lượt chờ nối tiếp. detectCurrentTab chạy sau vì preview tải
+  // (cảnh báo luồng song song) cần _concurrency đã nạp.
+  await Promise.all([
+    loadHistory(),
+    loadQueue(),                    // v5.0.3
+    checkSavedSession(),
+    (async () => {
+      try {
+        const stored = await chrome.storage.sync.get('options') as { options?: Record<string, unknown> };
+        if (stored?.options?.concurrency) _concurrency = Number(stored.options.concurrency) || 3;
+      } catch {}
+    })(),
+  ]);
   await detectCurrentTab();
   setupListeners();
   setupBottomNav();                 // v5.0.3
@@ -1118,6 +1125,14 @@ function listenToMessages() {
         }
         updateQueueItemProgress(payload); // UI-06: live progress trong Queue tab
         break;
+
+      case 'DOWNLOAD_THROTTLED': {
+        // F4: X trả 429 — mọi luồng tạm nghỉ tới resumeAt rồi tự tải tiếp.
+        if (payload.username !== currentUsername) break;
+        const seconds = Math.max(1, Math.ceil((Number(payload.resumeAt) - Date.now()) / 1000));
+        setStatus('downloading', t('popup_status_rate_limited', { seconds }), '⏸');
+        break;
+      }
 
       case 'ACTIVE_DOWNLOADS_UPDATE':
         // payload: Array<{filename, bytesReceived, totalBytes, speedBps}>

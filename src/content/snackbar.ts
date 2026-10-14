@@ -26,6 +26,8 @@ interface SnackbarUpdate {
   currentFile?: string;
   done?: boolean;
   activeList?: ActiveDownload[];
+  /** F4: thời điểm tải tiếp sau khi bị giới hạn tốc độ (ms epoch). */
+  resumeAt?: number;
 }
 
 (function () {
@@ -391,6 +393,14 @@ interface SnackbarUpdate {
 // @ts-ignore
           barEl.style.width = '100%';
         }
+        break;
+      }
+
+      case 'DOWNLOAD_THROTTLED': {
+        // F4: X giới hạn tốc độ — mọi luồng tạm nghỉ tới resumeAt.
+        const seconds = Math.max(1, Math.ceil(((data.resumeAt || 0) - Date.now()) / 1000));
+// @ts-ignore
+        filenameEl.textContent = t('sb_rate_limited', { seconds });
         break;
       }
 

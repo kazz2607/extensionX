@@ -7,7 +7,8 @@
 type Plain = Record<string, unknown>;
 
 const NUMBER_BOUNDS: Readonly<Record<string, readonly [number, number]>> = {
-  concurrency: [1, 10],
+  concurrency: [1, 6],
+  downloadDelayMs: [0, 10_000],
   scrollDelay: [0, 60],
   maxScrolls: [1, 10_000],
   maxMedia: [0, 1_000_000],
