@@ -14,6 +14,12 @@ const VIETNAMESE = /[ăâđêôơưàáạảãằắặẳẵầấậẩẫè�
 // download button title (a selector), and the language's own name.
 const ALLOWED_LITERALS = ['Tài khoản giễu nhại', 'button[title="Tải xuống"]', 'Tiếng Việt'];
 
+// Git on Windows checks files out with CRLF; normalise so the table parser
+// (which matches newline boundaries) behaves the same as on Linux CI.
+async function readText(file) {
+  return (await readFile(file, 'utf8')).replace(/\r\n/g, '\n');
+}
+
 async function filesUnder(dir) {
   const result = [];
   for (const entry of await readdir(dir, { withFileTypes: true })) {
@@ -39,7 +45,7 @@ for (const file of files) {
   if (tableFiles.includes(file)) continue;
   // Blank out block comments (keeping line numbers) before scanning lines.
   const blankComments = (match) => match.replace(/[^\n]/g, ' ');
-  const lines = (await readFile(file, 'utf8'))
+  const lines = (await readText(file))
     .replace(/<!--[\s\S]*?-->/g, blankComments)
     .replace(/\/\*[\s\S]*?\*\//g, blankComments)
     .split(/\r?\n/);
@@ -54,7 +60,7 @@ for (const file of files) {
 // 3. en/vi parity, and collect every key.
 const allKeys = new Set();
 for (const file of tableFiles) {
-  const text = await readFile(file, 'utf8');
+  const text = await readText(file);
   const blocks = [...text.matchAll(/\n {2}(en|vi): \{\n([\s\S]*?)\n {2}\},/g)];
   const byTable = [];
   for (const [, lang, body] of blocks) {
@@ -71,7 +77,7 @@ for (const file of tableFiles) {
 
 // 2. HTML keys exist.
 for (const file of files.filter((path) => path.endsWith('.html'))) {
-  const text = await readFile(file, 'utf8');
+  const text = await readText(file);
   for (const [, key] of text.matchAll(/data-i18n(?:-title|-aria-label|-placeholder)?="([^"]+)"/g)) {
     if (!allKeys.has(key)) problems.push(`${relative(root, file)} uses missing i18n key "${key}"`);
   }
