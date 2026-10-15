@@ -1,58 +1,41 @@
-# extensionX — Project Memory
+# extensionX — X Media Downloader (Chrome MV3, TypeScript, Vite)
 
-> Auto-synced | 1196 observations
+Tài liệu chính nằm trong `docs/`: kế hoạch và tồn đọng ở `upgrade-plan-v7.3-v8.md`, gate ở `quality-gate.md`, quyền ở `security-permissions.md`, rollback ở `v7-migration-rollback.md`, ngân sách build ở `performance-baseline.md`.
 
-**Stack:** TypeScript
+## Kiến trúc
 
-## 🏛️ CORE ARCHITECTURE
+- `src/background/` — service worker (thu thập, tải, Queue, IndexedDB `XMediaDownloaderDB`).
+- `src/content/main-world.ts` — bundle MAIN world (page-interceptor, dom-scanner, tweet-btn); `content.ts` — isolated world, FAB/snackbar trong closed shadow root. Hai bên chỉ nói chuyện qua bridge MessagePort (`page-bridge.ts`).
+- `src/offscreen/` — HLS và ZIP (`src/shared/zip-store.ts`, STORE); offscreen không có `chrome.downloads`, lưu file qua service worker.
+- `src/popup/`, `src/options/`, `src/download-center/` — trang extension.
+- `src/shared/` — logic thuần có unit test; `src/shared/messages.ts` — danh sách message, payload key và allowlist lệnh content script.
+- `src/lib/i18n/` — bảng dịch en/vi tách theo bề mặt.
 
-> **CRITICAL:** The following rules represent strict architectural boundaries defined by the user. NEVER violate them in your generated code or explanations.
+## Quy tắc bắt buộc
 
-# Intellectual Property & Architecture Rules
-Write your strict architectural boundaries here. 
-BrainSync will automatically enforce these rules across all agents (Cursor, Windsurf, Cline) 
-and inject them into the memory context.
+- **Không nâng `DB_VERSION`** (đang là 3): bản cũ sẽ không mở được DB khi rollback. Dữ liệu mới dùng key mới trong `chrome.storage.local` (vd. `failed_items_v1`); giá trị enum mới phải lưu theo dạng bản cũ vẫn đọc được.
+- **Không thêm quyền / host permission** trong `src/manifest.json`.
+- Message mới: thêm vào `MessageType`, `MESSAGE_TYPES`, `PAYLOAD_KEYS`, kiểu response; chỉ đưa vào `CONTENT_SCRIPT_TYPES` khi content script thật sự cần. Dữ liệu từ trang/storage/file luôn đi qua validator trong `src/shared/`.
+- **i18n:** không viết chữ tiếng Việt trong dòng code (comment thì được) — `npm run i18n` chặn. Chuỗi UI thêm cả `en` và `vi` vào bảng của đúng bề mặt; regex cần ký tự có dấu dùng escape `đ`.
+- Không `any`, không `@ts-ignore`/`@ts-nocheck` (hiện 0).
+- Ngân sách build (`performance-budget.json`): tổng JS ≤ 420 KB, file lớn nhất ≤ 120 KB (service worker đang ~116 KB), ≤ 110 module.
+- Comment theo văn phong sẵn có (tiếng Việt hoặc tiếng Anh, giải thích *tại sao*).
 
-Example:
-- NEVER use TailwindCSS. Only use vanilla CSS.
-- NEVER write class components. Only use functional React components.
+## Kiểm tra
 
-## 🛡️ GLOBAL SAFETY RULES
+- `npm run check` trước mỗi commit: typecheck, lint, i18n, unit, e2e fixture, benchmark, audit, build, budget, release manifest.
+- `npm run test:browser` (Chromium acceptance): Chrome thương hiệu bỏ qua `--load-extension`, phải dùng Chrome for Testing:
+  ```bash
+  npx @puppeteer/browsers install chrome@stable --path ./.cft
+  PLAYWRIGHT_CHROME_EXECUTABLE="<.cft/.../Google Chrome for Testing>" npm run test:browser
+  ```
+  `context.route` không chặn được request của `chrome.downloads`; test tải dùng CDN giả HTTPS + `--host-resolver-rules`.
+- START_DOWNLOAD từ trang extension mở trong tab bị từ chối — test bắt đầu lượt tải bằng `ADD_TO_QUEUE` + `START_QUEUE`.
 
-- **NEVER** run `git clean -fd` or `git reset --hard` without checking `git log` and verifying commits exist.
-- **NEVER** delete untracked files or folders blindly. Always backup or stash before bulk edits.
+## Phát hành
 
-## 🧭 ACTIVE CONTEXT
+Mỗi bản: commit code, rồi commit `chore(release): vX.Y.Z — …` cập nhật `package.json`, `package-lock.json`, `src/manifest.json`, `CHANGELOG.md` và các file trong `docs/` (version + nội dung), `npm run check`, build lại `dist/`. Hỏi trước khi push.
 
-> Always read `.cursor/active-context.md` for exact instructions on the specific file you are currently editing. It updates dynamically.
+## An toàn git
 
-## 🔴 STOP — READ THESE FIRST
-
-- **Agent: follow existing project patterns — don't introduce a different style** — Agent: follow existing project patterns — don't introduce a different style
-- **Agent: don't generate code with "any" type — define proper TypeScript types** — Agent: don't generate code with "any" type — define proper TypeScript types
-- **Agent: always handle loading/error states — don't just render data** — Agent: always handle loading/error states — don't just render data
-- **Agent: don't use deprecated APIs — check library version, use current API** — Agent: don't use deprecated APIs — check library version, use current API
-- **Agent: check existing code before creating utility functions — avoid duplicates** — Agent: check existing code before creating utility functions — avoid duplicates
-
-## 📐 Conventions
-
-- Git Commit: feat: bump version 5.3.0 — UI Polish — confirmed 3x
-- Use .dockerignore to exclude unnecessary files
-- Use multi-stage builds to reduce image size
-- Enable strict mode in tsconfig.json
-- Prefer Array methods (map, filter, reduce) over manual loops
-- Use template literals for string interpolation, not concatenation
-- Use optional chaining (?.) and nullish coalescing (??) for safe access
-- Use const by default, let when reassignment needed, never var
-
-## ⚡ Available Tools (ON-DEMAND only)
-- `sys_core_02(title, content, category)` — Save a note + auto-detect conflicts
-- `sys_core_03(items[])` — Save multiple notes in 1 call
-- `sys_core_01(text)` — Search memory for architecture, past fixes, decisions
-- `sys_core_05(text)` — Full-text search for details
-- `sys_core_16()` — Check compiler errors after edits
-
-> ℹ️ DO NOT call sys_core_14() or sys_core_08() at startup — context above IS your context.
-
----
-*Auto-synced | 2026-06-05*
+Không chạy `git reset --hard` / `git clean -fd` khi chưa kiểm tra `git log` và remote. Không xoá file chưa được theo dõi khi chưa sao lưu.

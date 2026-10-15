@@ -6,3 +6,8 @@ x-media-downloader-*.zip
 # Extension tham khảo của bên thứ ba (không thuộc dự án)
 docs/ttp/
 .cft/
+
+# Công cụ ngữ cảnh AI cũ (BrainSync) — không dùng nữa
+.brainsync/
+.cursor/active-context.md
+.windsurfrules
