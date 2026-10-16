@@ -1,10 +1,9 @@
 name: Quality
 
+# Tắt tự động chạy (2026-10-16, theo yêu cầu chủ dự án): chỉ chạy tay qua tab Actions → Run workflow.
+# Trigger cũ được giữ trong lịch sử git; muốn bật lại thì khôi phục khối `on:` từ commit trước.
 on:
-  workflow_dispatch: # Tạm tắt chạy tự động — bật lại bằng cách bỏ comment 2 dòng dưới.
-  # pull_request:
-  # push:
-  #   branches: [main, master]
+  workflow_dispatch:
 
 permissions:
   contents: read
