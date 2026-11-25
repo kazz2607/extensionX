@@ -10,6 +10,39 @@ Chưa có thay đổi.
 
 ---
 
+## [8.3.0] — 2026-11-25 *(sửa logic, tăng cường bảo mật, tối ưu IndexedDB)*
+
+Các mã theo [`docs/upgrade-plan-v8.3-v9.md`](docs/upgrade-plan-v8.3-v9.md).
+
+### Sửa lỗi
+
+- **Một ảnh chỉ còn một mục và một file (L21):** X báo cùng một ảnh bằng hai dạng URL (`…/ABC.jpg` từ dữ liệu trang và `…/ABC?format=jpg&name=small` từ ảnh hiển thị), trước đây thành hai mục và tải hai lần. Nay được gộp khi thu thập, khi chống trùng và trong mỗi lượt tải (kể cả dữ liệu cũ). Ảnh lưu dạng `…/ABC.jpg` cũng được tải bản gốc.
+- **Tuỳ chọn "Chất lượng ảnh" có tác dụng (L27):** trước đây Options lưu nhưng không nơi nào đọc. Ảnh PNG/WebP lấy từ trang không còn bị đặt đuôi `.jpg`.
+- **Trang "ai đã thích tweet này" không còn bị nhận nhầm là trang Likes của profile (L23).**
+- **Resume Queue không tải lại toàn bộ sau nhiều lần service worker khởi động lại (L25).**
+- **Lịch tải ghi đúng kết quả (L26):** trạng thái lượt chạy theo lịch là "hoàn tất" hay "lỗi" theo kết quả thật, không còn ghi "hoàn tất" ngay lúc bắt đầu.
+- **Tạm nghỉ khi gặp 429 áp dụng cho mọi luồng (L27):** một luồng vừa hết khoảng nghỉ giữa các file không còn gửi request khi các luồng khác đang tạm nghỉ.
+- Tải từ nút trên tweet khi profile chưa được nạp không còn làm mất lịch sử chống trùng của profile đó.
+
+### Bảo mật
+
+- Lệnh từ content script chỉ được nhận từ đúng trang: trang Telegram không gửi được lệnh của X và ngược lại (S16).
+- File cài đặt, Queue và sao lưu được kiểm tra kích thước trước khi đọc (S17).
+- Tải ảnh Telegram dạng `data:` chỉ nhận định dạng ảnh/video đã biết (không nhận SVG) và đuôi file theo đúng định dạng (S18). Id lượt tải video Telegram là ngẫu nhiên (S14).
+- Script phím tắt không còn được nạp trên các subdomain của X (S19, không đổi quyền). GitHub Actions pin theo commit SHA (S20).
+
+### Hiệu năng
+
+- Mở popup khi service worker vừa khởi động không còn đọc cùng một profile từ IndexedDB hai lần (P17); lịch sử file đã tải được tỉa và nạp trong một lượt đọc (P18).
+- Danh sách URL đã tải của các profile không dùng tới được giải phóng khỏi bộ nhớ cùng cache media (P19).
+- Video HLS tải segment theo cửa sổ trượt (không chờ cả lô), tiến độ gửi tối đa ~4 lần/giây (P24).
+- Không tra lại video của cùng một tweet trong 10 phút khi lần trước không tìm thấy; lượt tra đang chạy được dùng chung (P27). Mỗi `<video>` trên trang chỉ được gắn listener một lần (P23).
+- Bản phát hành không còn `console.log/debug/info` (service worker −1,3 KB).
+
+Không đổi quyền hay schema IndexedDB. Thêm key `queue_force_dedup_v1` trong `chrome.storage.local` (bản cũ bỏ qua). Gate: 91 unit test, Chromium acceptance 9/9.
+
+---
+
 ## [8.2.3] — 2026-11-25 *(hotfix sau audit toàn dự án)*
 
 Các mã L/S/U/P theo [`docs/upgrade-plan-v8.3-v9.md`](docs/upgrade-plan-v8.3-v9.md).

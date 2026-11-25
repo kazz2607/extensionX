@@ -1,4 +1,4 @@
-# Baseline hiệu năng và build budget 8.2.3
+# Baseline hiệu năng và build budget 8.3.0
 
 > Cập nhật: 2026-10-14
 
@@ -20,12 +20,12 @@
 | Stop download | UI phản hồi dưới 500 ms |
 | 10.000 media | popup không bị khóa, không giữ thêm bản sao mảng không cần thiết |
 
-Build 8.2.3 tiếp tục áp dụng gate tự động trong `npm run check` và tính cả entrypoint Download Center:
+Build 8.3.0 tiếp tục áp dụng gate tự động trong `npm run check` và tính cả entrypoint Download Center:
 
-| Chỉ số build | Ngưỡng | Kết quả 8.2.3 |
+| Chỉ số build | Ngưỡng | Kết quả 8.3.0 |
 | --- | ---: | ---: |
-| Tổng JavaScript trong `dist/` | ≤ 420.000 byte | 384.135 byte |
-| JavaScript bundle lớn nhất | ≤ 120.000 byte | 116.977 byte |
+| Tổng JavaScript trong `dist/` | ≤ 420.000 byte | 386.025 byte |
+| JavaScript bundle lớn nhất | ≤ 120.000 byte | 118.861 byte |
 | Số module TypeScript trong `src/` | ≤ 110 | 107 |
 
 Ngưỡng số module tăng từ 85 lên 95 trong 7.3.0 vì bridge MAIN ↔ isolated, navigation và các helper có kiểm thử được tách thành module nhỏ; tổng dung lượng JavaScript gần như không đổi.
@@ -49,6 +49,8 @@ Tối ưu runtime 7.3.0: metric diagnostic không rời trang khi chưa bật (m
 8.2.2 (giảm dung lượng): bỏ JSZip (96 KB). ZIP do `src/shared/zip-store.ts` tạo (phương thức STORE, ~2 KB): ảnh/video X đã nén sẵn nên DEFLATE gần như không giảm dung lượng; file ZIP có thể lớn hơn vài phần trăm nhưng tạo nhanh hơn và không cần thư viện ngoài. Tổng JS **478.116 → 381.998 byte (−20 %)**; ngưỡng tổng hạ từ 480.000 xuống **420.000** để giữ phần đã giảm. File lớn nhất vẫn là service worker (115.963 / 120.000 byte).
 
 8.2.3 (hotfix): +2,1 KB JavaScript, service worker +1,0 KB (lease offscreen, `ZIP_DONE`, mở khoá UI khi thoát sớm, 3 chuỗi dịch) — không thêm module. File lỗi được ghi theo lô 50 file hoặc khi kết thúc lượt tải thay vì ghi lại toàn bộ danh sách (~250 KB) cho từng file (P16). Service worker còn ~3 KB dưới ngưỡng 120 KB: tính năng mới ở service worker cần làm P26 (tải bảng dịch theo ngôn ngữ) trước.
+
+8.3.0: bản phát hành bỏ `console.log/debug/info` bằng `build.rolldownOptions.treeshake.manualPureFunctions` (service worker −1,3 KB), bù cho phần sửa lỗi/hardening (+3,2 KB); tổng JS 386.025 byte, service worker **118.861 / 120.000 byte** — v8.4.0 phải làm P26a (bảng dịch theo ngôn ngữ) trước mọi tính năng mới ở service worker. Runtime: mở popup khi service worker vừa thức chỉ còn một lần đọc IndexedDB mỗi profile (P17); lịch sử file đã tải tỉa và nạp trong một `getAll` thay vì hai, chỉ sort khi vượt 50.000 (P18); danh sách URL đã tải đi theo việc giải phóng cache media (P19); HLS tải theo cửa sổ trượt 8 luồng và gửi tiến độ ~4 lần/giây (P24); kết quả âm khi tra video được nhớ 10 phút (P27); mỗi `<video>` chỉ một cặp listener, tập URL video đã thấy giới hạn 5.000 (P23).
 
 Ngưỡng nằm trong `performance-budget.json` và được kiểm tra bởi `scripts/check-performance-budget.mjs`.
 

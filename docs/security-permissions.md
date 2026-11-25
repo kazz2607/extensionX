@@ -1,6 +1,6 @@
 # Audit bảo mật và quyền extension
 
-> Rà soát cho **8.2.3** | Cập nhật: 2026-11-25
+> Rà soát cho **8.3.0** | Cập nhật: 2026-11-25
 
 ## Quyền Manifest
 
@@ -69,6 +69,15 @@ Từ 8.2.3, không thêm quyền:
 - **S15:** script trang so hostname thật (`x.com`, `twitter.com`, `api.x.com`, `api.twitter.com`, HTTPS) trước khi bắt bearer, queryId hay parse GraphQL; URL kiểu `https://evil.tld/x.com/i/api` không còn đầu độc được bearer mà service worker dùng.
 - Message mới `ZIP_DONE` chỉ nhận từ offscreen document (`OFFSCREEN_TYPES`), payload theo allowlist `archives/files/skipped/error`.
 - Các mục bảo mật còn lại (S14, S16–S20, gồm cơ hội giảm quyền `scripting` và thu hẹp host) nằm trong `upgrade-plan-v8.3-v9.md`.
+
+Từ 8.3.0, không thêm quyền:
+- **S16:** `isAllowedSender` ràng buộc lệnh content script theo origin của trang gửi (HTTPS): `TG_DOWNLOAD_MEDIA` chỉ từ `web.telegram.org`, các lệnh còn lại chỉ từ `x.com`/`twitter.com` (và subdomain). Content script Telegram không còn gửi được `START_COLLECTING` với username tuỳ ý.
+- **S17:** import cài đặt/Queue (≤ 1 MB) và sao lưu (≤ 200 MB) kiểm tra kích thước trước khi đọc và `JSON.parse`.
+- **S18:** `data:` cho `TG_DOWNLOAD_MEDIA` chỉ nhận MIME ảnh/video trong danh sách đã biết (không `image/svg+xml`); đuôi file được ép theo MIME, URL `blob:`/stream phải có đuôi ảnh/video.
+- **S14:** id lượt tải video Telegram dùng `crypto.randomUUID()` nên script trang không đoán được để giả trạng thái. Bridge Telegram vẫn là `CustomEvent` (script Telegram chạy ở `document_idle`, sau script trang, nên kênh MessagePort như X không bảo đảm được thứ tự bắt tay) — trang Telegram vẫn đọc được yêu cầu tải; tác động thấp vì trang vốn tự tải được nội dung cùng origin.
+- **S19 (một phần):** `content/shortcuts.js` chỉ còn khớp `x.com`/`twitter.com` (trước đây cả `*.x.com`, `*.twitter.com`, nơi `SHORTCUT_DOWNLOAD` luôn bị từ chối) và bỏ `exclude_matches` Google/Notion vô tác dụng. Đây là thay đổi content script, không phải permission. Bỏ quyền `scripting` và thu hẹp `host_permissions` để bản riêng vì rollback về bản cũ sẽ phải xin lại quyền.
+- **S20:** GitHub Actions pin theo commit SHA (`actions/checkout`, `actions/setup-node` v4).
+- Bản phát hành bỏ `console.log/debug/info` (Rolldown `manualPureFunctions`); `console.warn/error` vẫn giữ và không chứa token/cookie.
 
 ## Bề mặt cần theo dõi
 
