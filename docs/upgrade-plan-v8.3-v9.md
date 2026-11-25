@@ -1,6 +1,6 @@
 # Kế hoạch nâng cấp v8.2.3 → v9.0
 
-> Lập ngày 2026-11-25 trên mã nguồn **8.2.2** (commit `bef46a8`) | Trạng thái: **đang thực hiện — v8.2.3 và v8.3.0 đã phát hành (xem mục 6a, 6b)**
+> Lập ngày 2026-11-25 trên mã nguồn **8.2.2** (commit `bef46a8`) | Trạng thái: **đang thực hiện — v8.2.3, v8.3.0 và v8.3.1 đã phát hành (xem mục 6a–6c)**
 
 Kế hoạch này kế tiếp [`upgrade-plan-v7.3-v8.md`](upgrade-plan-v7.3-v8.md) (L1–L15, S1–S11, P1–P15, U1–U16, F1–F5 đã xong). Mã định danh mới đánh tiếp từ số cuối của kế hoạch cũ.
 
@@ -28,7 +28,7 @@ Trạng thái gate tại thời điểm lập kế hoạch: `npm run check` xanh
 | --- | --- | --- |
 | **v8.2.3** ✅ | Hotfix: mất dữ liệu ZIP, kẹt UI, bảo mật dễ sửa | L16–L20, L22, L24, S12, S13, S15, U17, U19, P16 |
 | **v8.3.0** ✅ (trừ L28–L30, S19 quyền) | Logic còn lại + hardening + hiệu năng IndexedDB | L21, L25–L27, S14, S16–S18, P17–P19, P23, P24, P27, S19 (giảm quyền) |
-| **v8.3.1** | UI/UX và accessibility | U18, U20–U30 |
+| **v8.3.1** ✅ (U29 một phần) | UI/UX và accessibility | U18, U20–U30 |
 | **v8.4.0** | Dung lượng và main thread | P26 (bảng dịch theo locale), P20–P22, P25, kiểm chứng HLS fMP4 (L28) |
 | **v9.0.0** | Tính năng mới | F3b, F1b, F1c, F6, F9, F10 (xem mục 5) |
 
@@ -177,7 +177,7 @@ Trạng thái gate tại thời điểm lập kế hoạch: `npm run check` xanh
 
 1. ~~**v8.2.3 — hotfix**: L16, L17, L19, L20, L22, L24, S12, S13, S15, U17, U19, P16~~ — hoàn thành 2026-11-25 (xem 6a), kèm L18.
 2. ~~**v8.3.0 — logic + hardening + IndexedDB**~~ — hoàn thành 2026-11-25 (xem 6b); còn lại chuyển sang mốc sau: L28 (cần playlist X thật), L29, L30 (cần đo), S19 bỏ `scripting`/thu hẹp host (bản riêng), Chromium acceptance L19/L20. Phạm vi gốc: L21, L25–L27, S14, S16–S18, S20, P17–P19, P23, P24, P27. S19 (giảm quyền) làm cuối mốc hoặc tách bản riêng, có ghi chú rollback.
-3. **v8.3.1 — UI/UX**: U18, U20–U30.
+3. ~~**v8.3.1 — UI/UX**: U18, U20–U30~~ — hoàn thành 2026-11-25 (xem 6c), U29 một phần.
 4. **v8.4.0 — dung lượng/main thread**: P26 trước, rồi P20–P22, P25; thu fixture HLS thật cho L28; đo L30.
 5. **v9.0.0 — tính năng**: F3b → F1b + F1c → F6; F9–F11 tuỳ phản hồi.
 
@@ -200,6 +200,16 @@ Song song, việc thủ công còn tồn từ kế hoạch cũ: kiểm thử tr�
 - **S14:** không chuyển Telegram sang MessagePort vì script Telegram chạy ở `document_idle` (sau script trang) nên không bảo đảm được bắt tay trước trang; tác động thấp (trang vốn tự tải được nội dung cùng origin).
 - **Chưa làm:** L28 (fixture HLS fMP4 thật), L29 (nút tweet qua coordinator), L30 (đo keep-alive), Chromium acceptance cho L19/L20, S19 bỏ `scripting`/thu hẹp host (bản riêng, cần ghi chú rollback), L23 đổi tiền tố khoá.
 - Test: `test/v8-3-0.test.ts` (8 test) — 91 unit, Chromium 9/9. Ngân sách: tổng JS 386,0 KB; service worker **118,9/120 KB** — P26a là điều kiện trước mọi tính năng mới ở service worker.
+
+## 6c. Kết quả v8.3.1
+
+- **Đã làm:** U18, U20, U21, U22, U23, U24, U25, U26, U27, U28, U30; U29 một phần.
+- **U21:** hộp thoại dùng chung `src/lib/dialog.ts` (`<dialog>.showModal()`, màu theo token) cho Options (17 chỗ `confirm`/`alert`) và Download Center; panel Following dùng modal sẵn có của popup (đã theo theme, có bẫy focus) qua tham số `confirm`. Thêm xác nhận cho "Xóa lịch sử" (popup) và "Gỡ file lỗi đã chọn" (Download Center). Phát hiện khi chụp kiểm tra: CSS reset `margin: 0` của trang Options làm `<dialog>` dính góc trái trên — đã đặt `margin: auto`.
+- **U25:** vùng trạng thái popup dùng `aria-busy` trong lúc tải từng file (screen reader chỉ đọc khi bắt đầu/kết thúc), bỏ `aria-live` trùng ở phần tử con; thanh tiến độ `role="progressbar"` có `aria-valuenow`.
+- **U27:** parody nhận diện theo nhãn tiếng Anh và tiếng Việt (`isParodyBio`); Telegram tìm nút tải gốc theo icon (`.tgico-download`, `.icon-download`) trước, giữ nguyên selector theo chữ làm dự phòng — **chưa kiểm chứng trên Telegram thật**.
+- **U30:** `popup_theme_toggle` bị xoá thay vì nối vào nút theme, vì nút đã có nhãn động theo chế độ đang dùng (gắn `data-i18n` sẽ ghi đè nhãn này khi đổi ngôn ngữ).
+- **U29 còn lại:** popup.html 28 và options.html 20 thuộc tính `style=""`, đa số là `display:none` mà JS bật/tắt — chuyển sang class cần đổi cách bật/tắt ở JS, để làm cùng đợt dọn CSS sau.
+- Test: `test/v8-3-1.test.ts` (4 test) — 95 unit, Chromium 9/9. Ngân sách: tổng JS 391,5 KB, service worker 118,9 KB (không đổi), 108/110 module.
 
 ## 7. Việc tài liệu kèm theo
 

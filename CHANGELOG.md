@@ -10,6 +10,31 @@ Chưa có thay đổi.
 
 ---
 
+## [8.3.1] — 2026-11-25 *(giao diện, accessibility, bản dịch)*
+
+Các mã U theo [`docs/upgrade-plan-v8.3-v9.md`](docs/upgrade-plan-v8.3-v9.md).
+
+### Giao diện
+
+- **Hộp xác nhận thống nhất (U21):** Options và Download Center dùng hộp xác nhận/thông báo riêng của extension theo theme sáng/tối, thay hộp `confirm()`/`alert()` của trình duyệt. Với thao tác xoá, nút mặc định là "Huỷ". **"Xóa lịch sử" trong popup và "Gỡ file lỗi đã chọn" trong Download Center nay hỏi trước khi xoá.**
+- **Nhãn và số theo ngôn ngữ (U22–U24):** loại media (ảnh/video/GIF), trạng thái lượt tải, giai đoạn tải trong Download Center và các nhãn mục ("P2 TOOLKIT", "MV3 SCHEDULE"…) được dịch; số hiển thị theo ngôn ngữ của extension thay vì của trình duyệt.
+- **Biểu đồ media (U26):** tổng trên 9.999 hiện dạng gọn đúng (vd. "25K"), không còn luôn là "9k+".
+- **Tài khoản parody (U27):** được nhận ra cả khi X dùng giao diện tiếng Anh. Nút tải gốc của Telegram được tìm theo icon trước, ít phụ thuộc ngôn ngữ giao diện Telegram.
+
+### Bàn phím và trình đọc màn hình
+
+- Nút FAB trên X có tên rõ ràng (mở bảng / tải N media), báo trạng thái mở/đóng, phím Escape đóng bảng; kết quả tải trong snackbar được đọc lên (U20).
+- Tích chọn tài khoản trong danh sách Following không còn làm mất vị trí focus (U18); liên kết profile có nhãn, tên Ả Rập/Hebrew không bị đảo thứ tự (U28).
+- Thanh tiến độ của popup là progressbar có giá trị; trạng thái chỉ được đọc khi bắt đầu/kết thúc lượt tải thay vì mỗi lần cập nhật (U25); biểu đồ có mô tả.
+
+### Khác
+
+- Style inline trong JS và một số màu hard-code chuyển sang class/token (U29, một phần); bỏ 2 chuỗi dịch không dùng (U30).
+
+Không đổi quyền, schema hay storage key. Gate: 95 unit test, Chromium acceptance 9/9.
+
+---
+
 ## [8.3.0] — 2026-11-25 *(sửa logic, tăng cường bảo mật, tối ưu IndexedDB)*
 
 Các mã theo [`docs/upgrade-plan-v8.3-v9.md`](docs/upgrade-plan-v8.3-v9.md).
