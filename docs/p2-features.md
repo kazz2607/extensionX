@@ -1,6 +1,6 @@
 # P2 Toolkit — estimate, gallery, ZIP và lịch tải
 
-> ExtensionX **8.2.2** | Cập nhật: 2026-10-14 | Trạng thái: **Released trong 7.2.0, ổn định trong 7.2.1–8.2.2 (ZIP không còn dùng JSZip, tạo bằng bộ ghi STORE tích hợp từ 8.2.2; ZIP lưu file qua service worker từ 7.2.3; Estimate/Gallery/ZIP dùng chung bộ lọc ngày theo giờ địa phương từ 7.3.0)**
+> ExtensionX **8.2.3** | Cập nhật: 2026-11-25 | Trạng thái: **Released trong 7.2.0, ổn định trong 7.2.1–8.2.3 (ZIP chia phần không bỏ file, loại HLS, báo kết quả trong Notification Center từ 8.2.3; ZIP không còn dùng JSZip, tạo bằng bộ ghi STORE tích hợp từ 8.2.2; ZIP lưu file qua service worker từ 7.2.3; Estimate/Gallery/ZIP dùng chung bộ lọc ngày theo giờ địa phương từ 7.3.0)**
 
 P2 Toolkit nằm trong Download Center và gom các công cụ lập kế hoạch/tổ chức download mà không mở rộng permission hiện hành.
 
@@ -10,7 +10,7 @@ P2 Toolkit nằm trong Download Center và gom các công cụ lập kế hoạc
 - **Rule-based organization:** `saveFolder` hỗ trợ `{username}`, `{year}`, `{month}`, `{type}`; từng segment được sanitize, giới hạn độ sâu và có preview.
 - **Báo cáo lỗi:** JSON/CSV tối đa 500 phiên lỗi, chỉ gồm thời gian, loại media, trạng thái và counter; không xuất username, URL, token hay raw exception.
 - **Gallery bounded:** đọc IndexedDB bằng cursor và trả tối đa 100 mục/trang; UI nạp 50 mục/lần, media dùng lazy/preload metadata.
-- **ZIP theo chunk:** tối đa 200 file/lượt, mặc định 50 file/phần và 500 MiB/phần. ZIP được tạo trong offscreen document; SHA-256 loại nội dung trùng trong operation và Blob URL được revoke sau download.
+- **ZIP theo chunk:** tối đa 200 file/lượt, mặc định 50 file/phần và 500 MiB/phần; chạm một trong hai giới hạn thì lưu phần hiện tại và mở phần mới (chỉ file đơn > 500 MiB hoặc tải lỗi bị bỏ qua và được đếm). ZIP được tạo trong offscreen document, offscreen được giữ mở tới khi ZIP xong và kết quả ghi vào Notification Center; SHA-256 loại nội dung trùng trong operation, tên entry có đuôi và không trùng, Blob URL được revoke sau download. Mỗi lúc chỉ một lượt ZIP.
 - **Lịch Saved Job:** người dùng chủ động bật chu kỳ 1 giờ–30 ngày. `chrome.alarms` được phục hồi khi Service Worker thức dậy; lượt chạy bị bỏ qua nếu coordinator đang bận.
 - **Notification Center:** giữ tối đa 100 sự kiện cục bộ, hỗ trợ đánh dấu đã đọc và system notification cho warning/error/success.
 

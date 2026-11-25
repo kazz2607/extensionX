@@ -10,6 +10,36 @@ Chưa có thay đổi.
 
 ---
 
+## [8.2.3] — 2026-11-25 *(hotfix sau audit toàn dự án)*
+
+Các mã L/S/U/P theo [`docs/upgrade-plan-v8.3-v9.md`](docs/upgrade-plan-v8.3-v9.md).
+
+### Sửa lỗi
+
+- **ZIP không còn bỏ mất file (L16):** khi một phần ZIP chạm 500 MB hoặc đủ số file, phần đó được lưu và phần mới mở cho các file còn lại. Trước đây toàn bộ file còn lại của phần bị bỏ mà vẫn báo hoàn tất. Một file lỗi mạng chỉ bị bỏ qua, không làm hỏng cả lượt ZIP.
+- **ZIP không chứa playlist HLS (L17):** video HLS bị loại khỏi ZIP (trước đây lưu thành file `.m3u8` dạng văn bản); dùng tải trực tiếp cho HLS.
+- **Tên file trong ZIP có đuôi và không trùng (L18):** ảnh dạng `…/media/ABC?format=jpg` thành `ABC.jpg`; tên trùng được đánh số.
+- **ZIP không còn bị dừng giữa chừng (L19):** bấm ZIP ngay sau một lượt tải HLS hoặc sau Stop có thể làm offscreen bị đóng khi ZIP đang chạy. Kết quả ZIP (số phần, số file, số file bỏ qua hoặc lỗi) giờ hiện trong Notification Center; trước đây lỗi ZIP không được báo ở đâu.
+- **Popup và FAB không còn kẹt "đang tải" (L20):** khi không còn media nào khớp, khi đang có lượt tải khác hoặc khi đọc bộ nhớ media lỗi, giao diện được mở khoá và báo lý do.
+- **Thu thập được profile có tên bắt đầu bằng "media" (L22):** vd. `@mediapart` trước đây bị coi là đã ở tab Media nên dừng ngay.
+- **FAB được đặt lại khi dừng vì đạt số lần cuộn tối đa (L24).**
+
+### Bảo mật
+
+- **CSV danh sách Following chặn công thức (S12):** tên hiển thị và bio do chủ tài khoản khác đặt (vd. `=HYPERLINK(…)`) không còn chạy như công thức khi mở bằng Excel/Sheets.
+- **Chỉ nhận thao tác thật của người dùng (S13):** script trên trang không còn kích hoạt tải hàng loạt bằng cách gọi `.click()` lên nút tải của tweet/Telegram hay giả phím tắt và vị trí chuột.
+- **Bắt bearer/queryId/GraphQL theo hostname thật (S15):** URL như `https://evil.tld/x.com/i/api` không còn đầu độc được token mà service worker dùng.
+
+### Giao diện và hiệu năng
+
+- **Preset ngày theo giờ máy (U17):** ở UTC+7, bấm "7 ngày" trước 7h sáng không còn loại media đăng hôm nay.
+- **"Chọn đang hiển thị" trong Following chỉ chọn mục đang hiện (U19)**, không chọn cả các mục bị ẩn ngoài 100 dòng đầu.
+- **Ghi file lỗi theo lô (P16):** lượt tải mất mạng không còn ghi lại toàn bộ danh sách lỗi (~250 KB) cho từng file.
+
+Không đổi quyền, schema IndexedDB hay storage key. Thêm message nội bộ `ZIP_DONE` (chỉ nhận từ offscreen). Gate: 83 unit test, Chromium acceptance 9/9.
+
+---
+
 ## [8.2.2] — 2026-10-14 *(sửa sau review 8.2.1, bỏ JSZip −20 % JS)*
 
 ### Sửa lỗi (sau review 8.2.1)

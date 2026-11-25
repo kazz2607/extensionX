@@ -1,6 +1,6 @@
 # X Media Downloader — Roadmap
 
-> Phiên bản hiện tại: **8.2.2** | Cập nhật: 2026-10-14
+> Phiên bản hiện tại: **8.2.3** | Cập nhật: 2026-11-25
 
 Tài liệu này là nguồn duy nhất cho trạng thái sản phẩm, phần việc đã hoàn thành và backlog. Chi tiết từng bản phát hành nằm trong [`CHANGELOG.md`](../CHANGELOG.md).
 
@@ -18,7 +18,7 @@ Extension đang dùng Manifest V3, TypeScript strict và Vite. Các luồng chí
 - Tải ảnh/video trực tiếp trên Telegram Web A/K, gồm Range-fetch cho stream riêng tư.
 - Following Scanner: thu thập GraphQL có giới hạn, lọc hoạt động, preview và unfollow tuần tự có throttle.
 
-Quality gate hiện hành: TypeScript, ESLint, **73 unit tests**, **2 fixture e2e tests**, benchmark 100–50.000 media, dependency lockfile review, **7 Chromium acceptance tests** (Queue lifecycle/fault/DOM, responsive/keyboard/Download Center, lưu Blob từ offscreen, bridge trang X và tweet-btn gắn lại nút khi media đến muộn — mục cuối chưa tự chạy được trong môi trường dev hiện tại, xem `quality-gate.md`), production build, performance budget và release checksum manifest. Chi tiết tại [`quality-gate.md`](quality-gate.md).
+Quality gate hiện hành: TypeScript, ESLint, i18n gate, **83 unit tests**, **2 fixture e2e tests**, benchmark 100–50.000 media, dependency lockfile review, **9 Chromium acceptance tests** trên Chrome for Testing (Queue lifecycle/fault/DOM, responsive/keyboard/Download Center, lưu Blob từ offscreen, bridge trang X, tweet-btn gắn lại nút khi media đến muộn, Search/Hashtag, file lỗi/thử lại/sao lưu/ZIP), production build, performance budget và release checksum manifest. Chi tiết tại [`quality-gate.md`](quality-gate.md).
 
 ## Kiến trúc chính
 
@@ -69,6 +69,7 @@ src/
 | v8.2.0 | F5: sao lưu/khôi phục cấu hình, Saved Jobs, lịch, Queue, lịch sử và danh sách file đã tải trong một file (gộp khi khôi phục, kiểm tra lại từng phần) |
 | v8.2.1 | Tiêu chí chất lượng chung: nhận diện 429 thật (chrome.downloads báo chung `SERVER_FAILED`) để tự giảm tốc, sao lưu đủ file vừa tải, Chromium acceptance 9/9 trên Chrome for Testing, gỡ 62 `@ts-ignore`, bảng chỉ tiêu đo hiệu năng |
 | v8.2.2 | Sửa sau review 8.2.1 (lỗi máy chủ lưu tương thích rollback, dò mã 429 chỉ tin 429/5xx và dùng chung một HEAD), bỏ JSZip bằng bộ ghi ZIP STORE tích hợp: tổng JS 478 → 382 KB |
+| v8.2.3 | Hotfix sau audit toàn dự án: ZIP không bỏ file/không bị đóng giữa chừng/không chứa playlist HLS và báo kết quả, popup/FAB không kẹt "đang tải", thu thập được handle bắt đầu bằng "media", chặn trang giả thao tác tải và đầu độc bearer, CSV Following chặn công thức, preset ngày theo giờ máy, ghi file lỗi theo lô |
 
 Các kế hoạch Pha 0–15 cũ đã hoàn thành và được hợp nhất vào bảng này; không còn duy trì file kế hoạch riêng.
 
@@ -76,7 +77,9 @@ Các kế hoạch Pha 0–15 cũ đã hoàn thành và được hợp nhất và
 
 Hiện không còn backlog đã được phê duyệt. P0, P1 và phạm vi P2 đều đã hoàn thành; mốc tiếp theo chỉ được mở sau khi chốt phạm vi sản phẩm mới.
 
-**Kế hoạch đang thực hiện (2026-10-14):** [`upgrade-plan-v7.3-v8.md`](upgrade-plan-v7.3-v8.md) — các mốc v7.2.3 → v7.4.2, v8.0.0 (F1–F3), v8.1.0 (F4) và v8.2.0 (F5) đã phát hành; F1–F5 khuyến nghị đã xong. Còn lại: X Lists cho F1, đổi chất lượng khi thử lại cho F3, chỉ tiêu đo hiệu năng trong `quality-gate.md`, và F6–F8 (cân nhắc/để sau).
+**Kế hoạch đang thực hiện (2026-11-25):** [`upgrade-plan-v8.3-v9.md`](upgrade-plan-v8.3-v9.md) — audit toàn dự án trên 8.2.2: hotfix v8.2.3 đã phát hành; tiếp theo v8.3.0 (logic + hardening + IndexedDB), v8.3.1 (UI/UX), v8.4.0 (dung lượng service worker), v9.0.0 (tính năng mới).
+
+**Kế hoạch trước (2026-10-14, đã hoàn thành):** [`upgrade-plan-v7.3-v8.md`](upgrade-plan-v7.3-v8.md) — các mốc v7.2.3 → v7.4.2, v8.0.0 (F1–F3), v8.1.0 (F4) và v8.2.0 (F5) đã phát hành; F1–F5 khuyến nghị đã xong. Còn lại: X Lists cho F1, đổi chất lượng khi thử lại cho F3, chỉ tiêu đo hiệu năng trong `quality-gate.md`, và F6–F8 (cân nhắc/để sau).
 
 Bản vá v7.2.1 đã khép lại các lỗi hậu phát hành của P2: Start Collecting xác nhận đúng tab/profile, auto-collect có công tắc rõ ràng mặc định tắt, prune storage chạy bounded concurrency và popup có chiều rộng nội tại ổn định.
 

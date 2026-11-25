@@ -1,6 +1,6 @@
 # Kế hoạch nâng cấp v8.2.3 → v9.0
 
-> Lập ngày 2026-11-25 trên mã nguồn **8.2.2** (commit `bef46a8`) | Trạng thái: **đề xuất, chưa triển khai**
+> Lập ngày 2026-11-25 trên mã nguồn **8.2.2** (commit `bef46a8`) | Trạng thái: **đang thực hiện — v8.2.3 đã phát hành (xem mục 6a)**
 
 Kế hoạch này kế tiếp [`upgrade-plan-v7.3-v8.md`](upgrade-plan-v7.3-v8.md) (L1–L15, S1–S11, P1–P15, U1–U16, F1–F5 đã xong). Mã định danh mới đánh tiếp từ số cuối của kế hoạch cũ.
 
@@ -26,8 +26,8 @@ Trạng thái gate tại thời điểm lập kế hoạch: `npm run check` xanh
 
 | Mốc | Trọng tâm | Mục |
 | --- | --- | --- |
-| **v8.2.3** | Hotfix: mất dữ liệu ZIP, kẹt UI, bảo mật dễ sửa | L16, L17, L19, L20, L22, L24, S12, S13, S15, U17, U19, P16 |
-| **v8.3.0** | Logic còn lại + hardening + hiệu năng IndexedDB | L18, L21, L25–L27, S14, S16–S18, P17–P19, P23, P24, P27, S19 (giảm quyền) |
+| **v8.2.3** ✅ | Hotfix: mất dữ liệu ZIP, kẹt UI, bảo mật dễ sửa | L16–L20, L22, L24, S12, S13, S15, U17, U19, P16 |
+| **v8.3.0** | Logic còn lại + hardening + hiệu năng IndexedDB | L21, L25–L27, S14, S16–S18, P17–P19, P23, P24, P27, S19 (giảm quyền) |
 | **v8.3.1** | UI/UX và accessibility | U18, U20–U30 |
 | **v8.4.0** | Dung lượng và main thread | P26 (bảng dịch theo locale), P20–P22, P25, kiểm chứng HLS fMP4 (L28) |
 | **v9.0.0** | Tính năng mới | F3b, F1b, F1c, F6, F9, F10 (xem mục 5) |
@@ -175,17 +175,26 @@ Trạng thái gate tại thời điểm lập kế hoạch: `npm run check` xanh
 
 ## 6. Thứ tự thực hiện đề xuất
 
-1. **v8.2.3 — hotfix** (≈ 1–2 ngày): L16, L17, L19, L20, L22, L24, S12, S13, S15, U17, U19, P16. Mỗi lỗi kèm regression test; Chromium acceptance cho L19/L20.
-2. **v8.3.0 — logic + hardening + IndexedDB**: L18, L21, L25–L27, S14, S16–S18, S20, P17–P19, P23, P24, P27. S19 (giảm quyền) làm cuối mốc hoặc tách bản riêng, có ghi chú rollback.
+1. ~~**v8.2.3 — hotfix**: L16, L17, L19, L20, L22, L24, S12, S13, S15, U17, U19, P16~~ — hoàn thành 2026-11-25 (xem 6a), kèm L18.
+2. **v8.3.0 — logic + hardening + IndexedDB**: L21, L25–L27, S14, S16–S18, S20, P17–P19, P23, P24, P27. S19 (giảm quyền) làm cuối mốc hoặc tách bản riêng, có ghi chú rollback.
 3. **v8.3.1 — UI/UX**: U18, U20–U30.
 4. **v8.4.0 — dung lượng/main thread**: P26 trước, rồi P20–P22, P25; thu fixture HLS thật cho L28; đo L30.
 5. **v9.0.0 — tính năng**: F3b → F1b + F1c → F6; F9–F11 tuỳ phản hồi.
 
 Song song, việc thủ công còn tồn từ kế hoạch cũ: kiểm thử trên X/Telegram thật (Search/Hashtag, 429 thật, backup giữa hai máy) và đo các chỉ tiêu hiệu năng chưa đo trong `quality-gate.md`.
 
+## 6a. Kết quả v8.2.3
+
+- Đã sửa: L16, L17, L18 (làm cùng L16 vì cùng hàm), L19, L20, L22, L24, S12, S13, S15, U17, U19, P16.
+- **Phát hiện thêm khi sửa L19:** offscreen gửi `ZIP_PROGRESS`/`ZIP_FAILED` nhưng hai message này chưa từng có trong `MESSAGE_TYPES`, nên service worker từ chối và **mọi lỗi ZIP trước đây đều im lặng**. Thay bằng một message `ZIP_DONE` (chỉ nhận từ offscreen, payload theo allowlist) mang kết quả vào Notification Center.
+- Lease offscreen nằm trong `downloader.ts` (`holdOffscreen`/`releaseOffscreen`), không thêm module (vẫn 107/110). Một lượt ZIP giữ lease tới `ZIP_DONE` hoặc tối đa 30 phút; lượt ZIP thứ hai bị từ chối trong lúc lượt đầu chạy.
+- L20 mở rộng: nhánh đọc bộ nhớ media lỗi cũng báo `DOWNLOAD_DONE` (kèm `error`) và tắt keep-alive (trước đây alarm keep-alive chạy tiếp).
+- Test: `test/v8-2-3-hotfix.test.ts` (7 test) — 83 unit, Chromium 9/9 trên Chrome for Testing 158. **Chưa có Chromium acceptance riêng cho L19/L20**: START_DOWNLOAD từ trang extension trong tab bị từ chối nên cần dựng luồng qua FAB thật — để ở v8.3.0.
+- Ngân sách: tổng JS 384,1 KB; service worker 117,0/120 KB (+1,0 KB).
+
 ## 7. Việc tài liệu kèm theo
 
-- `roadmap.md` còn ghi 73 unit test và 7 Chromium acceptance — hiện là 76 và 9/9; cập nhật ở bản phát hành kế tiếp.
+- ~~`roadmap.md` còn ghi 73 unit test và 7 Chromium acceptance~~ — đã cập nhật ở 8.2.3.
 - Mỗi mốc cập nhật `security-permissions.md` (S12–S20), `performance-baseline.md` (P16–P27, số đo SW sau P26), `quality-gate.md` (test mới).
 
 ## 8. Tiêu chí hoàn thành chung

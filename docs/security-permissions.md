@@ -1,6 +1,6 @@
 # Audit bảo mật và quyền extension
 
-> Rà soát cho **8.2.2** | Cập nhật: 2026-10-14
+> Rà soát cho **8.2.3** | Cập nhật: 2026-11-25
 
 ## Quyền Manifest
 
@@ -62,6 +62,13 @@ Từ 8.2.1, không thêm quyền:
 - Script trang (MAIN world) không còn gắn URL request lên object XHR (`_interceptUrl`) — trang không đọc hay sửa được giá trị extension dùng để lọc GraphQL.
 
 Từ 8.2.2, không thêm quyền: bỏ thư viện bên thứ ba JSZip (giảm bề mặt mã vendor); ZIP do mã của dự án tạo trong offscreen, nguồn dữ liệu vẫn chỉ là URL CDN X đã kiểm tra, fetch không cookie.
+
+Từ 8.2.3, không thêm quyền:
+- **S12:** export CSV danh sách Following đi qua `csvCell()` như mọi CSV khác — tên hiển thị/bio do chủ tài khoản khác đặt không thể chạy như công thức trong Excel/Sheets.
+- **S13:** nút tải trên tweet (MAIN world), nút tải Telegram và phím tắt bỏ qua sự kiện có `isTrusted === false`: script trang không kích hoạt được tải hàng loạt bằng `.click()` hay chuột/phím giả. Lâu dài nên đưa nút tweet vào isolated world như FAB.
+- **S15:** script trang so hostname thật (`x.com`, `twitter.com`, `api.x.com`, `api.twitter.com`, HTTPS) trước khi bắt bearer, queryId hay parse GraphQL; URL kiểu `https://evil.tld/x.com/i/api` không còn đầu độc được bearer mà service worker dùng.
+- Message mới `ZIP_DONE` chỉ nhận từ offscreen document (`OFFSCREEN_TYPES`), payload theo allowlist `archives/files/skipped/error`.
+- Các mục bảo mật còn lại (S14, S16–S20, gồm cơ hội giảm quyền `scripting` và thu hẹp host) nằm trong `upgrade-plan-v8.3-v9.md`.
 
 ## Bề mặt cần theo dõi
 
