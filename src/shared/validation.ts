@@ -79,6 +79,18 @@ export function isCollectMediaPageUrl(value: unknown): boolean {
   return /\/(media|photos|videos|likes|bookmarks)(?:\/|$)/.test(new URL(value).pathname);
 }
 
+/**
+ * Tab đã ở đúng trang thu thập của khoá chưa (profile → /media, likes → /likes,
+ * bookmarks, search). So theo đoạn path, không dùng `includes('/media')`: handle
+ * như `mediapart` từng bị coi là đã ở trang Media nên thu thập dừng ngay (L22).
+ */
+export function isCollectPageFor(url: unknown, key: string): boolean {
+  if (!isXUrl(url) || usernameFromXUrl(url)?.toLowerCase() !== key.toLowerCase()) return false;
+  if (key === '_bookmarks_' || searchSourceFromUrl(url)) return true;
+  const section = new URL(url).pathname.split('/')[2]?.toLowerCase();
+  return key.endsWith('_likes') ? section === 'likes' : section === 'media';
+}
+
 export function isXProfileUrlForUsername(url: unknown, username: unknown): boolean {
   return isValidUsername(username) && usernameFromXUrl(url)?.toLowerCase() === username.toLowerCase();
 }

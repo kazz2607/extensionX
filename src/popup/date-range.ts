@@ -5,6 +5,7 @@
 
 import type { MessageType, ResponseFor } from '../shared/messages.ts';
 import { t } from '../lib/i18n.ts';
+import { localDayKey, presetDayRange } from '../shared/media-query.ts';
 export type SendBGFn = <T extends MessageType>(type: T, payload?: Record<string, unknown>) => Promise<ResponseFor<T> | null>;
 
 export interface DateRangeDeps {
@@ -113,20 +114,10 @@ export function initDateRange(deps: DateRangeDeps): void {
   // Preset buttons
   document.querySelectorAll<HTMLElement>('.btn-preset').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const preset = btn.dataset.preset;
-      const now = new Date();
-      const toDate = now.toISOString().slice(0, 10);
-      let fromDate = '';
-
-      if (preset === '7d') {
-        fromDate = new Date(now.getTime() - 7 * 86400000).toISOString().slice(0, 10);
-      } else if (preset === '30d') {
-        fromDate = new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10);
-      } else if (preset === '90d') {
-        fromDate = new Date(now.getTime() - 90 * 86400000).toISOString().slice(0, 10);
-      } else if (preset === '1y') {
-        fromDate = `${now.getFullYear()}-01-01`;
-      }
+      // U17: ngày theo giờ máy, khớp với bộ lọc (localDayStart/localDayEnd).
+      const range = presetDayRange(btn.dataset.preset || '');
+      const fromDate = range?.from ?? '';
+      const toDate = range?.to ?? localDayKey(Date.now());
 
       els.inputDateFrom!.value = fromDate;
       els.inputDateTo!.value = toDate;

@@ -262,6 +262,7 @@ function attachButtonToMedia(container: HTMLElement, mediaElement: HTMLElement, 
   button.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
+    if (!event.isTrusted) return; // S13: chỉ nhận cú bấm thật của người dùng
     void handleDownloadClick(button, mediaElement, kind);
   });
   container.appendChild(button);
@@ -440,6 +441,7 @@ function ensureViewerButton(): HTMLButtonElement {
   button.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
+    if (!event.isTrusted) return; // S13
     const viewer = activeViewer();
     if (!viewer) {
       setButtonState(button, 'error');

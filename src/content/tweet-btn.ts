@@ -239,6 +239,9 @@ interface TweetDownloadButton extends HTMLButtonElement {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       e.preventDefault();
+      // S13: nút nằm trong DOM của trang (MAIN world) — script trang gọi được
+      // .click() trên mọi nút để tải hàng loạt. Chỉ nhận cú bấm thật.
+      if (!e.isTrusted) return;
 
       // Tránh double-click khi đang loading
       if (btn.classList.contains('xmd-loading')) return;

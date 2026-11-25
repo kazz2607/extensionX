@@ -1,5 +1,5 @@
 import { fetchHLS } from '../lib/hls-fetcher.js';
-import { buildStoredZip, type ZipEntry } from '../shared/zip-store.ts';
+import { buildStoredZip, zipEntryName, zipPartDecision, type ZipEntry } from '../shared/zip-store.ts';
 
 interface ZipItem { url: string; ext?: string }
 
@@ -40,12 +40,9 @@ async function saveBlob(blob: Blob, filename: string, username: string): Promise
 }
 
 const ZIP_MAX_BYTES = 500 * 1024 * 1024;
+// Playlist HLS là văn bản, không phải video: không đưa vào ZIP (dùng tải trực tiếp).
+const ZIP_URL_PATTERN = /^https:\/\/(?:pbs\.twimg\.com|video\.twimg\.com|cdn\.syndication\.twimg\.com)\/(?![^?#]*\.m3u8(?:[?#]|$))/i;
 let zipRunning = false;
-
-function zipFilename(item: ZipItem, index: number): string {
-  const raw = item.url.split('/').pop()?.split('?')[0] || `media_${index}.${item.ext || 'bin'}`;
-  return raw.replace(/[^A-Za-z0-9._-]/g, '_').slice(-120);
-}
 
 async function sha256(buffer: ArrayBuffer): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', buffer);
@@ -56,7 +53,9 @@ function isZipItem(value: unknown): value is ZipItem {
   return Boolean(value) && typeof (value as ZipItem).url === 'string';
 }
 
-async function processZipChunks(msg: OffscreenMessage) {
+interface ZipResult { archives: number; files: number; skipped: number }
+
+async function processZipChunks(msg: OffscreenMessage): Promise<ZipResult> {
   if (zipRunning) throw new Error('A ZIP operation is already running');
   zipRunning = true;
   try {
@@ -64,31 +63,43 @@ async function processZipChunks(msg: OffscreenMessage) {
     const chunkSize = Math.max(1, Math.min(200, Number(msg.chunkSize) || 50));
     const items = Array.isArray(msg.items) ? msg.items.slice(0, 200).filter(isZipItem) : [];
     const seenHashes = new Set<string>();
-    for (let start = 0; start < items.length; start += chunkSize) {
-      const entries: ZipEntry[] = [];
-      let bytes = 0;
-      let added = 0;
-      const chunk = items.slice(start, start + chunkSize);
-      for (let index = 0; index < chunk.length; index++) {
-        const item = chunk[index];
-        if (!/^https:\/\/(?:pbs\.twimg\.com|video\.twimg\.com|cdn\.syndication\.twimg\.com)\//i.test(item.url)) continue;
-        const response = await fetch(item.url, { credentials: 'omit', cache: 'no-store' });
-        if (!response.ok) continue;
-        const buffer = await response.arrayBuffer();
-        if (bytes + buffer.byteLength > ZIP_MAX_BYTES) break;
-        const hash = await sha256(buffer);
-        if (seenHashes.has(hash)) continue;
-        seenHashes.add(hash);
-        bytes += buffer.byteLength;
-        added++;
-        entries.push({ name: zipFilename(item, start + index + 1), data: new Uint8Array(buffer) });
-      }
-      if (!added) continue;
+    const result: ZipResult = { archives: 0, files: 0, skipped: 0 };
+    let entries: ZipEntry[] = [];
+    let names = new Set<string>();
+    let bytes = 0;
+
+    // Mỗi phần tối đa chunkSize file và ZIP_MAX_BYTES: chạm giới hạn thì lưu
+    // phần đang mở rồi mở phần mới — không file hợp lệ nào bị bỏ (L16).
+    const flush = async () => {
+      if (!entries.length) return;
       // Ảnh/video đã nén sẵn: STORE thay DEFLATE (xem shared/zip-store.ts).
       const blob = new Blob(buildStoredZip(entries), { type: 'application/zip' });
-      await saveBlob(blob, `${username}/zip/media_${Math.floor(start / chunkSize) + 1}.zip`, username);
-      chrome.runtime.sendMessage({ type: 'ZIP_PROGRESS', payload: { completed: Math.min(start + chunkSize, items.length), total: items.length } }).catch(() => {});
+      result.archives++;
+      result.files += entries.length;
+      entries = [];
+      names = new Set();
+      bytes = 0;
+      await saveBlob(blob, `${username}/zip/media_${result.archives}.zip`, username);
+    };
+
+    for (const [index, item] of items.entries()) {
+      if (!ZIP_URL_PATTERN.test(item.url)) { result.skipped++; continue; }
+      // Một file lỗi mạng không được làm hỏng cả lượt ZIP.
+      const buffer = await fetch(item.url, { credentials: 'omit', cache: 'no-store' })
+        .then((response) => (response.ok ? response.arrayBuffer() : null))
+        .catch(() => null);
+      if (!buffer) { result.skipped++; continue; }
+      const decision = zipPartDecision(bytes, entries.length, buffer.byteLength, ZIP_MAX_BYTES, chunkSize);
+      if (decision === 'skip') { result.skipped++; continue; }
+      const hash = await sha256(buffer);
+      if (seenHashes.has(hash)) continue; // nội dung trùng: không phải lỗi
+      seenHashes.add(hash);
+      if (decision === 'flush') await flush();
+      bytes += buffer.byteLength;
+      entries.push({ name: zipEntryName(item.url, item.ext, index + 1, names), data: new Uint8Array(buffer) });
     }
+    await flush();
+    return result;
   } finally {
     zipRunning = false;
   }
@@ -188,9 +199,12 @@ chrome.runtime.onMessage.addListener((msg: OffscreenMessage, sender, sendRespons
   }
 
   if (msg.type === 'DOWNLOAD_ZIP_CHUNKS') {
-    void processZipChunks(msg).catch((error) => {
-      chrome.runtime.sendMessage({ type: 'ZIP_FAILED', payload: { error: error instanceof Error ? error.message : 'ZIP failed' } }).catch(() => {});
-    });
+    // ZIP_DONE luôn được gửi (cả khi lỗi): service worker giữ offscreen mở tới
+    // khi nhận được nó, và ghi kết quả vào Notification Center.
+    void processZipChunks(msg).then(
+      (result) => chrome.runtime.sendMessage({ type: 'ZIP_DONE', payload: result }),
+      (error: unknown) => chrome.runtime.sendMessage({ type: 'ZIP_DONE', payload: { archives: 0, files: 0, skipped: 0, error: error instanceof Error ? error.message.slice(0, 300) : 'ZIP failed' } }),
+    ).catch(() => {});
     sendResponse({ queued: true });
     return false;
   }

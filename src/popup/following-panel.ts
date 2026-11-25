@@ -11,6 +11,10 @@
 import type { FollowingCandidate, FollowingScanState } from '../types.ts';
 import type { MessageType, ResponseFor } from '../shared/messages.ts';
 import { t } from '../lib/i18n.ts';
+import { csvCell } from '../shared/csv.ts';
+
+/** Số ứng viên unfollow hiển thị trong danh sách (và được "Chọn đang hiển thị"). */
+const CANDIDATE_RENDER_LIMIT = 100;
 
 export type FollowingUser = { username: string; displayName: string; bio: string; order: number };
 export type ShowToastFn   = (msg: string, type?: string) => void;
@@ -162,7 +166,7 @@ function renderFollowingCandidates(state: FollowingScanState): void {
     return;
   }
   const dateLocale = window.i18n?.lang === 'vi' ? 'vi-VN' : 'en-US';
-  for (const candidate of visible.slice(0, 100)) {
+  for (const candidate of visible.slice(0, CANDIDATE_RENDER_LIMIT)) {
     const row = document.createElement('li');
     row.className = 'cleanup-user-item';
     const checkbox = document.createElement('input');
@@ -370,7 +374,9 @@ export function initFollowingPanel(deps: FollowingPanelDeps): void {
     renderFollowingCandidates({ status: 'ready', scanned: _candidates.length, candidates: _candidates, processed: 0, succeeded: 0, failed: 0 });
   });
   selectVisible?.addEventListener('click', () => {
-    for (const item of filteredCandidates()) item.selected = true;
+    // U19: chỉ chọn những mục đang hiển thị — trước đây chọn cả các mục đã lọc
+    // nhưng không render, dẫn tới bỏ theo dõi những tài khoản người dùng chưa thấy.
+    for (const item of filteredCandidates().slice(0, CANDIDATE_RENDER_LIMIT)) item.selected = true;
     renderFollowingCandidates({ status: 'ready', scanned: _candidates.length, candidates: _candidates, processed: 0, succeeded: 0, failed: 0 });
   });
   unfollow?.addEventListener('click', async () => {
@@ -401,8 +407,10 @@ export function initFollowingPanel(deps: FollowingPanelDeps): void {
     const header = 'rank,username,displayName,bio,isParody,profileUrl\n';
     const rows = _users.map((u, i) => {
       const isParody = u.bio?.includes('Tài khoản giễu nhại') ? 'TRUE' : 'FALSE';
-      const bio = (u.bio || '').replace(/"/g, '""').replace(/\n/g, ' ');
-      return `${i + 1},"${u.username}","${u.displayName.replace(/"/g, '""')}","${bio}",${isParody},"https://x.com/${u.username}"`;
+      // S12: tên hiển thị/bio do chủ tài khoản khác đặt — qua csvCell để
+      // `=HYPERLINK(...)` không chạy như công thức khi mở bằng Excel/Sheets.
+      const bio = (u.bio || '').replace(/\r?\n/g, ' ');
+      return [i + 1, csvCell(u.username), csvCell(u.displayName), csvCell(bio), isParody, csvCell(`https://x.com/${u.username}`)].join(',');
     }).join('\n');
 
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');

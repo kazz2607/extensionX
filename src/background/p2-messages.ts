@@ -7,23 +7,24 @@ import { mediaRepository } from './indexeddb.ts';
 import { listDownloadHistory } from './download-history.ts';
 import { downloadCoordinator } from './state.ts';
 import { getSavedJob } from './saved-jobs.ts';
-import { startDownload } from './downloader.ts';
+import { holdOffscreen, releaseOffscreen, startDownload } from './downloader.ts';
 import { addNotificationEvent, listNotificationEvents, markNotificationEventsRead } from './notification-events.ts';
 import { t } from '../lib/i18n.ts';
 
 const SCHEDULES_KEY = 'job_schedules_v1';
 const ALARM_PREFIX = 'extensionx-job:';
 
-async function ensureOffscreenDocument(): Promise<void> {
-  const existing = chrome.runtime.getContexts
-    ? await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] })
-    : [];
-  if (existing.length) return;
-  try {
-    await chrome.offscreen.createDocument({ url: 'offscreen/offscreen.html', reasons: ['BLOBS'], justification: 'Create bounded ZIP archives selected by the user' });
-  } catch (error) {
-    if (!(error instanceof Error) || !error.message.includes('single offscreen document')) throw error;
-  }
+// Một lượt ZIP giữ offscreen mở tới khi offscreen gửi ZIP_DONE. Hạn chót phòng
+// trường hợp offscreen chết giữa chừng (200 file × tải chậm vẫn dưới 30 phút).
+const ZIP_LEASE_MAX_MS = 30 * 60_000;
+let zipLeaseTimer: ReturnType<typeof setTimeout> | null = null;
+
+function endZipLease(): boolean {
+  if (!zipLeaseTimer) return false;
+  clearTimeout(zipLeaseTimer);
+  zipLeaseTimer = null;
+  releaseOffscreen();
+  return true;
 }
 
 // Estimate/Gallery/ZIP must select exactly what Download would fetch.
@@ -33,12 +34,12 @@ function criteriaFrom(payload: Record<string, unknown>): MediaQueryCriteria {
   return { filterType, dateFrom: text(payload.dateFrom), dateTo: text(payload.dateTo), keyword: text(payload.keyword) };
 }
 
-async function collect(username: string, payload: Record<string, unknown>, cap = Number.POSITIVE_INFINITY): Promise<{ items: MediaItem[]; total: number }> {
+async function collect(username: string, payload: Record<string, unknown>, cap = Number.POSITIVE_INFINITY, accept: (item: MediaItem) => boolean = () => true): Promise<{ items: MediaItem[]; total: number }> {
   const items: MediaItem[] = [];
   let total = 0;
   const matches = createMediaMatcher(criteriaFrom(payload));
   await mediaRepository.visitMediaItems(username, (item) => {
-    if (!matches(item)) return;
+    if (!matches(item) || !accept(item)) return;
     total++;
     if (items.length < cap) items.push(item);
   });
@@ -188,18 +189,39 @@ export const handleP2Message: DomainMessageHandler = (message, _sender, sendResp
     return true;
   }
   if (type === 'DOWNLOAD_ZIP_CHUNKS') {
+    if (zipLeaseTimer) { sendResponse({ error: t('bg_err_zip_running') }); return false; }
+    // Giữ chỗ ngay (đồng bộ) để hai lần bấm liên tiếp không cùng lọt qua.
+    zipLeaseTimer = setTimeout(endZipLease, ZIP_LEASE_MAX_MS);
     void (async () => {
+      await holdOffscreen();
       const username = String(payload.username || '');
       const chunkSize = Math.max(1, Math.min(ZIP_MAX_FILES, Number(payload.chunkSize) || 50));
-      const { items, total } = await collect(username, payload, ZIP_MAX_FILES);
-      if (!items.length) { sendResponse({ error: t('bg_err_no_media_matched') }); return; }
-      await ensureOffscreenDocument();
-      chrome.runtime.sendMessage({ target: 'offscreen', type: 'DOWNLOAD_ZIP_CHUNKS', username, items, chunkSize }).catch(() => {});
+      // HLS là playlist văn bản, không ghép được trong ZIP (dùng tải trực tiếp).
+      const { items, total } = await collect(username, payload, ZIP_MAX_FILES, (item) => item.type !== 'hls' && !item.url.includes('.m3u8'));
+      if (!items.length) { endZipLease(); sendResponse({ error: t('bg_err_no_media_matched') }); return; }
+      await chrome.runtime.sendMessage({ target: 'offscreen', type: 'DOWNLOAD_ZIP_CHUNKS', username, items, chunkSize });
       const chunks = Math.ceil(items.length / chunkSize);
       await addNotificationEvent('info', t('bg_event_zip_creating'), t('bg_event_zip_creating_msg', { files: items.length, total, chunks }));
       sendResponse({ ok: true, files: items.length, chunks });
-    })().catch((error) => sendResponse({ error: error instanceof Error ? error.message : t('bg_err_zip_failed') }));
+    })().catch((error) => {
+      endZipLease();
+      sendResponse({ error: error instanceof Error ? error.message : t('bg_err_zip_failed') });
+    });
     return true;
+  }
+  if (message.type === 'ZIP_DONE') {
+    // Chỉ offscreen gửi được (isAllowedSender). Báo kết quả thật — trước 8.2.3
+    // lỗi ZIP không đến được đâu.
+    if (!endZipLease()) return false;
+    const { archives, files, skipped, error } = message.payload;
+    const count = (value: unknown) => (Number.isInteger(value) && Number(value) >= 0 ? Number(value) : 0);
+    const failed = typeof error === 'string' || count(archives) === 0;
+    void addNotificationEvent(
+      failed ? 'error' : count(skipped) > 0 ? 'warning' : 'success',
+      t(failed ? 'bg_err_zip_failed' : 'bg_event_zip_done'),
+      failed && typeof error === 'string' ? error.slice(0, 300) : t('bg_event_zip_done_msg', { files: count(files), archives: count(archives), skipped: count(skipped) }),
+    ).catch(() => {});
+    return false;
   }
   return undefined;
 };

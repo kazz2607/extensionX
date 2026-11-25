@@ -20,7 +20,7 @@ export type MessageType =
   | 'GET_STORAGE_SUMMARY' | 'PRUNE_STORAGE' | 'CLEAR_PROFILE_STORAGE' | 'CLEAR_ALL_PROFILE_STORAGE'
   | 'GET_DOWNLOAD_ESTIMATE' | 'PREVIEW_FOLDER_RULE' | 'GET_GALLERY_PAGE' | 'EXPORT_ERROR_REPORT'
   | 'GET_SCHEDULES' | 'SET_JOB_SCHEDULE' | 'GET_NOTIFICATIONS' | 'MARK_NOTIFICATIONS_READ' | 'DOWNLOAD_ZIP_CHUNKS'
-  | 'OFFSCREEN_SAVE_BLOB'
+  | 'OFFSCREEN_SAVE_BLOB' | 'ZIP_DONE'
   | 'GET_FAILED_ITEMS' | 'RETRY_FAILED_ITEMS' | 'CLEAR_FAILED_ITEMS'
   | 'EXPORT_BACKUP' | 'RESTORE_BACKUP_SECTION';
 
@@ -67,6 +67,7 @@ export type ExtensionMessage =
   | { type: 'DOWNLOAD_ZIP_CHUNKS'; payload: MediaFilterPayload & { chunkSize?: number } }
   | { type: 'TG_DOWNLOAD_MEDIA'; payload: { url: string; filename: string; isVideo: boolean } }
   | { type: 'OFFSCREEN_SAVE_BLOB'; payload: { url: string; filename: string; username?: string } }
+  | { type: 'ZIP_DONE'; payload: { archives?: number; files?: number; skipped?: number; error?: string } }
   | { type: 'RETRY_FAILED_ITEMS'; payload: { ids: string[] } }
   | { type: 'CLEAR_FAILED_ITEMS'; payload: { ids?: string[] } }
   | { type: 'RESTORE_BACKUP_SECTION'; payload: { section: BackupSection; items: unknown[]; username?: string } }
@@ -173,7 +174,7 @@ const MESSAGE_TYPES: ReadonlySet<string> = new Set<MessageType>([
   'GET_STORAGE_SUMMARY', 'PRUNE_STORAGE', 'CLEAR_PROFILE_STORAGE', 'CLEAR_ALL_PROFILE_STORAGE',
   'GET_DOWNLOAD_ESTIMATE', 'PREVIEW_FOLDER_RULE', 'GET_GALLERY_PAGE', 'EXPORT_ERROR_REPORT',
   'GET_SCHEDULES', 'SET_JOB_SCHEDULE', 'GET_NOTIFICATIONS', 'MARK_NOTIFICATIONS_READ', 'DOWNLOAD_ZIP_CHUNKS',
-  'OFFSCREEN_SAVE_BLOB',
+  'OFFSCREEN_SAVE_BLOB', 'ZIP_DONE',
   'GET_FAILED_ITEMS', 'RETRY_FAILED_ITEMS', 'CLEAR_FAILED_ITEMS',
   'EXPORT_BACKUP', 'RESTORE_BACKUP_SECTION',
 ]);
@@ -207,6 +208,7 @@ const PAYLOAD_KEYS: Readonly<Record<MessageType, readonly string[]>> = {
   EXPORT_ERROR_REPORT: [], GET_SCHEDULES: [], SET_JOB_SCHEDULE: ['schedule'], GET_NOTIFICATIONS: [], MARK_NOTIFICATIONS_READ: [],
   DOWNLOAD_ZIP_CHUNKS: ['username', 'filterType', 'dateFrom', 'dateTo', 'keyword', 'chunkSize'],
   OFFSCREEN_SAVE_BLOB: ['url', 'filename', 'username'],
+  ZIP_DONE: ['archives', 'files', 'skipped', 'error'],
   GET_FAILED_ITEMS: [], RETRY_FAILED_ITEMS: ['ids'], CLEAR_FAILED_ITEMS: ['ids'],
   EXPORT_BACKUP: [], RESTORE_BACKUP_SECTION: ['section', 'items', 'username'],
 };
@@ -216,7 +218,7 @@ const CONTENT_SCRIPT_TYPES: ReadonlySet<MessageType> = new Set<MessageType>([
   'MEDIA_FOUND', 'PAGE_LOADED', 'DIAGNOSTIC_METRIC', 'START_COLLECTING', 'STOP_COLLECTING', 'START_DOWNLOAD',
   'UPDATE_BEARER', 'UPDATE_QUERY_ID', 'FOLLOWING_SCAN_PAGE', 'DOWNLOAD_TWEET', 'SHORTCUT_DOWNLOAD', 'TG_DOWNLOAD_MEDIA',
 ]);
-const OFFSCREEN_TYPES: ReadonlySet<MessageType> = new Set<MessageType>(['HLS_DONE', 'OFFSCREEN_SAVE_BLOB']);
+const OFFSCREEN_TYPES: ReadonlySet<MessageType> = new Set<MessageType>(['HLS_DONE', 'OFFSCREEN_SAVE_BLOB', 'ZIP_DONE']);
 export const OFFSCREEN_DOCUMENT_PATH = 'offscreen/offscreen.html';
 
 /**

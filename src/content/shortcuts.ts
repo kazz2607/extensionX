@@ -125,7 +125,10 @@ import type { TranslationVars } from '../lib/i18n.ts';
     initialized = true;
 
     // Track tọa độ chuột (để xử lý các trang có overlay che mất ảnh)
+    // S13: chỉ nhận sự kiện thật của người dùng — script trên trang dispatch
+    // được chuột/phím giả để trỏ vào ảnh tuỳ ý rồi kích hoạt tải.
     document.addEventListener('mousemove', (e: MouseEvent) => {
+      if (!e.isTrusted) return;
       mouseX = e.clientX;
       mouseY = e.clientY;
     }, { capture: true, passive: true });
@@ -136,7 +139,7 @@ import type { TranslationVars } from '../lib/i18n.ts';
 
   // ─── Keydown Handler ──────────────────────────────────────────────────────────
   function handleKeydown(e: KeyboardEvent) {
-    if (!config.enabled) return;
+    if (!config.enabled || !e.isTrusted) return;
 
     // BUG-L1: Skip khi đang focus input/textarea/contenteditable (bất kể tọa độ chuột)
     const target = e.target as HTMLElement;

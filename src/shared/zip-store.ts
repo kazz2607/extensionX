@@ -101,3 +101,41 @@ export function buildStoredZip(entries: readonly ZipEntry[], now = new Date()): 
   ev.setUint32(16, offset, true);
   return [...parts, ...central, end];
 }
+
+export type ZipPartDecision = 'add' | 'flush' | 'skip';
+
+/**
+ * Quyết định cho file kế tiếp khi gom vào các phần ZIP: thêm vào phần đang mở,
+ * đóng phần đang mở rồi thêm vào phần mới ('flush'), hoặc bỏ qua vì một mình
+ * file đã vượt giới hạn byte. Trước 8.2.3 vượt giới hạn là dừng cả phần, các
+ * file còn lại không vào ZIP nào.
+ */
+export function zipPartDecision(partBytes: number, partFiles: number, size: number, maxBytes: number, maxFiles: number): ZipPartDecision {
+  if (size > maxBytes) return 'skip';
+  if (partFiles === 0) return 'add';
+  if (partFiles >= maxFiles || partBytes + size > maxBytes) return 'flush';
+  return 'add';
+}
+
+const SAFE_EXT = /^[a-z0-9]{1,5}$/i;
+
+/**
+ * Tên entry trong ZIP: phần cuối của URL + đuôi theo loại media. URL ảnh dạng
+ * `…/media/ABC?format=jpg&name=orig` không có đuôi trong path; tên trùng trong
+ * cùng một ZIP được đánh số để không entry nào bị giải nén đè.
+ */
+export function zipEntryName(url: string, ext: string | undefined, index: number, used: Set<string>): string {
+  let path = '';
+  try { path = new URL(url).pathname; } catch { /* dùng tên dự phòng */ }
+  const last = path.split('/').pop() || '';
+  const dot = last.lastIndexOf('.');
+  const hasExt = dot > 0 && SAFE_EXT.test(last.slice(dot + 1));
+  const base = ((hasExt ? last.slice(0, dot) : last).replace(/[^A-Za-z0-9_-]/g, '_') || `media_${index}`).slice(-100);
+  const formatParam = (() => { try { return new URL(url).searchParams.get('format') || ''; } catch { return ''; } })();
+  // `format=` của CDN phản ánh định dạng thật; `ext` của item có thể là 'jpg' mặc định.
+  const extension = [hasExt ? last.slice(dot + 1) : '', formatParam, ext || ''].find((value) => SAFE_EXT.test(value))?.toLowerCase() || 'bin';
+  let name = `${base}.${extension}`;
+  for (let n = 2; used.has(name); n++) name = `${base}_${n}.${extension}`;
+  used.add(name);
+  return name;
+}

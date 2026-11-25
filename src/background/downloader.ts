@@ -21,7 +21,7 @@ import { listDownloadHistory, recordDownloadHistory } from './download-history.t
 import { addNotificationEvent } from './notification-events.ts';
 import { t } from '../lib/i18n.ts';
 import { csvCell } from '../shared/csv.ts';
-import { clearFailedItems, recordFailedItem, listFailedItems } from './failed-items.ts';
+import { clearFailedItems, recordFailedItems, listFailedItems } from './failed-items.ts';
 import { failedItemId, groupFailedItemsByUsername } from '../shared/failed-items.ts';
 
 // ─── BUG-2 FIX: Keep-alive alarm để SW không bị Chrome terminate ───────────────
@@ -129,12 +129,26 @@ const _progressTimeByOp = new Map<string, number>();
 let _offscreenReady = false;
 let _offscreenCloseTimer: ReturnType<typeof setTimeout> | null = null;
 const OFFSCREEN_IDLE_CLOSE_MS = 30_000;
+// Số việc (HLS, ZIP) đang cần offscreen. Trước 8.2.3 chỉ xét HLS: bấm ZIP trong
+// 30 giây sau một lượt HLS thì offscreen bị đóng giữa chừng và ZIP mất im lặng.
+let _offscreenLeases = 0;
+
+/** Giữ offscreen mở cho tới khi gọi releaseOffscreen() tương ứng. */
+export async function holdOffscreen(): Promise<void> {
+  _offscreenLeases++;
+  await ensureOffscreen();
+}
+
+export function releaseOffscreen(): void {
+  _offscreenLeases = Math.max(0, _offscreenLeases - 1);
+  scheduleOffscreenClose();
+}
 
 function scheduleOffscreenClose() {
   if (_offscreenCloseTimer) clearTimeout(_offscreenCloseTimer);
   _offscreenCloseTimer = setTimeout(async () => {
     _offscreenCloseTimer = null;
-    if (pendingHlsRequests.size > 0 || !_offscreenReady) return;
+    if (_offscreenLeases > 0 || pendingHlsRequests.size > 0 || !_offscreenReady) return;
     try {
       await chrome.offscreen.closeDocument();
       _offscreenReady = false;
@@ -192,7 +206,7 @@ async function downloadSingleItem(
   }
 
   if (item.type === 'hls' || item.url?.includes('.m3u8') || filename.endsWith('.ts')) {
-    await ensureOffscreen();
+    await holdOffscreen();
     // P3: Gửi request với requestId, kết quả trả về qua HLS_DONE message (bất đồng bộ)
     const res = await new Promise((resolve, reject) => {
       const requestId = crypto.randomUUID();
@@ -215,7 +229,7 @@ async function downloadSingleItem(
         pendingHlsRequests.delete(requestId);
         reject(err);
       });
-    }).finally(scheduleOffscreenClose);
+    }).finally(releaseOffscreen);
     if (isCancelled()) throw new Error('Download cancelled');
     const hlsResult = res as { dataUrl?: string; downloadId?: number };
     if (!hlsResult.downloadId && hlsResult.dataUrl) await downloadFile(hlsResult.dataUrl, filename, username);
@@ -330,6 +344,14 @@ async function handleDownloadTweet(tweetId: string, username: string | undefined
     sendResult('error', { message: errMsg });
   }
 }
+/** Lượt tải kết thúc mà không tải file nào: mở khoá popup và FAB của profile. */
+function notifyDownloadEnded(username: string, skipped: number, error?: string) {
+  broadcastToPopup('DOWNLOAD_DONE', { username, success: 0, failed: 0, total: 0, skipped, ...(error ? { error } : {}) });
+  tabState.forEach((state, tabId) => {
+    if (state.username === username) chrome.tabs.sendMessage(tabId, { type: 'FAB_UPDATE', payload: { state: 'DOWNLOAD_DONE' } }).catch(() => {});
+  });
+}
+
 // UI-01: Lưu last download context để Retry dùng lại
 let _lastDownloadUsername = '';
 let _lastDownloadOptions: DownloadOptions = {};
@@ -383,6 +405,8 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
     }
     downloadCoordinator.settle(operationId, 'error');
     downloadCoordinator.release(operationId);
+    stopKeepAlive();
+    notifyDownloadEnded(username, 0, t('bg_err_media_storage_unavailable'));
     console.warn('[SW] Download media cursor failed:', error instanceof Error ? error.message : String(error));
     if (options._fromQueue) setTimeout(() => void startNextInQueue(), 0);
     return;
@@ -407,9 +431,11 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
     // Thông báo nếu tất cả đã được tải rồi
     if (skipped > 0) {
       await recordDownloadHistory(username, options.filterType ?? 'all', { success: 0, failed: 0, skipped }).catch(() => {});
-      broadcastToPopup('DOWNLOAD_DONE', { username, success: 0, failed: 0, total: 0, skipped });
       showDownloadNotification(username, 0, 0, 0, skipped);
     }
+    // Luôn báo kết thúc, kể cả khi không có gì để tải (vd. Picker chọn URL đã
+    // bị xoá): thiếu tin này popup và FAB kẹt ở trạng thái "đang tải".
+    notifyDownloadEnded(username, skipped, emptyIsError ? t('bg_err_no_media_found') : undefined);
     if (options._fromQueue && options._queueId) {
       const qItem = profileQueue.find(q => q.id === options._queueId);
       const transitioned = qItem && transitionQueueItem(qItem, emptyIsError ? 'error' : 'done');
@@ -469,6 +495,15 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
   // F3: các lần ghi file lỗi chạy nền, nhưng phải xong trước DOWNLOAD_DONE để
   // Download Center làm mới danh sách lỗi không thiếu những file lỗi cuối cùng.
   const failureWrites: Array<Promise<void>> = [];
+  // P16: gom file lỗi và ghi theo lô (mỗi FAILURE_BATCH file hoặc khi kết thúc)
+  // thay vì ghi lại toàn bộ danh sách lỗi cho từng file.
+  const FAILURE_BATCH = 50;
+  let pendingFailures: Array<{ item: MediaItem; error: unknown }> = [];
+  const flushFailures = () => {
+    if (!pendingFailures.length) return;
+    failureWrites.push(recordFailedItems(username, pendingFailures).catch(() => {}));
+    pendingFailures = [];
+  };
 
   async function downloadOne(item: MediaItem) {
     let filename = '';
@@ -508,7 +543,8 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
       failed++;
       activeErrors.push(formatDownloadError(err));
       // F3: lưu lại để xem theo nguyên nhân và thử lại có chọn lọc (không chặn vòng tải).
-      failureWrites.push(recordFailedItem(username, item, err).catch(() => {}));
+      pendingFailures.push({ item, error: err });
+      if (pendingFailures.length >= FAILURE_BATCH) flushFailures();
       const isHls = item.type === 'hls';
       void recordDiagnostic(
         isHls ? 'hls.failed' : 'download.failed',
@@ -600,6 +636,8 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
     // or superseded, or the maps grow for the service worker's lifetime.
     _fabProgressTimeByOp.delete(operationId); // P3: dọn per-operation throttle state
     _progressTimeByOp.delete(operationId);
+    // Ghi cả khi lượt tải đã bị Stop: file lỗi trước lúc dừng vẫn cần thử lại được.
+    flushFailures();
     if (!downloadCoordinator.isCurrent(operationId)) return;
     await Promise.all(failureWrites);
     stopKeepAlive(); // BUG-2 FIX: Tắt keep-alive khi xong

@@ -33,6 +33,19 @@ export function localDayKey(timestamp: number): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
+/**
+ * Khoảng ngày cho các nút preset của popup, theo lịch địa phương. Trước 8.2.3
+ * dùng toISOString() (UTC): ở UTC+7, bấm "7 ngày" trước 7h sáng thì ngày kết
+ * thúc là hôm qua và media đăng hôm nay bị loại (U17).
+ */
+export function presetDayRange(preset: string, now = new Date()): { from: string; to: string } | null {
+  const daysBack = ({ '7d': 7, '30d': 30, '90d': 90 } as Record<string, number>)[preset];
+  const to = localDayKey(now.getTime());
+  if (daysBack) return { from: localDayKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysBack).getTime()), to };
+  if (preset === '1y') return { from: `${now.getFullYear()}-01-01`, to };
+  return null;
+}
+
 /** The single media filter shared by Download, Picker, count, Estimate, Gallery and ZIP. */
 export function createMediaMatcher(criteria: MediaQueryCriteria): (item: MediaItem) => boolean {
   const from = criteria.dateFrom ? localDayStart(criteria.dateFrom) : 0;

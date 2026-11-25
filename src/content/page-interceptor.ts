@@ -133,8 +133,22 @@ interface GraphqlNode {
   }
 
   // ─── SEC-04: Capture Authorization header từ API requests của X.com ────────
+  // S15: so hostname thật thay vì chuỗi con — trước đây script trang gọi
+  // fetch('https://evil.tld/x.com/i/api', {authorization}) là đầu độc được
+  // bearer mà service worker dùng, và cả queryId/GraphQL giả.
+  const X_API_HOSTS = new Set(['x.com', 'twitter.com', 'api.x.com', 'api.twitter.com']);
+  function isXApiUrl(url: string): boolean {
+    try {
+      const parsed = new URL(url, location.href);
+      if (parsed.protocol !== 'https:' || !X_API_HOSTS.has(parsed.hostname)) return false;
+      return parsed.hostname.startsWith('api.') || parsed.pathname.startsWith('/i/api/');
+    } catch {
+      return false;
+    }
+  }
+
   function captureBearer(url: string, init?: RequestInit) {
-    if (!url.includes('api.twitter.com') && !url.includes('api.x.com') && !url.includes('x.com/i/api')) return;
+    if (!isXApiUrl(url)) return;
     try {
       let authHeader = '';
       const h = init?.headers;
@@ -171,6 +185,7 @@ interface GraphqlNode {
   function captureQueryId(url: string) {
     // URL pattern: /graphql/{queryId}/{OperationName}
     try {
+      if (!isXApiUrl(url)) return;
       const m = url.match(/\/graphql\/([A-Za-z0-9_-]{20,})\/([\w]+)/);
       if (!m) return;
       const queryId = m[1];
@@ -209,7 +224,7 @@ interface GraphqlNode {
     
     // Intercept ALL GraphQL JSON responses
     try {
-      if (url.includes('/graphql/')) {
+      if (url.includes('/graphql/') && isXApiUrl(url)) {
         reportResponseTime(duration);
         const isFollowing = /\/graphql\/[A-Za-z0-9_-]+\/(Following|FollowingUsers)/.test(url);
         const wantsMedia = routeCollectsMedia();
@@ -339,7 +354,7 @@ interface GraphqlNode {
       const duration = Date.now() - startTime;
       try {
         const url = xhrUrls.get(this) || this.responseURL || '';
-        if (url.includes('/graphql/')) {
+        if (url.includes('/graphql/') && isXApiUrl(url)) {
           reportResponseTime(duration);
           if (!routeCollectsMedia()) return;
           const data = nativeParse(this.responseText);

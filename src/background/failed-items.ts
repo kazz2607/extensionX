@@ -63,13 +63,22 @@ export function listFailedItems(): Promise<FailedItem[]> {
   return serialize(async () => [...await load()]);
 }
 
-/** Ghi lại một file lỗi. Lỗi do người dùng bấm Stop không phải lỗi cần thử lại. */
-export function recordFailedItem(username: string, item: MediaItem, error: unknown): Promise<void> {
+function toRecord(username: string, item: MediaItem, error: unknown): FailedItem | null {
   const reason = categorizeDownloadError(error);
-  if (reason === 'cancelled') return Promise.resolve();
-  const record = createFailedItem(username, item, reason, formatDownloadError(error));
-  if (!record) return Promise.resolve();
-  return serialize(async () => save(upsertFailedItem(await load(), record)));
+  if (reason === 'cancelled') return null;
+  return createFailedItem(username, item, reason, formatDownloadError(error));
+}
+
+/**
+ * Ghi các file lỗi trong MỘT lần ghi storage (P16). Lỗi do người dùng bấm Stop
+ * không phải lỗi cần thử lại nên bị bỏ qua. Ghi từng file làm lượt
+ * tải mất mạng serialize cả danh sách (~250 KB) cho mỗi file lỗi — O(n²) — và
+ * bắn storage.onChanged tới mọi tab X/Telegram mỗi lần.
+ */
+export function recordFailedItems(username: string, failures: ReadonlyArray<{ item: MediaItem; error: unknown }>): Promise<void> {
+  const records = failures.map(({ item, error }) => toRecord(username, item, error)).filter((record): record is FailedItem => record !== null);
+  if (!records.length) return Promise.resolve();
+  return serialize(async () => save(records.reduce((list, record) => upsertFailedItem(list, record), await load())));
 }
 
 /** File đã tải thành công thì gỡ khỏi danh sách lỗi (nếu có). */

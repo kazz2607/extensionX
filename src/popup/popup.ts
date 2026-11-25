@@ -728,7 +728,7 @@ async function beginDownload(extraOptions: Partial<DownloadOptions> = {}) {
   showProgress(true);
 
   const { dateFrom, dateTo, keyword } = getDateRange();
-  await sendBG('START_DOWNLOAD', {
+  const response = await sendBG('START_DOWNLOAD', {
     username: currentUsername,
     options: {
       filterType: activeFilter,
@@ -740,6 +740,16 @@ async function beginDownload(extraOptions: Partial<DownloadOptions> = {}) {
       ...extraOptions,
     }
   });
+  // Bị từ chối (đang có lượt tải khác, yêu cầu không hợp lệ, SW không trả lời):
+  // không có DOWNLOAD_DONE nào tới, nên phải tự mở khoá giao diện.
+  if (!response?.ok) {
+    isDownloading = false;
+    showProgress(false);
+    const message = response?.error || t('popup_no_response');
+    setStatus('error', message, '⚠️');
+    showToast(message, 'error');
+    updateButtons();
+  }
 }
 
 // ─── Event Listeners ──────────────────────────────────────────────────────────
@@ -1182,6 +1192,13 @@ function listenToMessages() {
         isDownloading = false;
         showProgress(false);
         const { success, failed, total, skipped } = payload;
+        // Lượt tải kết thúc sớm mà không có file nào (vd. không còn media khớp).
+        if (typeof payload.error === 'string' && payload.error) {
+          setStatus('error', payload.error, '⚠️');
+          showToast(payload.error, 'error');
+          updateButtons();
+          break;
+        }
         const failedTxt = failed > 0 ? t('popup_download_done_failed', { n: failed }) : '';
         const skipTxt = skipped > 0 ? t('popup_download_done_skipped', { n: skipped }) : '';
         const doneMsg = t('popup_download_done', { done: t('status_done'), success, total, failed: failedTxt, skipped: skipTxt });

@@ -8,7 +8,7 @@ import { MediaItem, Options, CollectState, Stats } from '../types.ts';
 import { filterMediaItems, isVideoThumbnailUrl } from '../shared/media-filter.ts';
 import { recordDiagnostic } from './diagnostics.ts';
 import { canTransitionCollectPhase, type CollectPhase } from '../shared/collect-state.ts';
-import { isXProfileUrlForUsername, normalizeUrlForDedup } from '../shared/validation.ts';
+import { isCollectPageFor, isXProfileUrlForUsername, normalizeUrlForDedup } from '../shared/validation.ts';
 import { isSearchSourceKey } from '../shared/collection-source.ts';
 import { resolveFailedItem } from './failed-items.ts';
 import { t } from '../lib/i18n.ts';
@@ -304,17 +304,12 @@ async function startCollecting(username: string, tabId?: number): Promise<boolea
   const tab = await chrome.tabs.get(tabId).catch(() => null);
   let targetUrl = `https://x.com/${username}/media`;
   if (username === '_bookmarks_') targetUrl = 'https://x.com/i/bookmarks';
-  else if (username.endsWith('_likes')) targetUrl = `https://x.com/${username.replace('_likes', '')}/likes`;
+  else if (username.endsWith('_likes')) targetUrl = `https://x.com/${username.slice(0, -'_likes'.length)}/likes`;
 
   // Kiểm tra tab hiện tại có đang ở đúng trang thu thập không.
   // F1: với Search/Hashtag, tab đã được so khớp đúng khoá ở trên (khoá suy ra từ
   // chính URL của tab), nên luôn là đúng trang — không có URL đích để điều hướng.
-  const isOnRightPage = tab && (
-    isSearchSourceKey(username) ||
-    (username === '_bookmarks_' && tab.url?.includes('/i/bookmarks')) ||
-    (username.endsWith('_likes') && tab.url?.includes('/likes')) ||
-    (!username.endsWith('_likes') && username !== '_bookmarks_' && tab.url?.includes('/media'))
-  );
+  const isOnRightPage = tab && (isSearchSourceKey(username) || isCollectPageFor(tab.url, username));
 
   if (tab && !isOnRightPage) {
     await chrome.tabs.update(tabId, { url: targetUrl });
@@ -368,6 +363,7 @@ async function scrollLoop(tabId: number, username: string, operationId: string) 
         username, mediaCount: mediaStore.get(username)?.size || 0,
         reachedEnd: false, reason: 'max_scrolls',
       });
+      broadcastFABState(tabId, 'COLLECT_DONE'); // L24: như các nhánh dừng khác
       break;
     }
 

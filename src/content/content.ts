@@ -209,7 +209,12 @@ onUi('XMD_FAB_ACTION', (detail) => {
   } else if (action === 'STOP_COLLECTING') {
     safeSendMessage({ type: 'STOP_COLLECTING', payload: { username } }).catch(() => {});
   } else if (action === 'START_DOWNLOAD') {
-    safeSendMessage({ type: 'START_DOWNLOAD', payload: { username, options: {} } }).catch(() => {});
+    // Bị từ chối (đang có lượt tải khác…) thì không có FAB_UPDATE nào tới:
+    // tự đưa FAB về trạng thái chờ để nút không kẹt "đang tải".
+    const unlock = () => emitUi('XMD_FAB_UPDATE', { state: 'DOWNLOAD_DONE' });
+    safeSendMessage({ type: 'START_DOWNLOAD', payload: { username, options: {} } })
+      .then((response) => { if (!(response as { ok?: boolean } | undefined)?.ok) unlock(); })
+      .catch(unlock);
   }
 });
 
