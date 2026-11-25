@@ -20,6 +20,8 @@ export const X_UI_STRINGS: TranslationTable = {
     fab_downloading: '⏳ Loading...',
     fab_scrolling: '⟳ Auto-scrolling...',
     fab_drag_handle: 'Drag to move',
+    fab_main_open: 'X Media Downloader — open panel',
+    fab_main_download: 'X Media Downloader — download {count} media',
 
     // Snackbar
     sb_title_downloading: '⬇ Downloading',
@@ -40,6 +42,8 @@ export const X_UI_STRINGS: TranslationTable = {
     fab_downloading: '⏳ Đang tải...',
     fab_scrolling: '⟳ Đang scroll tự động...',
     fab_drag_handle: 'Kéo để di chuyển',
+    fab_main_open: 'X Media Downloader — mở bảng điều khiển',
+    fab_main_download: 'X Media Downloader — tải {count} media',
 
     // Snackbar
     sb_title_downloading: '⬇ Đang tải',

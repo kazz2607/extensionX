@@ -16,16 +16,42 @@ export function initFabEvents(elements: FabElements): { closePanel: () => void }
   let isDownloading = false; // FIX: flag riêng cho download, độc lập với downloadBtn.disabled
   let mediaCount = 0;
 
-  function closePanel(): void {
-    panelOpen = false;
-    panel.classList.remove('visible');
+  function setPanelOpen(open: boolean): void {
+    panelOpen = open;
+    panel.classList.toggle('visible', open);
+    mainBtn.setAttribute('aria-expanded', String(open));
   }
+
+  function closePanel(): void {
+    setPanelOpen(false);
+  }
+
+  // U20: nút chính chỉ có badge số bên trong nên screen reader đọc "0, button".
+  // Tên truy cập nói rõ bấm sẽ làm gì (tải ngay hay mở bảng).
+  function updateMainLabel(): void {
+    mainBtn.setAttribute('aria-label', mediaCount > 0 && !isDownloading
+      ? t('fab_main_download', { count: mediaCount })
+      : t('fab_main_open'));
+  }
+  mainBtn.setAttribute('aria-controls', panel.id);
+  mainBtn.setAttribute('aria-expanded', 'false');
+  updateMainLabel();
+
+  // Escape đóng bảng; chỉ trả focus về nút chính khi focus đang ở trong FAB
+  // (không kéo focus khỏi ô soạn tweet của X).
+  document.addEventListener('keydown', (e) => {
+    if (!panelOpen || e.key !== 'Escape') return;
+    const focusInside = Boolean((fab.getRootNode() as ShadowRoot | Document).activeElement && fab.contains((fab.getRootNode() as ShadowRoot | Document).activeElement));
+    closePanel();
+    if (focusInside) mainBtn.focus();
+  }, true);
 
   onUi('XMD_LANG_UPDATE', (detail) => {
     const lang = (detail as { lang?: unknown } | null)?.lang;
     if (window.i18n && typeof lang === 'string') {
       window.i18n.lang = lang;
       updateFabI18n(elements, { isCollecting, isDownloading });
+      updateMainLabel();
     }
   });
 
@@ -33,8 +59,7 @@ export function initFabEvents(elements: FabElements): { closePanel: () => void }
   mainBtn.addEventListener('click', () => {
     // Nếu đang download: bấm vào main btn = toggle panel (xem tiến độ)
     if (isDownloading) {
-      panelOpen = !panelOpen;
-      panel.classList.toggle('visible', panelOpen);
+      setPanelOpen(!panelOpen);
       return;
     }
     // Nếu có media và chưa đang download: bấm main btn = download luôn
@@ -43,13 +68,13 @@ export function initFabEvents(elements: FabElements): { closePanel: () => void }
       emitUi('XMD_FAB_ACTION', { action: 'START_DOWNLOAD' });
       setPanelButtonText(downloadBtn, t('fab_downloading'));
       downloadBtn.disabled = true;
+      updateMainLabel();
       // Đóng panel nếu đang mở
       closePanel();
       return;
     }
     // Chưa có media: toggle panel để dùng nút Thu Thập
-    panelOpen = !panelOpen;
-    panel.classList.toggle('visible', panelOpen);
+    setPanelOpen(!panelOpen);
   });
 
   // Đóng panel khi click ra ngoài. From the document, clicks inside the closed
@@ -90,6 +115,7 @@ export function initFabEvents(elements: FabElements): { closePanel: () => void }
     emitUi('XMD_FAB_ACTION', { action: 'START_DOWNLOAD' });
     setPanelButtonText(downloadBtn, t('fab_downloading'));
     downloadBtn.disabled = true;
+    updateMainLabel();
   });
 
   // ─── Update từ messages ──────────────────────────────────────────────────────
@@ -103,6 +129,7 @@ export function initFabEvents(elements: FabElements): { closePanel: () => void }
       badge.textContent = count > 999 ? '999+' : String(count);
       badge.style.display = count > 0 ? 'flex' : 'none';
       downloadBtn.disabled = count === 0;
+      updateMainLabel();
     }
 
     if (scrollCount !== undefined) {
@@ -126,6 +153,7 @@ export function initFabEvents(elements: FabElements): { closePanel: () => void }
       isDownloading = false; // FIX: reset flag để cho phép download lần tiếp
       setPanelButtonText(downloadBtn, t('fab_download'));
       downloadBtn.disabled = mediaCount === 0;
+      updateMainLabel();
     }
   });
 

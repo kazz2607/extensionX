@@ -100,6 +100,7 @@ export function injectFabStyle(target: ParentNode): void {
       color: #1D9BF0;
       font-variant-numeric: tabular-nums;
     }
+    .__xmd_count_muted__ { font-size: 13px; color: #888; }
 
     .__xmd_divider__ {
       height: 1px;

@@ -3,6 +3,18 @@ import type { FollowingCandidate } from '../types.ts';
 export const FOLLOWING_PAGE_MAX_RECORDS = 500;
 export const FOLLOWING_SCAN_MAX_RECORDS = 10_000;
 
+/**
+ * U27: nhãn "tài khoản parody" do chính X chèn vào phần mô tả, theo ngôn ngữ
+ * giao diện X của người dùng. Trước 8.3.1 chỉ so nhãn tiếng Việt nên X tiếng
+ * Anh không có badge. Đây là dữ liệu đối chiếu, không phải chữ UI.
+ */
+const PARODY_LABELS = ['parody account', 'Tài khoản giễu nhại'.toLowerCase()];
+
+export function isParodyBio(bio: string | undefined): boolean {
+  const text = bio?.toLowerCase() ?? '';
+  return PARODY_LABELS.some((label) => text.includes(label));
+}
+
 type UnknownRecord = Record<string, unknown>;
 const asRecord = (value: unknown): UnknownRecord | null => value !== null && typeof value === 'object' && !Array.isArray(value) ? value as UnknownRecord : null;
 

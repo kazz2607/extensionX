@@ -2,7 +2,8 @@
 /**
  * options.js — Logic trang Cài đặt (v5.7.0)
  */
-import { registerTranslations, t } from '../lib/i18n.ts';
+import { formatNumber, registerTranslations, t } from '../lib/i18n.ts';
+import { alertDialog, confirmDialog } from '../lib/dialog.ts';
 import { initTheme, onThemeChange, parseThemePreference, setThemePreference } from '../shared/theme.ts';
 import { COMMON_STRINGS } from '../lib/i18n/common.ts';
 import { OPTIONS_STRINGS } from '../lib/i18n/options.ts';
@@ -463,7 +464,7 @@ async function exportSettings() {
     showSaveStatus(t('opt_status_exported'));
   } catch (err) {
     console.error('[Options] exportSettings error:', err);
-    alert(t('opt_export_failed', { error: err instanceof Error ? err.message : String(err) }));
+    void alertDialog(t('opt_export_failed', { error: err instanceof Error ? err.message : String(err) }));
   }
 }
 
@@ -497,7 +498,7 @@ async function importSettings(event: Event): Promise<void> {
     setTimeout(() => location.reload(), 800);
   } catch (err) {
     console.error('[Options] importSettings error:', err);
-    alert(t('opt_import_failed', { error: err instanceof Error ? err.message : String(err) }));
+    void alertDialog(t('opt_import_failed', { error: err instanceof Error ? err.message : String(err) }));
   }
 }
 
@@ -555,7 +556,7 @@ async function importBackup(event: Event): Promise<void> {
   if (!data) { setBackupStatus(t('opt_restore_invalid')); return; }
 
   const summary = summarizeBackup(data);
-  if (!confirm(t('opt_restore_confirm', { ...summary, date: data.exportedAt.slice(0, 10) || '?' }))) return;
+  if (!await confirmDialog(t('opt_restore_confirm', { ...summary, date: data.exportedAt.slice(0, 10) || '?' }))) return;
 
   setBackupBusy(true);
   try {
@@ -591,7 +592,7 @@ async function importBackup(event: Event): Promise<void> {
 }
 
 async function resetSettings() {
-  const confirmed = confirm(t('opt_reset_confirm'));
+  const confirmed = await confirmDialog(t('opt_reset_confirm'));
   if (!confirmed) return;
 
   try {
@@ -600,7 +601,7 @@ async function resetSettings() {
     setTimeout(() => location.reload(), 600);
   } catch (err) {
     console.error('[Options] resetSettings error:', err);
-    alert(t('opt_reset_failed', { error: err instanceof Error ? err.message : String(err) }));
+    void alertDialog(t('opt_reset_failed', { error: err instanceof Error ? err.message : String(err) }));
   }
 }
 
@@ -617,16 +618,16 @@ function showSaveStatus(msg = t('save_success')) {
 }
 
 async function clearAllDownloadedHistory() {
-  const confirmed = confirm(t('opt_clear_history_confirm'));
+  const confirmed = await confirmDialog(t('opt_clear_history_confirm'));
   if (!confirmed) return;
 
   try {
     await chrome.runtime.sendMessage({ type: 'CLEAR_ALL_DOWNLOADED' });
     showSaveStatus(t('opt_status_history_cleared'));
-    alert(t('opt_history_cleared_alert'));
+    void alertDialog(t('opt_history_cleared_alert'));
   } catch (err) {
     console.error('[Options] clearAllDownloadedHistory error:', err);
-    alert(t('opt_error_generic', { error: err instanceof Error ? err.message : String(err) }));
+    void alertDialog(t('opt_error_generic', { error: err instanceof Error ? err.message : String(err) }));
   }
 }
 
@@ -641,19 +642,19 @@ async function exportLocalDiagnostics() {
     showSaveStatus(t('opt_status_diag_exported'));
   } catch (err) {
     console.error('[Options] exportLocalDiagnostics error:', err);
-    alert(t('opt_diag_export_failed', { error: errorText(err) }));
+    void alertDialog(t('opt_diag_export_failed', { error: errorText(err) }));
   }
 }
 
 async function clearLocalDiagnostics() {
-  if (!confirm(t('opt_diag_clear_confirm'))) return;
+  if (!await confirmDialog(t('opt_diag_clear_confirm'))) return;
   try {
     const response = await chrome.runtime.sendMessage({ type: 'CLEAR_LOCAL_DIAGNOSTICS' });
     if (!response?.ok) throw new Error(t('opt_diag_clear_error'));
     showSaveStatus(t('opt_status_diag_cleared'));
   } catch (err) {
     console.error('[Options] clearLocalDiagnostics error:', err);
-    alert(t('opt_diag_clear_failed', { error: errorText(err) }));
+    void alertDialog(t('opt_diag_clear_failed', { error: errorText(err) }));
   }
 }
 
@@ -693,19 +694,19 @@ function renderStorageSummary(root: HTMLElement, summary: StorageSummary): void 
   const total = document.createElement('div');
   total.textContent = t('opt_storage_total', {
     profiles: summary.profiles.length,
-    media: summary.totalMediaItems.toLocaleString(),
-    urls: summary.totalDownloadedUrls.toLocaleString(),
+    media: formatNumber(summary.totalMediaItems),
+    urls: formatNumber(summary.totalDownloadedUrls),
     size: formatBytes(summary.approximateBytes),
   });
   root.append(total);
   for (const profile of summary.profiles) {
     const row = document.createElement('div');
-    row.style.cssText = 'display:flex;gap:8px;align-items:center;justify-content:space-between;border-top:1px solid var(--border);padding:6px 0';
+    row.className = 'storage-profile-row'; // U29: trước đây style inline
     const label = document.createElement('span');
     label.textContent = t('opt_storage_profile_row', {
       username: profile.username,
-      media: profile.mediaItems.toLocaleString(),
-      urls: profile.downloadedUrls.toLocaleString(),
+      media: formatNumber(profile.mediaItems),
+      urls: formatNumber(profile.downloadedUrls),
       size: formatBytes(profile.approximateBytes),
     });
     const button = document.createElement('button');
@@ -730,7 +731,7 @@ async function refreshStorageSummary(): Promise<void> {
 }
 
 async function pruneStorage(): Promise<void> {
-  if (!confirm(t('opt_prune_confirm'))) return;
+  if (!await confirmDialog(t('opt_prune_confirm'))) return;
   const button = document.getElementById('btn-prune-storage') as HTMLButtonElement | null;
   if (button) { button.disabled = true; button.textContent = t('opt_storage_pruning'); }
   try {
@@ -740,14 +741,14 @@ async function pruneStorage(): Promise<void> {
     showSaveStatus(t('opt_status_pruned', { n: response.removed ?? 0 }));
   } catch (error) {
     console.error('[Options] pruneStorage error:', error);
-    alert(t('opt_prune_failed', { error: errorText(error) }));
+    void alertDialog(t('opt_prune_failed', { error: errorText(error) }));
   } finally {
     if (button) { button.disabled = false; button.textContent = t('opt_btn_storage_prune'); }
   }
 }
 
 async function clearAllProfileStorage(): Promise<void> {
-  if (!confirm(t('opt_clear_all_storage_confirm'))) return;
+  if (!await confirmDialog(t('opt_clear_all_storage_confirm'))) return;
   const button = document.getElementById('btn-clear-all-storage') as HTMLButtonElement | null;
   if (button) { button.disabled = true; button.textContent = t('opt_storage_clearing'); }
   try {
@@ -757,7 +758,7 @@ async function clearAllProfileStorage(): Promise<void> {
     showSaveStatus(t('opt_status_all_storage_cleared'));
   } catch (error) {
     console.error('[Options] clearAllProfileStorage error:', error);
-    alert(t('opt_clear_all_storage_failed', { error: errorText(error) }));
+    void alertDialog(t('opt_clear_all_storage_failed', { error: errorText(error) }));
   } finally {
     if (button) { button.disabled = false; button.textContent = t('opt_btn_storage_clear_all'); }
   }
@@ -766,9 +767,9 @@ async function clearAllProfileStorage(): Promise<void> {
 async function handleStorageSummaryClick(event: Event): Promise<void> {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-clear-profile]');
   const username = button?.dataset.clearProfile;
-  if (!username || !confirm(t('opt_clear_profile_confirm', { username }))) return;
+  if (!username || !await confirmDialog(t('opt_clear_profile_confirm', { username }))) return;
   const response = await chrome.runtime.sendMessage({ type: 'CLEAR_PROFILE_STORAGE', payload: { username } }) as ResponseFor<'CLEAR_PROFILE_STORAGE'>;
-  if (!response.ok || !response.summary) { alert(response.error || t('opt_clear_profile_error')); return; }
+  if (!response.ok || !response.summary) { void alertDialog(response.error || t('opt_clear_profile_error')); return; }
   setStorageView({ kind: 'summary', summary: response.summary });
   showSaveStatus(t('opt_status_profile_cleared', { username }));
 }

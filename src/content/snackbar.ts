@@ -234,7 +234,7 @@ interface SnackbarUpdate {
       <div class="__xmd_sb_counter__" id="__xmd_sb_counter__">0 / 0</div>
       <div class="__xmd_sb_filename__" id="__xmd_sb_filename__"></div>
     </div>
-    <div class="__xmd_sb_done_msg__" id="__xmd_sb_done_msg__"></div>
+    <div class="__xmd_sb_done_msg__" id="__xmd_sb_done_msg__" role="status" aria-live="polite"></div>
   `;
   root.appendChild(sb);
 

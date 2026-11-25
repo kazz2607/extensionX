@@ -47,6 +47,19 @@ export function t(key: string, vars?: TranslationVars): string {
   return translate(TRANSLATIONS, _currentLang, key, vars);
 }
 
+const FILTER_TYPES = new Set(['all', 'images', 'videos', 'gifs']);
+
+/** U22: nhãn bộ lọc media theo ngôn ngữ app (khoá `tab_*` của bảng common); giá trị lạ giữ nguyên. */
+export function filterTypeLabel(type: unknown): string {
+  const value = String(type || 'all');
+  return FILTER_TYPES.has(value) ? t(`tab_${value}`) : value.slice(0, 30);
+}
+
+/** U24: định dạng số theo ngôn ngữ của extension, không theo locale của trình duyệt. */
+export function formatNumber(value: number, options?: Intl.NumberFormatOptions): string {
+  return new Intl.NumberFormat(_currentLang === 'vi' ? 'vi-VN' : 'en-US', options).format(value);
+}
+
 // Cập nhật DOM tự động dựa trên attribute data-i18n
 
 export function applyI18nToDOM(root: Document | HTMLElement = document): void {

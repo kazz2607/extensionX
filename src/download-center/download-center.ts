@@ -1,5 +1,6 @@
 
-import { registerTranslations, t } from '../lib/i18n.ts';
+import { filterTypeLabel, registerTranslations, t } from '../lib/i18n.ts';
+import { confirmDialog } from '../lib/dialog.ts';
 import { initTheme } from '../shared/theme.ts';
 import { COMMON_STRINGS } from '../lib/i18n/common.ts';
 import { DOWNLOAD_CENTER_STRINGS } from '../lib/i18n/download-center.ts';
@@ -86,7 +87,8 @@ function render(): void {
   byId('summary-active').textContent = String(data.queue.filter((item) => item.status === 'downloading').length);
   byId('summary-jobs').textContent = String(data.jobs.length);
   byId('summary-history').textContent = String(data.history.length);
-  byId('connection-status').textContent = data.download.isDownloading ? t('dc_conn_downloading', { phase: data.download.phase }) : t('dc_conn_ready');
+  // U22: phase được dịch thay vì hiện giá trị nội bộ ('preparing'…).
+  byId('connection-status').textContent = data.download.isDownloading ? t('dc_conn_downloading', { phase: t(`dc_phase_${data.download.phase}`) }) : t('dc_conn_ready');
   renderQueue();
   renderJobs();
   renderHistory();
@@ -256,7 +258,7 @@ function renderQueue(): void {
     const main = document.createElement('div');
     const title = document.createElement('h3'); title.className = 'item-title'; title.textContent = `@${item.username}`;
     const badge = document.createElement('span'); badge.className = `status ${item.status}`; badge.textContent = labelOr(`dc_status_${item.status}`, item.status); title.append(badge);
-    const meta = document.createElement('p'); meta.className = 'item-meta'; meta.textContent = `${t('dc_media_count', { n: item.mediaCount })} · ${item.filterType}${item.keyword ? ` · “${item.keyword}”` : ''}`;
+    const meta = document.createElement('p'); meta.className = 'item-meta'; meta.textContent = `${t('dc_media_count', { n: item.mediaCount })} · ${filterTypeLabel(item.filterType)}${item.keyword ? ` · “${item.keyword}”` : ''}`;
     main.append(title, meta);
     const detail = document.createElement('div'); detail.className = 'item-detail';
     detail.textContent = item.result ? t('dc_result_summary', { success: item.result.success, total: item.result.total, failed: item.result.failed, skipped: item.result.skipped }) : new Date(item.addedAt).toLocaleString(locale());
@@ -279,7 +281,7 @@ function renderJobs(): void {
     const row = document.createElement('article'); row.className = 'item';
     const main = document.createElement('div');
     const title = document.createElement('h3'); title.className = 'item-title'; title.textContent = job.name;
-    const meta = document.createElement('p'); meta.className = 'item-meta'; meta.textContent = `@${job.username} · ${job.filterType}${job.keyword ? ` · “${job.keyword}”` : ''}`;
+    const meta = document.createElement('p'); meta.className = 'item-meta'; meta.textContent = `@${job.username} · ${filterTypeLabel(job.filterType)}${job.keyword ? ` · “${job.keyword}”` : ''}`;
     main.append(title, meta);
     const detail = document.createElement('div'); detail.className = 'item-detail'; detail.textContent = `${job.dateFrom || t('dc_any_date')} → ${job.dateTo || t('dc_now')} · ${job.skipDuplicates ? t('dc_skip_dupes') : t('dc_allow_redownload')}`;
     const actions = document.createElement('div'); actions.className = 'item-actions';
@@ -299,7 +301,7 @@ function renderHistory(): void {
     const main = document.createElement('div');
     const title = document.createElement('h3'); title.className = 'item-title'; title.textContent = `@${entry.username}`;
     const badge = document.createElement('span'); badge.className = `status ${entry.status ?? 'completed'}`; badge.textContent = labelOr(`dc_status_${entry.status ?? 'completed'}`, entry.status ?? 'completed'); title.append(badge);
-    const meta = document.createElement('p'); meta.className = 'item-meta'; meta.textContent = `${entry.filter} · ${new Date(entry.date).toLocaleString(locale())}`; main.append(title, meta);
+    const meta = document.createElement('p'); meta.className = 'item-meta'; meta.textContent = `${filterTypeLabel(entry.filter)} · ${new Date(entry.date).toLocaleString(locale())}`; main.append(title, meta);
     const detail = document.createElement('div'); detail.className = 'item-detail'; detail.textContent = t('dc_history_summary', { success: entry.success ?? entry.count, failed: entry.failed ?? 0, skipped: entry.skipped ?? 0 });
     const actions = document.createElement('div'); actions.className = 'item-actions'; actions.append(button(t('dc_btn_create_job'), 'job-from-history', entry.username));
     row.append(main, detail, actions); fragment.append(row);
@@ -347,7 +349,7 @@ async function handleAction(action: string, id: string): Promise<void> {
     byId('connection-status').textContent = response?.ok ? t('dc_job_started') : response?.error ?? t('dc_job_run_failed');
   }
   if (action === 'edit-job') openJobDialog(data.jobs.find((job) => job.id === id));
-  if (action === 'delete-job' && confirm(t('dc_confirm_delete_job'))) await sendBG('DELETE_SAVED_JOB', { id });
+  if (action === 'delete-job' && await confirmDialog(t('dc_confirm_delete_job'))) await sendBG('DELETE_SAVED_JOB', { id });
   if (action === 'job-from-history') openJobDialog(undefined, id);
   if (action === 'toggle-schedule') {
     const current = schedules.find((item) => item.jobId === id);
@@ -427,6 +429,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     await refresh();
   });
   byId('btn-errors-remove').addEventListener('click', async () => {
+    // U21: gỡ khỏi danh sách lỗi là mất khả năng thử lại các file đó — cần xác nhận.
+    if (!await confirmDialog(t('dc_confirm_remove_failed', { n: selectedFailed.size }))) return;
     const response = await sendBG('CLEAR_FAILED_ITEMS', { ids: [...selectedFailed] });
     byId('errors-status').textContent = response?.ok ? t('dc_errors_removed', { n: response.removed ?? 0 }) : response?.error || '';
     selectedFailed.clear();

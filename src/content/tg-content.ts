@@ -158,11 +158,16 @@ function setButtonState(button: HTMLButtonElement, state: 'success' | 'error', m
   }, message ? 6_000 : 1500);
 }
 
+const NATIVE_DOWNLOAD_BY_ICON = 'button.tgico-download, button:has(> .tgico-download), button:has(> .icon-download), button:has(> i.icon-download)';
+
 function findNativeDownloadButton(mediaElement: HTMLElement): HTMLElement | null {
   const viewer = mediaElement.closest('.media-viewer-whole, #MediaViewer');
   let nativeBtn: HTMLElement | null = null;
   if (viewer) {
-    nativeBtn = viewer.querySelector<HTMLElement>('button[title="Download"], button[aria-label="Download"], button[title="Download video"], button[title="Tải xuống"], .media-viewer-buttons button.download');
+    // U27: ưu tiên icon tải (không phụ thuộc ngôn ngữ giao diện Telegram), rồi
+    // mới tới title/aria-label tiếng Anh/Việt như trước.
+    nativeBtn = viewer.querySelector<HTMLElement>(NATIVE_DOWNLOAD_BY_ICON)
+      ?? viewer.querySelector<HTMLElement>('button[title="Download"], button[aria-label="Download"], button[title="Download video"], button[title="Tải xuống"], .media-viewer-buttons button.download');
   }
   if (!nativeBtn && mediaElement.parentElement) {
     nativeBtn = mediaElement.parentElement.querySelector<HTMLElement>('button[title="Download"], button.download');

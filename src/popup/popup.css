@@ -1558,6 +1558,18 @@ a:focus-visible {
   font-size: 11px;
 }
 
+/* U26: màu biểu đồ theo token (trước đây hex rải ở HTML/JS). */
+:root {
+  --chart-image: var(--accent);
+  --chart-video: #a855f7;
+  --chart-gif: var(--green);
+  --chart-hls: var(--orange);
+}
+.legend-dot--image { background: var(--chart-image); }
+.legend-dot--video { background: var(--chart-video); }
+.legend-dot--gif { background: var(--chart-gif); }
+.legend-dot--hls { background: var(--chart-hls); }
+
 .legend-dot {
   width: 8px;
   height: 8px;
@@ -2234,6 +2246,13 @@ body.compact-mode .btn-compact {
   background: var(--bg-hover);
 }
 
+/* Dòng ghi chú (trống / còn nữa) — trước đây style inline từ JS (U29). */
+.cleanup-user-note {
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
 .cleanup-user-rank {
   font-size: 10px;
   color: var(--text-muted);
@@ -2300,9 +2319,9 @@ body.compact-mode .btn-compact {
   gap: 2px;
   font-size: 9px;
   font-weight: 600;
-  color: #f59e0b;
-  background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: var(--orange);
+  background: var(--orange-bg);
+  border: 1px solid var(--orange);
   border-radius: 4px;
   padding: 1px 5px;
   margin-left: 5px;
@@ -2570,3 +2589,14 @@ body.compact-mode .btn-compact {
 
 /* ── FEA-03: File count per profile ── */
 .queue-file-count { font-size: 10px; color: var(--accent); font-weight: 500; margin-top: 2px; display: block; }
+
+/* U29: nút 'Clear history' — trước đây toàn bộ style nằm inline trong popup.html. */
+.btn-clear-downloaded {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 4px;
+  text-decoration: underline;
+}

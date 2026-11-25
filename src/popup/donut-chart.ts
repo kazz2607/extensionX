@@ -5,6 +5,7 @@
  * (không rebuild toàn bộ) theo tối ưu đã có từ Pha 3.
  */
 import type { Stats } from '../types.ts';
+import { formatNumber, t } from '../lib/i18n.ts';
 
 export function renderDonutChart(stats: Stats): void {
   const arcs = document.getElementById('donut-arcs');
@@ -16,23 +17,28 @@ export function renderDonutChart(stats: Stats): void {
   const legendGifs = document.getElementById('legend-gifs');
   const legendHls = document.getElementById('legend-hls');
 
+  // U26: màu theo token CSS (--chart-*), gán qua style vì var() trong thuộc
+  // tính SVG không được mọi trình duyệt hiểu.
+  const images = stats.image || 0;
+  const videos = (stats.video || 0) + (stats.hls || 0);
+  const gifs = stats.gif || 0;
   const data = [
-    { key: 'image', color: '#1D9BF0', label: 'Images', val: stats.image || 0 },
-    { key: 'video', color: '#a855f7', label: 'Videos', val: (stats.video || 0) + (stats.hls || 0) },
-    { key: 'gif', color: '#00ba7c', label: 'GIFs', val: stats.gif || 0 },
-    { key: 'hls', color: '#ff7a00', label: 'HLS', val: 0 }, // merged into video
+    { key: 'image', color: 'var(--chart-image)', val: images },
+    { key: 'video', color: 'var(--chart-video)', val: videos },
+    { key: 'gif', color: 'var(--chart-gif)', val: gifs },
   ];
 
-  // Merge HLS into video (already done above), show separate HLS legend
-  const hlsOnly = stats.hls || 0;
-  if (legendHls) legendHls.textContent = String(hlsOnly);
+  // HLS đã gộp vào video ở trên; chú giải HLS hiện riêng số HLS.
+  if (legendHls) legendHls.textContent = formatNumber(stats.hls || 0);
 
-  const total = (stats.image || 0) + (stats.video || 0) + (stats.gif || 0) + (stats.hls || 0);
-  totalEl.textContent = total > 9999 ? '9k+' : String(total);
+  const total = images + videos + gifs;
+  // U26: số gọn theo ngôn ngữ (25.000 → "25K"), trước đây mọi tổng > 9999 đều là "9k+".
+  totalEl.textContent = total > 9999 ? formatNumber(total, { notation: 'compact', maximumFractionDigits: 1 }) : formatNumber(total);
+  document.getElementById('donut-svg')?.setAttribute('aria-label', t('popup_chart_aria', { images: formatNumber(images), videos: formatNumber(videos), gifs: formatNumber(gifs) }));
 
-  if (legendImages) legendImages.textContent = String(stats.image || 0);
-  if (legendVideos) legendVideos.textContent = String((stats.video || 0) + (stats.hls || 0));
-  if (legendGifs) legendGifs.textContent = String(stats.gif || 0);
+  if (legendImages) legendImages.textContent = formatNumber(images);
+  if (legendVideos) legendVideos.textContent = formatNumber(videos);
+  if (legendGifs) legendGifs.textContent = formatNumber(gifs);
 
   if (total === 0) {
     // P3: Update incremental — chỉ set attribute không dùng innerHTML
@@ -71,7 +77,7 @@ export function renderDonutChart(stats: Stats): void {
     const frac = seg.val / total;
     const dash = frac * circ;
     const gap = circ - dash;
-    existingCircles[i].setAttribute('stroke', seg.color);
+    existingCircles[i].style.stroke = seg.color;
     existingCircles[i].setAttribute('stroke-dasharray', `${dash.toFixed(2)} ${gap.toFixed(2)}`);
     existingCircles[i].setAttribute('stroke-dashoffset', `${(-offset * circ / 360).toFixed(2)}`);
     offset += frac * 360;

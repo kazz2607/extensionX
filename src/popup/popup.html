@@ -205,13 +205,13 @@
 
         <!-- Status / Progress -->
         <section class="status-section">
-          <div class="status-bar" role="status">
-            <div class="status-dot" id="status-dot" aria-label="Status: ready"></div>
-            <span class="status-text" id="status-text" data-i18n="status_ready" aria-live="polite">Ready</span>
+          <div class="status-bar" id="status-bar" role="status">
+            <div class="status-dot" id="status-dot" role="img" aria-label="Status: ready"></div>
+            <span class="status-text" id="status-text" data-i18n="status_ready">Ready</span>
             <span class="status-speed" id="status-speed"></span>
           </div>
           <div class="progress-wrap" id="progress-wrap" style="display:none">
-            <div class="progress-track">
+            <div class="progress-track" id="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Download progress" data-i18n-aria-label="popup_progress_label">
               <div class="progress-fill" id="progress-fill" style="width:0%"></div>
             </div>
             <span class="progress-label" id="progress-label">0 / 0</span>
@@ -286,7 +286,7 @@
             </label>
             <div style="display:flex; align-items:center; gap:6px;">
               <span id="downloaded-count-badge" style="font-size:11px; background:rgba(29,155,240,0.1); color:var(--accent); padding:2px 6px; border-radius:10px; display:none;">0 downloaded</span>
-              <button class="btn-clear-downloaded" id="btn-clear-downloaded" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:11px; padding:2px 4px; text-decoration:underline; display:none;" title="Clear download history to re-download all files" data-i18n-title="popup_clear_downloaded_title" data-i18n="popup_clear_downloaded">Clear history</button>
+              <button class="btn-clear-downloaded" id="btn-clear-downloaded" style="display:none" title="Clear download history to re-download all files" data-i18n-title="popup_clear_downloaded_title" data-i18n="popup_clear_downloaded">Clear history</button>
             </div>
           </div>
 
@@ -432,7 +432,7 @@
           <div class="stats-title" data-i18n="stats_title">Media Breakdown</div>
           <div class="donut-wrap" id="donut-wrap">
             <div class="donut-chart-area">
-              <svg class="donut-svg" id="donut-svg" viewBox="0 0 100 100">
+              <svg class="donut-svg" id="donut-svg" viewBox="0 0 100 100" role="img" aria-label="Media breakdown">
                 <!-- Rendered by JS -->
                 <circle class="donut-track" cx="50" cy="50" r="38" fill="none" stroke-width="12"/>
                 <g id="donut-arcs"></g>
@@ -442,22 +442,22 @@
             </div>
             <div class="donut-legend" id="donut-legend">
               <div class="legend-item" data-type="image">
-                <span class="legend-dot" style="background:#1D9BF0"></span>
+                <span class="legend-dot legend-dot--image"></span>
                 <span class="legend-label" data-i18n="stat_images">Images</span>
                 <span class="legend-val" id="legend-images">0</span>
               </div>
               <div class="legend-item" data-type="video">
-                <span class="legend-dot" style="background:#a855f7"></span>
+                <span class="legend-dot legend-dot--video"></span>
                 <span class="legend-label" data-i18n="stat_videos">Videos</span>
                 <span class="legend-val" id="legend-videos">0</span>
               </div>
               <div class="legend-item" data-type="gif">
-                <span class="legend-dot" style="background:#00ba7c"></span>
+                <span class="legend-dot legend-dot--gif"></span>
                 <span class="legend-label" data-i18n="stat_gifs">GIFs</span>
                 <span class="legend-val" id="legend-gifs">0</span>
               </div>
               <div class="legend-item" data-type="hls">
-                <span class="legend-dot" style="background:#ff7a00"></span>
+                <span class="legend-dot legend-dot--hls"></span>
                 <span class="legend-label" data-i18n="stat_hls">HLS</span>
                 <span class="legend-val" id="legend-hls">0</span>
               </div>

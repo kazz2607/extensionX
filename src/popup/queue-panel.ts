@@ -6,7 +6,7 @@
 import type { QueueItem } from '../types.ts';
 import { getQueuePresentation } from '../shared/queue-presentation.ts';
 import type { MessageType, ResponseFor } from '../shared/messages.ts';
-import { t } from '../lib/i18n.ts';
+import { filterTypeLabel, formatNumber, t } from '../lib/i18n.ts';
 
 export type SendBGFn = <T extends MessageType>(type: T, payload?: Record<string, unknown>) => Promise<ResponseFor<T> | null>;
 export type ShowToastFn = (msg: string, type?: string) => void;
@@ -218,7 +218,7 @@ export function renderQueue(): void {
     const statusLabel = isPaused ? statusLabels.paused : statusLabels[item.status] || String(item.status || '');
     const metaText = item.result
       ? (item.result.error ? String(item.result.error).slice(0, 500) : t('popup_queue_result_files', { success: Number(item.result.success) || 0, total: Number(item.result.total) || 0 }))
-      : `${Number(item.mediaCount) || 0} media · ${icon} ${String(item.filterType || '').slice(0, 30)}`;
+      : `${t('popup_queue_media_count', { n: formatNumber(Number(item.mediaCount) || 0) })} · ${icon} ${filterTypeLabel(item.filterType)}`;
     const canRemove = item.status !== 'downloading';
     const id = String(item.id || '').slice(0, 120);
     const username = String(item.username || '').slice(0, 50);

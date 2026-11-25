@@ -30,7 +30,7 @@ export function buildFabDom(root: ParentNode): FabElements {
       </div>
       <div class="__xmd_panel_row__">
         <span class="__xmd_label__" id="__xmd_lbl_scroll__"></span>
-        <span class="__xmd_count__" id="__xmd_scrolls__" style="font-size:13px;color:#888">0</span>
+        <span class="__xmd_count__ __xmd_count_muted__" id="__xmd_scrolls__">0</span>
       </div>
       <div class="__xmd_divider__"></div>
       <div class="__xmd_btn_row__">

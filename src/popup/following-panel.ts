@@ -12,6 +12,7 @@ import type { FollowingCandidate, FollowingScanState } from '../types.ts';
 import type { MessageType, ResponseFor } from '../shared/messages.ts';
 import { t } from '../lib/i18n.ts';
 import { csvCell } from '../shared/csv.ts';
+import { isParodyBio } from '../shared/following-scanner.ts';
 
 /** Số ứng viên unfollow hiển thị trong danh sách (và được "Chọn đang hiển thị"). */
 const CANDIDATE_RENDER_LIMIT = 100;
@@ -23,6 +24,8 @@ export type SendBGFn      = <T extends MessageType>(type: T, payload?: Record<st
 export interface FollowingPanelDeps {
   showToast: ShowToastFn;
   sendBG:    SendBGFn;
+  /** U21: modal xác nhận của popup (theo theme, có bẫy focus) thay window.confirm(). */
+  confirm:   (message: string) => Promise<boolean>;
 }
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -144,6 +147,14 @@ function filteredCandidates(): FollowingCandidate[] {
   return _candidates.filter((item) => item.lastActiveAt !== null && item.lastActiveAt < cutoff);
 }
 
+/** Tiêu đề (số đang hiện/đã chọn) và trạng thái nút Unfollow — không đụng tới danh sách. */
+function updateCandidateSummary(status: FollowingScanState['status'], visibleCount = filteredCandidates().length, title = document.getElementById('cleanup-results-title')): void {
+  const selectedCount = _candidates.filter((item) => item.selected).length;
+  if (title) title.textContent = t('popup_following_candidates_title', { visible: visibleCount, total: _candidates.length, selected: selectedCount });
+  const unfollow = document.getElementById('btn-following-unfollow') as HTMLButtonElement | null;
+  if (unfollow) unfollow.disabled = selectedCount === 0 || status === 'unfollowing';
+}
+
 function renderFollowingCandidates(state: FollowingScanState): void {
   _candidates = state.candidates;
   const results = document.getElementById('cleanup-results');
@@ -152,15 +163,11 @@ function renderFollowingCandidates(state: FollowingScanState): void {
   if (!results || !list) return;
   results.style.display = 'flex';
   const visible = filteredCandidates();
-  const selectedCount = _candidates.filter((item) => item.selected).length;
-  if (title) title.textContent = t('popup_following_candidates_title', { visible: visible.length, total: _candidates.length, selected: selectedCount });
-  const unfollow = document.getElementById('btn-following-unfollow') as HTMLButtonElement | null;
-  if (unfollow) unfollow.disabled = selectedCount === 0 || state.status === 'unfollowing';
+  updateCandidateSummary(state.status, visible.length, title);
   list.replaceChildren();
   if (visible.length === 0) {
     const empty = document.createElement('li');
-    empty.className = 'cleanup-user-item';
-    empty.style.cssText = 'justify-content:center;color:var(--text-muted);font-size:11px';
+    empty.className = 'cleanup-user-item cleanup-user-note';
     empty.textContent = t('popup_following_empty');
     list.append(empty);
     return;
@@ -178,6 +185,7 @@ function renderFollowingCandidates(state: FollowingScanState): void {
     info.className = 'cleanup-user-info';
     const name = document.createElement('div');
     name.className = 'cleanup-user-name';
+    name.dir = 'auto'; // U28
     name.textContent = candidate.displayName;
     const handle = document.createElement('div');
     handle.className = 'cleanup-user-handle';
@@ -191,10 +199,10 @@ function renderFollowingCandidates(state: FollowingScanState): void {
     row.append(checkbox, info);
     list.append(row);
   }
-  if (visible.length > 100) {
+  if (visible.length > CANDIDATE_RENDER_LIMIT) {
     const more = document.createElement('li');
-    more.className = 'cleanup-user-item';
-    more.textContent = t('popup_following_showing_limit', { shown: 100, total: visible.length });
+    more.className = 'cleanup-user-item cleanup-user-note';
+    more.textContent = t('popup_following_showing_limit', { shown: CANDIDATE_RENDER_LIMIT, total: visible.length });
     list.append(more);
   }
 }
@@ -263,7 +271,7 @@ export function followingRenderResults(
   const shown = users.slice(0, 50);
   listEl.replaceChildren();
   shown.forEach((u, i) => {
-    const isParody = u.bio?.includes('Tài khoản giễu nhại');
+    const isParody = isParodyBio(u.bio);
     const item = document.createElement('li');
     item.className = `cleanup-user-item${isParody ? ' is-parody' : ''}`;
     const rank = document.createElement('span');
@@ -273,6 +281,7 @@ export function followingRenderResults(
     info.className = 'cleanup-user-info';
     const name = document.createElement('div');
     name.className = 'cleanup-user-name';
+    name.dir = 'auto'; // U28: tên Ả Rập/Hebrew không đảo thứ tự với phần còn lại
     name.textContent = u.displayName || u.username;
     if (isParody) {
       const badge = document.createElement('span');
@@ -296,6 +305,8 @@ export function followingRenderResults(
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
     link.title = t('popup_following_open_profile');
+    // U28: screen reader đọc tên hành động kèm tài khoản, không đọc ký tự mũi tên.
+    link.setAttribute('aria-label', `${t('popup_following_open_profile')} @${u.username}`);
     link.textContent = '↗';
     item.append(rank, info, link);
     listEl.append(item);
@@ -303,8 +314,7 @@ export function followingRenderResults(
 
   if (total > 50) {
     const more = document.createElement('li');
-    more.className = 'cleanup-user-item';
-    more.style.cssText = 'justify-content:center;color:var(--text-muted);font-size:11px';
+    more.className = 'cleanup-user-item cleanup-user-note';
     more.textContent = t('popup_following_more', { n: total - 50 });
     listEl.append(more);
   }
@@ -314,7 +324,7 @@ export function followingRenderResults(
 
 // ─── Main Init ────────────────────────────────────────────────────────────────
 export function initFollowingPanel(deps: FollowingPanelDeps): void {
-  const { showToast, sendBG } = deps;
+  const { showToast, sendBG, confirm } = deps;
 
   const container = document.getElementById('panel-cleanup');
   if (!container) return;
@@ -371,7 +381,9 @@ export function initFollowingPanel(deps: FollowingPanelDeps): void {
     const id = input.dataset.followingId;
     const candidate = _candidates.find((item) => item.userId === id);
     if (candidate) candidate.selected = input.checked;
-    renderFollowingCandidates({ status: 'ready', scanned: _candidates.length, candidates: _candidates, processed: 0, succeeded: 0, failed: 0 });
+    // U18: chỉ cập nhật tiêu đề và nút — dựng lại cả danh sách làm mất focus,
+    // người dùng bàn phím/screen reader không chọn liên tiếp được.
+    updateCandidateSummary('ready');
   });
   selectVisible?.addEventListener('click', () => {
     // U19: chỉ chọn những mục đang hiển thị — trước đây chọn cả các mục đã lọc
@@ -383,7 +395,7 @@ export function initFollowingPanel(deps: FollowingPanelDeps): void {
     const selected = _candidates.filter((item) => item.selected);
     if (!selected.length) return;
     const preview = selected.slice(0, 10).map((item) => `@${item.username} (ID ${item.userId})`).join('\n');
-    if (!confirm(t('popup_following_unfollow_confirm', { n: selected.length, preview: `${preview}${selected.length > 10 ? '…' : ''}` }))) return;
+    if (!await confirm(t('popup_following_unfollow_confirm', { n: selected.length, preview: `${preview}${selected.length > 10 ? '…' : ''}` }))) return;
     const response = await sendBG('START_UNFOLLOW', { ids: selected.map((item) => item.userId), confirmed: true }) as { ok?: boolean; error?: string } | null;
     if (!response?.ok) showToast(response?.error || t('popup_following_unfollow_incomplete'), 'error');
   });
@@ -406,7 +418,7 @@ export function initFollowingPanel(deps: FollowingPanelDeps): void {
     const BOM = '\uFEFF';
     const header = 'rank,username,displayName,bio,isParody,profileUrl\n';
     const rows = _users.map((u, i) => {
-      const isParody = u.bio?.includes('Tài khoản giễu nhại') ? 'TRUE' : 'FALSE';
+      const isParody = isParodyBio(u.bio) ? 'TRUE' : 'FALSE';
       // S12: tên hiển thị/bio do chủ tài khoản khác đặt — qua csvCell để
       // `=HYPERLINK(...)` không chạy như công thức khi mở bằng Excel/Sheets.
       const bio = (u.bio || '').replace(/\r?\n/g, ' ');

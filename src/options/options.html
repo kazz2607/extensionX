@@ -75,7 +75,8 @@
     .storage-heading { display: grid; gap: 12px; }
     .storage-copy { min-width: 0; }
     .storage-actions { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 8px; }
-    #storage-summary { width: 100%; overflow-wrap: anywhere; }
+    #storage-summary { width: 100%; overflow-wrap: anywhere; margin-top: 10px; line-height: 1.6; }
+    .storage-profile-row { display: flex; gap: 8px; align-items: center; justify-content: space-between; border-top: 1px solid var(--border); padding: 6px 0; }
 
     @media (max-width: 560px) {
       .storage-actions .btn-data { flex: 1 1 auto; }
@@ -798,7 +799,7 @@
               <button class="btn-data btn-data--danger" id="btn-clear-all-storage" data-i18n="opt_btn_storage_clear_all">Clear all media data</button>
             </div>
           </div>
-          <div id="storage-summary" role="status" aria-live="polite" style="margin-top:10px;line-height:1.6">Statistics not loaded yet.</div>
+          <div id="storage-summary" role="status" aria-live="polite">Statistics not loaded yet.</div>
         </div>
       </div>
 

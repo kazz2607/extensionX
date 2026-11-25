@@ -3,7 +3,7 @@
  * Sprint 1 fixes: BUG-L5 (sendBG timeout), SEC-03 (XSS escapeHtml),
  * UI-03 (toast queue), UI-08 (custom confirm modal)
  */
-import { registerTranslations, t } from '../lib/i18n.ts';
+import { filterTypeLabel, formatNumber, registerTranslations, t } from '../lib/i18n.ts';
 import { getThemePreference, initTheme, nextThemePreference, onThemeChange, setThemePreference, type ThemePreference } from '../shared/theme.ts';
 import { COMMON_STRINGS } from '../lib/i18n/common.ts';
 import { POPUP_STRINGS } from '../lib/i18n/popup.ts';
@@ -17,7 +17,7 @@ document.querySelectorAll('[data-manifest-version]').forEach((el) => {
 });
 
 import { initFollowingPanel, handleFollowingMessage } from './following-panel.js';
-import { setStatus, showProgress } from './status-bar.ts';
+import { setProgressValue, setStatus, showProgress } from './status-bar.ts';
 import { showToast } from './toast.ts';
 import { renderDonutChart } from './donut-chart.ts';
 import { initHistoryPanel, loadHistory, clearHistory } from './history-panel.ts';
@@ -263,7 +263,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   listenToMessages();
   await applyFollowingScannerSetting(); // v5.7.1 — hide tab if disabled in settings
-  initFollowingPanel({ showToast, sendBG }); // Feature 0 — injected from following-panel.ts
+  initFollowingPanel({ showToast, sendBG, confirm: showConfirmModal }); // Feature 0 — injected from following-panel.ts
 });
 
 // ─── v5.7.1: Following Scanner Feature Toggle ───────────────────────────────
@@ -867,14 +867,14 @@ function setupListeners() {
       showToast(
         t('popup_toast_csv_page', {
           page: pageNum,
-          exported: (res.exported ?? 0).toLocaleString(),
-          total: (res.total ?? 0).toLocaleString(),
+          exported: formatNumber(res.exported ?? 0),
+          total: formatNumber(res.total ?? 0),
         }),
         'warning'
       );
     } else {
       _csvOffset = 0; // reset sau khi xuất hết
-      showToast(t('popup_toast_csv_done', { n: (res.exported ?? 0).toLocaleString() }), 'success');
+      showToast(t('popup_toast_csv_done', { n: formatNumber(res.exported ?? 0) }), 'success');
     }
   });
 
@@ -894,9 +894,9 @@ function setupListeners() {
       filename: `${currentUsername}_manifest_${dateStr}.${format}`,
       saveAs: false,
     });
-    const exported = (res.exported ?? 0).toLocaleString();
+    const exported = formatNumber(res.exported ?? 0);
     const truncatedNote = res.truncated
-      ? t('popup_manifest_truncated', { exported, total: (res.total ?? 0).toLocaleString() })
+      ? t('popup_manifest_truncated', { exported, total: formatNumber(res.total ?? 0) })
       : '';
     showToast(t('popup_toast_manifest_exported', { format: format.toUpperCase(), n: exported, note: truncatedNote }), 'success');
   };
@@ -932,6 +932,8 @@ function setupListeners() {
   if (els.btnClearDownloaded) {
     els.btnClearDownloaded.addEventListener('click', async () => {
       if (!currentUsername) return;
+      // U21: xoá lịch sử chống trùng làm lần tải sau tải lại mọi file — cần xác nhận.
+      if (!await showConfirmModal(t('popup_confirm_clear_downloaded', { username: currentUsername }))) return;
       await sendBG('CLEAR_DOWNLOADED', { username: currentUsername });
       _downloadedCount = 0;
       if (els.downloadedBadge) els.downloadedBadge.style.display = 'none';
@@ -1055,7 +1057,7 @@ function listenToMessages() {
       case 'MEDIA_MEMORY_WARNING':
         if (payload.username !== currentUsername) break;
         showToast(
-          t('popup_toast_memory_warning', { n: (payload.count as number).toLocaleString() }),
+          t('popup_toast_memory_warning', { n: formatNumber(payload.count as number) }),
           'warning'
         );
         break;
@@ -1116,7 +1118,7 @@ function listenToMessages() {
 
       case 'DOWNLOAD_STARTED':
         if (payload.username === currentUsername) {
-          const label = activeFilter !== 'all' ? ` (${activeFilter})` : '';
+          const label = activeFilter !== 'all' ? ` (${filterTypeLabel(activeFilter)})` : '';
           setStatus('downloading', t('popup_status_downloading_total', { total: payload.total, label }), '⬇️');
         }
         break;
@@ -1125,6 +1127,7 @@ function listenToMessages() {
         if (payload.username !== currentUsername) break;
         els.progressFill.style.width = `${payload.percent}%`;
         els.progressLbl.textContent = `${payload.current} / ${payload.total}`;
+        setProgressValue(Number(payload.percent));
 
         if (payload.done) {
           if (payload.failed > 0) {
@@ -1134,7 +1137,7 @@ function listenToMessages() {
             setStatus('success', t('popup_status_done_files', { success: payload.success, total: payload.total }), '✓');
           }
         } else {
-          setStatus('downloading', t('popup_status_downloading_file', { file: payload.currentFile || '', success: payload.success, total: payload.total }), '⬇️');
+          setStatus('downloading', t('popup_status_downloading_file', { file: payload.currentFile || '', success: payload.success, total: payload.total }), '⬇️', true);
         }
         updateQueueItemProgress(payload); // UI-06: live progress trong Queue tab
         break;
@@ -1265,7 +1268,7 @@ function listenToMessages() {
       case 'FOLLOWING_SCROLL_DONE':
       case 'FOLLOWING_SCROLL_ERROR':
       case 'FOLLOWING_SCAN_STATE':
-        handleFollowingMessage(msg.type, payload, { showToast, sendBG });
+        handleFollowingMessage(msg.type, payload, { showToast, sendBG, confirm: showConfirmModal });
         break;
     }
   });

@@ -51,7 +51,7 @@
 
     <section class="panel" aria-labelledby="p2-heading">
       <div class="panel-heading">
-        <div><p class="section-kicker">P2 TOOLKIT</p><h2 id="p2-heading" data-i18n="dc_p2_heading">Planning, Gallery and ZIP</h2></div>
+        <div><p class="section-kicker" data-i18n="dc_kicker_tools">P2 TOOLKIT</p><h2 id="p2-heading" data-i18n="dc_p2_heading">Planning, Gallery and ZIP</h2></div>
         <div class="item-actions">
           <button id="btn-error-report" class="button secondary" type="button" data-i18n="dc_btn_error_report">Export error report</button>
           <button id="btn-notifications" class="button secondary" type="button"><span data-i18n="dc_btn_notifications">Notifications</span> <span id="notification-count">0</span></button>
@@ -75,7 +75,7 @@
     </section>
 
     <section class="panel" aria-labelledby="schedule-heading">
-      <div class="panel-heading"><div><p class="section-kicker">MV3 SCHEDULE</p><h2 id="schedule-heading" data-i18n="dc_schedule_heading">Manual download schedule</h2></div></div>
+      <div class="panel-heading"><div><p class="section-kicker" data-i18n="dc_kicker_schedule">MV3 SCHEDULE</p><h2 id="schedule-heading" data-i18n="dc_schedule_heading">Manual download schedule</h2></div></div>
       <div class="p2-controls">
         <label class="wide"><span data-i18n="dc_saved_job_label">Saved Job</span><select id="schedule-job"><option value="" data-i18n="dc_select_saved_job">Select a Saved Job</option></select></label>
         <label><span data-i18n="dc_interval_label">Interval</span><select id="schedule-interval"><option value="60" data-i18n="dc_interval_hourly">Every hour</option><option value="360" data-i18n="dc_interval_6h">Every 6 hours</option><option value="1440" data-i18n="dc_interval_daily">Every day</option><option value="10080" data-i18n="dc_interval_weekly">Every week</option></select></label>
@@ -86,13 +86,13 @@
     </section>
 
     <section id="notifications-panel" class="panel hidden" aria-labelledby="notifications-heading">
-      <div class="panel-heading"><div><p class="section-kicker">LOCAL ONLY</p><h2 id="notifications-heading" data-i18n="dc_notifications_heading">Notification Center</h2></div><button id="btn-mark-read" class="button secondary" type="button" data-i18n="dc_btn_mark_read">Mark as read</button></div>
+      <div class="panel-heading"><div><p class="section-kicker" data-i18n="dc_kicker_local">LOCAL ONLY</p><h2 id="notifications-heading" data-i18n="dc_notifications_heading">Notification Center</h2></div><button id="btn-mark-read" class="button secondary" type="button" data-i18n="dc_btn_mark_read">Mark as read</button></div>
       <div id="notifications-list" class="item-list"></div>
     </section>
 
     <section id="errors-panel" class="panel hidden" aria-labelledby="errors-heading">
       <div class="panel-heading">
-        <div><p class="section-kicker">RETRY</p><h2 id="errors-heading" data-i18n="dc_errors_heading">Failed files</h2></div>
+        <div><p class="section-kicker" data-i18n="dc_kicker_retry">RETRY</p><h2 id="errors-heading" data-i18n="dc_errors_heading">Failed files</h2></div>
         <div class="item-actions">
           <select id="errors-reason" class="errors-filter" aria-label="Reason" data-i18n-aria-label="dc_errors_reason_label"></select>
           <button id="btn-errors-select-all" class="button secondary" type="button" data-i18n="dc_errors_select_all">Select all</button>
@@ -106,14 +106,14 @@
 
     <section class="panel" aria-labelledby="queue-heading">
       <div class="panel-heading">
-        <div><p class="section-kicker">QUEUE</p><h2 id="queue-heading" data-i18n="dc_queue_heading">Download jobs</h2></div>
+        <div><p class="section-kicker" data-i18n="dc_kicker_queue">QUEUE</p><h2 id="queue-heading" data-i18n="dc_queue_heading">Download jobs</h2></div>
       </div>
       <div id="queue-list" class="item-list"></div>
     </section>
 
     <section class="panel" aria-labelledby="jobs-heading">
       <div class="panel-heading">
-        <div><p class="section-kicker">REUSABLE</p><h2 id="jobs-heading" data-i18n="dc_jobs_heading">Saved Jobs</h2></div>
+        <div><p class="section-kicker" data-i18n="dc_kicker_reusable">REUSABLE</p><h2 id="jobs-heading" data-i18n="dc_jobs_heading">Saved Jobs</h2></div>
         <button id="btn-new-job" class="button primary" type="button" data-i18n="dc_btn_new_job">+ Save configuration</button>
       </div>
       <div id="jobs-list" class="item-list"></div>
@@ -121,7 +121,7 @@
 
     <section class="panel" aria-labelledby="history-heading">
       <div class="panel-heading">
-        <div><p class="section-kicker">HISTORY</p><h2 id="history-heading" data-i18n="dc_history_heading">History by profile</h2></div>
+        <div><p class="section-kicker" data-i18n="dc_kicker_history">HISTORY</p><h2 id="history-heading" data-i18n="dc_history_heading">History by profile</h2></div>
       </div>
       <div id="history-list" class="item-list"></div>
     </section>
@@ -130,7 +130,7 @@
   <dialog id="job-dialog" aria-labelledby="job-dialog-title">
     <form id="job-form" method="dialog">
       <div class="dialog-heading">
-        <div><p class="section-kicker">SAVED JOB</p><h2 id="job-dialog-title" data-i18n="dc_dialog_title">Save download configuration</h2></div>
+        <div><p class="section-kicker" data-i18n="dc_kicker_saved_job">SAVED JOB</p><h2 id="job-dialog-title" data-i18n="dc_dialog_title">Save download configuration</h2></div>
         <button id="btn-close-dialog" class="icon-button" type="button" aria-label="Close" data-i18n-aria-label="dc_close">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>
         </button>
