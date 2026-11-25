@@ -45,6 +45,7 @@ interface GraphqlNode {
 
   // Tập hợp URL đã xử lý (dedup theo base URL không có query string)
   const seenUrls = new Set<string>();
+  const SEEN_URLS_MAX = 5_000;
 
   // ─── Extract Tweet ID từ URL video ──────────────────────────────────────────
   function extractTweetIdFromUrl(url: string) {
@@ -95,6 +96,8 @@ interface GraphqlNode {
     const baseUrl = rawUrl.split('?')[0];
     if (seenUrls.has(baseUrl)) return;
     seenUrls.add(baseUrl);
+    // P23: giới hạn bộ nhớ cho phiên dài — bỏ URL cũ nhất (Set giữ thứ tự thêm).
+    if (seenUrls.size > SEEN_URLS_MAX) seenUrls.delete(seenUrls.values().next().value!);
 
     const isHls = rawUrl.includes('.m3u8');
     // tweet_video/*.mp4 = GIF động, ext_tw_video/*/vid/*.mp4 = video thật
@@ -370,7 +373,12 @@ interface GraphqlNode {
   };
 
   // ─── 3. Theo dõi video elements (phát hiện src/currentSrc trực tiếp) ─────────
+  // P23: X gỡ rồi gắn lại cùng một <video> khi cuộn — mỗi lần từng thêm một cặp
+  // listener mới lên cùng phần tử.
+  const watchedVideos = new WeakSet<HTMLVideoElement>();
   function watchVideoElement(videoEl: HTMLVideoElement) {
+    if (watchedVideos.has(videoEl)) return;
+    watchedVideos.add(videoEl);
     const checkSrc = () => {
       const src = videoEl.currentSrc || videoEl.src;
       if (src) notifyVideoUrl(src);

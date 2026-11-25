@@ -230,7 +230,16 @@ export function isAllowedSender(type: MessageType, senderUrl: string | undefined
   if (!senderUrl) return false;
   if (senderUrl === `${extensionOrigin}${OFFSCREEN_DOCUMENT_PATH}`) return OFFSCREEN_TYPES.has(type);
   if (senderUrl.startsWith(extensionOrigin)) return !OFFSCREEN_TYPES.has(type);
-  return CONTENT_SCRIPT_TYPES.has(type);
+  if (!CONTENT_SCRIPT_TYPES.has(type)) return false;
+  // S16: mỗi lệnh chỉ nhận từ đúng trang — content script Telegram không được
+  // gửi lệnh của X (vd. START_COLLECTING với username tuỳ ý) và ngược lại.
+  let host = '';
+  try {
+    const url = new URL(senderUrl);
+    if (url.protocol === 'https:') host = url.hostname;
+  } catch { /* host rỗng: từ chối */ }
+  if (type === 'TG_DOWNLOAD_MEDIA') return host === 'web.telegram.org';
+  return host === 'x.com' || host === 'twitter.com' || host.endsWith('.x.com') || host.endsWith('.twitter.com');
 }
 
 /** Cheap boundary check before command-specific validation in the service worker. */

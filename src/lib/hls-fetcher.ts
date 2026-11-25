@@ -40,30 +40,31 @@ export async function fetchHLS(
   if (!segments.length) throw new Error('No segments found in HLS playlist');
 
   // 4. Fetch từng segment song song (max 8 — P3 tăng từ 4)
+  // P24: cửa sổ trượt — luôn có tối đa CONCURRENCY segment đang tải; trước đây
+  // tải theo lô 8 nên cả lô phải chờ segment chậm nhất. Một segment lỗi thì các
+  // luồng khác dừng lấy segment mới.
   const CONCURRENCY = 8;
   const blobs = new Array(segments.length);
   let fetched = 0;
+  let next = 0;
+  let failed = false;
 
-  for (let i = 0; i < segments.length; i += CONCURRENCY) {
-    const batch = segments.slice(i, i + CONCURRENCY);
-    const batchResults = await Promise.all(
-      batch.map(async (segUrl, batchIdx) => {
-        const idx = i + batchIdx;
-        try {
-          const res = await fetchWithRetry(segUrl, signal);
-          const buf = await res.arrayBuffer();
-          throwIfAborted(signal);
-          fetched++;
-          onProgress?.(fetched, segments.length);
-          return { idx, buf };
-        } catch (err) { throw err; }
-      })
-    );
-
-    batchResults.forEach(({ idx, buf }) => {
-      if (buf) blobs[idx] = buf;
-    });
-  }
+  const worker = async () => {
+    while (!failed && next < segments.length) {
+      const idx = next++;
+      try {
+        const res = await fetchWithRetry(segments[idx], signal);
+        blobs[idx] = await res.arrayBuffer();
+        throwIfAborted(signal);
+      } catch (err) {
+        failed = true;
+        throw err;
+      }
+      fetched++;
+      onProgress?.(fetched, segments.length);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, segments.length) }, worker));
 
   // 5. Concatenate tất cả ArrayBuffer thành một Blob
   const validBuffers = blobs.filter(Boolean);

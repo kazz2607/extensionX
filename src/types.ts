@@ -108,6 +108,8 @@ export interface DownloadOptions {
   downloadDelayMs?: number;
   /** F4: tạm dừng và xếp lại file khi X trả 429. Chỉ đọc từ cài đặt. */
   rateLimitBackoff?: boolean;
+  /** Kích thước ảnh khi tải (`name=` của CDN). Chỉ đọc từ cài đặt; mặc định 'orig'. */
+  imgQuality?: string;
   // UI options
   showSnackbar?: boolean;
   // Internal queue tracking

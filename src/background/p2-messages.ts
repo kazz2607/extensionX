@@ -10,6 +10,7 @@ import { getSavedJob } from './saved-jobs.ts';
 import { holdOffscreen, releaseOffscreen, startDownload } from './downloader.ts';
 import { addNotificationEvent, listNotificationEvents, markNotificationEventsRead } from './notification-events.ts';
 import { t } from '../lib/i18n.ts';
+import { normalizeUrlForDedup } from '../shared/validation.ts';
 
 const SCHEDULES_KEY = 'job_schedules_v1';
 const ALARM_PREFIX = 'extensionx-job:';
@@ -135,10 +136,17 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     // the call tells whether this run actually started.
     let started = false;
     if (!downloadCoordinator.isBusy) {
-      void startDownload(job.username, job);
+      const run = startDownload(job.username, job);
       started = downloadCoordinator.isBusy;
+      // L26: trạng thái lấy theo kết quả thật khi lượt tải xong (trước đây ghi
+      // 'completed' ngay lúc bắt đầu). Ghi ở lượt cập nhật riêng để không giữ
+      // hàng đợi chỉnh lịch suốt thời gian tải. Bị Stop thì giữ trạng thái cũ.
+      if (started) void run.then((outcome) => outcome && updateSchedules((list) => {
+        const current = list.find((item) => item.jobId === jobId);
+        if (current) current.lastStatus = outcome;
+      })).catch(() => {});
     }
-    schedule.lastStatus = started ? 'completed' : 'skipped';
+    if (!started) schedule.lastStatus = 'skipped';
     if (started) {
       await addNotificationEvent('info', t('bg_event_schedule_started'), t('bg_event_schedule_started_msg', { name: job.name }));
     } else {
@@ -153,7 +161,8 @@ export const handleP2Message: DomainMessageHandler = (message, _sender, sendResp
     void (async () => {
       const username = String(payload.username || '');
       const { items } = await collect(username, payload);
-      const downloaded = payload.skipDuplicates === false ? new Set<string>() : new Set(await mediaRepository.getDownloadedUrls(username));
+      // Khoá cũ được chuẩn hoá lại như loadDownloadedUrls (L21).
+      const downloaded = payload.skipDuplicates === false ? new Set<string>() : new Set((await mediaRepository.getDownloadedUrls(username)).map(normalizeUrlForDedup));
       sendResponse({ estimate: estimateMedia(items, downloaded) });
     })().catch((error) => sendResponse({ error: error instanceof Error ? error.message : t('bg_err_estimate_failed') }));
     return true;

@@ -976,10 +976,13 @@ test('v8.0.0-8.2.0 failed downloads are recorded by reason, retried selectively,
   await waitFor(async () => !('missing' in byLabel(await failedItems())) && await isIdle(), 'retried file left the list');
   assert.deepEqual(byLabel(await failedItems()), { limited: 'rate_limited', busy: 'server' }, 'unselected failures stay');
 
-  // The backup remembers both downloaded files (URLs without query keep their form).
+  // The backup remembers both downloaded files. Since 8.3.0 (L21) an X image is
+  // keyed in canonical form; the pre-8.3.0 form of a query-less URL is kept too
+  // so a rollback still recognises the file as downloaded.
   const backup = JSON.parse(((await send({ type: 'EXPORT_BACKUP' })) as { json: string }).json);
   assert.equal(backup.kind, 'extensionx-backup');
-  assert.deepEqual([...backup.downloaded[name]].sort(), [urls[0], urls[1]].sort());
+  const canonical = (url: string) => `${url.replace(/\.jpg$/, '')}?name=orig&format=jpg`;
+  assert.deepEqual([...backup.downloaded[name]].sort(), [urls[0], urls[1], canonical(urls[0]), canonical(urls[1])].sort());
 
   // ZIP (no JSZip since 8.2.2): offscreen fetches every file from the CDN and
   // the service worker saves one STORE archive that a real unzip accepts.

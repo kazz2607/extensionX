@@ -7,7 +7,7 @@ import { DownloadOptions, MediaItem, ManifestItem } from '../types.ts';
 import { mediaRepository } from './indexeddb.ts';
 import { createTimedSettlement } from '../shared/timed-settlement.ts';
 import { mergeDownloadOptions, retryableDownloadOptions } from '../shared/download-options.ts';
-import { isTrustedMediaUrl, sanitizeFilename } from '../shared/validation.ts';
+import { canonicalImageUrl, isTrustedMediaUrl, normalizeUrlForDedup, sanitizeFilename } from '../shared/validation.ts';
 import { createMediaMatcher, localDayKey } from '../shared/media-query.ts';
 import { renderFilenameTemplate } from '../shared/filename-template.ts';
 import { renderFolderRule } from '../shared/p2-tools.ts';
@@ -194,11 +194,11 @@ async function downloadSingleItem(
   item: MediaItem,
   username: string,
   saveFolder: string,
-  opts: Pick<DownloadOptions, 'flatUsername' | 'filenameUsername' | 'filenameTemplate'> = {},
+  opts: Pick<DownloadOptions, 'flatUsername' | 'filenameUsername' | 'filenameTemplate' | 'imgQuality'> = {},
   isCancelled: () => boolean = () => false,
   index = 1,
 ) {
-  const { flatUsername = false, filenameUsername = false, filenameTemplate } = opts;
+  const { flatUsername = false, filenameUsername = false, filenameTemplate, imgQuality } = opts;
   let filename = buildDownloadPath(saveFolder, username, item, flatUsername, filenameUsername, filenameTemplate, index);
 
   if (item.type === 'hls' || filename.endsWith('.m3u8')) {
@@ -236,7 +236,9 @@ async function downloadSingleItem(
     else if (!hlsResult.downloadId) throw new Error('HLS download did not return a download id');
   } else {
     if (isCancelled()) throw new Error('Download cancelled');
-    await downloadFile(item.url, filename, username);
+    // L27: tuỳ chọn "Chất lượng ảnh" trong Options trước đây không được đọc;
+    // ảnh lưu dạng `…/ABC.jpg` (không có name=) cũng được tải bản gốc.
+    await downloadFile(item.type === 'image' ? canonicalImageUrl(item.url, imgQuality) : item.url, filename, username);
   }
 
   return filename;
@@ -356,7 +358,8 @@ function notifyDownloadEnded(username: string, skipped: number, error?: string) 
 let _lastDownloadUsername = '';
 let _lastDownloadOptions: DownloadOptions = {};
 // BUG-L2: Proper typed function signature
-async function startDownload(username: string, options: DownloadOptions = {}) {
+/** Kết quả lượt tải; undefined khi bị Stop hoặc bị lượt khác thay thế. */
+async function startDownload(username: string, options: DownloadOptions = {}): Promise<'completed' | 'failed' | undefined> {
   const claimed = options._operationId
     ? (downloadCoordinator.isCurrent(options._operationId) ? { id: options._operationId } : null)
     : downloadCoordinator.begin(username, 'direct');
@@ -385,9 +388,17 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
   let items: MediaItem[] = [];
   const matches = createMediaMatcher(options);
   const selected = options.selectedUrls?.length ? new Set(options.selectedUrls) : null;
+  // L21: dữ liệu lưu trước 8.3.0 có thể giữ cùng một ảnh ở hai dạng URL.
+  const seenImages = new Set<string>();
   const collect = (item: MediaItem) => {
     if (item.type === 'image' && isVideoThumbnailUrl(item.url)) return;
-    if (matches(item) && (!selected || selected.has(item.url))) items.push(item);
+    if (!matches(item) || (selected && !selected.has(item.url))) return;
+    if (item.type === 'image') {
+      const key = normalizeUrlForDedup(item.url);
+      if (seenImages.has(key)) return;
+      seenImages.add(key);
+    }
+    items.push(item);
   };
   try {
     const cached = mediaStore.get(username);
@@ -409,7 +420,7 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
     notifyDownloadEnded(username, 0, t('bg_err_media_storage_unavailable'));
     console.warn('[SW] Download media cursor failed:', error instanceof Error ? error.message : String(error));
     if (options._fromQueue) setTimeout(() => void startNextInQueue(), 0);
-    return;
+    return 'failed';
   }
 
   // v4.1.0: Duplicate Detection — load downloaded URLs rồi lọc ra
@@ -449,7 +460,7 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
     downloadCoordinator.release(operationId);
     trimMediaCache();
     if (options._fromQueue) setTimeout(() => void startNextInQueue(), 0);
-    return;
+    return emptyIsError ? 'failed' : 'completed';
   }
 
   if (options._fromQueue && options._queueId) {
@@ -512,6 +523,7 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
         flatUsername: opts.flatUsername,
         filenameUsername,
         filenameTemplate: opts.filenameTemplate,
+        imgQuality: opts.imgQuality,
       }, () => !downloadCoordinator.isCurrent(operationId), itemIndex.get(item));
 
       // Stop/retry can start a new operation while an old Chrome download is
@@ -611,7 +623,11 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
       while (cursor < items.length) {
         // F4: chờ hết thời gian tạm nghỉ do 429 và khoảng nghỉ giữa các file.
         await waitUnlessStopped(pauseGate.remaining(Date.now()));
-        if (!first && delayMs > 0) await waitUnlessStopped(delayMs);
+        if (!first && delayMs > 0) {
+          await waitUnlessStopped(delayMs);
+          // L27: một luồng khác có thể gặp 429 trong lúc luồng này đang nghỉ.
+          await waitUnlessStopped(pauseGate.remaining(Date.now()));
+        }
         first = false;
         // Bug 2: Dừng worker nếu user yêu cầu stop
         if (!downloadCoordinator.isCurrent(operationId)) { cursor = items.length; break; }
@@ -684,6 +700,7 @@ async function startDownload(username: string, options: DownloadOptions = {}) {
     // Only a completed Queue job may advance the Queue, after releasing the slot.
     if (options._fromQueue) setTimeout(() => void startNextInQueue(), 500);
   }
+  return failed === total && total > 0 ? 'failed' : 'completed';
 }
 // ─── IDM Conflict Detection ───────────────────────────────────────────────────
 // IDM Integration Module hijacks chrome.downloads bằng cách cancel download ngay lập tức

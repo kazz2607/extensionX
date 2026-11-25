@@ -7,6 +7,7 @@ import { registerTranslations, t } from '../lib/i18n.ts';
 import { getThemePreference, initTheme, nextThemePreference, onThemeChange, setThemePreference, type ThemePreference } from '../shared/theme.ts';
 import { COMMON_STRINGS } from '../lib/i18n/common.ts';
 import { POPUP_STRINGS } from '../lib/i18n/popup.ts';
+import { fileTooLarge, IMPORT_FILE_MAX_BYTES } from '../shared/options-import.ts';
 
 registerTranslations(COMMON_STRINGS, POPUP_STRINGS);
 
@@ -824,6 +825,8 @@ function setupListeners() {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
       (e.target as HTMLInputElement).value = '';
+      const tooLarge = fileTooLarge(file.size, IMPORT_FILE_MAX_BYTES.queue);
+      if (tooLarge) { showToast(t('file_too_large', tooLarge), 'error'); return; }
       try {
         const text = await file.text();
         const res = await sendBG('IMPORT_QUEUE', { data: text });

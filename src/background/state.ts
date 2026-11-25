@@ -7,6 +7,8 @@ export const dirtyMediaStore = new Map<string, Map<string, MediaItem>>();
 export const tabState = new Map<number, CollectState>();
 export const statsStore = new Map<string, Stats>();
 export const downloadedStore = new Map<string, Set<string>>();
+/** URL đã tải chưa ghi xuống IndexedDB (debounce 3 s), theo profile. */
+export const dirtyDownloadedUrls = new Map<string, Set<string>>();
 export const downloadCoordinator = new DownloadCoordinator();
 export const pendingHlsRequests = new Map<string, PendingHlsRequest>();
 export const activeDownloads = new Map<number, ActiveDownload>();
@@ -32,6 +34,14 @@ export function trimMediaCache(): string[] {
   for (const username of evicted) {
     mediaStore.delete(username);
     mediaCacheAccess.delete(username);
+  }
+  // P19: danh sách URL đã tải (tới 50.000/profile) đi theo cache media — Queue
+  // dài nhiều profile từng giữ hết trong RAM của service worker. Nạp lại được
+  // từ IndexedDB. Profile còn URL chưa ghi được giữ lại để backup và chống
+  // trùng không thiếu những file vừa tải.
+  for (const username of downloadedStore.keys()) {
+    if (mediaStore.has(username) || username === activeUsername || collecting.has(username)) continue;
+    if ((dirtyDownloadedUrls.get(username)?.size ?? 0) === 0) downloadedStore.delete(username);
   }
   return evicted;
 }

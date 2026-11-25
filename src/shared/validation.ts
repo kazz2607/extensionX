@@ -24,11 +24,42 @@ export function isTrustedMediaUrl(value: unknown): value is string {
   }
 }
 
-// Chuẩn hóa URL media X để so trùng (dedup): xóa query param biến đổi như ?t=
-// nhưng giữ lại name/format vì chúng ảnh hưởng tới độ phân giải/định dạng file thật.
-export function normalizeUrlForDedup(url: string): string {
+const PBS_MEDIA_PATH = /^\/media\/([A-Za-z0-9_-]+)(?:\.([A-Za-z0-9]{2,5}))?$/;
+const IMAGE_SIZES = new Set(['orig', 'large', 'medium', 'small']);
+
+/**
+ * L21: một ảnh X có hai dạng URL — `…/media/ABC.jpg` (GraphQL) và
+ * `…/media/ABC?format=jpg&name=small` (DOM) — từng thành hai mục và hai file.
+ * Đưa về một dạng `…/media/ABC?format=<ext>&name=<size>`; URL không phải ảnh
+ * `pbs.twimg.com/media/` giữ nguyên.
+ */
+export function canonicalImageUrl(url: string, size = 'orig'): string {
   try {
     const u = new URL(url);
+    const match = u.hostname === 'pbs.twimg.com' ? PBS_MEDIA_PATH.exec(u.pathname) : null;
+    if (!match) return url;
+    const format = (match[2] || u.searchParams.get('format') || 'jpg').toLowerCase();
+    return `https://pbs.twimg.com/media/${match[1]}?format=${format}&name=${IMAGE_SIZES.has(size) ? size : 'orig'}`;
+  } catch {
+    return url;
+  }
+}
+
+/** Ảnh pbs về dạng chuẩn, `ext` lấy theo `format=` (L27: ảnh từ DOM luôn ghi 'jpg'). */
+export function canonicalizeMediaItem<T extends MediaItem>(item: T): T {
+  if (item.type !== 'image') return item;
+  const url = canonicalImageUrl(item.url);
+  if (url === item.url) return item;
+  const format = new URL(url).searchParams.get('format') || item.ext;
+  return { ...item, url, ext: format && FILE_EXTENSIONS.has(format) ? format : item.ext };
+}
+
+// Chuẩn hóa URL media X để so trùng (dedup): xóa query param biến đổi như ?t=
+// nhưng giữ lại name/format vì chúng ảnh hưởng tới độ phân giải/định dạng file thật.
+// Ảnh pbs `/media/` về một dạng (L21) để `ABC.jpg` và `ABC?format=jpg` là một.
+export function normalizeUrlForDedup(url: string): string {
+  try {
+    const u = new URL(canonicalImageUrl(url));
     const name = u.searchParams.get('name') || '';
     const format = u.searchParams.get('format') || '';
     const base = u.origin + u.pathname;
@@ -66,7 +97,9 @@ export function usernameFromXUrl(value: unknown): string | null {
   const username = match[1];
   const reserved = new Set(['home', 'explore', 'notifications', 'messages', 'search', 'hashtag', 'settings', 'i', 'login', 'logout', 'compose']);
   if (reserved.has(username.toLowerCase())) return null;
-  return path.includes('/likes') ? `${username}_likes` : username;
+  // L23: chỉ `/<user>/likes` là trang likes; `/<user>/status/<id>/likes`
+  // (danh sách người thích một tweet) từng bị nhận nhầm thành khoá `_likes`.
+  return path.split('/')[2]?.toLowerCase() === 'likes' ? `${username}_likes` : username;
 }
 
 /**
@@ -76,7 +109,8 @@ export function usernameFromXUrl(value: unknown): string | null {
 export function isCollectMediaPageUrl(value: unknown): boolean {
   if (!isXUrl(value)) return false;
   if (searchSourceFromUrl(value)) return true;
-  return /\/(media|photos|videos|likes|bookmarks)(?:\/|$)/.test(new URL(value).pathname);
+  // Theo đúng đoạn path (L23): `/status/<id>/likes` không phải trang thu thập.
+  return /^\/(?:[A-Za-z0-9_]{1,50}\/(?:media|photos|videos|likes)|i\/bookmarks)(?:\/|$)/.test(new URL(value).pathname);
 }
 
 /**

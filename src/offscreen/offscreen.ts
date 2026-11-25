@@ -135,7 +135,12 @@ function drainHLSQueue() {
 async function processHLSTask(task: HlsTask) {
   const { requestId, url, username, filename, controller } = task;
   try {
+    // P24: tối đa ~4 tin tiến độ/giây (tin cuối luôn gửi) — trước đây mỗi segment một tin.
+    let lastProgressAt = 0;
     const blob = await fetchHLS(url, (fetched, total) => {
+      const now = Date.now();
+      if (fetched < total && now - lastProgressAt < 250) return;
+      lastProgressAt = now;
       chrome.runtime.sendMessage({
         type: 'HLS_PROGRESS',
         payload: { username, fetched, total, requestId }

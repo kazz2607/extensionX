@@ -1,5 +1,6 @@
 import type { MediaItem, StorageProfileSummary, StorageSummary } from '../types.ts';
 import type { MediaRepository } from './media-repository.ts';
+import { planDownloadedUrlPrune } from '../shared/bounded-cache.ts';
 
 const DB_NAME = 'XMediaDownloaderDB';
 export const DB_VERSION = 3;
@@ -270,34 +271,40 @@ export async function saveDownloadedUrls(username: string, urls: Iterable<string
   });
 }
 
-/** Bound duplicate history so a long-lived profile cannot grow IndexedDB forever. */
-export async function pruneDownloadedUrls(
+/**
+ * Bound duplicate history so a long-lived profile cannot grow IndexedDB forever,
+ * and return what is left. P18: one read for both — loading a profile used to
+ * getAll the history to prune it, then getAll it again to load it.
+ */
+async function pruneDownloaded(
   username: string,
   now = Date.now(),
   maxEntries = DOWNLOADED_HISTORY_MAX_ENTRIES,
   ttlMs = DOWNLOADED_HISTORY_TTL_MS,
-): Promise<number> {
+): Promise<{ kept: string[]; removed: number }> {
   const db = await initDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(DOWNLOADED_STORE_NAME, 'readwrite');
     const store = tx.objectStore(DOWNLOADED_STORE_NAME);
     const request = store.index('username').getAll(username);
-    let removed = 0;
+    let result = { kept: [] as string[], removed: 0 };
     request.onsuccess = () => {
-      const records = request.result as DownloadedUrlRecord[];
-      const expiresBefore = now - ttlMs;
-      const expired = records.filter((record) => record.addedAt < expiresBefore);
-      const retained = records.filter((record) => record.addedAt >= expiresBefore).sort((a, b) => a.addedAt - b.addedAt);
-      const overflow = retained.slice(0, Math.max(0, retained.length - maxEntries));
-      for (const record of [...expired, ...overflow]) {
-        store.delete(record.id);
-        removed++;
-      }
+      const plan = planDownloadedUrlPrune(request.result as DownloadedUrlRecord[], now, maxEntries, ttlMs);
+      for (const id of plan.removeIds) store.delete(id);
+      result = { kept: plan.keptUrls, removed: plan.removeIds.length };
     };
-    tx.oncomplete = () => resolve(removed);
+    tx.oncomplete = () => resolve(result);
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error || new Error('Downloaded URL prune transaction aborted'));
   });
+}
+
+export async function pruneAndGetDownloadedUrls(username: string, now?: number, maxEntries?: number, ttlMs?: number): Promise<string[]> {
+  return (await pruneDownloaded(username, now, maxEntries, ttlMs)).kept;
+}
+
+export async function pruneDownloadedUrls(username: string, now?: number, maxEntries?: number, ttlMs?: number): Promise<number> {
+  return (await pruneDownloaded(username, now, maxEntries, ttlMs)).removed;
 }
 
 export async function clearDownloadedUrls(username: string): Promise<void> {
@@ -387,6 +394,7 @@ export const mediaRepository: MediaRepository = {
   visitDownloadedUrlRecords,
   saveDownloadedUrls,
   pruneDownloadedUrls,
+  pruneAndGetDownloadedUrls,
   clearDownloadedUrls,
   clearAllDownloadedUrls,
   getStorageSummary,

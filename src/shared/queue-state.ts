@@ -50,6 +50,19 @@ export function findInterruptedIds(rawItems: unknown): Set<string> {
   return ids;
 }
 
+export const FORCE_DEDUP_KEY = 'queue_force_dedup_v1';
+
+/**
+ * L25: id cần ép chống trùng ở lần chạy kế tiếp = id đã lưu (từ lần SW khởi động
+ * trước) ∪ id vừa bị gián đoạn, chỉ giữ id còn trong Queue. Trước 8.3.0 tập này
+ * chỉ nằm trong RAM: SW bị kill hai lần liên tiếp thì Resume tải lại toàn bộ.
+ */
+export function mergeForcedDedupIds(stored: unknown, interrupted: Iterable<string>, queueIds: ReadonlySet<string>): string[] {
+  const ids = new Set<string>(interrupted);
+  if (Array.isArray(stored)) for (const id of stored) if (typeof id === 'string') ids.add(id);
+  return [...ids].filter((id) => queueIds.has(id));
+}
+
 export function resetDownloadingItemsAfterStop(items: QueueItem[]): { queue: QueueItem[]; reset: number } {
   let reset = 0;
   const queue = items.map((item) => {

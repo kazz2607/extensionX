@@ -4,7 +4,7 @@ import { broadcastToPopup } from './utils.ts';
 import { QueueItem, QueueExportData } from '../types.ts';
 import { parseQueueItems } from '../shared/validation.ts';
 import { createQueueStorageSnapshot, migrateQueueStorage } from '../shared/storage-migrations.ts';
-import { recoverQueueItemAfterRestart, transitionQueueItem, findInterruptedIds, resetDownloadingItemsAfterStop } from '../shared/queue-state.ts';
+import { recoverQueueItemAfterRestart, transitionQueueItem, findInterruptedIds, resetDownloadingItemsAfterStop, FORCE_DEDUP_KEY, mergeForcedDedupIds } from '../shared/queue-state.ts';
 import { chromeApi } from './chrome-api.ts';
 import { t } from '../lib/i18n.ts';
 
@@ -14,7 +14,11 @@ export function setProfileQueue(q: QueueItem[]) { profileQueue = q; }
 // Pha 10: id các queue item vừa bị reset do gián đoạn (SW restart hoặc import lại
 // giữa chừng) — chỉ dùng để ép skipDuplicates=true cho ĐÚNG 1 lần resume kế tiếp
 // của item đó, không lưu trữ và không đổi preference skipDuplicates người dùng đã lưu.
+// L25: tập này được lưu ở key riêng (bản cũ bỏ qua) để sống qua nhiều lần SW restart.
 const _forceDedupOnNextRun = new Set<string>();
+function persistForcedDedup() {
+  chromeApi.storage.local.set({ [FORCE_DEDUP_KEY]: [..._forceDedupOnNextRun].slice(-500) }).catch(() => {});
+}
 let _lastBulkRemoved: QueueItem[] = [];
 let _lastBulkRemovedAt = 0;
 
@@ -26,7 +30,7 @@ function loadPersistedQueue(): Promise<void> {
   if (_queueLoadPromise) return _queueLoadPromise;
   _queueLoadPromise = (async () => {
     try {
-      const data = await chromeApi.storage.local.get('profile_queue');
+      const data = await chromeApi.storage.local.get(['profile_queue', FORCE_DEDUP_KEY]);
       const rawQueue = data.profile_queue;
       const rawItems = Array.isArray(rawQueue)
         ? rawQueue
@@ -35,9 +39,12 @@ function loadPersistedQueue(): Promise<void> {
           : [];
       const interruptedIds = findInterruptedIds(rawItems);
       const saved = migrateQueueStorage(rawQueue).items;
-      for (const id of interruptedIds) _forceDedupOnNextRun.add(id);
       // Các item đang 'downloading' khi SW restart → đặt lại 'waiting'
       profileQueue = saved.map(recoverQueueItemAfterRestart);
+      const forced = mergeForcedDedupIds(data[FORCE_DEDUP_KEY], interruptedIds, new Set(profileQueue.map((item) => item.id)));
+      for (const id of forced) _forceDedupOnNextRun.add(id);
+      // Ghi lại (một lần mỗi lần SW khởi động) khi có trạng thái để giữ hoặc dọn.
+      if (forced.length > 0 || data[FORCE_DEDUP_KEY] !== undefined) persistForcedDedup();
       if (interruptedIds.size > 0) void persistQueueImmediately();
     } catch (_) {
       profileQueue = [];
@@ -89,6 +96,7 @@ async function startNextInQueue(): Promise<boolean> {
   broadcastQueueUpdate();
 
   const forceDedup = _forceDedupOnNextRun.delete(next.id);
+  if (forceDedup) persistForcedDedup();
   void startDownload(next.username, {
     filterType: (next.filterType || 'all') as 'all' | 'images' | 'videos' | 'gifs',
     keyword: next.keyword,
@@ -165,6 +173,7 @@ function importQueue(items: unknown): { added: number; skipped: number; error?: 
 
   if (added > 0) {
     persistQueue();
+    if (interruptedIds.size > 0) persistForcedDedup();
     broadcastQueueUpdate();
   }
   return { added, skipped };

@@ -18,6 +18,8 @@ export interface MediaRepository {
   visitDownloadedUrlRecords(username: string, visitor: (entry: DownloadedUrlEntry) => void): Promise<void>;
   saveDownloadedUrls(username: string, urls: Iterable<string>): Promise<void>;
   pruneDownloadedUrls(username: string, now?: number, maxEntries?: number, ttlMs?: number): Promise<number>;
+  /** P18: tỉa và trả URL còn lại trong một lượt đọc. */
+  pruneAndGetDownloadedUrls(username: string, now?: number, maxEntries?: number, ttlMs?: number): Promise<string[]>;
   clearDownloadedUrls(username: string): Promise<void>;
   clearAllDownloadedUrls(): Promise<void>;
   getStorageSummary(): Promise<StorageSummary>;

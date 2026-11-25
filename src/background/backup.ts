@@ -26,7 +26,7 @@ import { listSavedJobs, replaceSavedJobs } from './saved-jobs.ts';
 import { listDownloadHistory, replaceDownloadHistory } from './download-history.ts';
 import { listJobSchedules, restoreSchedules } from './p2-messages.ts';
 import { importQueue, loadPersistedQueue, profileQueue } from './queue.ts';
-import { downloadedStore } from './state.ts';
+import { dirtyDownloadedUrls, downloadedStore } from './state.ts';
 
 export async function buildBackup(): Promise<{ json: string; profiles: number; urls: number }> {
   const [stored, savedJobs, schedules, history, summary] = await Promise.all([
@@ -42,12 +42,15 @@ export async function buildBackup(): Promise<{ json: string; profiles: number; u
   // URL vừa tải còn nằm trong bộ nhớ (ghi IndexedDB có debounce vài giây) —
   // gộp cả hai để file backup không thiếu những file mới tải xong.
   const persisted = new Set(summary.profiles.filter((profile) => profile.downloadedUrls > 0).map((profile) => profile.username));
-  const usernames = new Set([...persisted, ...[...downloadedStore].filter(([, set]) => set.size > 0).map(([username]) => username)]);
+  const inMemory = [...downloadedStore, ...dirtyDownloadedUrls].filter(([, set]) => set.size > 0).map(([username]) => username);
+  const usernames = new Set([...persisted, ...inMemory]);
   const lists = await Promise.all([...usernames].map(async (username) => {
     const fromDb = persisted.has(username) ? await mediaRepository.getDownloadedUrls(username) : [];
     // Bản trong bộ nhớ có thể giữ cả URL IndexedDB đã tỉa; giữ phần cuối (mới
-    // nhất) trong giới hạn, vì khôi phục cắt theo thứ tự mảng.
-    const merged = [...new Set([...fromDb, ...(downloadedStore.get(username) ?? [])])];
+    // nhất) trong giới hạn, vì khôi phục cắt theo thứ tự mảng. Hàng chờ ghi
+    // (dirty) gồm cả khoá dạng cũ cho rollback và URL của profile đã bị giải
+    // phóng khỏi bộ nhớ (P19).
+    const merged = [...new Set([...fromDb, ...(downloadedStore.get(username) ?? []), ...(dirtyDownloadedUrls.get(username) ?? [])])];
     return [username, merged.slice(-BACKUP_MAX_URLS_PER_PROFILE)] as const;
   }));
   for (const [username, list] of lists) {

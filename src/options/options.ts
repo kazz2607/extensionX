@@ -14,7 +14,7 @@ document.querySelectorAll('[data-manifest-version]').forEach((el) => {
   el.textContent = `v${chrome.runtime.getManifest().version}`;
 });
 
-import { sanitizeImportedOptions } from '../shared/options-import.ts';
+import { fileTooLarge, IMPORT_FILE_MAX_BYTES, sanitizeImportedOptions } from '../shared/options-import.ts';
 import { renderFilenameTemplate } from '../shared/filename-template.ts';
 import { migrateOptionsStorage, OPTIONS_SCHEMA_VERSION } from '../shared/storage-migrations.ts';
 import type { ResponseFor } from '../shared/messages.ts';
@@ -476,6 +476,8 @@ async function importSettings(event: Event): Promise<void> {
   target.value = '';
 
   try {
+    const tooLarge = fileTooLarge(file.size, IMPORT_FILE_MAX_BYTES.settings);
+    if (tooLarge) throw new Error(t('file_too_large', tooLarge));
     const text = await file.text();
     const parsed = JSON.parse(text);
 
@@ -542,6 +544,8 @@ async function importBackup(event: Event): Promise<void> {
   const file = target.files?.[0];
   target.value = ''; // chọn lại cùng file vẫn kích hoạt change
   if (!file) return;
+  const tooLarge = fileTooLarge(file.size, IMPORT_FILE_MAX_BYTES.backup);
+  if (tooLarge) { setBackupStatus(t('file_too_large', tooLarge)); return; }
   let data: BackupData | null = null;
   try {
     data = parseBackupFile(JSON.parse(await file.text()));

@@ -25,8 +25,30 @@ const VIDEO_EXTENSIONS = new Set(['m4v', 'mov', 'mp4', 'mpeg', 'mpg', 'ogv', 'we
 export function isTelegramDownloadUrl(value: unknown): value is string {
   if (typeof value !== 'string' || value.length > 8_192) return false;
   if (value.startsWith('blob:https://web.telegram.org/')) return true;
-  if (/^data:(?:image|video)\/[a-z0-9.+-]+[;,]/i.test(value)) return true;
+  // S18: chỉ MIME ảnh/video đã biết — `data:image/svg+xml` có thể mang script.
+  const dataMime = dataUrlMime(value);
+  if (dataMime !== null) return dataMime in MIME_EXTENSIONS;
   return isTelegramWebUrl(value);
+}
+
+function dataUrlMime(value: string): string | null {
+  const match = /^data:([a-z0-9.+/-]+)[;,]/i.exec(value);
+  return match ? match[1].toLowerCase() : value.startsWith('data:') ? '' : null;
+}
+
+/**
+ * S18: tên file cuối cùng cho TG_DOWNLOAD_MEDIA — đuôi phải là ảnh/video; với
+ * `data:` đuôi được ép theo MIME thật để không lưu được file kiểu `.html`/`.svg`.
+ */
+export function telegramDownloadFilename(url: string, filename: string): string | null {
+  const dataMime = dataUrlMime(url);
+  const base = filename.replace(/\.[a-z0-9]{1,5}$/i, '');
+  if (dataMime !== null) {
+    const forced = MIME_EXTENSIONS[dataMime];
+    return forced && base ? `${base}.${forced}` : null;
+  }
+  const ext = /\.([a-z0-9]{2,5})$/i.exec(filename)?.[1]?.toLowerCase() || '';
+  return IMAGE_EXTENSIONS.has(ext) || VIDEO_EXTENSIONS.has(ext) ? filename : null;
 }
 
 export function isTelegramWebUrl(value: unknown): value is string {

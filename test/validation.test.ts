@@ -305,13 +305,17 @@ test('renders filename template tokens without touching unknown text (Pha 13)', 
 });
 
 test('normalizes media URLs for dedup and forces video URLs to original quality', () => {
+  // 8.3.0 (L21): mọi dạng URL của cùng một ảnh pbs `/media/` có chung một khoá.
+  const imageKey = 'https://pbs.twimg.com/media/a?name=orig&format=jpg';
+  assert.equal(normalizeUrlForDedup('https://pbs.twimg.com/media/a.jpg?name=orig&t=12345'), imageKey);
+  assert.equal(normalizeUrlForDedup('https://pbs.twimg.com/media/a.jpg?format=jpg&t=99'), imageKey);
+  assert.equal(normalizeUrlForDedup('https://pbs.twimg.com/media/a.jpg'), imageKey);
+  assert.equal(normalizeUrlForDedup('https://pbs.twimg.com/media/a?format=jpg&name=small'), imageKey);
+  assert.equal(normalizeUrlForDedup(imageKey), imageKey, 'idempotent on stored keys');
   assert.equal(
-    normalizeUrlForDedup('https://pbs.twimg.com/media/a.jpg?name=orig&t=12345'),
-    'https://pbs.twimg.com/media/a.jpg?name=orig&format=',
-  );
-  assert.equal(
-    normalizeUrlForDedup('https://pbs.twimg.com/media/a.jpg?format=jpg&t=99'),
-    'https://pbs.twimg.com/media/a.jpg?name=&format=jpg',
+    normalizeUrlForDedup('https://pbs.twimg.com/ext_tw_video_thumb/1/pu/img/a.jpg?name=small'),
+    'https://pbs.twimg.com/ext_tw_video_thumb/1/pu/img/a.jpg?name=small&format=',
+    'non-/media/ paths keep the old key',
   );
   assert.equal(normalizeUrlForDedup('https://video.twimg.com/a.mp4?t=1'), 'https://video.twimg.com/a.mp4');
   assert.equal(normalizeUrlForDedup('not a url?foo=bar'), 'not a url');
@@ -409,7 +413,8 @@ test('P2 estimate reports duplicates, bounded size fallback and large-job warnin
     { type: 'image' as const, url: 'https://pbs.twimg.com/media/a.jpg', width: 1000, height: 500 },
     { type: 'video' as const, url: 'https://video.twimg.com/a.mp4' },
   ];
-  const estimate = estimateMedia(items, new Set([items[0]!.url]));
+  // The downloaded set holds dedup keys (the service worker normalises stored URLs).
+  const estimate = estimateMedia(items, new Set([normalizeUrlForDedup(items[0]!.url)]));
   assert.equal(estimate.total, 2);
   assert.equal(estimate.duplicates, 1);
   assert.equal(estimate.selected, 1);

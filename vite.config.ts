@@ -13,6 +13,11 @@ export default defineConfig({
     // as Cốc Cốc report Vite's generated cross-origin modulepreload links as
     // cross-world resource mismatches. Native ES module imports are enough.
     modulePreload: false,
+    // P26: log gỡ lỗi không vào bản phát hành (service worker sát ngưỡng 120 KB).
+    // console.warn/error vẫn giữ để còn dấu vết khi người dùng gửi log.
+    rolldownOptions: {
+      treeshake: { manualPureFunctions: ["console.log", "console.debug", "console.info"] },
+    },
   },
   plugins: [
     webExtension({

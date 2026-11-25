@@ -6,6 +6,19 @@
  */
 type Plain = Record<string, unknown>;
 
+/**
+ * S17: giới hạn kích thước file trước khi đọc và `JSON.parse` — chọn nhầm một
+ * file vài trăm MB làm treo trang. Sao lưu có thể lớn (tới 50.000 URL/profile).
+ */
+export const IMPORT_FILE_MAX_BYTES = { settings: 1_000_000, queue: 1_000_000, backup: 200_000_000 } as const;
+
+/** null nếu file hợp lệ về kích thước; ngược lại là tham số cho chuỗi `file_too_large`. */
+export function fileTooLarge(size: number, max: number): { size: string; max: string } | null {
+  if (size <= max) return null;
+  const mb = (bytes: number) => (bytes / 1_000_000).toFixed(bytes < 10_000_000 ? 1 : 0);
+  return { size: mb(size), max: mb(max) };
+}
+
 const NUMBER_BOUNDS: Readonly<Record<string, readonly [number, number]>> = {
   concurrency: [1, 6],
   downloadDelayMs: [0, 10_000],

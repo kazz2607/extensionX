@@ -82,8 +82,6 @@ function streamErrorMessage(detail: StreamStatusDetail): string {
   return typeof detail.message === 'string' ? detail.message : 'Stream download failed';
 }
 
-let _streamSeq = 0;
-
 /** Lỗi tải stream — message được hiện trong tooltip nút để người dùng biết lý do. */
 class StreamDownloadError extends Error {
   constructor(reason: string) {
@@ -101,7 +99,9 @@ class StaleExtensionError extends Error {
 
 /** Tải video stream bằng Range fetch trong MAIN world; reject nếu thất bại để caller fallback. */
 function downloadViaStream(button: HTMLButtonElement, url: string, filename: string): Promise<void> {
-  const id = `tg-${Date.now()}-${++_streamSeq}`;
+  // S14: id ngẫu nhiên — `Date.now()-seq` đoán được nên script trang giả được
+  // trạng thái "done" cho một lượt tải chưa xong.
+  const id = `tg-${crypto.randomUUID()}`;
   return new Promise<void>((resolve, reject) => {
     let started = false;
     const finish = (fn: () => void): void => {

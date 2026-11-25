@@ -1,6 +1,6 @@
 
 import { releasePersistedEntries, restoreDirtyBatch, takeDirtyBatch } from '../shared/dirty-batch.ts';
-import { mediaStore, dirtyMediaStore, statsStore, tabState, downloadedStore, userCsrfToken, setCsrfToken, touchMediaCache, trimMediaCache } from './state.ts';
+import { mediaStore, dirtyMediaStore, statsStore, tabState, downloadedStore, dirtyDownloadedUrls, userCsrfToken, setCsrfToken, touchMediaCache, trimMediaCache } from './state.ts';
 import { fetchVideoForTweet } from './tweet-api.ts';
 import { updateBadge, broadcastToPopup, updateFAB, broadcastFABState, sleep, waitForTabLoad, sanitizeFolder } from './utils.ts';
 import { MEDIA_RETENTION_MAX_ENTRIES, mediaRepository } from './indexeddb.ts';
@@ -119,8 +119,25 @@ async function shouldRunRetention(username: string): Promise<boolean> {
   return due;
 }
 
+// P17: lần nạp đang chạy cho cùng profile được dùng chung. Mở popup khi SW vừa
+// thức gửi song song GET_MEDIA_COUNT và GET_STATS — trước đây mỗi lệnh tự
+// getAll cùng một profile (tới 50.000 bản ghi) từ IndexedDB.
+function coalesceByKey<R>(load: (key: string) => Promise<R>): (key: string) => Promise<R> {
+  const inflight = new Map<string, Promise<R>>();
+  return (key) => {
+    const running = inflight.get(key);
+    if (running) return running;
+    const run = load(key).finally(() => inflight.delete(key));
+    inflight.set(key, run);
+    return run;
+  };
+}
+
+const ensureMediaStoreLoaded = coalesceByKey(loadMediaStore);
+const loadDownloadedUrls = coalesceByKey(loadDownloadedUrlsOnce);
+
 // Đảm bảo mediaStore và statsStore được nạp từ IndexedDB nếu SW vừa restart
-async function ensureMediaStoreLoaded(username: string): Promise<Map<string, MediaItem>> {
+async function loadMediaStore(username: string): Promise<Map<string, MediaItem>> {
   if (!username) return new Map();
   if (mediaStore.has(username) && mediaStore.get(username)!.size > 0) {
     touchMediaCache(username);
@@ -591,22 +608,24 @@ async function clearSession(username: string) {
 }
 
 // Load downloaded URLs từ storage vào memory
-async function loadDownloadedUrls(username: string) {
+async function loadDownloadedUrlsOnce(username: string): Promise<void> {
   if (downloadedStore.has(username)) return; // Đã load rồi
   try {
     // Prune on load (rather than every completion) to keep hot download paths
     // fast while applying TTL/LRU when a profile is next used.
-    await mediaRepository.pruneDownloadedUrls(username);
-    const urls = await mediaRepository.getDownloadedUrls(username);
+    const urls = await mediaRepository.pruneAndGetDownloadedUrls(username);
     if (urls.length > 0) {
-      downloadedStore.set(username, new Set(urls));
+      // Chuẩn hoá lại khi nạp: khoá do bản trước 8.3.0 ghi (vd. `…/media/a.jpg`)
+      // phải khớp khoá mới (`…/media/a?name=orig&format=jpg`), nếu không ảnh
+      // đã tải sẽ bị tải lại sau khi nâng cấp. Hàm idempotent với khoá mới.
+      downloadedStore.set(username, withPendingDownloaded(username, urls));
       return;
     }
     // One-time migration from releases that stored a large serialized array.
     const legacyKey = `downloaded_${username}`;
     const legacy = await chrome.storage.local.get(legacyKey);
     const legacyUrls = Array.isArray(legacy[legacyKey]) ? legacy[legacyKey].filter((url): url is string => typeof url === 'string') : [];
-    downloadedStore.set(username, new Set(legacyUrls));
+    downloadedStore.set(username, withPendingDownloaded(username, legacyUrls));
     if (legacyUrls.length > 0) {
       await mediaRepository.saveDownloadedUrls(username, legacyUrls);
       await chrome.storage.local.remove(legacyKey);
@@ -625,20 +644,35 @@ function isAlreadyDownloaded(username: string, url: string) {
 
 // Đánh dấu URL đã tải xong + persist vào storage
 function markDownloaded(username: string, url: string) {
-  if (!downloadedStore.has(username)) downloadedStore.set(username, new Set<string>());
-  const set = downloadedStore.get(username)!;
+  // Không tạo tập rỗng cho profile chưa nạp: loadDownloadedUrls thấy tập đã có
+  // sẽ bỏ qua IndexedDB và mất lịch sử cũ. URL mới nằm trong hàng ghi (dirty)
+  // và được gộp vào khi profile được nạp (withPendingDownloaded).
+  const set = downloadedStore.get(username);
   const normalizedUrl = normalizeUrlForDedup(url);
-  const isNew = !set.has(normalizedUrl);
-  set.add(normalizedUrl);
+  const isNew = !set?.has(normalizedUrl);
+  set?.add(normalizedUrl);
   // Persist debounce — ghi storage sau 3s, không ghi từng file một
-  if (isNew) scheduleDownloadedPersist(username, normalizedUrl);
+  if (isNew) {
+    scheduleDownloadedPersist(username, normalizedUrl);
+    // Rollback: bản trước 8.3.0 so ảnh lưu dạng `…/media/a.jpg` (không query)
+    // bằng chính URL đó. Ghi thêm khoá dạng cũ để rollback không tải lại ảnh.
+    if (!url.includes('?') && url !== normalizedUrl) scheduleDownloadedPersist(username, url);
+  }
   // F3: mọi đường tải thành công (Download, Queue, nút tweet) đều qua đây —
   // file từng lỗi nay đã tải được thì gỡ khỏi danh sách lỗi.
   void resolveFailedItem(username, url).catch(() => {});
 }
 
 const _downloadedPersistTimers = new Map<string, ReturnType<typeof setTimeout>>();
-const _dirtyDownloadedUrls = new Map<string, Set<string>>();
+// Nằm trong state.ts để trimMediaCache không giải phóng profile còn URL chưa ghi.
+const _dirtyDownloadedUrls = dirtyDownloadedUrls;
+
+/** Khoá đã chuẩn hoá từ IndexedDB + URL vừa tải chưa kịp ghi (P19: cache có thể bị giải phóng rồi nạp lại). */
+function withPendingDownloaded(username: string, stored: string[]): Set<string> {
+  const set = new Set(stored.map(normalizeUrlForDedup));
+  _dirtyDownloadedUrls.get(username)?.forEach((url) => set.add(url));
+  return set;
+}
 
 /** Drop not-yet-written history so a clear is not undone by a pending persist. */
 function cancelDownloadedPersist(username?: string): void {

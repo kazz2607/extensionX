@@ -5,10 +5,10 @@ import { startDownload, handleDownloadTweet, saveOffscreenBlob } from './downloa
 import { updateBadge, broadcastToPopup, updateFAB } from './utils.ts';
 import { mediaRepository } from './indexeddb.ts';
 import { setDynamicBearer, setDynamicQueryId } from './tweet-api.ts';
-import { isCollectMediaPageUrl, isTrustedMediaUrl, isValidDownloadOptions, isValidMediaItem, isValidUsername, isXProfileUrlForUsername, isXUrl, normalizeMediaUrlToOrig } from '../shared/validation.ts';
+import { canonicalizeMediaItem, isCollectMediaPageUrl, isTrustedMediaUrl, isValidDownloadOptions, isValidMediaItem, isValidUsername, isXProfileUrlForUsername, isXUrl, normalizeMediaUrlToOrig } from '../shared/validation.ts';
 import { OFFSCREEN_DOCUMENT_PATH, type ParsedRuntimeMessage } from '../shared/messages.ts';
 import { recordDiagnostic } from './diagnostics.ts';
-import { isTelegramDownloadUrl, isTelegramWebUrl } from '../shared/telegram-media.ts';
+import { isTelegramDownloadUrl, isTelegramWebUrl, telegramDownloadFilename } from '../shared/telegram-media.ts';
 import type { Stats, MediaItem } from '../types.ts';
 import { collectMediaMatches, createMediaMatcher, type MediaQueryCriteria } from '../shared/media-query.ts';
 import { t } from '../lib/i18n.ts';
@@ -41,6 +41,33 @@ async function runWithConcurrency<T>(items: readonly T[], limit: number, worker:
     }
   };
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, run));
+}
+
+// P27: tweet tra không ra video bị tra lại ở mỗi batch sau khi điều hướng, mỗi
+// lần tới 4 request (Layer 0, syndication, guest). Nhớ kết quả âm 10 phút và
+// dùng chung lượt tra đang chạy cho cùng một tweet.
+const VIDEO_MISS_TTL_MS = 10 * 60_000;
+const VIDEO_MISS_MAX = 2_000;
+const videoMisses = new Map<string, number>();
+type VideoLookup = Awaited<ReturnType<typeof fetchVideoForTweetWithRefresh>>;
+const videoLookups = new Map<string, Promise<VideoLookup>>();
+
+function lookupVideoOnce(tweetId: string, tabId?: number): Promise<VideoLookup> {
+  const missUntil = videoMisses.get(tweetId);
+  if (missUntil !== undefined && missUntil > Date.now()) return Promise.resolve(null);
+  const running = videoLookups.get(tweetId);
+  if (running) return running;
+  const run = fetchVideoForTweetWithRefresh(tweetId, tabId).then((found) => {
+    if (found) videoMisses.delete(tweetId);
+    else {
+      videoMisses.delete(tweetId); // đưa về cuối để cắt theo thứ tự cũ nhất
+      videoMisses.set(tweetId, Date.now() + VIDEO_MISS_TTL_MS);
+      if (videoMisses.size > VIDEO_MISS_MAX) videoMisses.delete(videoMisses.keys().next().value!);
+    }
+    return found;
+  }).finally(() => videoLookups.delete(tweetId));
+  videoLookups.set(tweetId, run);
+  return run;
 }
 
 function isSafeDownloadPath(value: unknown): value is string {
@@ -105,7 +132,9 @@ export function handleMediaMessage(
       // Direct media (images and video URLs from the interceptor) is filtered
       // and stored as one batch, so a 200-item batch costs one badge, popup,
       // persist and FAB update instead of one of each per item.
-      const direct = validItems.filter((item) => item.type !== 'video_placeholder');
+      // L21: GraphQL và DOM báo cùng một ảnh bằng hai dạng URL — đưa về một dạng
+      // trước khi so với store, để một ảnh chỉ thành một mục và một file.
+      const direct = validItems.filter((item) => item.type !== 'video_placeholder').map(canonicalizeMediaItem);
       const placeholders = validItems.filter((item) => item.type === 'video_placeholder' && item.tweetId && /^\d{10,}$/.test(item.tweetId));
       void (async () => {
         // Drop already-stored URLs first: the maxMedia cap slices the batch,
@@ -132,12 +161,10 @@ export function handleMediaMessage(
         // lookups at once. This keeps the extension responsive and reduces 429s.
         await runWithConcurrency(pending, MEDIA_PROCESS_CONCURRENCY, async (tweetId) => {
           try {
-            const videoItem = await fetchVideoForTweetWithRefresh(tweetId, tabId);
-            if (!videoItem) {
-              console.warn(`[SW] ✗ Không lấy được video URL cho tweet ${tweetId}`);
-              return;
-            }
-            videoItem.url = normalizeMediaUrlToOrig(videoItem.url);
+            const found = await lookupVideoOnce(tweetId, tabId);
+            if (!found) return;
+            // Bản sao: một lượt tra có thể được nhiều batch dùng chung.
+            const videoItem = { ...found, url: normalizeMediaUrlToOrig(found.url) };
             const videoMediaItem = videoItem as MediaItem;
             videoMediaItem.username = username;
             if (addMediaItems(username, [videoMediaItem]) > 0) updateFAB(tabId, username);
@@ -507,8 +534,9 @@ export function handleMediaMessage(
         sendResponse({ error: 'Missing url or filename' });
         return true;
       }
-      const safeFilename = filename.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 200);
-      if (!safeFilename || !isTelegramDownloadUrl(url)) {
+      const cleaned = filename.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 200);
+      const safeFilename = cleaned && isTelegramDownloadUrl(url) ? telegramDownloadFilename(url, cleaned) : null;
+      if (!safeFilename) {
         sendResponse({ error: 'Invalid Telegram download request' });
         return false;
       }
