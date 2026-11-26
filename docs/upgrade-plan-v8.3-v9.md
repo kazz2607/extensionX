@@ -1,6 +1,6 @@
 # Kế hoạch nâng cấp v8.2.3 → v9.0
 
-> Lập ngày 2026-11-25 trên mã nguồn **8.2.2** (commit `bef46a8`) | Trạng thái: **đang thực hiện — v8.2.3, v8.3.0 và v8.3.1 đã phát hành (xem mục 6a–6c)**
+> Lập ngày 2026-11-25 trên mã nguồn **8.2.2** (commit `bef46a8`) | Trạng thái: **đang thực hiện — v8.2.3, v8.3.0, v8.3.1 và v8.4.0 đã phát hành (xem mục 6a–6d)**
 
 Kế hoạch này kế tiếp [`upgrade-plan-v7.3-v8.md`](upgrade-plan-v7.3-v8.md) (L1–L15, S1–S11, P1–P15, U1–U16, F1–F5 đã xong). Mã định danh mới đánh tiếp từ số cuối của kế hoạch cũ.
 
@@ -29,7 +29,7 @@ Trạng thái gate tại thời điểm lập kế hoạch: `npm run check` xanh
 | **v8.2.3** ✅ | Hotfix: mất dữ liệu ZIP, kẹt UI, bảo mật dễ sửa | L16–L20, L22, L24, S12, S13, S15, U17, U19, P16 |
 | **v8.3.0** ✅ (trừ L28–L30, S19 quyền) | Logic còn lại + hardening + hiệu năng IndexedDB | L21, L25–L27, S14, S16–S18, P17–P19, P23, P24, P27, S19 (giảm quyền) |
 | **v8.3.1** ✅ (U29 một phần) | UI/UX và accessibility | U18, U20–U30 |
-| **v8.4.0** | Dung lượng và main thread | P26 (bảng dịch theo locale), P20–P22, P25, kiểm chứng HLS fMP4 (L28) |
+| **v8.4.0** ✅ (trừ L28, L30; SW chưa xuống 112 KB) | Dung lượng và main thread | P26 (bảng dịch theo locale), P20–P22, P25, kiểm chứng HLS fMP4 (L28) |
 | **v9.0.0** | Tính năng mới | F3b, F1b, F1c, F6, F9, F10 (xem mục 5) |
 
 ---
@@ -178,7 +178,7 @@ Trạng thái gate tại thời điểm lập kế hoạch: `npm run check` xanh
 1. ~~**v8.2.3 — hotfix**: L16, L17, L19, L20, L22, L24, S12, S13, S15, U17, U19, P16~~ — hoàn thành 2026-11-25 (xem 6a), kèm L18.
 2. ~~**v8.3.0 — logic + hardening + IndexedDB**~~ — hoàn thành 2026-11-25 (xem 6b); còn lại chuyển sang mốc sau: L28 (cần playlist X thật), L29, L30 (cần đo), S19 bỏ `scripting`/thu hẹp host (bản riêng), Chromium acceptance L19/L20. Phạm vi gốc: L21, L25–L27, S14, S16–S18, S20, P17–P19, P23, P24, P27. S19 (giảm quyền) làm cuối mốc hoặc tách bản riêng, có ghi chú rollback.
 3. ~~**v8.3.1 — UI/UX**: U18, U20–U30~~ — hoàn thành 2026-11-25 (xem 6c), U29 một phần.
-4. **v8.4.0 — dung lượng/main thread**: P26 trước, rồi P20–P22, P25; thu fixture HLS thật cho L28; đo L30.
+4. ~~**v8.4.0 — dung lượng/main thread**: P26 trước, rồi P20–P22, P25~~ — hoàn thành 2026-11-26 (xem 6d); L28 (fixture HLS thật) và L30 (đo keep-alive) vẫn cần dữ liệu/đo trên X thật.
 5. **v9.0.0 — tính năng**: F3b → F1b + F1c → F6; F9–F11 tuỳ phản hồi.
 
 Song song, việc thủ công còn tồn từ kế hoạch cũ: kiểm thử trên X/Telegram thật (Search/Hashtag, 429 thật, backup giữa hai máy) và đo các chỉ tiêu hiệu năng chưa đo trong `quality-gate.md`.
@@ -210,6 +210,17 @@ Song song, việc thủ công còn tồn từ kế hoạch cũ: kiểm thử tr�
 - **U30:** `popup_theme_toggle` bị xoá thay vì nối vào nút theme, vì nút đã có nhãn động theo chế độ đang dùng (gắn `data-i18n` sẽ ghi đè nhãn này khi đổi ngôn ngữ).
 - **U29 còn lại:** popup.html 28 và options.html 20 thuộc tính `style=""`, đa số là `display:none` mà JS bật/tắt — chuyển sang class cần đổi cách bật/tắt ở JS, để làm cùng đợt dọn CSS sau.
 - Test: `test/v8-3-1.test.ts` (4 test) — 95 unit, Chromium 9/9. Ngân sách: tổng JS 391,5 KB, service worker 118,9 KB (không đổi), 108/110 module.
+
+## 6d. Kết quả v8.4.0
+
+- **Đã làm:** P26a, P20, P21, P22, P25 (P26b đã làm ở v8.3.0).
+- **P26a:** bảng nguồn giữ nguyên (en + vi trong `src/lib/i18n/*.ts`, `npm run i18n` và unit test không đổi). Plugin `scripts/vite-locale-split.mjs` (hook `load`, `enforce: 'pre'`) thay khối `vi` của 6 bảng (common, popup, options, download-center, background ×2) bằng `vi: {}, remote: '<TÊN>'` và phát `i18n/vi/<TÊN>.json`; build dừng nếu không tìm thấy bảng/khối `vi`. `registerTranslations` ghi nhận bảng `remote`, `loadI18n` → `setLanguage` tải bảng khi ngôn ngữ là `vi` (lỗi thì rơi về tiếng Anh và thử lại lần sau, bảng đăng ký muộn cũng được tải). Options đổi ngôn ngữ bằng `setLanguage` để chờ bảng trước khi render lại. Bảng content script không tách được (cần `web_accessible_resources`, đã bỏ từ v7.3.0).
+- **P20:** đếm bằng `openKeyCursor(null, 'nextunique')` + `index.count()`; byte ước lượng từ trung bình 200 record đầu mỗi store. Lệnh dọn vẫn gọi tóm tắt hai lần (trước để lấy danh sách profile, sau để trả kết quả) nhưng mỗi lần giờ rẻ.
+- **P21:** benchmark trước khi sửa (`scripts/benchmark-graphql-media.mjs`, payload giả lập UserTweets 20 tweet, 160 KB): duyệt đầy đủ 3.375 node, trung vị 1,07 ms; bỏ `user_results`/`card` 2.505 node, 0,77 ms, cùng 39 media. **Không** thêm danh sách loại trừ operation: phần duyệt chỉ ~1 ms/trang nên lợi ích nhỏ, còn đoán sai một operation sẽ làm mất media. Hàm duyệt chuyển sang `src/shared/graphql-media.ts` (+1 module).
+- **P22:** `onAddedElements` trong `page-navigation.ts` (không thêm module) — một observer trên `documentElement` từ DOMContentLoaded; page-interceptor, dom-scanner và tweet-btn đăng ký vào. dom-scanner giữ phạm vi primaryColumn bằng `contains`, thêm gate route, tạm dừng 300 ms sau điều hướng thay cho disconnect/observe lại. Cờ diagnostics đẩy xuống trang qua `XMD_DIAGNOSTICS`.
+- **P25:** cửa sổ tải trước 4 file, xử lý theo thứ tự (tên file, chống trùng hash, chia phần không đổi).
+- **Chưa làm / chưa đạt:** L28 (cần playlist fMP4 thật của X), L30 (đo keep-alive), mục tiêu SW ≤ 112 KB (đạt 115,2 KB — phần còn lại là code; v9.0 còn ~4,8 KB cho service worker, F3b/F1b/F1c cần ước lượng kỹ hoặc tách thêm). Số module 109/110: tính năng v9 cần gộp module hoặc nâng ngưỡng.
+- Test: `test/v8-4-0.test.ts` (4 test) — 99 unit; Chromium 9/9 (thêm kiểm tra popup tiếng Việt và `GET_STORAGE_SUMMARY`). Ngân sách: tổng JS **354,3 KB** (−37,2 KB), service worker **115,2 KB**, 109/110 module.
 
 ## 7. Việc tài liệu kèm theo
 

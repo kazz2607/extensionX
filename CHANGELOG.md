@@ -10,6 +10,25 @@ Chưa có thay đổi.
 
 ---
 
+## [8.4.0] — 2026-11-26 *(dung lượng, main thread)*
+
+Các mã P theo [`docs/upgrade-plan-v8.3-v9.md`](docs/upgrade-plan-v8.3-v9.md).
+
+### Hiệu năng
+
+- **Bảng dịch tải theo ngôn ngữ (P26a):** chuỗi tiếng Việt của popup, Options, Download Center và service worker không còn nằm trong JavaScript; chúng được đóng gói thành file JSON và chỉ tải khi chọn tiếng Việt. Tổng JS **391,5 → 354,3 KB (−9,5 %)**, service worker 118,9 → 115,2 KB. Đổi ngôn ngữ trong Options vẫn áp dụng ngay, không cần tải lại trang.
+- **Tóm tắt dung lượng nhanh hơn (P20):** mục "Dung lượng" trong Options, sao lưu và lệnh dọn dữ liệu đếm record bằng index thay vì đọc toàn bộ dữ liệu; dung lượng mỗi profile là ước lượng từ mẫu.
+- **Ít việc hơn trên trang X (P21, P22):** khi đọc dữ liệu GraphQL, bỏ qua phần hồ sơ người dùng và card preview (không chứa media của tweet), nhanh hơn khoảng 26–28 % trên benchmark; ba bộ theo dõi DOM gộp thành một, quét DOM chỉ chạy trên trang thu thập media và không gửi số liệu chẩn đoán khi chưa bật.
+- **ZIP nhanh hơn (P25):** tải trước 4 file cùng lúc, thứ tự và tên file trong ZIP không đổi.
+
+### Phát triển
+
+- `npm run check` thêm `benchmark:graphql`: so sánh duyệt đầy đủ với duyệt bỏ nhánh và báo lỗi nếu kết quả media khác nhau.
+
+Không đổi quyền, schema hay storage key; thêm message nội bộ `XMD_DIAGNOSTICS` (content script → script trang). Gate: 99 unit test, Chromium acceptance 9/9.
+
+---
+
 ## [8.3.1] — 2026-11-25 *(giao diện, accessibility, bản dịch)*
 
 Các mã U theo [`docs/upgrade-plan-v8.3-v9.md`](docs/upgrade-plan-v8.3-v9.md).

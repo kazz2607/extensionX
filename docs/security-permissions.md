@@ -1,6 +1,6 @@
 # Audit bảo mật và quyền extension
 
-> Rà soát cho **8.3.1** | Cập nhật: 2026-11-25
+> Rà soát cho **8.4.0** | Cập nhật: 2026-11-26
 
 ## Quyền Manifest
 
@@ -78,6 +78,10 @@ Từ 8.3.0, không thêm quyền:
 - **S19 (một phần):** `content/shortcuts.js` chỉ còn khớp `x.com`/`twitter.com` (trước đây cả `*.x.com`, `*.twitter.com`, nơi `SHORTCUT_DOWNLOAD` luôn bị từ chối) và bỏ `exclude_matches` Google/Notion vô tác dụng. Đây là thay đổi content script, không phải permission. Bỏ quyền `scripting` và thu hẹp `host_permissions` để bản riêng vì rollback về bản cũ sẽ phải xin lại quyền.
 - **S20:** GitHub Actions pin theo commit SHA (`actions/checkout`, `actions/setup-node` v4).
 - Bản phát hành bỏ `console.log/debug/info` (Rolldown `manualPureFunctions`); `console.warn/error` vẫn giữ và không chứa token/cookie.
+
+Từ 8.4.0, không thêm quyền và **không thêm `web_accessible_resources`**:
+- Bảng dịch tiếng Việt của popup/Options/Download Center/service worker là file trong gói (`i18n/vi/*.json`), chỉ được đọc bằng `fetch(chrome.runtime.getURL(...))` từ chính trang extension và service worker; nội dung được kiểm tra là object chỉ gồm chuỗi trước khi dùng và luôn hiển thị dạng text. Trang web không đọc được các file này. Bảng của content script vẫn nằm trong bundle.
+- Bridge X thêm một message chiều extension → trang, `XMD_DIAGNOSTICS` (`{ enabled }`): chỉ báo cho DOM scanner biết chẩn đoán có bật không, đi qua cùng port riêng nên trang không đọc hay giả được, và không chứa dữ liệu người dùng. Khi tắt (mặc định), script trang không còn gửi metric qua bridge.
 
 ## Bề mặt cần theo dõi
 

@@ -1,11 +1,11 @@
 # Tài liệu ExtensionX
 
-> Phiên bản tài liệu: **8.3.1** | Cập nhật: 2026-11-25
+> Phiên bản tài liệu: **8.4.0** | Cập nhật: 2026-11-26
 
 ## Dành cho người dùng
 
 - [Hướng dẫn cài đặt và sử dụng](huong-dan-cai-dat.md)
-- [Migration và rollback v7.0.x–v8.3.1](v7-migration-rollback.md)
+- [Migration và rollback v7.0.x–v8.4.0](v7-migration-rollback.md)
 - [Xử lý sự cố](huong-dan-cai-dat.md#-xử-lý-sự-cố)
 
 ## Dành cho phát triển và phát hành
@@ -14,7 +14,7 @@
 - [Kế hoạch nâng cấp v8.2.3 → v9.0 (đang thực hiện)](upgrade-plan-v8.3-v9.md)
 - [Kế hoạch nâng cấp v7.3 → v8.2.2 (đã hoàn thành)](upgrade-plan-v7.3-v8.md)
 - [Quality gate](quality-gate.md)
-- [Baseline hiệu năng và build budget 8.3.1](performance-baseline.md)
+- [Baseline hiệu năng và build budget 8.4.0](performance-baseline.md)
 - [Audit bảo mật và quyền](security-permissions.md)
 - [Hướng dẫn đóng gói/phát hành](publish-guide.md)
 - [P2 Toolkit: estimate, gallery, ZIP và lịch tải](p2-features.md)
