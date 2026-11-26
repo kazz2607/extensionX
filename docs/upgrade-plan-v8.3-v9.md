@@ -1,6 +1,6 @@
 # Kế hoạch nâng cấp v8.2.3 → v9.0
 
-> Lập ngày 2026-11-25 trên mã nguồn **8.2.2** (commit `bef46a8`) | Trạng thái: **đang thực hiện — v8.2.3, v8.3.0, v8.3.1 và v8.4.0 đã phát hành (xem mục 6a–6d)**
+> Lập ngày 2026-11-25 trên mã nguồn **8.2.2** (commit `bef46a8`) | Trạng thái: **đang thực hiện — v8.2.3, v8.3.0, v8.3.1, v8.4.0 và v9.0.0 đã phát hành (xem mục 6a–6e)**
 
 Kế hoạch này kế tiếp [`upgrade-plan-v7.3-v8.md`](upgrade-plan-v7.3-v8.md) (L1–L15, S1–S11, P1–P15, U1–U16, F1–F5 đã xong). Mã định danh mới đánh tiếp từ số cuối của kế hoạch cũ.
 
@@ -30,7 +30,7 @@ Trạng thái gate tại thời điểm lập kế hoạch: `npm run check` xanh
 | **v8.3.0** ✅ (trừ L28–L30, S19 quyền) | Logic còn lại + hardening + hiệu năng IndexedDB | L21, L25–L27, S14, S16–S18, P17–P19, P23, P24, P27, S19 (giảm quyền) |
 | **v8.3.1** ✅ (U29 một phần) | UI/UX và accessibility | U18, U20–U30 |
 | **v8.4.0** ✅ (trừ L28, L30; SW chưa xuống 112 KB) | Dung lượng và main thread | P26 (bảng dịch theo locale), P20–P22, P25, kiểm chứng HLS fMP4 (L28) |
-| **v9.0.0** | Tính năng mới | F3b, F1b, F1c, F6, F9, F10 (xem mục 5) |
+| **v9.0.0** ✅ (F3b, F1b, F1c, F6; F9–F11 chưa làm) | Tính năng mới | F3b, F1b, F1c, F6, F9, F10 (xem mục 5) |
 
 ---
 
@@ -179,7 +179,7 @@ Trạng thái gate tại thời điểm lập kế hoạch: `npm run check` xanh
 2. ~~**v8.3.0 — logic + hardening + IndexedDB**~~ — hoàn thành 2026-11-25 (xem 6b); còn lại chuyển sang mốc sau: L28 (cần playlist X thật), L29, L30 (cần đo), S19 bỏ `scripting`/thu hẹp host (bản riêng), Chromium acceptance L19/L20. Phạm vi gốc: L21, L25–L27, S14, S16–S18, S20, P17–P19, P23, P24, P27. S19 (giảm quyền) làm cuối mốc hoặc tách bản riêng, có ghi chú rollback.
 3. ~~**v8.3.1 — UI/UX**: U18, U20–U30~~ — hoàn thành 2026-11-25 (xem 6c), U29 một phần.
 4. ~~**v8.4.0 — dung lượng/main thread**: P26 trước, rồi P20–P22, P25~~ — hoàn thành 2026-11-26 (xem 6d); L28 (fixture HLS thật) và L30 (đo keep-alive) vẫn cần dữ liệu/đo trên X thật.
-5. **v9.0.0 — tính năng**: F3b → F1b + F1c → F6; F9–F11 tuỳ phản hồi.
+5. ~~**v9.0.0 — tính năng**: F3b → F1b + F1c → F6~~ — hoàn thành 2026-11-26 (xem 6e); F9–F11 tuỳ phản hồi.
 
 Song song, việc thủ công còn tồn từ kế hoạch cũ: kiểm thử trên X/Telegram thật (Search/Hashtag, 429 thật, backup giữa hai máy) và đo các chỉ tiêu hiệu năng chưa đo trong `quality-gate.md`.
 
@@ -221,6 +221,16 @@ Song song, việc thủ công còn tồn từ kế hoạch cũ: kiểm thử tr�
 - **P25:** cửa sổ tải trước 4 file, xử lý theo thứ tự (tên file, chống trùng hash, chia phần không đổi).
 - **Chưa làm / chưa đạt:** L28 (cần playlist fMP4 thật của X), L30 (đo keep-alive), mục tiêu SW ≤ 112 KB (đạt 115,2 KB — phần còn lại là code; v9.0 còn ~4,8 KB cho service worker, F3b/F1b/F1c cần ước lượng kỹ hoặc tách thêm). Số module 109/110: tính năng v9 cần gộp module hoặc nâng ngưỡng.
 - Test: `test/v8-4-0.test.ts` (4 test) — 99 unit; Chromium 9/9 (thêm kiểm tra popup tiếng Việt và `GET_STORAGE_SUMMARY`). Ngân sách: tổng JS **354,3 KB** (−37,2 KB), service worker **115,2 KB**, 109/110 module.
+
+## 6e. Kết quả v9.0.0
+
+- **Đã làm:** F3b, F1b, F1c, F6. **Chưa làm:** F9, F10, F11 (tuỳ phản hồi), F7, F8.
+- **F3b:** `pickVideoVariant` (`src/shared/graphql-media.ts`) thay 4 chỗ chọn `bestMp4` (interceptor + 3 lớp tra video ở service worker), giữ tối đa 4 mp4 thấp hơn trong `MediaItem.variants`. Mục lỗi mang theo `variants`; `RETRY_FAILED_ITEMS { lowerQuality: true }` chỉ thử lại video còn mức thấp hơn và báo `noLower` cho phần còn lại. Downloader tải mức đầu tiên (`_lowerVariants`, trường nội bộ) nhưng giữ URL gốc làm khoá — đánh dấu đã tải, gỡ hoặc ghi lại lỗi với một mức ít hơn dưới cùng id. Video thu thập trước 9.0.0 không có `variants` (cần thu thập lại).
+- **F1b:** khoá `_list_<id>` (id đệm 10 chữ số → khoá ≥ 16 ký tự, dài hơn mọi handle X; suy ngược được URL). Không cần sửa interceptor (`ListLatestTweetsTimeline` được duyệt như mọi response). Tên List không lấy qua operation riêng như dự kiến: popup đọc tiêu đề tab ("Tên / X"); nơi khác hiện id — lấy tên qua GraphQL sẽ thêm code vào service worker đang sát ngưỡng.
+- **F1c:** Queue và Saved Job vốn đã chạy được mọi khoá dạng username (kể cả Search/Hashtag); phần thiếu là hiển thị khoá thô và không nhập được nguồn. Mọi chỗ hiện tên profile dùng `collectionKeyLabel`; các chuỗi `@{username}` liên quan đổi thành `{username}`. `collectionKeyFromInput` cho Saved Job và công cụ P2.
+- **F6:** nút đặt trong popup thay vì FAB như dự kiến — FAB tải ngay khi có media nên bảng FAB không mở được. Thread = media cùng `conversationId` và `authorHandle` = khoá trang, cộng media của chính tweet đang mở; tweet đang mở không có media thì coi là tweet đầu thread. Media cũ được bổ sung hai trường khi GraphQL gửi lại (`enrichMediaItems`).
+- **Ngoài phạm vi, giữ nguyên:** trang tweet vẫn lưu cả media trong trả lời của người khác vào khoá của tác giả (hành vi từ trước); tải profile vì vậy vẫn gồm các media đó — chỉ tải thread mới lọc.
+- Test: `test/v9-0-0.test.ts` (9 test) — 108 unit; Chromium 11/11 (+2). Ngân sách: tổng JS 361,2 KB, service worker **117,5/120 KB** (còn ~2,5 KB), 109/110 module.
 
 ## 7. Việc tài liệu kèm theo
 

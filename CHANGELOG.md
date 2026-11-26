@@ -10,6 +10,25 @@ Chưa có thay đổi.
 
 ---
 
+## [9.0.0] — 2026-11-26 *(tính năng mới: thử lại chất lượng thấp hơn, X Lists, nguồn trong Queue, tải thread)*
+
+Các mã F theo [`docs/upgrade-plan-v8.3-v9.md`](docs/upgrade-plan-v8.3-v9.md).
+
+### Tính năng mới
+
+- **Thử lại video ở chất lượng thấp hơn (F3b):** khi một video lỗi, Download Center cho biết còn bản thấp hơn (vd. "còn bản 360p") và có nút **Thử lại chất lượng thấp hơn**. Mỗi lần thử mà vẫn lỗi thì lần sau tự xuống một mức nữa; tải được thì file được gỡ khỏi danh sách lỗi và tính là đã tải (lượt tải sau không tải lại bản cao). Áp dụng cho video thu thập từ bản này trở đi.
+- **Thu thập từ X Lists (F1b):** trang tweet của một List (`x.com/i/lists/<id>`) được nhận ra và thu thập như một profile; popup hiện tên List theo tiêu đề tab.
+- **Nguồn Search / Hashtag / List trong Queue và Saved Job (F1c):** Queue, lịch sử, Download Center, Options và thông báo hiện tên nguồn dễ đọc ("#cats", "🔍 cat photos", "📋 1234567") thay cho khoá nội bộ. Ô "Username hoặc nguồn" của Saved Job nhận cả `@handle`, `#hashtag` hoặc link profile / tìm kiếm / List của X.
+- **Tải cả thread (F6):** khi tab đang mở một tweet, popup có nút **Tải cả thread này (n)** — tải media của mọi tweet tác giả viết trong cùng hội thoại, bỏ trả lời của người khác và bỏ qua bộ lọc loại/ngày của popup.
+
+### Ghi chú
+
+- Media lưu thêm trường tuỳ chọn `variants`, `conversationId`, `authorHandle`; mục lỗi lưu thêm `variants`. Bản cũ bỏ qua các trường này. Media thu thập trước 9.0.0 được bổ sung hội thoại/tác giả khi X gửi lại cùng media (vd. mở lại trang tweet).
+
+Không đổi quyền, `DB_VERSION` hay storage key. Gate: 108 unit test, Chromium acceptance 11/11.
+
+---
+
 ## [8.4.0] — 2026-11-26 *(dung lượng, main thread)*
 
 Các mã P theo [`docs/upgrade-plan-v8.3-v9.md`](docs/upgrade-plan-v8.3-v9.md).

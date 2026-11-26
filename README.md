@@ -2,7 +2,7 @@
 
 Extension Chrome mạnh mẽ cho phép bạn tải toàn bộ ảnh, video và GIF từ bất kỳ profile nào trên X.com (Twitter) với chất lượng gốc, hoàn toàn tự động và sắp xếp gọn gàng vào thư mục theo tên người dùng.
 
-> **Phiên bản hiện tại: 8.4.0** — JavaScript nhẹ hơn 9,5 % (chuỗi tiếng Việt chỉ tải khi chọn tiếng Việt), tóm tắt dung lượng nhanh hơn, ít việc hơn trên trang X, ZIP tải song song; 8.3.1: giao diện dễ dùng hơn với bàn phím và trình đọc màn hình, hộp xác nhận thống nhất theo theme, nhãn và số theo ngôn ngữ; 8.3.0: một ảnh chỉ còn một file (gộp hai dạng URL của X), tuỳ chọn chất lượng ảnh có tác dụng, lệnh chỉ nhận từ đúng trang, IndexedDB đọc ít hơn khi mở popup; 8.2.3: hotfix ZIP không còn bỏ mất file hay bị dừng giữa chừng, popup/FAB không kẹt "đang tải", chặn trang giả thao tác tải và chèn công thức vào CSV, preset ngày theo giờ máy; 8.2.2: bỏ JSZip (JS giảm 20 %), lưu lỗi máy chủ tương thích rollback, dò mã 429 an toàn hơn; 8.2.1: 429 được nhận diện đúng để tự giảm tốc, sao lưu đủ file vừa tải, Chromium acceptance chạy được, 0 `@ts-ignore`; 8.2.0 sao lưu/khôi phục toàn bộ dữ liệu cục bộ trong một file; 8.1.0 tự giảm tốc khi X giới hạn (429); 8.0.0 thêm Search/Hashtag, caption và like trong Manifest, danh sách file lỗi.
+> **Phiên bản hiện tại: 9.0.0** — Thử lại video lỗi ở chất lượng thấp hơn, thu thập từ X Lists, nguồn Search/Hashtag/List trong Queue và Saved Job, tải cả thread của tác giả từ trang tweet; 8.4.0: JavaScript nhẹ hơn 9,5 % (chuỗi tiếng Việt chỉ tải khi chọn tiếng Việt), tóm tắt dung lượng nhanh hơn, ít việc hơn trên trang X, ZIP tải song song; 8.3.1: giao diện dễ dùng hơn với bàn phím và trình đọc màn hình, hộp xác nhận thống nhất theo theme, nhãn và số theo ngôn ngữ; 8.3.0: một ảnh chỉ còn một file (gộp hai dạng URL của X), tuỳ chọn chất lượng ảnh có tác dụng, lệnh chỉ nhận từ đúng trang, IndexedDB đọc ít hơn khi mở popup; 8.2.3: hotfix ZIP không còn bỏ mất file hay bị dừng giữa chừng, popup/FAB không kẹt "đang tải", chặn trang giả thao tác tải và chèn công thức vào CSV, preset ngày theo giờ máy; 8.2.2: bỏ JSZip (JS giảm 20 %), lưu lỗi máy chủ tương thích rollback, dò mã 429 an toàn hơn; 8.2.1: 429 được nhận diện đúng để tự giảm tốc, sao lưu đủ file vừa tải, Chromium acceptance chạy được, 0 `@ts-ignore`; 8.2.0 sao lưu/khôi phục toàn bộ dữ liệu cục bộ trong một file; 8.1.0 tự giảm tốc khi X giới hạn (429); 8.0.0 thêm Search/Hashtag, caption và like trong Manifest, danh sách file lỗi.
 
 ## ✨ Tính Năng Nổi Bật
 
@@ -70,4 +70,4 @@ Click vào nút ⚙ (Cài đặt) trên popup của extension để tuỳ chỉn
 
 ---
 
-*Phát triển nội bộ — Phiên bản **8.4.0** | Cập nhật: 2026-11-26*
+*Phát triển nội bộ — Phiên bản **9.0.0** | Cập nhật: 2026-11-26*

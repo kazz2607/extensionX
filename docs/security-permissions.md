@@ -1,6 +1,6 @@
 # Audit bảo mật và quyền extension
 
-> Rà soát cho **8.4.0** | Cập nhật: 2026-11-26
+> Rà soát cho **9.0.0** | Cập nhật: 2026-11-26
 
 ## Quyền Manifest
 
@@ -82,6 +82,11 @@ Từ 8.3.0, không thêm quyền:
 Từ 8.4.0, không thêm quyền và **không thêm `web_accessible_resources`**:
 - Bảng dịch tiếng Việt của popup/Options/Download Center/service worker là file trong gói (`i18n/vi/*.json`), chỉ được đọc bằng `fetch(chrome.runtime.getURL(...))` từ chính trang extension và service worker; nội dung được kiểm tra là object chỉ gồm chuỗi trước khi dùng và luôn hiển thị dạng text. Trang web không đọc được các file này. Bảng của content script vẫn nằm trong bundle.
 - Bridge X thêm một message chiều extension → trang, `XMD_DIAGNOSTICS` (`{ enabled }`): chỉ báo cho DOM scanner biết chẩn đoán có bật không, đi qua cùng port riêng nên trang không đọc hay giả được, và không chứa dữ liệu người dùng. Khi tắt (mặc định), script trang không còn gửi metric qua bridge.
+
+Từ 9.0.0, không thêm quyền:
+- **Variant video (F3b):** danh sách mức chất lượng đến từ trang (GraphQL) và từ storage (`failed_items_v1`) được kiểm tra trước khi dùng: tối đa 4 URL, chỉ `https://video.twimg.com/…mp4`; mục lỗi có variant giả bị bỏ. `RETRY_FAILED_ITEMS` thêm khoá `lowerQuality` (boolean) trong `PAYLOAD_KEYS`, vẫn chỉ nhận từ trang extension.
+- **Thread (F6):** `GET_THREAD_MEDIA` chỉ đọc store, chỉ dành cho trang extension (không nằm trong `CONTENT_SCRIPT_TYPES`); `tweetId` phải là 10–20 chữ số, `conversationId`/`authorHandle` trên media được kiểm tra (chữ số / handle X).
+- **Nguồn (F1b/F1c):** khoá List là `_list_<id>` chỉ gồm chữ số và vẫn khớp mẫu username sẵn có; chữ nhập ở Saved Job chỉ thành khoá khi là handle hợp lệ, `#hashtag` hoặc URL thuộc `x.com`/`twitter.com` — link ngoài bị từ chối.
 
 ## Bề mặt cần theo dõi
 
