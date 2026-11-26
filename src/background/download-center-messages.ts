@@ -43,7 +43,7 @@ export const handleDownloadCenterMessage: DomainMessageHandler = (message, _send
     case 'RETRY_FAILED_ITEMS': {
       const ids = parseFailedItemIds(payload?.ids);
       if (!ids || ids.length === 0) { sendResponse({ ok: false, error: t('bg_err_no_failed_selected') }); return false; }
-      void retryFailedItems(ids).then(sendResponse, (error: unknown) => sendResponse({ ok: false, error: String(error) }));
+      void retryFailedItems(ids, payload?.lowerQuality === true).then(sendResponse, (error: unknown) => sendResponse({ ok: false, error: String(error) }));
       return true;
     }
     case 'CLEAR_FAILED_ITEMS': {

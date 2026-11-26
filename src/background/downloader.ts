@@ -516,10 +516,15 @@ async function startDownload(username: string, options: DownloadOptions = {}): P
     pendingFailures = [];
   };
 
+  // F3b: thử lại ở chất lượng thấp hơn — tải mức đầu tiên còn lại, nhưng URL gốc
+  // vẫn là khoá (đánh dấu đã tải, gỡ/ghi file lỗi) để không tải lại bản cao.
+  const lowerVariants = options._lowerVariants;
   async function downloadOne(item: MediaItem) {
     let filename = '';
+    const lower = lowerVariants?.[item.url];
+    const target = lower?.length ? { ...item, url: lower[0] } : item;
     try {
-      filename = await downloadSingleItem(item, username, saveFolder, {
+      filename = await downloadSingleItem(target, username, saveFolder, {
         flatUsername: opts.flatUsername,
         filenameUsername,
         filenameTemplate: opts.filenameTemplate,
@@ -538,7 +543,7 @@ async function startDownload(username: string, options: DownloadOptions = {}): P
       // chrome.downloads chỉ báo mã ngắt, không báo mã HTTP: 429 và 5xx đều là
       // SERVER_FAILED. Hỏi lại mã thật để 429 kích hoạt tạm nghỉ và lỗi được
       // phân loại đúng trong danh sách File lỗi.
-      const err = await withHttpStatus(caught, item.url, pauseGate.remaining(Date.now()) > 0);
+      const err = await withHttpStatus(caught, target.url, pauseGate.remaining(Date.now()) > 0);
       if (!downloadCoordinator.isCurrent(operationId)) return;
       // F4: X trả 429 → mọi luồng tạm nghỉ, file này được xếp lại cuối hàng một
       // lần (chưa tính là lỗi). Lần 429 thứ hai mới ghi nhận lỗi bình thường.
@@ -555,7 +560,8 @@ async function startDownload(username: string, options: DownloadOptions = {}): P
       failed++;
       activeErrors.push(formatDownloadError(err));
       // F3: lưu lại để xem theo nguyên nhân và thử lại có chọn lọc (không chặn vòng tải).
-      pendingFailures.push({ item, error: err });
+      // F3b: lỗi ở một mức thấp hơn thì lần sau thử mức kế tiếp.
+      pendingFailures.push({ item: lower?.length ? { ...item, variants: lower.slice(1) } : item, error: err });
       if (pendingFailures.length >= FAILURE_BATCH) flushFailures();
       const isHls = item.type === 'hls';
       void recordDiagnostic(
@@ -1006,16 +1012,30 @@ async function withHttpStatus(error: unknown, url: string, rateLimitActive: bool
 // không chỉ dừng profile đang chạy rồi chuyển sang profile kế.
 let _stopGeneration = 0;
 
-type RetryFailedResult = { ok: boolean; profiles: number; files: number; resolved: number; missing: number; error?: string };
+type RetryFailedResult = { ok: boolean; profiles: number; files: number; resolved: number; missing: number; noLower?: number; error?: string };
 
-async function retryFailedItems(ids: readonly string[]): Promise<RetryFailedResult> {
+/**
+ * `lowerQuality` (F3b): chỉ thử lại video còn mức chất lượng thấp hơn, tải mức kế
+ * tiếp thay cho bản đã lỗi; file không còn mức nào được đếm vào `noLower`.
+ */
+async function retryFailedItems(ids: readonly string[], lowerQuality = false): Promise<RetryFailedResult> {
   if (downloadCoordinator.isBusy) return { ok: false, profiles: 0, files: 0, resolved: 0, missing: 0, error: t('bg_err_download_busy') };
-  const groups = groupFailedItemsByUsername(await listFailedItems(), ids);
+  const failedList = await listFailedItems();
+  let noLower = 0;
+  let selectedIds: readonly string[] = ids;
+  const lowerById = new Map<string, string[]>();
+  if (lowerQuality) {
+    const wanted = new Set(ids);
+    for (const item of failedList) if (wanted.has(item.id) && item.variants?.length) lowerById.set(item.id, item.variants);
+    noLower = ids.length - lowerById.size;
+    selectedIds = [...lowerById.keys()];
+  }
+  const groups = groupFailedItemsByUsername(failedList, selectedIds);
 
   // Kiểm tra trước để không báo "đang thử lại" cho file sẽ bị bỏ qua: file đã có
   // trong lịch sử tải (lưu qua đường khác) thì gỡ khỏi danh sách lỗi; file không
   // còn trong bộ nhớ media (đã dọn) thì không tải lại được và được báo riêng.
-  const plan: Array<[string, string[]]> = [];
+  const plan: Array<[string, string[], Record<string, string[]> | undefined]> = [];
   const alreadyDownloaded: string[] = [];
   let missing = 0;
   for (const [username, urls] of groups) {
@@ -1034,24 +1054,29 @@ async function retryFailedItems(ids: readonly string[]): Promise<RetryFailedResu
       else if (stored.has(url)) retry.push(url);
       else missing++;
     }
-    if (retry.length) plan.push([username, retry]);
+    if (retry.length) {
+      const lower = lowerQuality ? Object.fromEntries(retry.map((url) => [url, lowerById.get(failedItemId(username, url)) ?? []])) : undefined;
+      plan.push([username, retry, lower]);
+    }
   }
   if (alreadyDownloaded.length) await clearFailedItems(alreadyDownloaded);
 
   const resolved = alreadyDownloaded.length;
   const files = plan.reduce((sum, [, urls]) => sum + urls.length, 0);
   if (files === 0) {
-    const error = resolved || missing ? t('bg_err_failed_nothing_to_retry', { resolved, missing }) : t('bg_err_no_failed_selected');
-    return { ok: false, profiles: 0, files: 0, resolved, missing, error };
+    const error = lowerQuality && noLower && !resolved && !missing
+      ? t('bg_err_failed_no_lower_quality')
+      : resolved || missing ? t('bg_err_failed_nothing_to_retry', { resolved, missing }) : t('bg_err_no_failed_selected');
+    return { ok: false, profiles: 0, files: 0, resolved, missing, noLower, error };
   }
   const generation = _stopGeneration;
   void (async () => {
-    for (const [username, urls] of plan) {
+    for (const [username, urls, lower] of plan) {
       if (_stopGeneration !== generation || downloadCoordinator.isBusy) break;
-      await startDownload(username, { filterType: 'all', selectedUrls: urls, skipDuplicates: true });
+      await startDownload(username, { filterType: 'all', selectedUrls: urls, skipDuplicates: true, ...(lower ? { _lowerVariants: lower } : {}) });
     }
   })();
-  return { ok: true, profiles: plan.length, files, resolved, missing };
+  return { ok: true, profiles: plan.length, files, resolved, missing, noLower };
 }
 
 // Stop the active coordinator operation and invalidate every stale callback.

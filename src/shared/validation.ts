@@ -142,7 +142,20 @@ export function isValidMediaItem(value: unknown): value is MediaItem {
   if (item.likeCount !== undefined && (!Number.isSafeInteger(item.likeCount) || item.likeCount < 0)) return false;
   if (item.width !== undefined && (!Number.isInteger(item.width) || item.width < 0 || item.width > 20_000)) return false;
   if (item.height !== undefined && (!Number.isInteger(item.height) || item.height < 0 || item.height > 20_000)) return false;
+  if (item.variants !== undefined && !isValidVariantList(item.variants)) return false;
   return true;
+}
+
+/**
+ * F3b: danh sách mức chất lượng thấp hơn — tối đa 4 URL mp4 trên video.twimg.com
+ * (dữ liệu đến từ trang hoặc storage, không tin cậy).
+ */
+export function isValidVariantList(value: unknown): value is string[] {
+  return Array.isArray(value) && value.length <= 4 && value.every((url) => {
+    if (!isTrustedMediaUrl(url)) return false;
+    const parsed = new URL(url);
+    return parsed.hostname === 'video.twimg.com' && /\.mp4$/i.test(parsed.pathname);
+  });
 }
 
 export function isValidDownloadOptions(value: unknown): boolean {

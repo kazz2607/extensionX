@@ -11,6 +11,11 @@ export interface MediaItem {
   tweetDate?: number | null;
   /** F2: số like của tweet tại lúc thu thập (chỉ có khi lấy từ GraphQL). */
   likeCount?: number;
+  /**
+   * F3b (9.0.0): URL mp4 chất lượng thấp hơn của cùng video, giảm dần — để thử
+   * lại khi bản cao nhất lỗi. Tuỳ chọn, bản cũ bỏ qua.
+   */
+  variants?: string[];
   addedAt?: number;
   username?: string;
 }
@@ -64,6 +69,8 @@ export interface FailedItem {
   message: string;
   failedAt: number;
   attempts: number;
+  /** F3b: các mức chất lượng thấp hơn còn lại để thử (giảm dần). Bản cũ bỏ qua. */
+  variants?: string[];
 }
 
 export interface QueueItem {
@@ -116,6 +123,8 @@ export interface DownloadOptions {
   _fromQueue?: boolean;
   _queueId?: string;
   _operationId?: string;
+  /** F3b (nội bộ): URL gốc → các mức thấp hơn; tải mức đầu tiên thay cho URL gốc. */
+  _lowerVariants?: Record<string, string[]>;
 }
 
 

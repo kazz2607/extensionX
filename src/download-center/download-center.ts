@@ -155,6 +155,9 @@ function failedPanelOpen(): boolean {
 function updateFailedActions(): void {
   byId('errors-count').textContent = String(failedItems.length);
   byId<HTMLButtonElement>('btn-errors-retry').disabled = selectedFailed.size === 0 || data.download.isDownloading;
+  // F3b: chỉ bật khi ít nhất một video đã chọn còn mức chất lượng thấp hơn.
+  byId<HTMLButtonElement>('btn-errors-retry-lower').disabled = data.download.isDownloading
+    || !failedItems.some((item) => selectedFailed.has(item.id) && item.variants?.length);
   byId<HTMLButtonElement>('btn-errors-remove').disabled = selectedFailed.size === 0;
 }
 
@@ -190,12 +193,20 @@ function renderFailedItems(): void {
     const name = document.createElement('span'); name.textContent = `${collectionKeyLabel(item.username)} · ${labelOr(`dc_media_${item.type}`, item.type)}`;
     label.append(box, name);
     const meta = document.createElement('p'); meta.className = 'item-meta';
-    meta.textContent = `${t(`dc_reason_${item.reason}`)} · ${new Date(item.failedAt).toLocaleString(locale())}${item.attempts > 1 ? ` · ${t('dc_errors_attempts', { n: item.attempts })}` : ''}`;
+    meta.textContent = `${t(`dc_reason_${item.reason}`)} · ${new Date(item.failedAt).toLocaleString(locale())}${item.attempts > 1 ? ` · ${t('dc_errors_attempts', { n: item.attempts })}` : ''}${item.variants?.length ? ` · ${lowerQualityHint(item.variants[0])}` : ''}`;
     main.append(label, meta);
     const detail = document.createElement('div'); detail.className = 'item-detail'; detail.textContent = item.message;
     row.append(main, detail); fragment.append(row);
   }
   list.replaceChildren(fragment);
+}
+
+/** F3b: "còn bản 720p" theo kích thước trong URL video X (…/vid/1280x720/…). */
+function lowerQualityHint(url: string): string {
+  const size = /\/(\d{2,5})x(\d{2,5})\//.exec(url);
+  return size
+    ? t('dc_errors_lower_available', { quality: `${Math.min(Number(size[1]), Number(size[2]))}p` })
+    : t('dc_errors_lower_available_generic');
 }
 
 async function refreshFailedItems(): Promise<void> {
@@ -417,17 +428,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     updateFailedActions();
   });
-  byId('btn-errors-retry').addEventListener('click', async () => {
-    const response = await sendBG('RETRY_FAILED_ITEMS', { ids: [...selectedFailed] });
+  const retrySelected = async (lowerQuality: boolean) => {
+    const response = await sendBG('RETRY_FAILED_ITEMS', { ids: [...selectedFailed], ...(lowerQuality ? { lowerQuality: true } : {}) });
     const skipped = response?.ok && ((response.resolved ?? 0) > 0 || (response.missing ?? 0) > 0)
       ? ` ${t('dc_errors_retry_skipped', { resolved: response.resolved ?? 0, missing: response.missing ?? 0 })}`
       : '';
+    const noLower = response?.ok && (response.noLower ?? 0) > 0 ? ` ${t('dc_errors_retry_no_lower', { n: response.noLower ?? 0 })}` : '';
     byId('errors-status').textContent = response?.ok
-      ? t('dc_errors_retry_started', { files: response.files ?? 0, profiles: response.profiles ?? 0 }) + skipped
+      ? t('dc_errors_retry_started', { files: response.files ?? 0, profiles: response.profiles ?? 0 }) + skipped + noLower
       : response?.error || t('dc_errors_retry_failed');
     if (response?.ok) selectedFailed.clear();
     await refresh();
-  });
+  };
+  byId('btn-errors-retry').addEventListener('click', () => void retrySelected(false));
+  byId('btn-errors-retry-lower').addEventListener('click', () => void retrySelected(true));
   byId('btn-errors-remove').addEventListener('click', async () => {
     // U21: gỡ khỏi danh sách lỗi là mất khả năng thử lại các file đó — cần xác nhận.
     if (!await confirmDialog(t('dc_confirm_remove_failed', { n: selectedFailed.size }))) return;

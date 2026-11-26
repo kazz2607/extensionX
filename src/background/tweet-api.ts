@@ -9,17 +9,13 @@
  * File này xử lý trường hợp video chưa được phát (user chưa click xem).
  */
 
+import { pickVideoVariant, type PickedVideoVariant, type RawVideoVariant } from '../shared/graphql-media.ts';
+
 // ─── Shape tối thiểu của response từ API nội bộ/không tài liệu của X.com ─────
 // X rotate cấu trúc + đổi field thường xuyên; chỉ khai báo đúng field thực sự
 // được đọc, tất cả optional vì không có gì đảm bảo — không dùng `any` để vẫn
 // giữ được gợi ý/kiểm tra kiểu cho các field đã biết.
-interface RawVariant {
-  type?: string;
-  content_type?: string;
-  src?: string;
-  url?: string;
-  bitrate?: number;
-}
+type RawVariant = RawVideoVariant;
 
 interface RawMedia {
   type?: string;
@@ -63,6 +59,8 @@ export interface VideoResult {
   tweetId: string;
   ext: 'mp4' | 'm3u8';
   bitrate: number;
+  /** F3b: mp4 chất lượng thấp hơn (giảm dần). */
+  variants?: string[];
 }
 
 const GUEST_BEARER = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
@@ -232,33 +230,21 @@ async function fetchVideoViaSyndication(tweetId: string): Promise<VideoResult> {
 
   if (!variants.length) throw new Error('No video variants found in syndication response');
 
-  // Tìm MP4 chất lượng cao nhất
-  let bestMp4: RawVariant | undefined = variants
-    .filter((v) => (v.type === 'video/mp4') || (v.content_type === 'video/mp4'))
-    .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
+  // Tìm MP4 chất lượng cao nhất (không có thì HLS); giữ các mức thấp hơn (F3b).
+  const picked = pickVideoVariant(variants);
+  if (!picked) throw new Error('No suitable video variant found');
+  return toVideoResult(picked, isGif, data.id_str || tweetId, tweetId);
+}
 
-  let isHls = false;
-  if (!bestMp4) {
-    bestMp4 = variants.find((v) =>
-      v.type === 'application/x-mpegURL' ||
-      v.content_type === 'application/x-mpegURL' ||
-      (v.src || v.url || '').includes('.m3u8')
-    );
-    if (bestMp4) isHls = true;
-  }
-
-  if (!bestMp4) throw new Error('No suitable video variant found');
-
-  const videoUrl = bestMp4.src || bestMp4.url;
-  if (!videoUrl) throw new Error('Video URL is empty');
-
+function toVideoResult(picked: PickedVideoVariant, isGif: boolean, mediaKey: string, tweetId: string): VideoResult {
   return {
-    type: isHls ? 'hls' : (isGif ? 'gif' : 'video'),
-    url: videoUrl,
-    mediaKey: data.id_str || tweetId,
+    type: picked.isHls ? 'hls' : (isGif ? 'gif' : 'video'),
+    url: picked.url,
+    mediaKey,
     tweetId,
-    ext: isHls ? 'm3u8' : 'mp4',
-    bitrate: bestMp4.bitrate || 0,
+    ext: picked.isHls ? 'm3u8' : 'mp4',
+    bitrate: picked.bitrate,
+    ...(picked.lower.length ? { variants: picked.lower } : {}),
   };
 }
 
@@ -359,27 +345,8 @@ async function fetchVideoViaGuestAPI(tweetId: string): Promise<VideoResult> {
 
   for (const media of mediaList) {
     if (media.type === 'video' || media.type === 'animated_gif') {
-      const variants = media.video_info?.variants || [];
-      let bestMp4: RawVariant | undefined = variants
-        .filter((v) => v.content_type === 'video/mp4')
-        .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
-
-      let isHls = false;
-      if (!bestMp4) {
-        bestMp4 = variants.find((v) => v.content_type === 'application/x-mpegURL');
-        if (bestMp4) isHls = true;
-      }
-
-      if (bestMp4?.url) {
-        return {
-          type: isHls ? 'hls' : (media.type === 'animated_gif' ? 'gif' : 'video'),
-          url: bestMp4.url,
-          mediaKey: media.media_key || media.id_str || tweetId,
-          tweetId,
-          ext: isHls ? 'm3u8' : 'mp4',
-          bitrate: bestMp4.bitrate || 0,
-        } as VideoResult;
-      }
+      const picked = pickVideoVariant(media.video_info?.variants || []);
+      if (picked) return toVideoResult(picked, media.type === 'animated_gif', media.media_key || media.id_str || tweetId, tweetId);
     }
   }
 
@@ -397,25 +364,8 @@ function parseTweetResultMedia(tweetResult: RawTweetResult | undefined, tweetId:
 
   for (const media of mediaList) {
     if (media.type === 'video' || media.type === 'animated_gif') {
-      const variants = media.video_info?.variants || [];
-      let bestMp4: RawVariant | undefined = variants
-        .filter((v) => v.content_type === 'video/mp4')
-        .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
-      let isHls = false;
-      if (!bestMp4) {
-        bestMp4 = variants.find((v) => v.content_type === 'application/x-mpegURL');
-        if (bestMp4) isHls = true;
-      }
-      if (bestMp4?.url) {
-        return {
-          type: isHls ? 'hls' : (media.type === 'animated_gif' ? 'gif' : 'video'),
-          url: bestMp4.url,
-          mediaKey: media.media_key || media.id_str || tweetId,
-          tweetId,
-          ext: isHls ? 'm3u8' : 'mp4',
-          bitrate: bestMp4.bitrate || 0,
-        };
-      }
+      const picked = pickVideoVariant(media.video_info?.variants || []);
+      if (picked) return toVideoResult(picked, media.type === 'animated_gif', media.media_key || media.id_str || tweetId, tweetId);
     }
   }
   return null;

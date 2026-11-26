@@ -68,7 +68,7 @@ export type ExtensionMessage =
   | { type: 'TG_DOWNLOAD_MEDIA'; payload: { url: string; filename: string; isVideo: boolean } }
   | { type: 'OFFSCREEN_SAVE_BLOB'; payload: { url: string; filename: string; username?: string } }
   | { type: 'ZIP_DONE'; payload: { archives?: number; files?: number; skipped?: number; error?: string } }
-  | { type: 'RETRY_FAILED_ITEMS'; payload: { ids: string[] } }
+  | { type: 'RETRY_FAILED_ITEMS'; payload: { ids: string[]; lowerQuality?: boolean } }
   | { type: 'CLEAR_FAILED_ITEMS'; payload: { ids?: string[] } }
   | { type: 'RESTORE_BACKUP_SECTION'; payload: { section: BackupSection; items: unknown[]; username?: string } }
   | { type: EmptyMessageType; payload?: Record<never, never> };
@@ -146,7 +146,7 @@ export interface MessageResponseMap {
   DOWNLOAD_ZIP_CHUNKS: { ok?: boolean; chunks?: number; files?: number; error?: string };
   OFFSCREEN_SAVE_BLOB: { downloadId?: number; error?: string };
   GET_FAILED_ITEMS: { items: FailedItem[] };
-  RETRY_FAILED_ITEMS: { ok: boolean; profiles?: number; files?: number; resolved?: number; missing?: number; error?: string };
+  RETRY_FAILED_ITEMS: { ok: boolean; profiles?: number; files?: number; resolved?: number; missing?: number; noLower?: number; error?: string };
   CLEAR_FAILED_ITEMS: { ok: boolean; removed?: number; error?: string };
   EXPORT_BACKUP: { json?: string; profiles?: number; urls?: number; error?: string };
   RESTORE_BACKUP_SECTION: { ok: boolean; count?: number; error?: string };
@@ -209,7 +209,7 @@ const PAYLOAD_KEYS: Readonly<Record<MessageType, readonly string[]>> = {
   DOWNLOAD_ZIP_CHUNKS: ['username', 'filterType', 'dateFrom', 'dateTo', 'keyword', 'chunkSize'],
   OFFSCREEN_SAVE_BLOB: ['url', 'filename', 'username'],
   ZIP_DONE: ['archives', 'files', 'skipped', 'error'],
-  GET_FAILED_ITEMS: [], RETRY_FAILED_ITEMS: ['ids'], CLEAR_FAILED_ITEMS: ['ids'],
+  GET_FAILED_ITEMS: [], RETRY_FAILED_ITEMS: ['ids', 'lowerQuality'], CLEAR_FAILED_ITEMS: ['ids'],
   EXPORT_BACKUP: [], RESTORE_BACKUP_SECTION: ['section', 'items', 'username'],
 };
 

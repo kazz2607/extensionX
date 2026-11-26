@@ -8,7 +8,7 @@
  */
 import type { FailedItem, MediaItem } from '../types.ts';
 import { DOWNLOAD_ERROR_REASONS, type DownloadErrorReason } from './download-errors.ts';
-import { isTrustedMediaUrl, isValidUsername } from './validation.ts';
+import { isTrustedMediaUrl, isValidUsername, isValidVariantList } from './validation.ts';
 
 export const FAILED_ITEMS_KEY = 'failed_items_v1';
 export const FAILED_ITEMS_SCHEMA_VERSION = 1;
@@ -35,7 +35,8 @@ function isFailedItem(value: unknown): value is FailedItem {
     && REASONS.has(item.reason as string)
     && typeof item.message === 'string' && item.message.length <= 300
     && Number.isFinite(item.failedAt)
-    && Number.isInteger(item.attempts) && (item.attempts ?? 0) >= 1;
+    && Number.isInteger(item.attempts) && (item.attempts ?? 0) >= 1
+    && (item.variants === undefined || isValidVariantList(item.variants));
 }
 
 /**
@@ -83,6 +84,8 @@ export function createFailedItem(
     message: message.slice(0, 300),
     failedAt: now,
     attempts: 1,
+    // F3b: còn mức thấp hơn để thử (chỉ video mp4).
+    ...(item.variants?.length && isValidVariantList(item.variants) ? { variants: [...item.variants] } : {}),
   };
 }
 

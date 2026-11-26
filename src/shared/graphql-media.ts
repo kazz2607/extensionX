@@ -4,7 +4,6 @@
  */
 
 /** Phần JSON GraphQL của X mà parser đọc tới; mọi trường đều có thể thiếu. */
-interface GraphqlVariant { content_type?: string; bitrate?: number; url?: string }
 interface GraphqlMedia {
   type?: string;
   id_str?: string;
@@ -13,7 +12,7 @@ interface GraphqlMedia {
   media_url_https?: string;
   media_url?: string;
   original_info?: { width?: number; height?: number };
-  video_info?: { variants?: GraphqlVariant[] };
+  video_info?: { variants?: RawVideoVariant[] };
 }
 interface GraphqlNode {
   [key: string]: unknown;
@@ -32,6 +31,39 @@ interface GraphqlNode {
 export const GRAPHQL_SKIP_KEYS: ReadonlySet<string> = new Set(['user_results', 'card']);
 
 const MAX_DEPTH = 35;
+
+/** Biến thể video theo cả hai dạng X dùng: GraphQL (`content_type`/`url`) và Syndication (`type`/`src`). */
+export interface RawVideoVariant { type?: string; content_type?: string; src?: string; url?: string; bitrate?: number }
+
+export interface PickedVideoVariant {
+  url: string;
+  isHls: boolean;
+  bitrate: number;
+  /** F3b: URL mp4 chất lượng thấp hơn, giảm dần, để thử lại khi bản cao lỗi. */
+  lower: string[];
+}
+
+/** F3b: giữ tối đa chừng này mức thấp hơn (X thường có 3–4 mức mp4). */
+export const MAX_LOWER_VARIANTS = 4;
+
+/**
+ * Chọn mp4 bitrate cao nhất (không có mp4 thì playlist HLS) và giữ các mp4 thấp
+ * hơn. Dùng chung cho interceptor trang và mọi lớp tra video ở service worker,
+ * để cùng một video luôn chọn cùng một URL.
+ */
+export function pickVideoVariant(variants: readonly RawVideoVariant[]): PickedVideoVariant | null {
+  const urlOf = (v: RawVideoVariant) => v.src || v.url || '';
+  const mp4 = variants
+    .filter((v) => (v.type === 'video/mp4' || v.content_type === 'video/mp4') && urlOf(v))
+    .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+  if (mp4.length) {
+    const url = urlOf(mp4[0]);
+    const lower = [...new Set(mp4.slice(1).map(urlOf))].filter((candidate) => candidate !== url).slice(0, MAX_LOWER_VARIANTS);
+    return { url, isHls: false, bitrate: mp4[0].bitrate || 0, lower };
+  }
+  const hls = variants.find((v) => v.type === 'application/x-mpegURL' || v.content_type === 'application/x-mpegURL' || urlOf(v).includes('.m3u8'));
+  return hls && urlOf(hls) ? { url: urlOf(hls), isHls: true, bitrate: hls.bitrate || 0, lower: [] } : null;
+}
 
 function getImageExt(url: string): string {
   const m = url.match(/\.(jpg|jpeg|png|webp|gif)(?:[?#]|$)/i);
@@ -58,26 +90,17 @@ export function extractMediaFromResponse(value: unknown, results: unknown[], ski
       const ownMedia = !media.source_status_id_str || media.source_status_id_str === obj.id_str;
       const likeCount = ownMedia && typeof obj.favorite_count === 'number' && Number.isSafeInteger(obj.favorite_count) && obj.favorite_count >= 0 ? obj.favorite_count : undefined;
       if (type === 'video' || type === 'animated_gif') {
-        const variants = media.video_info?.variants || [];
-        let bestMp4: GraphqlVariant | undefined = variants
-          .filter(v => v.content_type === 'video/mp4')
-          .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
-
-        let isHls = false;
-        if (!bestMp4) {
-          bestMp4 = variants.find(v => v.content_type === 'application/x-mpegURL');
-          if (bestMp4) isHls = true;
-        }
-
-        if (bestMp4) {
+        const picked = pickVideoVariant(media.video_info?.variants || []);
+        if (picked) {
           results.push({
-            type: isHls ? 'hls' : (type === 'animated_gif' ? 'gif' : 'video'),
-            url: bestMp4.url,
+            type: picked.isHls ? 'hls' : (type === 'animated_gif' ? 'gif' : 'video'),
+            url: picked.url,
             tweetId,
             mediaKey: media.media_key || media.id_str || tweetId,
-            ext: isHls ? 'm3u8' : 'mp4',
+            ext: picked.isHls ? 'm3u8' : 'mp4',
             tweetText: obj.full_text || '',
             likeCount,
+            ...(picked.lower.length ? { variants: picked.lower } : {}),
           });
         }
       } else if (type === 'photo') {

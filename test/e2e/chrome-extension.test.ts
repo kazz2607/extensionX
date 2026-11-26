@@ -1017,3 +1017,90 @@ test('v8.0.0-8.2.0 failed downloads are recorded by reason, retried selectively,
   const listing = execFileSync('unzip', ['-Z1', zipPath]).toString().trim().split('\n').sort();
   assert.deepEqual(listing, urls.map((url) => url.split('/').pop()).sort());
 });
+
+test('v9.0.0 F3b failed videos are retried at the next lower quality until one works', { timeout: 90_000 }, async (t) => {
+  // 1280x720 and 640x360 always fail; 480x270 is served.
+  const requested: string[] = [];
+  const cdn = await startFakeCdn((path) => {
+    requested.push(path);
+    return { status: path.includes('/480x270/') ? 200 : 404 };
+  });
+  const extensionDir = await prepareTestExtension();
+  const profileDir = await mkdtemp(join(tmpdir(), 'extensionx-lower-profile-'));
+  const context = await chromium.launchPersistentContext(profileDir, {
+    executablePath: chromePath,
+    headless: process.env.PLAYWRIGHT_HEADED !== 'true',
+    acceptDownloads: true,
+    args: [
+      `--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`, '--no-first-run',
+      `--host-resolver-rules=MAP video.twimg.com 127.0.0.1:${cdn.port}`, '--ignore-certificate-errors',
+    ],
+  });
+  t.after(async () => {
+    await context.close();
+    await cdn.close();
+    await rm(extensionDir, { recursive: true, force: true });
+    await rm(profileDir, { recursive: true, force: true });
+  });
+  const id = await extensionId(context);
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${id}/download-center/download-center.html`);
+  const send = (message: unknown) => page.evaluate((m) => chrome.runtime.sendMessage(m), message);
+
+  const name = 'Frank';
+  const vid = (size: string) => `https://video.twimg.com/ext_tw_video/1850000000000000009/pu/vid/${size}/clip.mp4`;
+  await send({ type: 'GET_STORAGE_SUMMARY' });
+  await page.evaluate(async ({ user, best, lower }) => {
+    await chrome.storage.sync.set({ options: { concurrency: 1, rateLimitBackoff: false, showSnackbar: false, showNotification: false } });
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('XMediaDownloaderDB', 3);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction('media_items', 'readwrite');
+      tx.objectStore('media_items').put({ id: `${user}_${best}`, username: user, type: 'video', url: best, ext: 'mp4', tweetId: '1850000000000000009', tweetDate: Date.now(), variants: lower });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  }, { user: name, best: vid('1280x720'), lower: [vid('640x360'), vid('480x270')] });
+
+  type Failed = { id: string; url: string; variants?: string[] };
+  const failedItems = async () => ((await send({ type: 'GET_FAILED_ITEMS' })) as { items: Failed[] }).items;
+  const isIdle = async () => !((await send({ type: 'GET_DOWNLOAD_STATE' })) as { isDownloading: boolean }).isDownloading;
+  const waitFor = async (check: () => Promise<boolean>, label: string) => {
+    const deadline = Date.now() + 30_000;
+    while (!(await check()) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 250));
+    assert.ok(await check(), label);
+  };
+
+  await send({ type: 'ADD_TO_QUEUE', payload: { username: name, filterType: 'all', skipDuplicates: true, keyword: '' } });
+  await send({ type: 'START_QUEUE', payload: {} });
+  await waitFor(async () => (await failedItems()).length === 1 && await isIdle(), 'the 720p failure is recorded');
+  assert.deepEqual((await failedItems())[0].variants, [vid('640x360'), vid('480x270')]);
+
+  // The Download Center offers the next level and enables the button once selected.
+  await page.reload();
+  await page.locator('#btn-errors').click();
+  await page.locator('#errors-list input[type="checkbox"]').check();
+  await assert.doesNotReject(page.locator('#errors-list', { hasText: '360p' }).waitFor());
+  assert.equal(await page.locator('#btn-errors-retry-lower').isEnabled(), true);
+
+  // 360p fails too: the record steps down to 270p under the same id.
+  await page.locator('#btn-errors-retry-lower').click();
+  await waitFor(async () => JSON.stringify((await failedItems())[0]?.variants) === JSON.stringify([vid('480x270')]) && await isIdle(), 'stepped down to 270p');
+  const failedId = (await failedItems())[0].id;
+  assert.equal(failedId, `${name}_${vid('1280x720')}`);
+
+  const retried = await send({ type: 'RETRY_FAILED_ITEMS', payload: { ids: [failedId], lowerQuality: true } }) as { ok?: boolean; files?: number; noLower?: number };
+  assert.deepEqual([retried.ok, retried.files, retried.noLower], [true, 1, 0]);
+  await waitFor(async () => (await failedItems()).length === 0 && await isIdle(), '270p downloaded and the failure resolved');
+  assert.deepEqual(requested.map((path) => path.split('/')[5]).filter((size) => size !== undefined && /x/.test(size)).filter((size, index, all) => all.indexOf(size) === index), ['1280x720', '640x360', '480x270']);
+
+  // The original URL is what counts as downloaded, so a normal run skips the video.
+  const backup = JSON.parse(((await send({ type: 'EXPORT_BACKUP' })) as { json: string }).json);
+  assert.deepEqual(backup.downloaded[name], [vid('1280x720')]);
+  const none = await send({ type: 'RETRY_FAILED_ITEMS', payload: { ids: [failedId], lowerQuality: true } }) as { ok?: boolean };
+  assert.equal(none.ok, false);
+});
