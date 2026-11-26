@@ -10,6 +10,23 @@ Chưa có thay đổi.
 
 ---
 
+## [9.1.0] — 2026-11-26 *(giảm quyền)*
+
+Mục S19 theo [`docs/upgrade-plan-v8.3-v9.md`](docs/upgrade-plan-v8.3-v9.md).
+
+### Bảo mật / quyền
+
+- **Bỏ quyền `scripting`:** nút tải trên Telegram Web nay tự lưu file ngay trong trang thay vì nhờ service worker chèn script vào tab. Cách tải, tên file và các kiểm tra an toàn (chỉ ảnh/video của web.telegram.org) không đổi; sau khi cập nhật extension, nút tải trên tab Telegram đang mở vẫn dùng được mà không cần tải lại tab.
+- **Thu hẹp quyền truy cập X/Twitter:** `*.x.com` và `*.twitter.com` thay bằng đúng `x.com`, `api.x.com` và `twitter.com` — các địa chỉ extension thật sự dùng.
+
+### Lưu ý
+
+- Cập nhật lên 9.1.0 **không** hiện hộp xin quyền. **Quay về bản cũ hơn** thì Chrome sẽ xin lại các quyền đã bỏ và có thể tạm tắt extension tới khi bạn chấp nhận (xem [`docs/v7-migration-rollback.md`](docs/v7-migration-rollback.md)).
+
+Không đổi schema hay storage key. Gate: 112 unit test, Chromium acceptance 13/13.
+
+---
+
 ## [9.0.1] — 2026-11-26 *(sửa lỗi, giữ service worker, dọn giao diện)*
 
 Các mã theo [`docs/upgrade-plan-v8.3-v9.md`](docs/upgrade-plan-v8.3-v9.md).

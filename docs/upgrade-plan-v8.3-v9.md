@@ -1,6 +1,6 @@
 # Kế hoạch nâng cấp v8.2.3 → v9.0
 
-> Lập ngày 2026-11-25 trên mã nguồn **8.2.2** (commit `bef46a8`) | Trạng thái: **đang thực hiện — v8.2.3, v8.3.0, v8.3.1, v8.4.0, v9.0.0 và v9.0.1 đã phát hành (xem mục 6a–6f)**
+> Lập ngày 2026-11-25 trên mã nguồn **8.2.2** (commit `bef46a8`) | Trạng thái: **đang thực hiện — v8.2.3, v8.3.0, v8.3.1, v8.4.0, v9.0.0, v9.0.1 và v9.1.0 đã phát hành (xem mục 6a–6g)**
 
 Kế hoạch này kế tiếp [`upgrade-plan-v7.3-v8.md`](upgrade-plan-v7.3-v8.md) (L1–L15, S1–S11, P1–P15, U1–U16, F1–F5 đã xong). Mã định danh mới đánh tiếp từ số cuối của kế hoạch cũ.
 
@@ -81,7 +81,7 @@ Trạng thái gate tại thời điểm lập kế hoạch: `npm run check` xanh
 | **S16** (Low) | ◐ | `src/shared/messages.ts:227-231`, `media-messages.ts:229-243` | `CONTENT_SCRIPT_TYPES` không gắn origin: content script Telegram gửi được `START_COLLECTING` với username tuỳ ý (kiểm tra tab chỉ chạy khi sender là tab X). Cần renderer bị chiếm. | Ánh xạ type → origin hợp lệ trong `isAllowedSender` theo `sender.tab.url`. | S |
 | **S17** (Low) | ◐ | `options.ts:479,547`, `popup.ts:818` | Không giới hạn kích thước file trước `JSON.parse` khi import → chọn nhầm file lớn làm treo trang. | Từ chối `file.size` > 20 MB với thông báo i18n. | S |
 | **S18** (Low) | ? | `src/shared/telegram-media.ts:28` | `isTelegramDownloadUrl` nhận cả `data:image/svg+xml`; phần mở rộng không bị ép theo MIME → có thể ghi SVG chứa script ra đĩa. | Loại `svg+xml`; ép phần mở rộng theo MIME. | S |
-| **S19** | ◐ | `src/manifest.json` | **Giảm quyền** (xem bên dưới). | — | M |
+| **S19** | ✔ | `src/manifest.json` | **Giảm quyền** (xem bên dưới) — hoàn thành ở 9.1.0 (6g). | — | M |
 | **S20** | ◐ | `.github/workflows/quality.yml` | Action pin theo tag `@v4`, không theo SHA (rủi ro thấp: chạy tay, `contents: read`). | Pin theo commit SHA. | S |
 
 ### S19 — Cơ hội giảm quyền
@@ -181,7 +181,8 @@ Trạng thái gate tại thời điểm lập kế hoạch: `npm run check` xanh
 4. ~~**v8.4.0 — dung lượng/main thread**: P26 trước, rồi P20–P22, P25~~ — hoàn thành 2026-11-26 (xem 6d); L28 (fixture HLS thật) và L30 (đo keep-alive) vẫn cần dữ liệu/đo trên X thật.
 5. ~~**v9.0.0 — tính năng**: F3b → F1b + F1c → F6~~ — hoàn thành 2026-11-26 (xem 6e); F9–F11 tuỳ phản hồi.
 6. ~~**v9.0.1 — tồn đọng**: L29, L30, U29 còn lại, chỗ cho service worker~~ — hoàn thành 2026-11-26 (xem 6f).
-7. **Tiếp theo:** S19 (bỏ `scripting`, thu hẹp host — bản riêng có ghi chú rollback); L28 khi có playlist fMP4 thật; L23; F9–F11 tuỳ phản hồi.
+7. ~~**v9.1.0 — S19 giảm quyền**~~ — hoàn thành 2026-11-26 (xem 6g).
+8. **Tiếp theo:** L28 khi có playlist fMP4 thật; L23 (đổi tiền tố khoá `_likes`, cần chuyển đổi tương thích rollback); F9–F11 tuỳ phản hồi; kiểm thử thủ công trên X/Telegram thật.
 
 Song song, việc thủ công còn tồn từ kế hoạch cũ: kiểm thử trên X/Telegram thật (Search/Hashtag, 429 thật, backup giữa hai máy) và đo các chỉ tiêu hiệu năng chưa đo trong `quality-gate.md`.
 
@@ -242,6 +243,13 @@ Song song, việc thủ công còn tồn từ kế hoạch cũ: kiểm thử tr�
 - **U29:** popup.html 28 và options.html 20 thuộc tính `style` → rule theo id (phần tử JS bật/tắt) hoặc class đặt tên (bố cục), đặt cuối stylesheet. Không phần tử nào bị JS hiện bằng `style.display = ''`. So computed style của mọi phần tử ở 10 trạng thái: 0 khác biệt (một lỗi gắn class sai phần tử phát hiện và sửa nhờ phép so này).
 - **Chỗ cho service worker:** `EN_SPLIT_TABLES` trong `scripts/vite-locale-split.mjs` (hiện chỉ `BACKGROUND_STRINGS`); `TranslationTable.remoteEn`, `setLanguage` luôn tải các bảng `en` từ xa. Service worker 115,3/120 KB.
 - Test: `test/v9-0-1.test.ts` (2 test) — 110 unit; Chromium 12/12 (+1).
+
+## 6g. Kết quả v9.1.0
+
+- **S19 hoàn tất.** (1) Bỏ `scripting`: `clickDownloadLink` trong `tg-content.ts` thay cho `chrome.scripting.executeScript` ở service worker; kiểm tra `isTelegramDownloadUrl`/`telegramDownloadFilename` (S18) và `stopPropagation` chống router Telegram giữ nguyên. `TG_DOWNLOAD_MEDIA` (handler, `MessageType`, `PAYLOAD_KEYS`, `CONTENT_SCRIPT_TYPES`, nhánh origin Telegram trong `isAllowedSender`) và chuỗi `tg_stale_extension` bị bỏ. (2) Host `*.x.com`/`*.twitter.com` → `x.com`, `api.x.com`, `twitter.com`; pattern truy vấn tab trong `startCollecting` và `isAllowedSender` không nhận subdomain. (3) `shortcuts.ts` đã xong ở 8.3.0.
+- **Rollback:** ghi trong `v7-migration-rollback.md` (mục "Rollback từ 9.1.0 về bản ≤ 9.0.1"): bản cũ xin lại quyền, Chrome có thể tạm tắt extension; dữ liệu không đổi.
+- **Chưa kiểm chứng trên Telegram thật:** Chromium acceptance dùng trang giả với ảnh `blob:`; URL stream `/progressive/` qua Service Worker của Telegram chưa thử trên trang thật (đường này cũng dùng cùng cơ chế click trong DOM như trước).
+- Test: `test/v9-1-0.test.ts` (2 test) — 112 unit; Chromium 13/13 (+1). Service worker 113,3/120 KB.
 
 ## 7. Việc tài liệu kèm theo
 

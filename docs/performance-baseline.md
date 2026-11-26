@@ -1,4 +1,4 @@
-# Baseline hiệu năng và build budget 9.0.1
+# Baseline hiệu năng và build budget 9.1.0
 
 > Cập nhật: 2026-10-14
 
@@ -20,12 +20,12 @@
 | Stop download | UI phản hồi dưới 500 ms |
 | 10.000 media | popup không bị khóa, không giữ thêm bản sao mảng không cần thiết |
 
-Build 9.0.1 tiếp tục áp dụng gate tự động trong `npm run check` và tính cả entrypoint Download Center:
+Build 9.1.0 tiếp tục áp dụng gate tự động trong `npm run check` và tính cả entrypoint Download Center:
 
-| Chỉ số build | Ngưỡng | Kết quả 9.0.1 |
+| Chỉ số build | Ngưỡng | Kết quả 9.1.0 |
 | --- | ---: | ---: |
-| Tổng JavaScript trong `dist/` | ≤ 420.000 byte | 359.438 byte |
-| JavaScript bundle lớn nhất | ≤ 120.000 byte | 115.298 byte |
+| Tổng JavaScript trong `dist/` | ≤ 420.000 byte | 357.564 byte |
+| JavaScript bundle lớn nhất | ≤ 120.000 byte | 113.323 byte |
 | Số module TypeScript trong `src/` | ≤ 110 | 109 |
 
 Ngưỡng số module tăng từ 85 lên 95 trong 7.3.0 vì bridge MAIN ↔ isolated, navigation và các helper có kiểm thử được tách thành module nhỏ; tổng dung lượng JavaScript gần như không đổi.
@@ -59,6 +59,8 @@ Tối ưu runtime 7.3.0: metric diagnostic không rời trang khi chưa bật (m
 9.0.0 (F3b, F1b, F1c, F6): tổng JS 354.279 → 361.233 byte (+6,8 KB), service worker 115.243 → **117.528 byte** (+2,3 KB), vẫn 109 module (không thêm file nào: chọn variant nằm trong `graphql-media.ts`, List trong `collection-source.ts`, chọn media thread trong `media-filter.ts`). Gộp 4 chỗ chọn `bestMp4` thành `pickVideoVariant` bù một phần. Service worker còn **~2,5 KB** dưới ngưỡng 120 KB: tính năng kế tiếp ở service worker cần tách thêm (vd. bảng `en` của service worker như P26a, hoặc rút gọn `tweet-api`) trước. Runtime: duyệt GraphQL đọc thêm handle tác giả ở object tweet (không đi vào `user_results`) — benchmark `benchmark:graphql` vẫn −26 % node và cùng kết quả; `GET_THREAD_MEDIA` quét store một profile một lần.
 
 9.0.1: phần tiếng Anh của `BACKGROUND_STRINGS` (bảng chỉ service worker dùng) cũng thành file `dist/i18n/en/BACKGROUND_STRINGS.json` (3.345 byte), luôn được tải khi worker khởi động (worker vốn chờ `i18nReady` trước khi tạo chữ hiển thị). Service worker 117.528 → **115.298 byte** dù thêm code cho L29/L30; tổng JS 361.233 → 359.438 byte; 109 module. Còn ~4,7 KB cho service worker. Keep-alive khi tải: một lời gọi `chrome.runtime.getPlatformInfo()` mỗi 20 giây, chỉ trong lúc có lượt tải.
+
+9.1.0 (S19): bỏ handler `TG_DOWNLOAD_MEDIA` khỏi service worker (115.298 → **113.323 byte**, còn ~6,7 KB); tổng JS 359.438 → 357.564 byte; vẫn 109 module.
 
 Ngưỡng nằm trong `performance-budget.json` và được kiểm tra bởi `scripts/check-performance-budget.mjs`.
 

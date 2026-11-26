@@ -1,6 +1,6 @@
 # P2 Toolkit — estimate, gallery, ZIP và lịch tải
 
-> ExtensionX **9.0.1** | Cập nhật: 2026-11-26 | Trạng thái: **Released trong 7.2.0, ổn định trong 7.2.1–9.0.1 (ô profile nhận #hashtag và link Search/List từ 9.0.0; ZIP tải trước 4 file song song từ 8.4.0; ZIP chia phần không bỏ file, loại HLS, báo kết quả trong Notification Center từ 8.2.3; ZIP không còn dùng JSZip, tạo bằng bộ ghi STORE tích hợp từ 8.2.2; ZIP lưu file qua service worker từ 7.2.3; Estimate/Gallery/ZIP dùng chung bộ lọc ngày theo giờ địa phương từ 7.3.0)**
+> ExtensionX **9.1.0** | Cập nhật: 2026-11-26 | Trạng thái: **Released trong 7.2.0, ổn định trong 7.2.1–9.1.0 (ô profile nhận #hashtag và link Search/List từ 9.0.0; ZIP tải trước 4 file song song từ 8.4.0; ZIP chia phần không bỏ file, loại HLS, báo kết quả trong Notification Center từ 8.2.3; ZIP không còn dùng JSZip, tạo bằng bộ ghi STORE tích hợp từ 8.2.2; ZIP lưu file qua service worker từ 7.2.3; Estimate/Gallery/ZIP dùng chung bộ lọc ngày theo giờ địa phương từ 7.3.0)**
 
 P2 Toolkit nằm trong Download Center và gom các công cụ lập kế hoạch/tổ chức download mà không mở rộng permission hiện hành.
 

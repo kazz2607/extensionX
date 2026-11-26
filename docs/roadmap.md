@@ -1,6 +1,6 @@
 # X Media Downloader — Roadmap
 
-> Phiên bản hiện tại: **9.0.1** | Cập nhật: 2026-11-26
+> Phiên bản hiện tại: **9.1.0** | Cập nhật: 2026-11-26
 
 Tài liệu này là nguồn duy nhất cho trạng thái sản phẩm, phần việc đã hoàn thành và backlog. Chi tiết từng bản phát hành nằm trong [`CHANGELOG.md`](../CHANGELOG.md).
 
@@ -75,6 +75,7 @@ src/
 | v8.4.0 | Chuỗi tiếng Việt tách khỏi JavaScript và chỉ tải khi chọn tiếng Việt (tổng JS 391,5 → 354,3 KB, service worker 115,2 KB), tóm tắt dung lượng đếm bằng index, duyệt GraphQL bỏ nhánh không chứa media, một observer DOM dùng chung trong MAIN world, ZIP tải song song |
 | v9.0.0 | Thử lại video lỗi ở chất lượng thấp hơn (lưu các mức mp4 X gửi), thu thập X Lists, nguồn Search/Hashtag/List hiện tên dễ đọc và nhập được trong Saved Job, tải cả thread của tác giả từ popup trên trang tweet |
 | v9.0.1 | Nút tải trên tweet đi qua coordinator (Stop dừng được, không chạy chồng), keep-alive dùng chu kỳ hợp lệ và lời gọi API định kỳ khi tải, bỏ hết style inline của popup/Options, tách bảng tiếng Anh của service worker (115,3 KB) |
+| v9.1.0 | Giảm quyền (S19): bỏ `scripting` (Telegram tự lưu file trong trang), thu hẹp host X/Twitter về `x.com`, `api.x.com`, `twitter.com` |
 
 Các kế hoạch Pha 0–15 cũ đã hoàn thành và được hợp nhất vào bảng này; không còn duy trì file kế hoạch riêng.
 
@@ -82,7 +83,7 @@ Các kế hoạch Pha 0–15 cũ đã hoàn thành và được hợp nhất và
 
 Hiện không còn backlog đã được phê duyệt. P0, P1 và phạm vi P2 đều đã hoàn thành; mốc tiếp theo chỉ được mở sau khi chốt phạm vi sản phẩm mới.
 
-**Kế hoạch đang thực hiện (2026-11-26):** [`upgrade-plan-v8.3-v9.md`](upgrade-plan-v8.3-v9.md) — audit toàn dự án trên 8.2.2: v8.2.3 (hotfix), v8.3.0 (logic + hardening + IndexedDB), v8.3.1 (UI/UX), v8.4.0 (dung lượng/main thread), v9.0.0 (F3b, F1b, F1c, F6) và v9.0.1 (L29, L30, U29, chỗ cho service worker) đã phát hành. Còn lại: S19 giảm quyền (bản riêng), L28 cần playlist X thật, L23, F9–F11 tuỳ phản hồi.
+**Kế hoạch đang thực hiện (2026-11-26):** [`upgrade-plan-v8.3-v9.md`](upgrade-plan-v8.3-v9.md) — audit toàn dự án trên 8.2.2: v8.2.3 (hotfix), v8.3.0 (logic + hardening + IndexedDB), v8.3.1 (UI/UX), v8.4.0 (dung lượng/main thread), v9.0.0 (F3b, F1b, F1c, F6) và v9.0.1 (L29, L30, U29, chỗ cho service worker) và v9.1.0 (S19 giảm quyền) đã phát hành. Còn lại: L28 cần playlist X thật, L23, F9–F11 tuỳ phản hồi.
 
 **Kế hoạch trước (2026-10-14, đã hoàn thành):** [`upgrade-plan-v7.3-v8.md`](upgrade-plan-v7.3-v8.md) — các mốc v7.2.3 → v7.4.2, v8.0.0 (F1–F3), v8.1.0 (F4) và v8.2.0 (F5) đã phát hành; F1–F5 khuyến nghị đã xong. Còn lại: X Lists cho F1, đổi chất lượng khi thử lại cho F3, chỉ tiêu đo hiệu năng trong `quality-gate.md`, và F6–F8 (cân nhắc/để sau).
 

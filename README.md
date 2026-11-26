@@ -2,7 +2,7 @@
 
 Extension Chrome mạnh mẽ cho phép bạn tải toàn bộ ảnh, video và GIF từ bất kỳ profile nào trên X.com (Twitter) với chất lượng gốc, hoàn toàn tự động và sắp xếp gọn gàng vào thư mục theo tên người dùng.
 
-> **Phiên bản hiện tại: 9.0.1** — Nút tải trên tweet dừng được bằng Stop và không chạy chồng lên lượt tải khác, giữ service worker sống khi tải file lớn; 9.0.0: thử lại video lỗi ở chất lượng thấp hơn, thu thập từ X Lists, nguồn Search/Hashtag/List trong Queue và Saved Job, tải cả thread của tác giả từ trang tweet; 8.4.0: JavaScript nhẹ hơn 9,5 % (chuỗi tiếng Việt chỉ tải khi chọn tiếng Việt), tóm tắt dung lượng nhanh hơn, ít việc hơn trên trang X, ZIP tải song song; 8.3.1: giao diện dễ dùng hơn với bàn phím và trình đọc màn hình, hộp xác nhận thống nhất theo theme, nhãn và số theo ngôn ngữ; 8.3.0: một ảnh chỉ còn một file (gộp hai dạng URL của X), tuỳ chọn chất lượng ảnh có tác dụng, lệnh chỉ nhận từ đúng trang, IndexedDB đọc ít hơn khi mở popup; 8.2.3: hotfix ZIP không còn bỏ mất file hay bị dừng giữa chừng, popup/FAB không kẹt "đang tải", chặn trang giả thao tác tải và chèn công thức vào CSV, preset ngày theo giờ máy; 8.2.2: bỏ JSZip (JS giảm 20 %), lưu lỗi máy chủ tương thích rollback, dò mã 429 an toàn hơn; 8.2.1: 429 được nhận diện đúng để tự giảm tốc, sao lưu đủ file vừa tải, Chromium acceptance chạy được, 0 `@ts-ignore`; 8.2.0 sao lưu/khôi phục toàn bộ dữ liệu cục bộ trong một file; 8.1.0 tự giảm tốc khi X giới hạn (429); 8.0.0 thêm Search/Hashtag, caption và like trong Manifest, danh sách file lỗi.
+> **Phiên bản hiện tại: 9.1.0** — Ít quyền hơn: bỏ quyền `scripting` và quyền truy cập mọi subdomain của X/Twitter (tải trên Telegram Web vẫn hoạt động như cũ); 9.0.1: Nút tải trên tweet dừng được bằng Stop và không chạy chồng lên lượt tải khác, giữ service worker sống khi tải file lớn; 9.0.0: thử lại video lỗi ở chất lượng thấp hơn, thu thập từ X Lists, nguồn Search/Hashtag/List trong Queue và Saved Job, tải cả thread của tác giả từ trang tweet; 8.4.0: JavaScript nhẹ hơn 9,5 % (chuỗi tiếng Việt chỉ tải khi chọn tiếng Việt), tóm tắt dung lượng nhanh hơn, ít việc hơn trên trang X, ZIP tải song song; 8.3.1: giao diện dễ dùng hơn với bàn phím và trình đọc màn hình, hộp xác nhận thống nhất theo theme, nhãn và số theo ngôn ngữ; 8.3.0: một ảnh chỉ còn một file (gộp hai dạng URL của X), tuỳ chọn chất lượng ảnh có tác dụng, lệnh chỉ nhận từ đúng trang, IndexedDB đọc ít hơn khi mở popup; 8.2.3: hotfix ZIP không còn bỏ mất file hay bị dừng giữa chừng, popup/FAB không kẹt "đang tải", chặn trang giả thao tác tải và chèn công thức vào CSV, preset ngày theo giờ máy; 8.2.2: bỏ JSZip (JS giảm 20 %), lưu lỗi máy chủ tương thích rollback, dò mã 429 an toàn hơn; 8.2.1: 429 được nhận diện đúng để tự giảm tốc, sao lưu đủ file vừa tải, Chromium acceptance chạy được, 0 `@ts-ignore`; 8.2.0 sao lưu/khôi phục toàn bộ dữ liệu cục bộ trong một file; 8.1.0 tự giảm tốc khi X giới hạn (429); 8.0.0 thêm Search/Hashtag, caption và like trong Manifest, danh sách file lỗi.
 
 ## ✨ Tính Năng Nổi Bật
 
@@ -62,12 +62,11 @@ Click vào nút ⚙ (Cài đặt) trên popup của extension để tuỳ chỉn
 
 - `downloads`: Để extension có thể lưu file tự động vào máy bạn.
 - `storage`: Lưu cấu hình cài đặt và session restore.
-- `scripting`: Kích hoạt tải Blob/stream trong trang Telegram Web. Extension không yêu cầu `tabs` hay `activeTab` (bỏ từ 7.3.0); URL tab X/Telegram đọc được nhờ host permission.
 - `offscreen`: Ghép video HLS và tạo ZIP theo chunk trong document ngầm.
 - `alarms`: Keep-alive Service Worker khi đang tải nhiều file và lịch Saved Job do người dùng bật.
 - `notifications`: Thông báo hệ thống khi tải xong (có thể tắt trong Options).
-- `host_permissions` (`*.x.com`, `*.twitter.com`, `pbs.twimg.com`, `video.twimg.com`, `cdn.syndication.twimg.com`, `web.telegram.org`): Cho phép extension đọc media từ X/Twitter và gắn nút tải trên Telegram Web.
+- `host_permissions` (`x.com`, `api.x.com`, `twitter.com`, `pbs.twimg.com`, `video.twimg.com`, `cdn.syndication.twimg.com`, `web.telegram.org`): Cho phép extension đọc media từ X/Twitter và gắn nút tải trên Telegram Web. Extension không yêu cầu `tabs`, `activeTab` (bỏ từ 7.3.0) hay `scripting` (bỏ từ 9.1.0 — nút tải trên Telegram tự lưu file trong trang); URL tab X/Telegram đọc được nhờ host permission.
 
 ---
 
-*Phát triển nội bộ — Phiên bản **9.0.1** | Cập nhật: 2026-11-26*
+*Phát triển nội bộ — Phiên bản **9.1.0** | Cập nhật: 2026-11-26*

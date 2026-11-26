@@ -1,6 +1,6 @@
 # Audit bảo mật và quyền extension
 
-> Rà soát cho **9.0.1** | Cập nhật: 2026-11-26
+> Rà soát cho **9.1.0** | Cập nhật: 2026-11-26
 
 ## Quyền Manifest
 
@@ -8,12 +8,16 @@
 | --- | --- | --- |
 | `downloads` | Lưu ảnh/video/GIF và theo dõi kết quả tải | Giữ, chức năng cốt lõi |
 | `storage` | Options, Queue, phiên, lịch sử và media theo profile | Giữ; dữ liệu chỉ lưu cục bộ |
-| `scripting` | Kích hoạt tải Blob/stream trong trang Telegram Web (`TG_DOWNLOAD_MEDIA`) | Giữ |
 | `offscreen` | Ghép HLS và tạo ZIP theo chunk ngoài service worker | Giữ |
 | `alarms` | Keep-alive có giới hạn và lịch Saved Job do người dùng bật | Giữ |
 | `notifications` | Báo hoàn tất/lỗi và Notification Center | Giữ |
 
-Host permissions chỉ bao phủ X/Twitter, các CDN media X cần tải và Telegram Web A/K. Không có host wildcard toàn Internet.
+Host permissions (từ 9.1.0): `https://x.com/*`, `https://api.x.com/*`, `https://twitter.com/*`, `https://pbs.twimg.com/*`, `https://video.twimg.com/*`, `https://cdn.syndication.twimg.com/*`, `https://web.telegram.org/*` — đúng các host service worker/offscreen gọi tới và các trang content script chạy. Không có host wildcard, kể cả subdomain của X/Twitter.
+
+Đã loại bỏ trong 9.1.0 (S19):
+
+- `scripting` — chỉ dùng để service worker chèn một hàm vào MAIN world của tab Telegram và bấm `<a download>` (`TG_DOWNLOAD_MEDIA`). Content script Telegram dùng chung DOM với trang nên tự bấm link; yêu cầu tải vẫn là của document Telegram (URL `blob:` của trang dùng được, URL stream vẫn qua Service Worker của Telegram). Kiểm tra URL/tên file S18 giữ nguyên, chuyển vào content script. Lệnh `TG_DOWNLOAD_MEDIA` bị bỏ: web.telegram.org không còn gửi lệnh runtime nào.
+- `https://*.x.com/*`, `https://*.twitter.com/*` → `x.com`, `api.x.com`, `twitter.com`. `isAllowedSender` và truy vấn tab khi bắt đầu thu thập cũng không nhận subdomain nữa.
 
 Đã loại bỏ trong 7.3.0:
 
@@ -68,7 +72,7 @@ Từ 8.2.3, không thêm quyền:
 - **S13:** nút tải trên tweet (MAIN world), nút tải Telegram và phím tắt bỏ qua sự kiện có `isTrusted === false`: script trang không kích hoạt được tải hàng loạt bằng `.click()` hay chuột/phím giả. Lâu dài nên đưa nút tweet vào isolated world như FAB.
 - **S15:** script trang so hostname thật (`x.com`, `twitter.com`, `api.x.com`, `api.twitter.com`, HTTPS) trước khi bắt bearer, queryId hay parse GraphQL; URL kiểu `https://evil.tld/x.com/i/api` không còn đầu độc được bearer mà service worker dùng.
 - Message mới `ZIP_DONE` chỉ nhận từ offscreen document (`OFFSCREEN_TYPES`), payload theo allowlist `archives/files/skipped/error`.
-- Các mục bảo mật còn lại (S14, S16–S20, gồm cơ hội giảm quyền `scripting` và thu hẹp host) nằm trong `upgrade-plan-v8.3-v9.md`.
+- Các mục bảo mật S14, S16–S20 nằm trong `upgrade-plan-v8.3-v9.md`; phần giảm quyền của S19 (`scripting`, host wildcard) hoàn tất ở 9.1.0.
 
 Từ 8.3.0, không thêm quyền:
 - **S16:** `isAllowedSender` ràng buộc lệnh content script theo origin của trang gửi (HTTPS): `TG_DOWNLOAD_MEDIA` chỉ từ `web.telegram.org`, các lệnh còn lại chỉ từ `x.com`/`twitter.com` (và subdomain). Content script Telegram không còn gửi được `START_COLLECTING` với username tuỳ ý.

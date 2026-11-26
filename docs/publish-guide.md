@@ -2,7 +2,7 @@
 
 Tài liệu này hướng dẫn chi tiết các bước để chuẩn bị, đóng gói mã nguồn và đưa tiện ích **X Media Downloader** lên chợ ứng dụng Chrome Web Store (CWS).
 
-> Phiên bản hiện tại: **9.0.1** | Cập nhật: 2026-11-26
+> Phiên bản hiện tại: **9.1.0** | Cập nhật: 2026-11-26
 
 ---
 
@@ -48,7 +48,7 @@ npm run check
 1. Mở thư mục `dist/` (output sau khi chạy `npm run build`).
 2. Chọn **tất cả** nội dung bên trong `dist/`.
 3. Click chuột phải, chọn **Compress to ZIP file** (Windows 11) hoặc **Send to > Compressed (zipped) folder** (Windows 10).
-4. Xác minh `dist/release-manifest.json`, rồi đặt tên file ZIP rõ ràng: `x-media-downloader-v9.0.1.zip`
+4. Xác minh `dist/release-manifest.json`, rồi đặt tên file ZIP rõ ràng: `x-media-downloader-v9.1.0.zip`
 
 > [!WARNING]
 > Đảm bảo file `manifest.json` nằm ở **thư mục gốc** bên trong file ZIP. Nếu giải nén file ZIP ra mà thấy một thư mục cha bọc ngoài (ví dụ `dist/manifest.json`), Google sẽ báo lỗi không hợp lệ.
@@ -68,7 +68,7 @@ Nếu bạn chưa có tài khoản Chrome Web Store Developer:
 ## 4. Tải Tiện Ích Lên (Upload)
 
 1. Tại Dashboard, nhấn nút **+ New Item** (Thêm mục mới).
-2. Kéo thả file `x-media-downloader-v9.0.1.zip` của bạn vào ô tải lên.
+2. Kéo thả file `x-media-downloader-v9.1.0.zip` của bạn vào ô tải lên.
 3. Chờ Google quét virus sơ bộ. Nếu hợp lệ, bạn sẽ được chuyển sang trang điền thông tin chi tiết (Store Listing).
 
 ---
@@ -95,12 +95,11 @@ Google kiểm duyệt rất gắt gao các quyền (permissions) mà extension y
 
 - `downloads`: Dùng để lưu file ảnh/video thông qua API `chrome.downloads` vào máy tính người dùng.
 - `storage`: Dùng để lưu cài đặt cấu hình (thư mục gốc, tuỳ chọn flat directory), lịch sử đã tải, session restore.
-- `scripting`: Dùng để chạy thao tác tải trong MAIN world của tab Telegram khi cần. Extension không yêu cầu `activeTab` hay `tabs`.
 - `alarms`: Dùng để duy trì Service Worker sống trong quá trình download dài.
 - `notifications`: Dùng để hiển thị thông báo hệ thống khi download hoàn thành.
 - `offscreen`: Dùng để ghép HLS stream (TS segments) và tạo ZIP theo chunk trong document ngầm; file được lưu qua service worker.
 
-Từ 7.3.0 extension không còn `tabs`, `declarativeNetRequest` hay `web_accessible_resources`; từ 7.4.0 các trang extension không tải tài nguyên từ bên ngoài (không Google Fonts).
+Host permission chỉ gồm `x.com`, `api.x.com`, `twitter.com`, CDN media của X (`pbs.twimg.com`, `video.twimg.com`, `cdn.syndication.twimg.com`) và `web.telegram.org`. Từ 7.3.0 extension không còn `tabs`, `declarativeNetRequest` hay `web_accessible_resources`; từ 9.1.0 không còn `scripting` và không còn host wildcard `*.x.com`/`*.twitter.com`; từ 7.4.0 các trang extension không tải tài nguyên từ bên ngoài (không Google Fonts).
 
 **Single Purpose (Mục đích duy nhất):**
 Khẳng định tiện ích chỉ phục vụ một mục đích duy nhất: "Giúp người dùng sao lưu, tải xuống media từ X.com và Telegram Web."
@@ -126,4 +125,4 @@ Khẳng định tiện ích chỉ phục vụ một mục đích duy nhất: "Gi
 
 ---
 
-🎉 **Chúc bạn phát hành X Media Downloader v9.0.1 thành công!**
+🎉 **Chúc bạn phát hành X Media Downloader v9.1.0 thành công!**
