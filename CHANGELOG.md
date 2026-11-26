@@ -10,6 +10,24 @@ Chưa có thay đổi.
 
 ---
 
+## [9.0.1] — 2026-11-26 *(sửa lỗi, giữ service worker, dọn giao diện)*
+
+Các mã theo [`docs/upgrade-plan-v8.3-v9.md`](docs/upgrade-plan-v8.3-v9.md).
+
+### Sửa lỗi
+
+- **Nút tải trên tweet (L29):** lượt tải từ nút trên tweet nay là một lượt tải như mọi lượt khác — popup thấy đang tải, nút **Stop** dừng được (kể cả khi máy chủ chưa phản hồi), và lượt tải profile/Queue không chạy chồng lên nó (bấm khi đang có lượt khác thì nút báo bận). File được tính là đã tải theo profile chứa media thay vì một khoá chung.
+- **Giữ service worker sống khi tải file lớn (L30):** chu kỳ giữ sống cũ (24 giây) thấp hơn mức Chrome cho phép nên thực tế bị kéo lên 30 giây, đúng bằng ngưỡng Chrome dừng worker. Nay dùng chu kỳ hợp lệ cộng một lời gọi API nhẹ mỗi 20 giây trong lúc tải, theo hướng dẫn của Chrome.
+
+### Khác
+
+- Popup và Options không còn style viết thẳng trong HTML (U29); giao diện không đổi — đã so computed style của mọi phần tử ở 10 trạng thái, cả hai theme.
+- Chuỗi tiếng Anh chỉ service worker dùng cũng được tách khỏi JavaScript như chuỗi tiếng Việt ở 8.4.0: service worker 117,5 → 115,3 KB, còn chỗ cho tính năng sau.
+
+Không đổi quyền, schema hay storage key. Gate: 110 unit test, Chromium acceptance 12/12.
+
+---
+
 ## [9.0.0] — 2026-11-26 *(tính năng mới: thử lại chất lượng thấp hơn, X Lists, nguồn trong Queue, tải thread)*
 
 Các mã F theo [`docs/upgrade-plan-v8.3-v9.md`](docs/upgrade-plan-v8.3-v9.md).

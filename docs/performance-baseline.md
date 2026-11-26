@@ -1,4 +1,4 @@
-# Baseline hiệu năng và build budget 9.0.0
+# Baseline hiệu năng và build budget 9.0.1
 
 > Cập nhật: 2026-10-14
 
@@ -20,12 +20,12 @@
 | Stop download | UI phản hồi dưới 500 ms |
 | 10.000 media | popup không bị khóa, không giữ thêm bản sao mảng không cần thiết |
 
-Build 9.0.0 tiếp tục áp dụng gate tự động trong `npm run check` và tính cả entrypoint Download Center:
+Build 9.0.1 tiếp tục áp dụng gate tự động trong `npm run check` và tính cả entrypoint Download Center:
 
-| Chỉ số build | Ngưỡng | Kết quả 9.0.0 |
+| Chỉ số build | Ngưỡng | Kết quả 9.0.1 |
 | --- | ---: | ---: |
-| Tổng JavaScript trong `dist/` | ≤ 420.000 byte | 361.233 byte |
-| JavaScript bundle lớn nhất | ≤ 120.000 byte | 117.528 byte |
+| Tổng JavaScript trong `dist/` | ≤ 420.000 byte | 359.438 byte |
+| JavaScript bundle lớn nhất | ≤ 120.000 byte | 115.298 byte |
 | Số module TypeScript trong `src/` | ≤ 110 | 109 |
 
 Ngưỡng số module tăng từ 85 lên 95 trong 7.3.0 vì bridge MAIN ↔ isolated, navigation và các helper có kiểm thử được tách thành module nhỏ; tổng dung lượng JavaScript gần như không đổi.
@@ -57,6 +57,8 @@ Tối ưu runtime 7.3.0: metric diagnostic không rời trang khi chưa bật (m
 8.4.0 (dung lượng/main thread): tổng JS **391.528 → 354.279 byte (−37,2 KB, −9,5 %)**, service worker **118.861 → 115.243 byte**, 109/110 module. Phần lớn từ P26a: nửa tiếng Việt của bảng dịch popup, Options, Download Center và service worker được tách khỏi bundle lúc build (`scripts/vite-locale-split.mjs`) thành `dist/i18n/vi/*.json` (6 file, 40.680 byte, không tính vào ngân sách JS) và chỉ tải khi ngôn ngữ là tiếng Việt; người dùng tiếng Anh không tải các file này. Bảng của content script vẫn nằm trong bundle vì content script không được đọc file của extension khi manifest không khai báo `web_accessible_resources`. Mục tiêu ≤ 112 KB cho service worker **chưa đạt**: phần còn lại của SW chủ yếu là code (downloader, scraper, media-messages, tweet-api), không còn bảng dịch lớn để tách. Runtime: tóm tắt dung lượng (Options, sao lưu, dọn dữ liệu) đếm bằng index và ước lượng byte từ mẫu 200 record thay vì đọc và stringify mọi record (P20); duyệt JSON GraphQL bỏ nhánh `user_results`/`card` — benchmark `npm run benchmark:graphql` trên trang 20 tweet (160 KB): −26 % node, trung vị 1,07 → 0,77 ms, cùng kết quả media (P21); một MutationObserver dùng chung thay ba observer trong MAIN world, dom-scanner chỉ làm việc trên route thu thập và không gửi metric chẩn đoán khi chưa bật (P22); ZIP tải trước 4 file song song, giữ thứ tự (P25).
 
 9.0.0 (F3b, F1b, F1c, F6): tổng JS 354.279 → 361.233 byte (+6,8 KB), service worker 115.243 → **117.528 byte** (+2,3 KB), vẫn 109 module (không thêm file nào: chọn variant nằm trong `graphql-media.ts`, List trong `collection-source.ts`, chọn media thread trong `media-filter.ts`). Gộp 4 chỗ chọn `bestMp4` thành `pickVideoVariant` bù một phần. Service worker còn **~2,5 KB** dưới ngưỡng 120 KB: tính năng kế tiếp ở service worker cần tách thêm (vd. bảng `en` của service worker như P26a, hoặc rút gọn `tweet-api`) trước. Runtime: duyệt GraphQL đọc thêm handle tác giả ở object tweet (không đi vào `user_results`) — benchmark `benchmark:graphql` vẫn −26 % node và cùng kết quả; `GET_THREAD_MEDIA` quét store một profile một lần.
+
+9.0.1: phần tiếng Anh của `BACKGROUND_STRINGS` (bảng chỉ service worker dùng) cũng thành file `dist/i18n/en/BACKGROUND_STRINGS.json` (3.345 byte), luôn được tải khi worker khởi động (worker vốn chờ `i18nReady` trước khi tạo chữ hiển thị). Service worker 117.528 → **115.298 byte** dù thêm code cho L29/L30; tổng JS 361.233 → 359.438 byte; 109 module. Còn ~4,7 KB cho service worker. Keep-alive khi tải: một lời gọi `chrome.runtime.getPlatformInfo()` mỗi 20 giây, chỉ trong lúc có lượt tải.
 
 Ngưỡng nằm trong `performance-budget.json` và được kiểm tra bởi `scripts/check-performance-budget.mjs`.
 

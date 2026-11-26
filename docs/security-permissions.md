@@ -1,6 +1,6 @@
 # Audit bảo mật và quyền extension
 
-> Rà soát cho **9.0.0** | Cập nhật: 2026-11-26
+> Rà soát cho **9.0.1** | Cập nhật: 2026-11-26
 
 ## Quyền Manifest
 
@@ -87,6 +87,8 @@ Từ 9.0.0, không thêm quyền:
 - **Variant video (F3b):** danh sách mức chất lượng đến từ trang (GraphQL) và từ storage (`failed_items_v1`) được kiểm tra trước khi dùng: tối đa 4 URL, chỉ `https://video.twimg.com/…mp4`; mục lỗi có variant giả bị bỏ. `RETRY_FAILED_ITEMS` thêm khoá `lowerQuality` (boolean) trong `PAYLOAD_KEYS`, vẫn chỉ nhận từ trang extension.
 - **Thread (F6):** `GET_THREAD_MEDIA` chỉ đọc store, chỉ dành cho trang extension (không nằm trong `CONTENT_SCRIPT_TYPES`); `tweetId` phải là 10–20 chữ số, `conversationId`/`authorHandle` trên media được kiểm tra (chữ số / handle X).
 - **Nguồn (F1b/F1c):** khoá List là `_list_<id>` chỉ gồm chữ số và vẫn khớp mẫu username sẵn có; chữ nhập ở Saved Job chỉ thành khoá khi là handle hợp lệ, `#hashtag` hoặc URL thuộc `x.com`/`twitter.com` — link ngoài bị từ chối.
+
+Từ 9.0.1, không thêm quyền: khi tweet không nằm trong store nào (vd. video tra qua API trên Home), handle tác giả do nút trên tweet gửi lên — đã kiểm tra theo mẫu username — được dùng làm thư mục và khoá chống trùng thay cho `unknown`. Trang chỉ có thể gắn nhãn sai cho chính media của tweet đó; mọi URL tải vẫn phải là host media của X.
 
 ## Bề mặt cần theo dõi
 

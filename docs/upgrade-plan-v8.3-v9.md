@@ -1,6 +1,6 @@
 # Kế hoạch nâng cấp v8.2.3 → v9.0
 
-> Lập ngày 2026-11-25 trên mã nguồn **8.2.2** (commit `bef46a8`) | Trạng thái: **đang thực hiện — v8.2.3, v8.3.0, v8.3.1, v8.4.0 và v9.0.0 đã phát hành (xem mục 6a–6e)**
+> Lập ngày 2026-11-25 trên mã nguồn **8.2.2** (commit `bef46a8`) | Trạng thái: **đang thực hiện — v8.2.3, v8.3.0, v8.3.1, v8.4.0, v9.0.0 và v9.0.1 đã phát hành (xem mục 6a–6f)**
 
 Kế hoạch này kế tiếp [`upgrade-plan-v7.3-v8.md`](upgrade-plan-v7.3-v8.md) (L1–L15, S1–S11, P1–P15, U1–U16, F1–F5 đã xong). Mã định danh mới đánh tiếp từ số cuối của kế hoạch cũ.
 
@@ -180,6 +180,8 @@ Trạng thái gate tại thời điểm lập kế hoạch: `npm run check` xanh
 3. ~~**v8.3.1 — UI/UX**: U18, U20–U30~~ — hoàn thành 2026-11-25 (xem 6c), U29 một phần.
 4. ~~**v8.4.0 — dung lượng/main thread**: P26 trước, rồi P20–P22, P25~~ — hoàn thành 2026-11-26 (xem 6d); L28 (fixture HLS thật) và L30 (đo keep-alive) vẫn cần dữ liệu/đo trên X thật.
 5. ~~**v9.0.0 — tính năng**: F3b → F1b + F1c → F6~~ — hoàn thành 2026-11-26 (xem 6e); F9–F11 tuỳ phản hồi.
+6. ~~**v9.0.1 — tồn đọng**: L29, L30, U29 còn lại, chỗ cho service worker~~ — hoàn thành 2026-11-26 (xem 6f).
+7. **Tiếp theo:** S19 (bỏ `scripting`, thu hẹp host — bản riêng có ghi chú rollback); L28 khi có playlist fMP4 thật; L23; F9–F11 tuỳ phản hồi.
 
 Song song, việc thủ công còn tồn từ kế hoạch cũ: kiểm thử trên X/Telegram thật (Search/Hashtag, 429 thật, backup giữa hai máy) và đo các chỉ tiêu hiệu năng chưa đo trong `quality-gate.md`.
 
@@ -231,6 +233,15 @@ Song song, việc thủ công còn tồn từ kế hoạch cũ: kiểm thử tr�
 - **F6:** nút đặt trong popup thay vì FAB như dự kiến — FAB tải ngay khi có media nên bảng FAB không mở được. Thread = media cùng `conversationId` và `authorHandle` = khoá trang, cộng media của chính tweet đang mở; tweet đang mở không có media thì coi là tweet đầu thread. Media cũ được bổ sung hai trường khi GraphQL gửi lại (`enrichMediaItems`).
 - **Ngoài phạm vi, giữ nguyên:** trang tweet vẫn lưu cả media trong trả lời của người khác vào khoá của tác giả (hành vi từ trước); tải profile vì vậy vẫn gồm các media đó — chỉ tải thread mới lọc.
 - Test: `test/v9-0-0.test.ts` (9 test) — 108 unit; Chromium 11/11 (+2). Ngân sách: tổng JS 361,2 KB, service worker **117,5/120 KB** (còn ~2,5 KB), 109/110 module.
+
+## 6f. Kết quả v9.0.1
+
+- **L29:** `handleDownloadTweet` lấy slot `downloadCoordinator` (bận thì báo `bg_err_download_busy` lên nút), truyền `isCancelled` xuống `downloadSingleItem`, và chờ từng file bằng `Promise.race` với tín hiệu abort của lượt — Stop có thể tới khi `chrome.downloads.download` chưa trả id nên không có gì để huỷ. Kết thúc thì `settle`/`release` và báo `DOWNLOAD_DONE`; Stop tự giải phóng slot. Khoá chống trùng/thư mục = profile của media trong store, hoặc tác giả do trang báo (chỉ khi tweet không nằm trong store nào), cuối cùng mới là `unknown`.
+- **Giới hạn còn lại (có từ trước, mọi đường tải):** nếu Chrome trả id của lượt tải *sau* khi đã Stop, file đó vẫn tải về; huỷ ở `downloadFile` cần biết lượt tải sở hữu nó (ZIP/offscreen cũng dùng `downloadFile` mà không giữ coordinator).
+- **L30:** alarm `periodInMinutes: 0.5` (tối thiểu hợp lệ) + `chrome.runtime.getPlatformInfo()` mỗi 20 giây trong lúc tải. Không đo được trong Playwright vì DevTools gắn vào worker khiến Chrome không dừng nó; dựa trên tài liệu Chrome (lời gọi API extension reset bộ đếm 30 giây từ Chrome 110).
+- **U29:** popup.html 28 và options.html 20 thuộc tính `style` → rule theo id (phần tử JS bật/tắt) hoặc class đặt tên (bố cục), đặt cuối stylesheet. Không phần tử nào bị JS hiện bằng `style.display = ''`. So computed style của mọi phần tử ở 10 trạng thái: 0 khác biệt (một lỗi gắn class sai phần tử phát hiện và sửa nhờ phép so này).
+- **Chỗ cho service worker:** `EN_SPLIT_TABLES` trong `scripts/vite-locale-split.mjs` (hiện chỉ `BACKGROUND_STRINGS`); `TranslationTable.remoteEn`, `setLanguage` luôn tải các bảng `en` từ xa. Service worker 115,3/120 KB.
+- Test: `test/v9-0-1.test.ts` (2 test) — 110 unit; Chromium 12/12 (+1).
 
 ## 7. Việc tài liệu kèm theo
 
