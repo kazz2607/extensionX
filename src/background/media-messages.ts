@@ -410,7 +410,9 @@ export function handleMediaMessage(
       }
 
       // Xử lý async không giữ message channel
-      handleDownloadTweet(tweetId, profileUsername, tabId);
+      // L29: tác giả do trang báo chỉ dùng làm thư mục/khoá chống trùng khi tweet
+      // không nằm trong store nào (vd. video tra qua API trên Home).
+      void handleDownloadTweet(tweetId, profileUsername, tabId, isValidUsername(username) ? username : undefined);
       sendResponse({ ok: true });
       return false;
     }

@@ -71,7 +71,7 @@
       <div class="panel active" id="panel-main" role="tabpanel" aria-labelledby="nav-main">
 
         <!-- Session Restore Banner -->
-        <section class="restore-banner" id="restore-banner" style="display:none" role="alert" aria-live="polite">
+        <section class="restore-banner" id="restore-banner" role="alert" aria-live="polite">
           <div class="restore-info">
             <div class="restore-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -108,12 +108,12 @@
             <div class="profile-badge" id="media-count-badge">0</div>
             <!-- Pha 15: Watch mode (nhẹ, không poll ngầm) — chỉ so sánh số media với
                  lần xem trước khi mở lại popup, không phát sinh request X.com nào thêm -->
-            <button class="btn-watch-toggle" id="btn-watch-toggle" style="display:none" title="Watch this profile (get notified about new media next time you open the popup)" aria-label="Watch this profile (get notified about new media next time you open the popup)" data-i18n-title="popup_watch_title" data-i18n-aria-label="popup_watch_title">👁</button>
+            <button class="btn-watch-toggle" id="btn-watch-toggle" title="Watch this profile (get notified about new media next time you open the popup)" aria-label="Watch this profile (get notified about new media next time you open the popup)" data-i18n-title="popup_watch_title" data-i18n-aria-label="popup_watch_title">👁</button>
           </div>
         </section>
 
         <!-- UI-04: Empty State Onboarding -->
-        <section class="onboarding-section" id="onboarding-section" style="display:none">
+        <section class="onboarding-section" id="onboarding-section">
           <div class="onboarding-card">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" opacity="0.5">
               <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.253 5.622L18.244 2.25z" fill="currentColor"/>
@@ -151,7 +151,7 @@
         </section>
 
         <!-- v4.3.0: Date Range Filter -->
-        <section class="daterange-section" id="section-daterange" style="display:none">
+        <section class="daterange-section" id="section-daterange">
           <div class="daterange-row">
             <div class="daterange-toggle" id="daterange-toggle" role="button" tabindex="0" aria-expanded="false" aria-controls="daterange-panel">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -161,14 +161,14 @@
               </svg>
               <span data-i18n="date_range_title">Date Range</span>
               <svg class="daterange-chevron" id="daterange-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-              <span class="daterange-active-badge" id="daterange-active-badge" style="display:none" data-i18n="popup_daterange_active">Active</span>
+              <span class="daterange-active-badge" id="daterange-active-badge" data-i18n="popup_daterange_active">Active</span>
             </div>
-            <button class="btn-daterange-clear" id="btn-daterange-clear" style="display:none" title="Clear date filter" aria-label="Clear date filter" data-i18n-title="popup_daterange_clear" data-i18n-aria-label="popup_daterange_clear">
+            <button class="btn-daterange-clear" id="btn-daterange-clear" title="Clear date filter" aria-label="Clear date filter" data-i18n-title="popup_daterange_clear" data-i18n-aria-label="popup_daterange_clear">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>
             </button>
           </div>
 
-          <div class="daterange-panel" id="daterange-panel" style="display:none">
+          <div class="daterange-panel" id="daterange-panel">
             <div class="daterange-inputs">
               <div class="daterange-field">
                 <label for="filter-date-from" data-i18n="date_from">From</label>
@@ -190,13 +190,13 @@
               <button class="btn-preset" data-preset="90d" data-i18n="date_preset_90">3 months</button>
               <button class="btn-preset" data-preset="1y" data-i18n="date_preset_year">This year</button>
             </div>
-            <div class="daterange-count-row" id="daterange-count-row" style="display:none">
+            <div class="daterange-count-row" id="daterange-count-row">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               <span id="daterange-count-text" data-i18n="filter_summary">0 items match</span>
             </div>
             <!-- Pha 11: Download Recipe/Preset theo profile. Class riêng (không phải
                  .btn-preset) — tránh bị date-range.ts gắn nhầm listener chọn nhanh ngày. -->
-            <div class="daterange-presets" style="margin-top:6px">
+            <div class="daterange-presets daterange-presets--below">
               <button class="btn-recipe-preset" id="btn-save-preset" title="Save the current filter for this profile" data-i18n-title="popup_preset_save_title" data-i18n="popup_preset_save">💾 Save filter</button>
               <button class="btn-recipe-preset" id="btn-load-preset" title="Load the saved filter for this profile" data-i18n-title="popup_preset_load_title" data-i18n="popup_preset_load">📂 Load filter</button>
             </div>
@@ -210,21 +210,21 @@
             <span class="status-text" id="status-text" data-i18n="status_ready">Ready</span>
             <span class="status-speed" id="status-speed"></span>
           </div>
-          <div class="progress-wrap" id="progress-wrap" style="display:none">
+          <div class="progress-wrap" id="progress-wrap">
             <div class="progress-track" id="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Download progress" data-i18n-aria-label="popup_progress_label">
-              <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+              <div class="progress-fill" id="progress-fill"></div>
             </div>
             <span class="progress-label" id="progress-label">0 / 0</span>
           </div>
           <!-- v4.4.0: Visual Progress per File -->
-          <div class="active-downloads-list" id="active-downloads-list" style="display:none"></div>
+          <div class="active-downloads-list" id="active-downloads-list"></div>
         </section>
 
         <!-- UI-01: Error Details Panel -->
-        <div class="error-details" id="error-details" style="display:none">
+        <div class="error-details" id="error-details">
           <div class="error-details-header">
             <span class="error-details-count" id="error-details-count">0 failed files</span>
-            <div style="display:flex; align-items:center; gap:6px;">
+            <div class="inline-row">
               <button class="btn-copy-errors" id="btn-copy-errors" title="Copy error list to clipboard" data-i18n-title="popup_copy_errors_title" data-i18n="popup_copy_log">
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                 Copy log
@@ -242,7 +242,7 @@
         </div>
 
         <!-- Scroll Progress -->
-        <section class="scroll-section" id="section-scroll" style="display:none">
+        <section class="scroll-section" id="section-scroll">
           <div class="scroll-stats">
             <div class="scroll-stat">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -279,27 +279,27 @@
             <span id="btn-collect-text" data-i18n="btn_collect_start">Start Collecting</span>
           </button>
 
-          <div class="skip-duplicates-wrap" id="skip-duplicates-wrap" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; padding: 2px 0;">
-            <label for="opt-skip-duplicates" style="font-size:12px; color:var(--text-sec); display:flex; align-items:center; gap:6px; cursor:pointer;">
-              <input type="checkbox" id="opt-skip-duplicates" checked style="accent-color:var(--accent); cursor:pointer;">
+          <div class="skip-duplicates-wrap" id="skip-duplicates-wrap">
+            <label class="skip-duplicates-label" for="opt-skip-duplicates">
+              <input type="checkbox" id="opt-skip-duplicates" checked>
               <span data-i18n="opt_skip_duplicates">Skip downloaded</span>
             </label>
-            <div style="display:flex; align-items:center; gap:6px;">
-              <span id="downloaded-count-badge" style="font-size:11px; background:rgba(29,155,240,0.1); color:var(--accent); padding:2px 6px; border-radius:10px; display:none;">0 downloaded</span>
-              <button class="btn-clear-downloaded" id="btn-clear-downloaded" style="display:none" title="Clear download history to re-download all files" data-i18n-title="popup_clear_downloaded_title" data-i18n="popup_clear_downloaded">Clear history</button>
+            <div class="inline-row">
+              <span id="downloaded-count-badge">0 downloaded</span>
+              <button class="btn-clear-downloaded" id="btn-clear-downloaded" title="Clear download history to re-download all files" data-i18n-title="popup_clear_downloaded_title" data-i18n="popup_clear_downloaded">Clear history</button>
             </div>
           </div>
 
-          <div class="download-preview" id="download-preview" style="display:none">
+          <div class="download-preview" id="download-preview">
             <div class="download-preview-row">
               <span data-i18n="preview_to_download">Will download:</span>
               <strong id="preview-count">0 files</strong>
             </div>
-            <div class="download-preview-row" id="preview-skip-row" style="display:none">
+            <div class="download-preview-row" id="preview-skip-row">
               <span data-i18n="preview_skipped">Skipped (already downloaded):</span>
               <span id="preview-skipped">0 files</span>
             </div>
-            <div class="download-preview-warning" id="preview-warning" style="display:none">
+            <div class="download-preview-warning" id="preview-warning">
               ⚠️ <span id="preview-warning-text"></span>
             </div>
           </div>
@@ -314,7 +314,7 @@
             </button>
 
             <!-- Bug 2: Nút dừng download — chỉ hiện khi đang tải -->
-            <button class="btn btn--stop-dl" id="btn-stop-download" style="display:none" title="Stop download (finish the current file, then stop)" data-i18n-title="popup_stop_download_title">
+            <button class="btn btn--stop-dl" id="btn-stop-download" title="Stop download (finish the current file, then stop)" data-i18n-title="popup_stop_download_title">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="3" width="18" height="18" rx="2"/>
               </svg>
@@ -328,7 +328,7 @@
                 <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/>
                 <line x1="3" y1="18" x2="3.01" y2="18"/>
               </svg>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:-4px; color:var(--green)">
+              <svg class="queue-add-plus" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
               </svg>
             </button>
@@ -367,7 +367,7 @@
         <div class="queue-header">
           <div class="queue-header-left">
             <span class="queue-title" data-i18n="queue_title">Download Queue</span>
-            <span class="queue-count-badge" id="queue-count-badge" style="display:none">0</span>
+            <span class="queue-count-badge" id="queue-count-badge">0</span>
           </div>
           <div class="queue-header-actions">
             <button class="btn-text btn-queue-start" id="btn-queue-start" title="Start queue" aria-label="Start queue" data-action="disabled" disabled>
@@ -526,7 +526,7 @@
             <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/>
             <line x1="3" y1="18" x2="3.01" y2="18"/>
           </svg>
-          <span class="nav-badge" id="nav-queue-badge" style="display:none">0</span>
+          <span class="nav-badge" id="nav-queue-badge">0</span>
         </div>
         <span data-i18n="nav_queue">Queue</span>
       </button>

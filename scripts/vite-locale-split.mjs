@@ -8,6 +8,11 @@
 // only when the user's language is Vietnamese. An MV3 service worker cannot use
 // dynamic import(), but it can fetch its own packaged files.
 //
+// 9.0.1: tables used only by the service worker (EN_SPLIT_TABLES) also move
+// their English half to `i18n/en/<NAME>.json` (`en: {}, remoteEn: true`). The
+// worker waits for i18nReady before producing any user-visible text, and
+// loadI18n always fetches these English tables (they are the fallback).
+//
 // Content-script tables (src/lib/i18n/content.ts) are deliberately NOT split:
 // a content script may only fetch extension files listed in
 // web_accessible_resources, which the manifest no longer declares (v7.3.0).
@@ -23,6 +28,9 @@ const SPLIT_TABLES = {
   'popup.ts': ['POPUP_STRINGS'],
 };
 
+/** Service-worker-only tables: English is loaded at runtime too. */
+export const EN_SPLIT_TABLES = new Set(['BACKGROUND_STRINGS']);
+
 export const LOCALE_ASSET_DIR = 'i18n/vi';
 
 function splitTarget(id) {
@@ -31,22 +39,36 @@ function splitTarget(id) {
   return match && SPLIT_TABLES[match[1]] ? { path, file: match[1], names: SPLIT_TABLES[match[1]] } : null;
 }
 
-/** Replace the `vi` block of every listed table; throws if the layout is not the expected one. */
-export function stripVietnamese(source, names, file = 'table') {
+/** Replace one language block of a table with `replacement`; throws on an unexpected layout. */
+function replaceBlock(code, name, lang, replacement, file) {
+  const head = `export const ${name}: TranslationTable = {`;
+  const start = code.indexOf(head);
+  if (start < 0) throw new Error(`[locale-split] ${file}: ${name} not found`);
+  const blockStart = code.indexOf(`\n  ${lang}: {\n`, start);
+  const blockEnd = blockStart < 0 ? -1 : code.indexOf('\n  },', blockStart);
+  const nextTable = code.indexOf('\nexport ', start + head.length);
+  if (blockStart < 0 || blockEnd < 0 || (nextTable >= 0 && blockEnd > nextTable)) {
+    throw new Error(`[locale-split] ${file}: cannot find the ${lang} block of ${name}`);
+  }
+  return `${code.slice(0, blockStart)}\n  ${replacement}${code.slice(blockEnd + '\n  },'.length)}`;
+}
+
+/**
+ * Replace the `vi` block of every listed table (and the `en` block of the
+ * tables in `enNames`); throws if the layout is not the expected one.
+ */
+export function stripLocales(source, names, file = 'table', enNames = EN_SPLIT_TABLES) {
   let code = source.replace(/\r\n/g, '\n');
   for (const name of names) {
-    const head = `export const ${name}: TranslationTable = {`;
-    const start = code.indexOf(head);
-    if (start < 0) throw new Error(`[locale-split] ${file}: ${name} not found`);
-    const viStart = code.indexOf('\n  vi: {\n', start);
-    const viEnd = viStart < 0 ? -1 : code.indexOf('\n  },', viStart);
-    const nextTable = code.indexOf('\nexport ', start + head.length);
-    if (viStart < 0 || viEnd < 0 || (nextTable >= 0 && viEnd > nextTable)) {
-      throw new Error(`[locale-split] ${file}: cannot find the vi block of ${name}`);
-    }
-    code = `${code.slice(0, viStart)}\n  vi: {},\n  remote: '${name}',${code.slice(viEnd + '\n  },'.length)}`;
+    code = replaceBlock(code, name, 'vi', `vi: {},\n  remote: '${name}',`, file);
+    if (enNames.has(name)) code = replaceBlock(code, name, 'en', 'en: {},\n  remoteEn: true,', file);
   }
   return code;
+}
+
+/** Vietnamese only (kept for tests and callers that do not split English). */
+export function stripVietnamese(source, names, file = 'table') {
+  return stripLocales(source, names, file, new Set());
 }
 
 export default function localeSplit() {
@@ -58,7 +80,7 @@ export default function localeSplit() {
     async load(id) {
       const target = splitTarget(id);
       if (!target) return null;
-      const code = stripVietnamese(await readFile(target.path, 'utf8'), target.names, target.file);
+      const code = stripLocales(await readFile(target.path, 'utf8'), target.names, target.file);
       target.names.forEach((name) => stripped.add(name));
       return code;
     },
@@ -71,8 +93,10 @@ export default function localeSplit() {
         const module = await import(`${pathToFileURL(join(srcDir, file)).href}?locale=${Date.now()}`);
         for (const name of names) {
           const table = module[name];
-          if (!table?.vi || Object.keys(table.vi).length === 0) throw new Error(`[locale-split] ${file}: ${name}.vi is empty`);
-          this.emitFile({ type: 'asset', fileName: `${LOCALE_ASSET_DIR}/${name}.json`, source: JSON.stringify(table.vi) });
+          for (const lang of EN_SPLIT_TABLES.has(name) ? ['vi', 'en'] : ['vi']) {
+            if (!table?.[lang] || Object.keys(table[lang]).length === 0) throw new Error(`[locale-split] ${file}: ${name}.${lang} is empty`);
+            this.emitFile({ type: 'asset', fileName: `i18n/${lang}/${name}.json`, source: JSON.stringify(table[lang]) });
+          }
         }
       }
     },

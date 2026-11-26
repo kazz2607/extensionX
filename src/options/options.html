@@ -234,6 +234,91 @@
       text-align: center; margin-top: 40px;
     }
 
+    /* ─── U29 (9.0.1): trước đây là style inline trong thẻ HTML ─────────────────── */
+
+    .option-row--stacked {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .option-row-head {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      align-items: center;
+    }
+
+    .min-size-inputs {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .min-size-field {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .min-size-label {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    #opt-min-img-width {
+      width: 70px;
+    }
+
+    .min-size-times {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    #opt-min-img-height {
+      width: 70px;
+    }
+
+    .info-box--inset {
+      margin: 10px 14px 14px;
+    }
+
+    .filename-example {
+      background: rgba(29,155,240,0.1);
+      color: var(--accent);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+    }
+
+    .full-width {
+      width: 100%;
+    }
+
+    #opt-filename-template {
+      width: 100%;
+      margin-top: 8px;
+    }
+
+    #filename-template-preview {
+      display: none;
+    }
+
+    /* Trạng thái ban đầu; updateShortcutsDetailState() đặt lại theo công tắc. */
+    #shortcuts-detail {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    #import-file-input {
+      display: none;
+    }
+
+    #backup-file-input {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -247,8 +332,8 @@
   <div class="section">
     <p class="section-title" data-i18n="section_folder">📁 Save Folder</p>
     <div class="card">
-      <div class="option-row" style="flex-direction: column; align-items: flex-start; gap: 10px;">
-        <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+      <div class="option-row option-row--stacked">
+        <div class="option-row-head">
           <div class="option-label">
             <strong data-i18n="opt_base_folder">Base folder</strong>
             <span data-i18n="opt_base_folder_desc">Subfolder inside Downloads to save media. Leave empty to save directly to Downloads.</span>
@@ -351,20 +436,20 @@
           <strong id="opt-enable-following-scanner-label"><span data-i18n="opt_min_size">Minimum image size (px)</span></strong>
           <span><span data-i18n="opt_min_size_desc">Ignore images with width or height smaller than this value. Only applies when X.com returns size metadata. Set to 0 to disable.</span></span>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-            <span style="font-size:10px;color:var(--text-muted);" data-i18n="opt_min_width_short" data-i18n-title="opt_min_width_title" title="Minimum width (px)">W</span>
-            <input type="number" id="opt-min-img-width" data-i18n-aria-label="opt_min_width_title" aria-label="Minimum width (px)" value="150" min="0" max="9999" style="width:70px;" />
+        <div class="min-size-inputs">
+          <div class="min-size-field">
+            <span class="min-size-label" data-i18n="opt_min_width_short" data-i18n-title="opt_min_width_title" title="Minimum width (px)">W</span>
+            <input type="number" id="opt-min-img-width" data-i18n-aria-label="opt_min_width_title" aria-label="Minimum width (px)" value="150" min="0" max="9999" />
           </div>
-          <span style="color:var(--text-muted);font-size:14px;">×</span>
-          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-            <span style="font-size:10px;color:var(--text-muted);" data-i18n="opt_min_height_short" data-i18n-title="opt_min_height_title" title="Minimum height (px)">H</span>
-            <input type="number" id="opt-min-img-height" data-i18n-aria-label="opt_min_height_title" aria-label="Minimum height (px)" value="150" min="0" max="9999" style="width:70px;" />
+          <span class="min-size-times">×</span>
+          <div class="min-size-field">
+            <span class="min-size-label" data-i18n="opt_min_height_short" data-i18n-title="opt_min_height_title" title="Minimum height (px)">H</span>
+            <input type="number" id="opt-min-img-height" data-i18n-aria-label="opt_min_height_title" aria-label="Minimum height (px)" value="150" min="0" max="9999" />
           </div>
         </div>
       </div>
 
-      <div class="info-box" style="margin:10px 14px 14px;">
+      <div class="info-box info-box--inset">
         <span class="info-box-icon">💡</span>
         <p data-i18n="opt_smart_filters_info">Smart Filters work in real time while collecting — junk images are dropped before they reach the list, with no impact on download performance. Turn off all filters to collect everything, including avatars.</p>
       </div>
@@ -541,7 +626,7 @@
         <div class="option-label">
           <strong id="opt-filename-username-label" data-i18n="opt_filename_username">📝 Filename: Username_TweetID_Serial</strong>
           <span data-i18n="opt_filename_username_desc">Save filename with format:</span>
-          <span><code style="background:rgba(29,155,240,0.1);color:var(--accent);padding:1px 6px;border-radius:4px;font-size:10px;">NASA_1234567890_ab3f2.jpg</code></span>
+          <span><code class="filename-example">NASA_1234567890_ab3f2.jpg</code></span>
         </div>
         <label class="toggle">
           <input type="checkbox" id="opt-filename-username" aria-labelledby="opt-filename-username-label" />
@@ -550,15 +635,15 @@
         </label>
       </div>
 
-      <div class="option-row" style="flex-direction: column; align-items: flex-start; gap: 10px;">
-        <div style="width:100%">
+      <div class="option-row option-row--stacked">
+        <div class="full-width">
           <div class="option-label">
             <strong data-i18n="opt_filename_template">🧩 Filename template (advanced)</strong>
             <span data-i18n="opt_filename_template_desc">Leave empty to use the default above. Supported tokens: {username} {tweetId} {date} {type} {ext} {index}</span>
           </div>
-          <input type="text" id="opt-filename-template" placeholder="{username}_{tweetId}_{date}.{ext}" maxlength="200" style="width:100%; margin-top:8px;" />
+          <input type="text" id="opt-filename-template" placeholder="{username}_{tweetId}_{date}.{ext}" maxlength="200" />
         </div>
-        <div class="folder-preview" id="filename-template-preview" style="display:none"></div>
+        <div class="folder-preview" id="filename-template-preview"></div>
       </div>
 
       <div class="option-row">
@@ -633,7 +718,7 @@
         </label>
       </div>
 
-      <div id="shortcuts-detail" style="opacity:0.5; pointer-events:none;">
+      <div id="shortcuts-detail">
 
         <div class="option-row">
           <div class="option-label">
@@ -709,7 +794,7 @@
 
       </div>
 
-      <div class="info-box" style="margin:10px 14px 14px;">
+      <div class="info-box info-box--inset">
         <span class="info-box-icon">💡</span>
         <p data-i18n="opt_sc_info">Shortcuts only work while hovering over an image. If text is selected, Ctrl+C copies the text as usual. Typing in input fields is not affected either.</p>
       </div>
@@ -754,7 +839,7 @@
           <span><span data-i18n="opt_import_desc">Load a previously exported JSON file. Current settings will be overwritten.</span></span>
         </div>
         <button class="btn-data" id="btn-import" data-i18n="btn_import">📥 Import</button>
-        <input type="file" id="import-file-input" accept=".json" style="display:none" />
+        <input type="file" id="import-file-input" accept=".json" />
       </div>
 
       <div class="option-row">
@@ -767,7 +852,7 @@
           <button class="btn-data" id="btn-backup-export" data-i18n="btn_backup_export">💾 Back up</button>
           <button class="btn-data" id="btn-backup-import" data-i18n="btn_backup_import">♻️ Restore</button>
         </div>
-        <input type="file" id="backup-file-input" accept=".json,application/json" style="display:none" />
+        <input type="file" id="backup-file-input" accept=".json,application/json" />
       </div>
 
       <div class="option-row">

@@ -2616,3 +2616,134 @@ body.compact-mode .btn-compact {
   padding: 2px 4px;
   text-decoration: underline;
 }
+
+/* ─── U29 (9.0.1): trước đây là style inline trong popup.html ─────────────────
+   Đặt cuối file để cùng độ ưu tiên với rule id có sẵn mà vẫn thắng theo thứ tự.
+   Các phần tử ẩn ở đây được JS hiện bằng style.display = '<giá trị>' (inline
+   thắng stylesheet); không dùng style.display = '' cho chúng. */
+
+#restore-banner {
+  display: none;
+}
+
+#btn-watch-toggle {
+  display: none;
+}
+
+#onboarding-section {
+  display: none;
+}
+
+#section-daterange {
+  display: none;
+}
+
+#daterange-active-badge {
+  display: none;
+}
+
+#btn-daterange-clear {
+  display: none;
+}
+
+#daterange-panel {
+  display: none;
+}
+
+#daterange-count-row {
+  display: none;
+}
+
+.daterange-presets--below {
+  margin-top: 6px;
+}
+
+#progress-wrap {
+  display: none;
+}
+
+#progress-fill {
+  width: 0%;
+}
+
+#active-downloads-list {
+  display: none;
+}
+
+#error-details {
+  display: none;
+}
+
+.inline-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#section-scroll {
+  display: none;
+}
+
+#skip-duplicates-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding: 2px 0;
+}
+
+.skip-duplicates-label {
+  font-size: 12px;
+  color: var(--text-sec);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+#opt-skip-duplicates {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+#downloaded-count-badge {
+  font-size: 11px;
+  background: rgba(29,155,240,0.1);
+  color: var(--accent);
+  padding: 2px 6px;
+  border-radius: 10px;
+  display: none;
+}
+
+#btn-clear-downloaded {
+  display: none;
+}
+
+#download-preview {
+  display: none;
+}
+
+#preview-skip-row {
+  display: none;
+}
+
+#preview-warning {
+  display: none;
+}
+
+#btn-stop-download {
+  display: none;
+}
+
+.queue-add-plus {
+  margin-left: -4px;
+  color: var(--green);
+}
+
+#queue-count-badge {
+  display: none;
+}
+
+#nav-queue-badge {
+  display: none;
+}

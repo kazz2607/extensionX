@@ -43,12 +43,25 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
+// L30 (9.0.1): Chrome dừng service worker sau 30 giây không có sự kiện hay lời
+// gọi API extension. Một file mp4 lớn qua chrome.downloads không phát sự kiện nào
+// cho tới khi xong, nên trong lúc tải cần tự làm mới bộ đếm:
+//  - lời gọi API nhẹ mỗi 20 giây (lời gọi API extension reset bộ đếm, Chrome ≥ 110);
+//  - alarm làm lưới an toàn khi worker vừa khởi động lại. Chu kỳ tối thiểu Chrome
+//    cho phép là 0,5 phút — giá trị 0,4 cũ bị kéo lên 30 giây, đúng bằng ngưỡng.
+// Không đo được bằng Playwright: DevTools gắn vào worker khiến Chrome không dừng nó.
+const KEEPALIVE_PING_MS = 20_000;
+let _keepAliveTimer: ReturnType<typeof setInterval> | null = null;
+
 function startKeepAlive() {
-  chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: 0.4 }); // mỗi 24 giây
+  chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: 0.5 });
+  _keepAliveTimer ??= setInterval(() => { void chrome.runtime.getPlatformInfo().catch(() => {}); }, KEEPALIVE_PING_MS);
 }
 
 function stopKeepAlive() {
   chrome.alarms.clear(KEEPALIVE_ALARM);
+  if (_keepAliveTimer) clearInterval(_keepAliveTimer);
+  _keepAliveTimer = null;
 }
 
 // Global throttle cho ACTIVE_DOWNLOADS_UPDATE overlay (không per-operation)
@@ -264,7 +277,11 @@ function findTweetMediaInStore(tweetId: string, username?: string): MediaItem[] 
 }
 
 // ─── Handler: Download single tweet từ Mini Button ───────────────────────────
-async function handleDownloadTweet(tweetId: string, username: string | undefined, tabId: number | undefined) {
+// L29 (9.0.1): lượt tải từ nút tweet giữ slot của downloadCoordinator như mọi
+// lượt khác — Stop dừng được, không chạy chồng lên lượt tải profile/Queue, và
+// popup thấy trạng thái đang tải. Chống trùng/thư mục theo profile chứa media
+// (hoặc tác giả tweet) thay cho khoá chung 'unknown'.
+async function handleDownloadTweet(tweetId: string, username: string | undefined, tabId: number | undefined, authorHint?: string) {
   const sendResult = (state: string, extra: Record<string, unknown> = {}) => {
     if (!tabId) return;
     chrome.tabs.sendMessage(tabId, {
@@ -272,6 +289,22 @@ async function handleDownloadTweet(tweetId: string, username: string | undefined
       payload: { tweetId, state, ...extra }
     }).catch(() => {});
   };
+
+  const fallbackKey = username || authorHint || 'unknown';
+  const operation = downloadCoordinator.begin(fallbackKey, 'direct');
+  if (!operation) { sendResult('error', { message: t('bg_err_download_busy') }); return; }
+  const isCancelled = () => !downloadCoordinator.isCurrent(operation.id);
+  // Stop có thể đến khi chrome.downloads chưa trả id (máy chủ chưa phản hồi):
+  // khi đó không có gì để huỷ, nên dừng chờ ngay theo tín hiệu abort.
+  const stopped = new Promise<never>((_, reject) => {
+    operation.controller.signal.addEventListener('abort', () => reject(new Error('Download cancelled')), { once: true });
+  });
+  stopped.catch(() => {});
+  startKeepAlive();
+  let success = 0;
+  let failed = 0;
+  let total = 0;
+  let skipped = 0;
 
   try {
     let opts: DownloadOptions = {};
@@ -281,27 +314,21 @@ async function handleDownloadTweet(tweetId: string, username: string | undefined
     } catch (_) {}
 
     const saveFolder = sanitizeFolder(opts.saveFolder || '');
-
-    // BUG-04 FIX: Load duplicate detection trước khi bắt đầu (giống startDownload)
     const skipDuplicates = opts.skipDuplicates !== false;
-    const usernameForDedup = username || 'unknown';
-    if (skipDuplicates) await loadDownloadedUrls(usernameForDedup);
 
     // 1. Tìm trong mediaStore trước (nhanh, không cần API)
-    await ensureMediaStoreLoaded(username || 'unknown');
+    if (username) await ensureMediaStoreLoaded(username);
     let mediaItems = findTweetMediaInStore(tweetId, username);
 
     // 2. Không có trong store → thử API (video/GIF)
     if (!mediaItems.length) {
       try {
         const videoItem = await fetchVideoForTweetWithRefresh(tweetId, tabId);
-        if (videoItem) {
-          const videoMediaItem = videoItem as MediaItem;
-          videoMediaItem.username = username;
-          mediaItems = [videoMediaItem];
-        }
+        if (videoItem) mediaItems = [{ ...(videoItem as MediaItem), username: fallbackKey }];
       } catch (_) {}
     }
+    // Nút trên tweet không được kẹt ở "đang tải" khi người dùng bấm Stop.
+    if (isCancelled()) { sendResult('error', { message: t('shared_err_cancelled') }); return; }
 
     // 3. Vẫn không có → thông báo lỗi
     if (!mediaItems.length) {
@@ -309,42 +336,50 @@ async function handleDownloadTweet(tweetId: string, username: string | undefined
       return;
     }
 
-    // BUG-04 FIX: Lọc file đã tải rồi
-    const originalCount = mediaItems.length;
+    // BUG-04: lọc file đã tải, theo đúng profile của từng file.
+    const keyOf = (item: MediaItem) => item.username || fallbackKey;
+    total = mediaItems.length;
     if (skipDuplicates) {
-      mediaItems = mediaItems.filter((item: MediaItem) => !isAlreadyDownloaded(usernameForDedup, item.url));
+      for (const key of new Set(mediaItems.map(keyOf))) await loadDownloadedUrls(key);
+      mediaItems = mediaItems.filter((item) => !isAlreadyDownloaded(keyOf(item), item.url));
+      skipped = total - mediaItems.length;
       if (mediaItems.length === 0) {
-        sendResult('done', { success: 0, failed: 0, total: originalCount, skipped: originalCount });
+        sendResult('done', { success: 0, failed: 0, total, skipped });
         return;
       }
     }
+    if (!downloadCoordinator.markDownloading(operation.id)) { sendResult('error', { message: t('shared_err_cancelled') }); return; }
 
     // 4. Download tất cả items của tweet (gallery có thể nhiều ảnh)
-    let success = 0;
-    let failed = 0;
     for (const [i, item] of mediaItems.entries()) {
+      if (isCancelled()) break;
       try {
-        await downloadSingleItem(item, username || (item as MediaItem & { username?: string }).username || 'unknown', saveFolder, opts, undefined, i + 1);
+        await Promise.race([downloadSingleItem(item, keyOf(item), saveFolder, opts, isCancelled, i + 1), stopped]);
+        if (isCancelled()) break;
         success++;
-        // BUG-04 FIX: Đánh dấu đã tải (như startDownload đã làm)
-        markDownloaded(usernameForDedup, item.url);
+        markDownloaded(keyOf(item), item.url);
       } catch (err: unknown) {
-        const errMsg = err instanceof Error ? err.message : String(err);
-        console.warn('[SW] DOWNLOAD_TWEET item failed:', errMsg);
+        if (isCancelled()) break;
+        console.warn('[SW] DOWNLOAD_TWEET item failed:', err instanceof Error ? err.message : String(err));
         failed++;
       }
     }
 
-    if (success > 0) {
-      sendResult('done', { success, failed, total: mediaItems.length });
-    } else {
-      sendResult('error', { message: t('bg_err_tweet_all_failed') });
-    }
-
+    if (isCancelled()) sendResult('error', { message: t('shared_err_cancelled') });
+    else if (success > 0) sendResult('done', { success, failed, total, skipped });
+    else sendResult('error', { message: t('bg_err_tweet_all_failed') });
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : String(err);
     console.error('[SW] handleDownloadTweet error:', errMsg);
     sendResult('error', { message: errMsg });
+  } finally {
+    // Stop đã tự giải phóng slot và báo DOWNLOAD_DONE (stopped).
+    if (downloadCoordinator.isCurrent(operation.id)) {
+      downloadCoordinator.settle(operation.id, failed && !success ? 'error' : 'completed');
+      stopKeepAlive();
+      broadcastToPopup('DOWNLOAD_DONE', { username: fallbackKey, success, failed, total, skipped });
+      downloadCoordinator.release(operation.id);
+    }
   }
 }
 /** Lượt tải kết thúc mà không tải file nào: mở khoá popup và FAB của profile. */

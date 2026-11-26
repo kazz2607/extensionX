@@ -1116,8 +1116,10 @@ test('v9.0.0 F3b failed videos are retried at the next lower quality until one w
   // The original URL is what counts as downloaded, so a normal run skips the video.
   const backup = JSON.parse(((await send({ type: 'EXPORT_BACKUP' })) as { json: string }).json);
   assert.deepEqual(backup.downloaded[name], [vid('1280x720')]);
-  const none = await send({ type: 'RETRY_FAILED_ITEMS', payload: { ids: [failedId], lowerQuality: true } }) as { ok?: boolean };
+  const none = await send({ type: 'RETRY_FAILED_ITEMS', payload: { ids: [failedId], lowerQuality: true } }) as { ok?: boolean; error?: string };
   assert.equal(none.ok, false);
+  // 9.0.1: the worker's English table is a packaged JSON file loaded at start-up.
+  assert.match(none.error ?? '', /^[A-Z][a-z]+ /, `worker text is not translated: ${none.error}`);
 });
 test('v9.0.0 F6 a tweet page offers the media of the author\'s own thread, not other people\'s replies', { timeout: 60_000 }, async (t) => {
   const extensionDir = await prepareTestExtension();
@@ -1178,4 +1180,78 @@ test('v9.0.0 F6 a tweet page offers the media of the author\'s own thread, not o
   // Unknown tweet without media: nothing to download; forged input is refused quietly.
   assert.deepEqual(await threadUrls('1850000000000000199'), []);
   assert.deepEqual(await threadUrls('not-a-tweet'), []);
+});
+
+test('v9.0.1 L29 a tweet-button download holds the download slot and Stop ends it', { timeout: 60_000 }, async (t) => {
+  // The CDN never answers until the test ends, so the file stays in progress.
+  const held: Array<() => void> = [];
+  const dir = await mkdtemp(join(tmpdir(), 'extensionx-slow-cdn-'));
+  execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-subj', '/CN=pbs.twimg.com', '-days', '1',
+    '-keyout', join(dir, 'key.pem'), '-out', join(dir, 'cert.pem')], { stdio: 'ignore' });
+  const server = createHttpsServer({ key: await readFile(join(dir, 'key.pem')), cert: await readFile(join(dir, 'cert.pem')) }, (_req, res) => {
+    held.push(() => res.destroy());
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const port = (server.address() as { port: number }).port;
+  const extensionDir = await prepareTestExtension();
+  const profileDir = await mkdtemp(join(tmpdir(), 'extensionx-l29-profile-'));
+  const context = await chromium.launchPersistentContext(profileDir, {
+    executablePath: chromePath,
+    headless: process.env.PLAYWRIGHT_HEADED !== 'true',
+    acceptDownloads: true,
+    args: [
+      `--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`, '--no-first-run',
+      `--host-resolver-rules=MAP pbs.twimg.com 127.0.0.1:${port}`, '--ignore-certificate-errors',
+    ],
+  });
+  t.after(async () => {
+    await context.close();
+    held.forEach((release) => release());
+    await new Promise((resolve) => server.close(resolve));
+    await rm(dir, { recursive: true, force: true });
+    await rm(extensionDir, { recursive: true, force: true });
+    await rm(profileDir, { recursive: true, force: true });
+  });
+  const tweetId = '1850000000000000077';
+  await context.route('https://x.com/**', (route) => route.fulfill({
+    status: 200,
+    contentType: 'text/html',
+    body: `<!doctype html><html><body><main data-testid="primaryColumn">
+      <article>
+        <a href="/Gina/status/${tweetId}"><time>now</time></a>
+        <img src="https://pbs.twimg.com/media/gina-slow.jpg?name=small" />
+        <div role="group"></div>
+      </article></main>
+    </body></html>`,
+  }));
+  const id = await extensionId(context);
+  const gina = await context.newPage();
+  await gina.goto('https://x.com/Gina');
+  const options = await context.newPage();
+  await options.goto(`chrome-extension://${id}/options/options.html`);
+  const send = (message: unknown) => options.evaluate((m) => chrome.runtime.sendMessage(m), message);
+  const isDownloading = async () => ((await send({ type: 'GET_DOWNLOAD_STATE' })) as { isDownloading: boolean }).isDownloading;
+  const buttonClass = () => gina.evaluate((tid) => document.querySelector(`button.xmd-dl-btn[data-xmd-btn="${tid}"]`)?.className ?? '', tweetId);
+  const waitFor = async (check: () => Promise<boolean>, label: string) => {
+    const deadline = Date.now() + 15_000;
+    while (!(await check()) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 200));
+    assert.ok(await check(), label);
+  };
+
+  await waitForCount(async () => ((await send({ type: 'GET_MEDIA_COUNT', payload: { username: 'Gina' } })) as { count: number }).count, 1);
+  await waitFor(async () => (await buttonClass()) !== '', 'tweet button attached');
+  await gina.locator(`button.xmd-dl-btn[data-xmd-btn="${tweetId}"]`).click();
+
+  // Before 9.0.1 the tweet download ran outside the coordinator: the worker
+  // reported idle and Stop had nothing to stop.
+  await waitFor(isDownloading, 'the tweet download holds the download slot');
+  await waitFor(async () => held.length > 0, 'the file request reached the CDN');
+  assert.equal(((await send({ type: 'ADD_TO_QUEUE', payload: { username: 'Gina', filterType: 'all', skipDuplicates: true, keyword: '' } })) as { ok?: boolean }).ok, true);
+  await send({ type: 'START_QUEUE', payload: {} });
+  const queue = ((await send({ type: 'GET_QUEUE' })) as { queue: Array<{ status: string }> }).queue;
+  assert.equal(queue[0]?.status, 'waiting', 'a queue run does not start on top of the tweet download');
+
+  assert.equal(((await send({ type: 'STOP_DOWNLOAD' })) as { ok?: boolean }).ok, true);
+  await waitFor(async () => /xmd-error/.test(await buttonClass()), 'the tweet button leaves the loading state after Stop');
+  assert.doesNotMatch(await buttonClass(), /xmd-loading/);
 });

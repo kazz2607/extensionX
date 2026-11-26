@@ -16,6 +16,11 @@ export interface TranslationTable {
    * moves `vi` into the packaged file i18n/vi/<remote>.json.
    */
   remote?: string;
+  /**
+   * 9.0.1: bảng chỉ service worker dùng — cả phần `en` cũng nằm ở
+   * i18n/en/<remote>.json và luôn được tải (là bảng dự phòng của mọi ngôn ngữ).
+   */
+  remoteEn?: boolean;
 }
 export type { TranslationVars };
 
@@ -33,9 +38,11 @@ export interface I18nAPI {
 
 const TRANSLATIONS: Record<string, Record<string, string>> = { en: {}, vi: {} };
 const REMOTE_TABLES = new Set<string>();
+const REMOTE_EN_TABLES = new Set<string>();
 const remoteLoads = new Map<string, Promise<void>>();
 
 let _currentLang: string = 'en';
+let _languageSet = false;
 
 export function registerTranslations(...tables: TranslationTable[]): void {
   for (const table of tables) {
@@ -43,8 +50,10 @@ export function registerTranslations(...tables: TranslationTable[]): void {
     Object.assign(TRANSLATIONS.vi, table.vi);
     if (table.remote) {
       REMOTE_TABLES.add(table.remote);
+      if (table.remoteEn) REMOTE_EN_TABLES.add(table.remote);
       // Bảng đăng ký muộn (sau loadI18n) vẫn được tải nếu đang dùng tiếng Việt.
-      if (_currentLang === 'vi') void loadRemoteTable(table.remote);
+      if (_currentLang === 'vi') void loadRemoteTable(table.remote, 'vi');
+      if (table.remoteEn && _languageSet) void loadRemoteTable(table.remote, 'en');
     }
   }
 }
@@ -55,31 +64,36 @@ function isStringRecord(value: unknown): value is Record<string, string> {
 }
 
 /**
- * Tải bảng `vi` đóng gói kèm extension. Lỗi thì bỏ qua: t() rơi về tiếng Anh,
- * và lần loadI18n/setLanguage sau sẽ thử lại.
+ * Tải bảng đóng gói kèm extension. Lỗi thì bỏ qua: t() rơi về tiếng Anh (hoặc
+ * về key nếu chính bảng tiếng Anh lỗi), và lần loadI18n/setLanguage sau thử lại.
  */
-function loadRemoteTable(name: string): Promise<void> {
-  let pending = remoteLoads.get(name);
+function loadRemoteTable(name: string, lang: 'en' | 'vi'): Promise<void> {
+  const id = `${lang}/${name}`;
+  let pending = remoteLoads.get(id);
   if (!pending) {
-    pending = fetch(chrome.runtime.getURL(`i18n/vi/${name}.json`))
+    pending = fetch(chrome.runtime.getURL(`i18n/${id}.json`))
       .then((response) => (response.ok ? response.json() : null))
       .then((data: unknown) => {
-        if (!isStringRecord(data)) throw new Error(`invalid locale table ${name}`);
-        Object.assign(TRANSLATIONS.vi, data);
+        if (!isStringRecord(data)) throw new Error(`invalid locale table ${id}`);
+        Object.assign(TRANSLATIONS[lang], data);
       })
       .catch((error: unknown) => {
-        remoteLoads.delete(name);
-        console.warn('[i18n] could not load', name, error);
+        remoteLoads.delete(id);
+        console.warn('[i18n] could not load', id, error);
       });
-    remoteLoads.set(name, pending);
+    remoteLoads.set(id, pending);
   }
   return pending;
 }
 
 /** Đặt ngôn ngữ hiện tại sau khi các bảng cần cho ngôn ngữ đó đã sẵn sàng. */
 export async function setLanguage(lang: string): Promise<void> {
-  if (lang === 'vi') await Promise.all([...REMOTE_TABLES].map(loadRemoteTable));
+  await Promise.all([
+    ...[...REMOTE_EN_TABLES].map((name) => loadRemoteTable(name, 'en')),
+    ...(lang === 'vi' ? [...REMOTE_TABLES].map((name) => loadRemoteTable(name, 'vi')) : []),
+  ]);
   _currentLang = lang;
+  _languageSet = true;
 }
 
 // Load ngôn ngữ từ chrome.storage.local
