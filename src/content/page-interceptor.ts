@@ -14,27 +14,8 @@ import { parseFollowingGraphqlPage } from '../shared/following-scanner.ts';
 
 import { sendToExtension } from './page-bridge.ts';
 import { routeCollectsMedia } from './page-route.ts';
-
-/** Phần JSON GraphQL của X mà parser đọc tới; mọi trường đều có thể thiếu. */
-interface GraphqlVariant { content_type?: string; bitrate?: number; url?: string }
-interface GraphqlMedia {
-  type?: string;
-  id_str?: string;
-  media_key?: string;
-  source_status_id_str?: string;
-  media_url_https?: string;
-  media_url?: string;
-  original_info?: { width?: number; height?: number };
-  video_info?: { variants?: GraphqlVariant[] };
-}
-interface GraphqlNode {
-  [key: string]: unknown;
-  id_str?: string;
-  full_text?: string;
-  favorite_count?: unknown;
-  extended_entities?: { media?: unknown };
-  entities?: { media?: unknown };
-}
+import { onAddedElements } from './page-navigation.ts';
+import { extractMediaFromResponse } from '../shared/graphql-media.ts';
 
 (function () {
   'use strict';
@@ -253,89 +234,6 @@ interface GraphqlNode {
     return response;
   };
 
-  // ─── Helper: Lấy extension ảnh từ URL ──────────────────────────────────────
-  function getImageExt(url: string) {
-    const m = url.match(/\.(jpg|jpeg|png|webp|gif)(?:[?#]|$)/i);
-    return m ? m[1].toLowerCase() : 'jpg';
-  }
-
-  // ─── Helper: Parse JSON GraphQL tìm video ─────────────────────────────────────
-  function extractMediaFromResponse(value: unknown, results: unknown[], depth = 0) {
-    if (depth > 35 || !value || typeof value !== 'object') return;
-    const obj = value as GraphqlNode;
-
-    const mediaList = (obj.extended_entities && Array.isArray(obj.extended_entities.media))
-      ? obj.extended_entities.media
-      : ((obj.entities && Array.isArray(obj.entities.media)) ? obj.entities.media : null);
-
-    if (mediaList && Array.isArray(mediaList)) {
-      (mediaList as GraphqlMedia[]).forEach(media => {
-        if (!media || typeof media !== 'object') return;
-        const type = media.type;
-        const tweetId = media.source_status_id_str || obj.id_str || media.id_str || '';
-        // F2: số like nằm trên cùng object tweet (không cần request thêm), nhưng chỉ
-        // đúng khi media thuộc chính tweet này — media của tweet gốc được chia sẻ lại
-        // (source_status_id_str khác) thì số like của tweet bọc ngoài là sai.
-        const ownMedia = !media.source_status_id_str || media.source_status_id_str === obj.id_str;
-        const likeCount = ownMedia && typeof obj.favorite_count === 'number' && Number.isSafeInteger(obj.favorite_count) && obj.favorite_count >= 0 ? obj.favorite_count : undefined;
-        if (type === 'video' || type === 'animated_gif') {
-          const variants = media.video_info?.variants || [];
-          let bestMp4: GraphqlVariant | undefined = variants
-            .filter(v => v.content_type === 'video/mp4')
-            .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
-
-          let isHls = false;
-          if (!bestMp4) {
-            bestMp4 = variants.find(v => v.content_type === 'application/x-mpegURL');
-            if (bestMp4) isHls = true;
-          }
-
-          if (bestMp4) {
-            results.push({
-              type: isHls ? 'hls' : (type === 'animated_gif' ? 'gif' : 'video'),
-              url: bestMp4.url,
-              tweetId,
-              mediaKey: media.media_key || media.id_str || tweetId,
-              ext: isHls ? 'm3u8' : 'mp4',
-              tweetText: obj.full_text || '',
-              likeCount,
-            });
-          }
-        } else if (type === 'photo') {
-           let photoUrl = media.media_url_https || media.media_url;
-           if (photoUrl) {
-             // Pre-filter: bỏ qua avatar, banner, card preview ngay tại nguồn
-             if (
-               photoUrl.includes('/profile_images/') ||
-               photoUrl.includes('/profile_banners/') ||
-               photoUrl.includes('/card_img/')
-             ) return;
-
-             photoUrl = photoUrl.replace(/name=\w+/, 'name=orig');
-             results.push({
-               type: 'image',
-               url: photoUrl,
-               tweetId,
-               ext: getImageExt(photoUrl),
-               width:    media.original_info?.width  || 0,
-               height:   media.original_info?.height || 0,
-               mediaKey: media.media_key || media.id_str || tweetId,
-               tweetText: obj.full_text || '',
-               likeCount,
-             });
-           }
-        }
-      });
-    }
-
-    // Đệ quy
-    for (const child of Object.values(obj)) {
-      if (child !== null && typeof child === 'object') {
-        extractMediaFromResponse(child, results, depth + 1);
-      }
-    }
-  }
-
   // ─── 2. Hook XMLHttpRequest ──────────────────────────────────────────────────
   // URL theo từng XHR, giữ ngoài object để trang không đọc/sửa được.
   const xhrUrls = new WeakMap<XMLHttpRequest, string>();
@@ -393,27 +291,18 @@ interface GraphqlNode {
   }
 
   // ─── 4. MutationObserver để bắt video elements mới thêm vào DOM ─────────────
-  const domObserver = new MutationObserver((mutations) => {
-    for (const mutation of mutations) {
-      for (const node of mutation.addedNodes) {
-        // nodeType/tagName thay vì instanceof: node tạo ở realm khác (iframe)
-        // không phải instance của Element trong trang này.
-        if (node.nodeType !== Node.ELEMENT_NODE) continue;
-        const el = node as Element;
-        if (el.tagName === 'VIDEO') {
-          watchVideoElement(el as HTMLVideoElement);
-        } else {
-          el.querySelectorAll?.('video').forEach(watchVideoElement);
-        }
+  // P22: dùng observer chung của MAIN world (page-navigation.ts).
+  onAddedElements((elements) => {
+    for (const el of elements) {
+      if (el.tagName === 'VIDEO') {
+        watchVideoElement(el as HTMLVideoElement);
+      } else {
+        el.querySelectorAll?.('video').forEach(watchVideoElement);
       }
     }
   });
 
   function startObserving() {
-    domObserver.observe(document.documentElement, {
-      childList: true,
-      subtree: true,
-    });
     // Scan các video đã có sẵn
     document.querySelectorAll('video').forEach(watchVideoElement);
   }

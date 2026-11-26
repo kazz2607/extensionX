@@ -29,6 +29,8 @@ export const EXTENSION_TO_PAGE = [
   'XMD_SCAN_DOM',
   // MAIN-world UI (tweet button) has no chrome.storage; content.ts sends the language.
   'XMD_LANG_UPDATE',
+  // v8.4.0 P22: diagnostics opt-in, so page scripts stop posting metrics when off.
+  'XMD_DIAGNOSTICS',
 ] as const;
 
 export type PageToExtensionType = typeof PAGE_TO_EXTENSION[number];

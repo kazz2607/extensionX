@@ -7,12 +7,12 @@
  *   - Người dùng cuộn trang (debounce 500ms)
  *   - MutationObserver phát hiện DOM thay đổi (tweet mới render)
  *
- * P3: Observer chỉ observe primaryColumn (thu hẹp subtree), scroll debounced,
+ * P3/P22: chỉ xử lý node mới trong primaryColumn (qua observer chung của MAIN world), scroll debounced,
  *     teardown hook cho SPA navigation, Performance.mark/measure quanh scan.
  */
 
 import { onExtensionMessage, sendToExtension } from './page-bridge.ts';
-import { onNavigation } from './page-navigation.ts';
+import { onAddedElements, onNavigation } from './page-navigation.ts';
 import { routeCollectsMedia } from './page-route.ts';
 
 (function () {
@@ -28,6 +28,8 @@ import { routeCollectsMedia } from './page-route.ts';
   const DISCOVERED_MAX = 20_000;
   const DISCOVERED_EVICT = 2_000;
   const discovered = new Set<string>();
+  // P22: cờ diagnostics do content.ts gửi xuống (XMD_DIAGNOSTICS); mặc định tắt.
+  let diagnosticsEnabled = false;
   function remember(key: string): void {
     if (discovered.size >= DISCOVERED_MAX) {
       let evicted = 0;
@@ -193,7 +195,7 @@ import { routeCollectsMedia } from './page-route.ts';
 
     // Aggregated performance data only. The isolated content script validates
     // this allowlisted metric before it can reach extension storage.
-    sendToExtension('XMD_DIAGNOSTIC_METRIC', { name: 'scan.duration_ms', value: Math.round(performance.now() - startedAt) });
+    if (diagnosticsEnabled) sendToExtension('XMD_DIAGNOSTIC_METRIC', { name: 'scan.duration_ms', value: Math.round(performance.now() - startedAt) });
 
     return found.length;
   }
@@ -240,17 +242,17 @@ import { routeCollectsMedia } from './page-route.ts';
   // ─── MutationObserver: quét khi DOM thay đổi ───────────────────────────────
   let scanTimeout: ReturnType<typeof setTimeout> | null = null;
   const pendingRoots = new Set<Element>();
-  const observer = new MutationObserver((mutations) => {
-    if (document.hidden) return;
-    sendToExtension('XMD_DIAGNOSTIC_METRIC', { name: 'observer.callback', value: 1 });
-    for (const mutation of mutations) {
-      for (const node of mutation.addedNodes) {
-        if (node.nodeType !== 1) continue;
-        const element = node as Element;
-        if (element.tagName === 'ARTICLE' || element.tagName === 'IMG' || element.tagName === 'VIDEO' ||
-          element.querySelector?.('article, img[src*="pbs.twimg.com"], video, img[src*="video_thumb"]')) {
-          pendingRoots.add(element);
-        }
+  // P22: observer chung của MAIN world; chỉ làm việc trên route thu thập media
+  // và trong vùng primaryColumn như observer riêng trước đây.
+  function onElementsAdded(elements: readonly Element[]) {
+    if (!observing || document.hidden || !routeCollectsMedia()) return;
+    if (diagnosticsEnabled) sendToExtension('XMD_DIAGNOSTIC_METRIC', { name: 'observer.callback', value: 1 });
+    const scope = getObserveRoot();
+    for (const element of elements) {
+      if (!scope.contains(element)) continue;
+      if (element.tagName === 'ARTICLE' || element.tagName === 'IMG' || element.tagName === 'VIDEO' ||
+        element.querySelector?.('article, img[src*="pbs.twimg.com"], video, img[src*="video_thumb"]')) {
+        pendingRoots.add(element);
       }
     }
 
@@ -263,7 +265,7 @@ import { routeCollectsMedia } from './page-route.ts';
         roots.forEach(root => scanDOM(root));
       }, 800);
     }
-  });
+  }
 
   // P3: Observe subtree thu hẹp — ưu tiên primaryColumn để giảm callback CPU.
   // Fallback về document.body nếu X.com chưa render primaryColumn.
@@ -273,28 +275,20 @@ import { routeCollectsMedia } from './page-route.ts';
            document.body;
   }
 
-  function startObserver() {
-    const root = getObserveRoot();
-    observer.observe(root, { childList: true, subtree: true });
-  }
+  // Tạm ngưng trong lúc X đổi DOM sau điều hướng (thay cho disconnect/observe lại).
+  let observing = true;
+  onAddedElements(onElementsAdded);
 
   function handleVisibilityChange() {
     if (!document.hidden) scanDOM(getObserveRoot());
   }
   document.addEventListener('visibilitychange', handleVisibilityChange);
 
-  // An toàn: chờ document.body sẵn sàng
-  if (document.body) {
-    startObserver();
-  } else {
-    document.addEventListener('DOMContentLoaded', startObserver, { once: true });
-  }
-
-  // ─── P3: SPA navigation — rebind observer to the new route's primaryColumn ─
+  // ─── P3: SPA navigation — pause, then follow the new route's primaryColumn ─
   // URLs seen on the previous route are forgotten so the set stays bounded.
   let rebindTimer: ReturnType<typeof setTimeout> | null = null;
   onNavigation(() => {
-    observer.disconnect();
+    observing = false;
     pendingRoots.clear();
     discovered.clear();
     if (scanTimeout) { clearTimeout(scanTimeout); scanTimeout = null; }
@@ -302,7 +296,7 @@ import { routeCollectsMedia } from './page-route.ts';
     // Give X a moment to swap the route's DOM before observing it.
     rebindTimer = setTimeout(() => {
       rebindTimer = null;
-      startObserver();
+      observing = true;
       scanDOM(getObserveRoot());
     }, 300);
   });
@@ -312,5 +306,11 @@ import { routeCollectsMedia } from './page-route.ts';
 
   // content.ts asks for a scan after each auto-scroll step.
   onExtensionMessage('XMD_SCAN_DOM', () => { scanDOM(document); });
+
+  // P22: metric chẩn đoán chỉ gửi khi người dùng bật (content.ts đẩy cờ xuống),
+  // để bridge không bị gọi ở mỗi lô DOM khi diagnostics tắt (mặc định).
+  onExtensionMessage('XMD_DIAGNOSTICS', (detail) => {
+    diagnosticsEnabled = (detail as { enabled?: unknown } | null)?.enabled === true;
+  });
 
 })();

@@ -185,6 +185,8 @@ onPageMessage('X_MEDIA_FOUND', (detail) => {
 let diagnosticsEnabled = false;
 function readDiagnosticsFlag(options: unknown) {
   diagnosticsEnabled = (options as { localDiagnostics?: unknown } | undefined)?.localDiagnostics === true;
+  // P22: dom-scanner (MAIN world) không đọc được storage — báo cờ xuống trang.
+  sendToPage('XMD_DIAGNOSTICS', { enabled: diagnosticsEnabled });
 }
 chrome.storage.sync.get('options').then((stored) => readDiagnosticsFlag(stored.options)).catch(() => {});
 

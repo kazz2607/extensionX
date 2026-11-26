@@ -349,7 +349,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     langSelect.addEventListener('change', async (e) => {
       const newLang = (e.target as HTMLSelectElement).value;
       if (window.i18n) {
-        window.i18n.lang = newLang;
+        // P26a: bảng tiếng Việt tải theo nhu cầu, phải chờ xong mới render lại.
+        await window.i18n.setLanguage(newLang);
         window.i18n.applyToDOM();
       }
       // Text dựng động (không có data-i18n) cần render lại theo ngôn ngữ mới

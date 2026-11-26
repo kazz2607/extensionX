@@ -336,6 +336,8 @@ export async function clearAllDownloadedUrls(): Promise<void> {
   });
 }
 
+const STORAGE_SAMPLE_SIZE = 200;
+
 export async function getStorageSummary(): Promise<StorageSummary> {
   const db = await initDB();
   const profiles = new Map<string, StorageProfileSummary>();
@@ -346,23 +348,37 @@ export async function getStorageSummary(): Promise<StorageSummary> {
     profiles.set(username, created);
     return created;
   };
+  // P20: không đọc và stringify mọi record nữa. Danh sách profile lấy bằng key
+  // cursor `nextunique` trên index username, số record bằng count() của index
+  // (không giải tuần tự giá trị); dung lượng ước lượng từ kích thước trung bình
+  // của một mẫu nhỏ đầu mỗi store.
+  const averageBytes = { media: 0, downloaded: 0 };
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction([STORE_NAME, DOWNLOADED_STORE_NAME], 'readonly');
     const visit = (storeName: string, kind: 'media' | 'downloaded') => {
-      const request = tx.objectStore(storeName).openCursor();
-      request.onsuccess = () => {
-        const cursor = request.result;
+      const index = tx.objectStore(storeName).index('username');
+      const keys = index.openKeyCursor(null, 'nextunique');
+      keys.onsuccess = () => {
+        const cursor = keys.result;
         if (!cursor) return;
-        const value = cursor.value as { username?: unknown };
-        if (typeof value.username === 'string') {
-          const profile = ensureProfile(value.username);
-          if (kind === 'media') profile.mediaItems++;
-          else profile.downloadedUrls++;
-          profile.approximateBytes += JSON.stringify(value).length * 2;
+        if (typeof cursor.key === 'string') {
+          const profile = ensureProfile(cursor.key);
+          const count = index.count(IDBKeyRange.only(cursor.key));
+          count.onsuccess = () => {
+            if (kind === 'media') profile.mediaItems = count.result;
+            else profile.downloadedUrls = count.result;
+          };
+          count.onerror = () => reject(count.error);
         }
         cursor.continue();
       };
-      request.onerror = () => reject(request.error);
+      keys.onerror = () => reject(keys.error);
+      const sample = tx.objectStore(storeName).getAll(null, STORAGE_SAMPLE_SIZE);
+      sample.onsuccess = () => {
+        const values = sample.result;
+        if (values.length) averageBytes[kind] = values.reduce((sum: number, value: unknown) => sum + JSON.stringify(value).length * 2, 0) / values.length;
+      };
+      sample.onerror = () => reject(sample.error);
     };
     visit(STORE_NAME, 'media');
     visit(DOWNLOADED_STORE_NAME, 'downloaded');
@@ -370,6 +386,9 @@ export async function getStorageSummary(): Promise<StorageSummary> {
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error || new Error('Storage summary transaction aborted'));
   });
+  for (const profile of profiles.values()) {
+    profile.approximateBytes = Math.round(profile.mediaItems * averageBytes.media + profile.downloadedUrls * averageBytes.downloaded);
+  }
   const estimate: StorageEstimate = await navigator.storage?.estimate?.().catch(() => ({} as StorageEstimate)) ?? {};
   const values = [...profiles.values()].sort((a, b) => b.approximateBytes - a.approximateBytes);
   return {

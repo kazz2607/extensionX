@@ -12,7 +12,7 @@
  */
 
 import { onExtensionMessage, sendToExtension } from './page-bridge.ts';
-import { onNavigation } from './page-navigation.ts';
+import { onAddedElements, onNavigation } from './page-navigation.ts';
 // MAIN world: no chrome.storage / window.i18n — the language arrives from
 // content.ts over the page bridge and strings come straight from the table.
 import { TWEET_BUTTON_STRINGS, translateFrom } from '../lib/i18n/content.ts';
@@ -339,17 +339,15 @@ interface TweetDownloadButton extends HTMLButtonElement {
   // every article on the page each time X appends a tweet.
   const pendingRoots = new Set<Element>();
   let scanDebounce: ReturnType<typeof setTimeout> | undefined;
-  const observer = new MutationObserver((mutations) => {
-    for (const mutation of mutations) {
-      for (const node of mutation.addedNodes) {
-        if (!(node instanceof Element)) continue;
-        // Media or an action bar can arrive inside an existing article after
-        // it was first scanned (or X re-renders the bar and drops our button):
-        // rescan that article too.
-        const host = node.closest('article');
-        if (host) pendingRoots.add(host);
-        else if (node.tagName === 'ARTICLE' || node.querySelector('article')) pendingRoots.add(node);
-      }
+  // P22: shared MAIN-world observer (page-navigation.ts).
+  onAddedElements((elements) => {
+    for (const node of elements) {
+      // Media or an action bar can arrive inside an existing article after
+      // it was first scanned (or X re-renders the bar and drops our button):
+      // rescan that article too.
+      const host = node.closest('article');
+      if (host) pendingRoots.add(host);
+      else if (node.tagName === 'ARTICLE' || node.querySelector('article')) pendingRoots.add(node);
     }
     if (pendingRoots.size === 0) return;
     clearTimeout(scanDebounce);
@@ -361,17 +359,6 @@ interface TweetDownloadButton extends HTMLButtonElement {
     }, 500);
   });
 
-  function startObserver() {
-    if (document.body) {
-      observer.observe(document.body, { childList: true, subtree: true });
-    } else {
-      document.addEventListener('DOMContentLoaded', () => {
-        observer.observe(document.body, { childList: true, subtree: true });
-      }, { once: true });
-    }
-  }
-
-  startObserver();
 
   // Scan ngay sau khi script load
   setTimeout(() => scanArticles(), 1000);

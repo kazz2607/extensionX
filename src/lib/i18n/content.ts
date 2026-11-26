@@ -162,5 +162,5 @@ export const TELEGRAM_STRINGS: TranslationTable = {
  * window.i18n instance with its own copy.
  */
 export function translateFrom(table: TranslationTable, lang: string, key: string, vars?: TranslationVars): string {
-  return translate(table, lang, key, vars);
+  return translate({ en: table.en, vi: table.vi }, lang, key, vars);
 }

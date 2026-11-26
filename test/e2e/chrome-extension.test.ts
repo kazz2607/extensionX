@@ -496,7 +496,18 @@ test('P1 responsive, keyboard and screenshot acceptance covers every primary sur
   });
   assert.equal(lightTheme.theme, 'light');
   assert.ok(lightTheme.body > 0.85 && lightTheme.confirm > 0.85, `light theme surfaces are dark: ${JSON.stringify(lightTheme)}`);
-  await popup.evaluate(() => chrome.storage.local.set({ theme: 'dark' }));
+  // v8.4.0 P26a: the vi tables are packaged JSON loaded on demand, not bundled.
+  await popup.evaluate(() => chrome.storage.local.set({ lang: 'vi' }));
+  await popup.reload();
+  await popup.locator('#nav-main').waitFor();
+  const vietnamese = await popup.evaluate(() => ({
+    lang: document.documentElement.lang,
+    tab: document.querySelector('#nav-queue')?.textContent?.trim(),
+    translated: [...document.querySelectorAll('[data-i18n]')].filter((el) => /[ăâđêôơưạảấầậắằặếềệịọộớờợụứừựỳ]/i.test(el.textContent || '')).length,
+  }));
+  assert.equal(vietnamese.lang, 'vi');
+  assert.ok(vietnamese.translated >= 30, `popup is not translated to Vietnamese: ${JSON.stringify(vietnamese)}`);
+  await popup.evaluate(() => chrome.storage.local.set({ lang: 'en', theme: 'dark' }));
   await popup.reload();
   await popup.locator('#nav-main').waitFor();
   const surfaces = [
@@ -948,6 +959,13 @@ test('v8.0.0-8.2.0 failed downloads are recorded by reason, retried selectively,
     });
     db.close();
   }, { user: name, list: urls });
+  // v8.4.0 P20: counts come from the username index, bytes from a sample.
+  const { summary } = await send({ type: 'GET_STORAGE_SUMMARY' }) as { summary: { profiles: Array<{ username: string; mediaItems: number; downloadedUrls: number; approximateBytes: number }>; totalMediaItems: number } };
+  const erin = summary.profiles.find((profile) => profile.username === name);
+  assert.equal(erin?.mediaItems, urls.length);
+  assert.equal(erin?.downloadedUrls, 0);
+  assert.ok((erin?.approximateBytes ?? 0) > 0, `profile size not estimated: ${JSON.stringify(erin)}`);
+  assert.equal(summary.totalMediaItems, urls.length);
 
   type Failed = { id: string; url: string; reason: string };
   const failedItems = async () => ((await send({ type: 'GET_FAILED_ITEMS' })) as { items: Failed[] }).items;

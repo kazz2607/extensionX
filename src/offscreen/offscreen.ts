@@ -40,6 +40,7 @@ async function saveBlob(blob: Blob, filename: string, username: string): Promise
 }
 
 const ZIP_MAX_BYTES = 500 * 1024 * 1024;
+const ZIP_FETCH_CONCURRENCY = 4;
 // Playlist HLS là văn bản, không phải video: không đưa vào ZIP (dùng tải trực tiếp).
 const ZIP_URL_PATTERN = /^https:\/\/(?:pbs\.twimg\.com|video\.twimg\.com|cdn\.syndication\.twimg\.com)\/(?![^?#]*\.m3u8(?:[?#]|$))/i;
 let zipRunning = false;
@@ -82,12 +83,21 @@ async function processZipChunks(msg: OffscreenMessage): Promise<ZipResult> {
       await saveBlob(blob, `${username}/zip/media_${result.archives}.zip`, username);
     };
 
-    for (const [index, item] of items.entries()) {
-      if (!ZIP_URL_PATTERN.test(item.url)) { result.skipped++; continue; }
-      // Một file lỗi mạng không được làm hỏng cả lượt ZIP.
-      const buffer = await fetch(item.url, { credentials: 'omit', cache: 'no-store' })
+    // P25: tải trước tối đa ZIP_FETCH_CONCURRENCY file nhưng xử lý đúng thứ tự
+    // (tên file, chống trùng theo hash và chia phần không đổi so với tải tuần
+    // tự). Cửa sổ nhỏ để RAM chỉ thêm vài file ngoài phần ZIP đang mở.
+    // Một file lỗi mạng không được làm hỏng cả lượt ZIP.
+    const fetchItem = (item: ZipItem): Promise<ArrayBuffer | null> => (ZIP_URL_PATTERN.test(item.url)
+      ? fetch(item.url, { credentials: 'omit', cache: 'no-store' })
         .then((response) => (response.ok ? response.arrayBuffer() : null))
-        .catch(() => null);
+        .catch(() => null)
+      : Promise.resolve(null));
+    const prefetched: Array<Promise<ArrayBuffer | null>> = [];
+    let nextFetch = 0;
+
+    for (const [index, item] of items.entries()) {
+      while (nextFetch < items.length && prefetched.length < ZIP_FETCH_CONCURRENCY) prefetched.push(fetchItem(items[nextFetch++]));
+      const buffer = await prefetched.shift();
       if (!buffer) { result.skipped++; continue; }
       const decision = zipPartDecision(bytes, entries.length, buffer.byteLength, ZIP_MAX_BYTES, chunkSize);
       if (decision === 'skip') { result.skipped++; continue; }

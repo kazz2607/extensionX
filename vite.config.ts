@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import webExtension from "vite-plugin-web-extension";
+import localeSplit from "./scripts/vite-locale-split.mjs";
 
 export default defineConfig({
   root: "src",
@@ -20,6 +21,8 @@ export default defineConfig({
     },
   },
   plugins: [
+    // P26a: bảng dịch vi của trang extension/service worker thành file JSON tải theo nhu cầu.
+    localeSplit(),
     webExtension({
       manifest: "manifest.json",
       additionalInputs: [

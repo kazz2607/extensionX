@@ -18,9 +18,10 @@
     "budget": "node scripts/check-performance-budget.mjs",
     "i18n": "node scripts/check-i18n.mjs",
     "benchmark:media": "node scripts/benchmark-media-query.mjs",
+    "benchmark:graphql": "node scripts/benchmark-graphql-media.mjs",
     "audit:dependencies": "node scripts/audit-dependencies.mjs",
     "release:manifest": "node scripts/create-release-manifest.mjs",
-    "check": "npm run typecheck && npm run lint && npm run i18n && npm run test && npm run test:e2e && npm run benchmark:media && npm run audit:dependencies && npm run build && npm run budget && npm run release:manifest"
+    "check": "npm run typecheck && npm run lint && npm run i18n && npm run test && npm run test:e2e && npm run benchmark:media && npm run benchmark:graphql && npm run audit:dependencies && npm run build && npm run budget && npm run release:manifest"
   },
   "repository": {
     "type": "git",
