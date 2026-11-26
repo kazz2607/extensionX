@@ -1,5 +1,5 @@
 import { PUBLIC_DOWNLOAD_OPTION_KEYS } from './download-options.ts';
-import { searchSourceFromUrl } from './collection-source.ts';
+import { searchSourceFromUrl, searchSourceKey } from './collection-source.ts';
 import type { MediaItem, QueueItem } from '../types.ts';
 
 export const USERNAME_PATTERN = /^(?:[A-Za-z0-9_]{1,50}|_bookmarks_|[A-Za-z0-9_]{1,50}_likes)$/;
@@ -100,6 +100,29 @@ export function usernameFromXUrl(value: unknown): string | null {
   // L23: chỉ `/<user>/likes` là trang likes; `/<user>/status/<id>/likes`
   // (danh sách người thích một tweet) từng bị nhận nhầm thành khoá `_likes`.
   return path.split('/')[2]?.toLowerCase() === 'likes' ? `${username}_likes` : username;
+}
+
+/**
+ * F1c: khoá thu thập từ chữ người dùng nhập (Saved Job, công cụ P2): `NASA`,
+ * `@NASA`, `#cats`, hoặc URL X của profile / Search / Hashtag / List (có hoặc
+ * không có `https://`). Khoá nội bộ có sẵn (vd. `_search_…`) giữ nguyên.
+ */
+export function collectionKeyFromInput(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const text = value.trim();
+  if (!text || text.length > 2_048) return null;
+  if (text.startsWith('#')) {
+    const tag = text.slice(1).trim();
+    return tag && !/[\s/?#]/.test(tag) ? searchSourceKey('hashtag', tag) : null;
+  }
+  if (/^(?:https?:\/\/)?(?:www\.|mobile\.)?(?:x|twitter)\.com\//i.test(text)) {
+    const url = new URL(/^https?:\/\//i.test(text) ? text : `https://${text}`);
+    url.protocol = 'https:';
+    url.hostname = url.hostname.replace(/^(?:www|mobile)\./i, '').toLowerCase();
+    return usernameFromXUrl(url.href);
+  }
+  const handle = text.replace(/^@/, '');
+  return isValidUsername(handle) ? handle : null;
 }
 
 /**

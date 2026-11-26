@@ -3,6 +3,7 @@
  * Tách nguyên vẹn từ popup.ts, không đổi hành vi: diff-render theo signature
  * id+status (Pha 3) để tránh rebuild DOM khi chỉ progress thay đổi.
  */
+import { collectionKeyLabel } from '../shared/collection-source.ts';
 import type { QueueItem } from '../types.ts';
 import { getQueuePresentation } from '../shared/queue-presentation.ts';
 import type { MessageType, ResponseFor } from '../shared/messages.ts';
@@ -222,18 +223,20 @@ export function renderQueue(): void {
     const canRemove = item.status !== 'downloading';
     const id = String(item.id || '').slice(0, 120);
     const username = String(item.username || '').slice(0, 50);
+    // F1c: nguồn Search/Hashtag/List hiện nhãn dễ đọc thay cho khoá nội bộ.
+    const label = collectionKeyLabel(username);
     const safeStatus = String(item.status || '').replace(/[^a-z]/g, '');
     const row = document.createElement('li');
     row.className = `queue-item status-${safeStatus}${isPaused ? ' paused' : ''}`;
     row.dataset.id = id;
-    row.setAttribute('aria-label', `@${username}: ${statusLabel}`);
+    row.setAttribute('aria-label', `${label}: ${statusLabel}`);
     const select = document.createElement('input');
     select.type = 'checkbox'; select.className = 'queue-select'; select.checked = selectedQueueIds.has(id);
-    select.setAttribute('aria-label', t('popup_select_user', { username }));
+    select.setAttribute('aria-label', t('popup_select_user', { username: label }));
     select.addEventListener('change', () => select.checked ? selectedQueueIds.add(id) : selectedQueueIds.delete(id));
     const avatar = document.createElement('div'); avatar.className = 'queue-item-avatar'; avatar.textContent = username.slice(0, 2).toUpperCase();
     const info = document.createElement('div'); info.className = 'queue-item-info';
-    const name = document.createElement('div'); name.className = 'queue-item-name'; name.textContent = `@${username}`;
+    const name = document.createElement('div'); name.className = 'queue-item-name'; name.textContent = label;
     const meta = document.createElement('div'); meta.className = 'queue-item-meta'; meta.textContent = metaText;
     info.append(name, meta);
     if (item.result) {
@@ -255,23 +258,23 @@ export function renderQueue(): void {
       const up = document.createElement('button');
       up.className = 'btn-queue-move'; up.dataset.id = id; up.dataset.dir = 'up';
       up.title = t('popup_queue_move_up'); up.textContent = '▲'; up.disabled = index === 0;
-      up.setAttribute('aria-label', t('popup_queue_move_up_aria', { username }));
+      up.setAttribute('aria-label', t('popup_queue_move_up_aria', { username: label }));
       const down = document.createElement('button');
       down.className = 'btn-queue-move'; down.dataset.id = id; down.dataset.dir = 'down';
       down.title = t('popup_queue_move_down'); down.textContent = '▼'; down.disabled = index === downloadQueue.length - 1;
-      down.setAttribute('aria-label', t('popup_queue_move_down_aria', { username }));
+      down.setAttribute('aria-label', t('popup_queue_move_down_aria', { username: label }));
       const pause = document.createElement('button');
       pause.className = 'btn-queue-pause'; pause.dataset.id = id;
       const pauseLabel = t(isPaused ? 'popup_queue_resume' : 'popup_queue_pause');
       pause.title = pauseLabel; pause.textContent = isPaused ? '▶' : '⏸';
-      pause.setAttribute('aria-label', `${pauseLabel} @${username}`);
+      pause.setAttribute('aria-label', `${pauseLabel} ${label}`);
       actions.append(up, down, pause);
     }
     if (item.status === 'error') {
       const retry = document.createElement('button');
       retry.className = 'btn-queue-retry'; retry.dataset.id = id;
       retry.title = t('popup_retry'); retry.textContent = '↻';
-      retry.setAttribute('aria-label', `${t('popup_retry')} @${username}`);
+      retry.setAttribute('aria-label', `${t('popup_retry')} ${label}`);
       actions.append(retry);
     }
     const action = document.createElement('button'); action.className = canRemove ? 'btn-queue-remove' : 'btn-queue-stop'; action.dataset.id = id;
@@ -282,7 +285,7 @@ export function renderQueue(): void {
     } else {
       action.textContent = '⏹';
     }
-    action.setAttribute('aria-label', `${t(canRemove ? 'popup_queue_remove_aria' : 'popup_queue_stop_aria')} @${username}`);
+    action.setAttribute('aria-label', `${t(canRemove ? 'popup_queue_remove_aria' : 'popup_queue_stop_aria')} ${label}`);
     actions.append(action);
 
     row.append(select, avatar, info, status, actions);
@@ -382,9 +385,9 @@ export async function addCurrentToQueue(input: AddToQueueInput): Promise<void> {
     keyword: input.keyword,
   });
   if (res?.error === 'Already in queue') {
-    _deps!.showToast(t('popup_toast_queue_exists', { username: input.username }), 'info');
+    _deps!.showToast(t('popup_toast_queue_exists', { username: collectionKeyLabel(input.username) }), 'info');
   } else if (res?.ok) {
-    _deps!.showToast(t('popup_toast_queue_added', { username: input.username }), 'success');
+    _deps!.showToast(t('popup_toast_queue_added', { username: collectionKeyLabel(input.username) }), 'success');
     // Switch to queue tab
     document.getElementById('nav-queue')?.click();
   } else {

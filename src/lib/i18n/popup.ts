@@ -27,7 +27,7 @@ export const POPUP_STRINGS: TranslationTable = {
     popup_import: 'Import',
     popup_no_response: 'No response',
     popup_error_prefix: 'Error: {error}',
-    popup_select_user: 'Select @{username}',
+    popup_select_user: 'Select {username}',
 
     // Bottom navigation
     popup_nav_aria: 'Tab navigation',
@@ -173,9 +173,9 @@ export const POPUP_STRINGS: TranslationTable = {
     popup_queue_result_detail: 'Succeeded {success} · Skipped {skipped} · Failed {failed}',
     popup_queue_downloading_badge: '📥 downloading...',
     popup_queue_move_up: 'Move up',
-    popup_queue_move_up_aria: 'Move @{username} up',
+    popup_queue_move_up_aria: 'Move {username} up',
     popup_queue_move_down: 'Move down',
-    popup_queue_move_down_aria: 'Move @{username} down',
+    popup_queue_move_down_aria: 'Move {username} down',
     popup_queue_pause: 'Pause',
     popup_queue_resume: 'Resume',
     popup_queue_remove_title: 'Remove from queue',
@@ -201,8 +201,8 @@ export const POPUP_STRINGS: TranslationTable = {
     popup_toast_queue_pause_failed: 'Could not pause the queue',
     popup_toast_queue_start_failed: 'Could not start the queue',
     popup_toast_queue_no_media: 'No media yet — collect first',
-    popup_toast_queue_exists: '@{username} is already in the queue',
-    popup_toast_queue_added: '✓ Added @{username} to the queue',
+    popup_toast_queue_exists: '{username} is already in the queue',
+    popup_toast_queue_added: '✓ Added {username} to the queue',
     popup_toast_queue_add_failed: 'Error adding to the queue',
 
     // History
@@ -290,7 +290,7 @@ export const POPUP_STRINGS: TranslationTable = {
     popup_import: 'Import',
     popup_no_response: 'Không có phản hồi',
     popup_error_prefix: 'Lỗi: {error}',
-    popup_select_user: 'Chọn @{username}',
+    popup_select_user: 'Chọn {username}',
 
     // Bottom navigation
     popup_nav_aria: 'Điều hướng tab',
@@ -436,9 +436,9 @@ export const POPUP_STRINGS: TranslationTable = {
     popup_queue_result_detail: 'Thành công {success} · Bỏ qua {skipped} · Lỗi {failed}',
     popup_queue_downloading_badge: '📥 đang tải...',
     popup_queue_move_up: 'Di chuyển lên',
-    popup_queue_move_up_aria: 'Di chuyển @{username} lên',
+    popup_queue_move_up_aria: 'Di chuyển {username} lên',
     popup_queue_move_down: 'Di chuyển xuống',
-    popup_queue_move_down_aria: 'Di chuyển @{username} xuống',
+    popup_queue_move_down_aria: 'Di chuyển {username} xuống',
     popup_queue_pause: 'Tạm dừng',
     popup_queue_resume: 'Tiếp tục',
     popup_queue_remove_title: 'Xóa khỏi queue',
@@ -464,8 +464,8 @@ export const POPUP_STRINGS: TranslationTable = {
     popup_toast_queue_pause_failed: 'Không thể tạm dừng hàng đợi',
     popup_toast_queue_start_failed: 'Không thể bắt đầu hàng đợi',
     popup_toast_queue_no_media: 'Chưa có media — hãy thu thập trước',
-    popup_toast_queue_exists: '@{username} đã trong hàng đợi',
-    popup_toast_queue_added: '✓ Đã thêm @{username} vào queue',
+    popup_toast_queue_exists: '{username} đã trong hàng đợi',
+    popup_toast_queue_added: '✓ Đã thêm {username} vào queue',
     popup_toast_queue_add_failed: 'Lỗi khi thêm vào queue',
 
     // History

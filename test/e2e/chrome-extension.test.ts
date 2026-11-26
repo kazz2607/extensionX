@@ -837,7 +837,7 @@ test('tweet-btn re-attaches the download button when media arrives in an article
   assert.equal(await downloadBtn(), true, 'tweet-btn did not re-scan the article and attach a button once media arrived');
 });
 
-test('v8.0.0 Search and Hashtag pages are detected and collected like a profile', { timeout: 60_000 }, async (t) => {
+test('v8.0.0/v9.0.0 Search, Hashtag and List pages are detected and collected like a profile', { timeout: 60_000 }, async (t) => {
   const extensionDir = await prepareTestExtension();
   const profileDir = await mkdtemp(join(tmpdir(), 'extensionx-search-profile-'));
   const context = await chromium.launchPersistentContext(profileDir, {
@@ -851,7 +851,8 @@ test('v8.0.0 Search and Hashtag pages are detected and collected like a profile'
     await rm(profileDir, { recursive: true, force: true });
   });
   await context.route('https://x.com/**', (route) => {
-    const suffix = new URL(route.request().url()).pathname.includes('hashtag') ? 'tag' : 'search';
+    const path = new URL(route.request().url()).pathname;
+    const suffix = path.includes('hashtag') ? 'tag' : path.includes('/lists/') ? 'list' : 'search';
     return route.fulfill({ status: 200, contentType: 'text/html', body: mediaPage('Someone', `${suffix}-hit`) });
   });
   await context.route('https://pbs.twimg.com/**', (route) => route.fulfill({ status: 200, contentType: 'image/jpeg', body: '' }));
@@ -863,6 +864,10 @@ test('v8.0.0 Search and Hashtag pages are detected and collected like a profile'
   await search.goto('https://x.com/search?q=cat%20photos&f=media');
   const hashtag = await context.newPage();
   await hashtag.goto('https://x.com/hashtag/Cats');
+  // F1b: an X List timeline gets a key that can be turned back into its URL.
+  const listKey = '_list_0001234567';
+  const list = await context.newPage();
+  await list.goto('https://x.com/i/lists/1234567');
 
   const options = await context.newPage();
   await options.goto(`chrome-extension://${id}/options/options.html`);
@@ -871,6 +876,7 @@ test('v8.0.0 Search and Hashtag pages are detected and collected like a profile'
   // The page scripts' route gate and the worker accept the Search/Hashtag key.
   await waitForCount(() => count(searchKey), 1);
   await waitForCount(() => count(hashtagKey), 1);
+  await waitForCount(() => count(listKey), 1);
 
   // The popup asks the tab's content script; it must answer with the same key.
   const pageInfo = await options.evaluate(async () => {
@@ -886,6 +892,15 @@ test('v8.0.0 Search and Hashtag pages are detected and collected like a profile'
   assert.equal(started.ok, true);
   assert.match(search.url(), /\/search\?q=cat%20photos/);
   await options.evaluate((name) => chrome.runtime.sendMessage({ type: 'STOP_COLLECTING', payload: { username: name } }), searchKey);
+
+  // F1c: a List source runs through the Queue like a profile.
+  const queued = await options.evaluate((name) => chrome.runtime.sendMessage({ type: 'ADD_TO_QUEUE', payload: { username: name, filterType: 'all', skipDuplicates: true, keyword: '' } }), listKey);
+  assert.equal(queued.ok, true);
+  const popup = await context.newPage();
+  await popup.goto(`chrome-extension://${id}/popup/popup.html`);
+  await popup.locator('#nav-queue').click();
+  await assert.doesNotReject(popup.locator('.queue-item-name', { hasText: '📋 1234567' }).waitFor({ timeout: 5_000 }));
+  assert.equal(await popup.locator('.queue-item-name', { hasText: '_list_' }).count(), 0, 'the internal key is not shown');
 });
 
 /**

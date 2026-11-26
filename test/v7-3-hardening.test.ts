@@ -98,10 +98,11 @@ test('download timeout is an inactivity timeout: progress keeps a slow download 
 });
 
 test('page scripts only parse media on routes that can collect it', () => {
-  for (const path of ['/NASA/media', '/NASA/status/1850000000000000000', '/NASA/likes', '/i/bookmarks']) {
+  // v9.0.0 F1b: a List timeline is a collection source; its member/follower pages are not.
+  for (const path of ['/NASA/media', '/NASA/status/1850000000000000000', '/NASA/likes', '/i/bookmarks', '/i/lists/1']) {
     assert.equal(routeCollectsMedia(`https://x.com${path}`), true, path);
   }
-  for (const path of ['/home', '/explore', '/notifications', '/messages/123', '/search', '/i/lists/1', '/']) {
+  for (const path of ['/home', '/explore', '/notifications', '/messages/123', '/search', '/i/lists/1/members', '/']) {
     assert.equal(routeCollectsMedia(`https://x.com${path}`), false, path);
   }
 });

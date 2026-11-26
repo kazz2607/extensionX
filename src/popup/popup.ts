@@ -395,7 +395,7 @@ function showRestoreBanner(username: string, count: number, scrolls: number, tim
   if (!banner) return;
 
   const usernameEl = document.getElementById('restore-username');
-  if (usernameEl) usernameEl.textContent = `@${username}`;
+  if (usernameEl) usernameEl.textContent = collectionKeyLabel(username);
   const detailEl = document.getElementById('restore-detail');
   if (detailEl) detailEl.textContent = t('popup_restore_detail', { count, scrolls, time: timeStr });
 
@@ -457,24 +457,26 @@ async function detectCurrentTab() {
       updateOnboardingState(); // UI-04: trên X.com nhưng không nhận ra profile
       return;
     }
-    setCurrentUser(res.username, res.url ?? url);
+    setCurrentUser(res.username, res.url ?? url, tab.title);
   });
 }
 
-async function setCurrentUser(username: string, pageUrl?: string) {
+const SOURCE_AVATARS = { search: '🔍', hashtag: '#', list: '📋' } as const;
+
+async function setCurrentUser(username: string, pageUrl?: string, pageTitle?: string) {
   if (currentUsername !== username) _csvOffset = 0;
   currentUsername = username;
   updateOnboardingState(); // UI-04: ẩn onboarding khi biết profile
 
-  // F1: trang Search/Hashtag hiển thị truy vấn gốc thay vì khoá nội bộ.
+  // F1: trang Search/Hashtag/List hiển thị truy vấn gốc (List: tên từ tiêu đề tab) thay vì khoá nội bộ.
   const search = pageUrl ? searchSourceFromUrl(pageUrl) : null;
   const isSearch = search?.key === username;
   // Nhãn hiển thị dùng chung cho thẻ profile và gợi ý Queue (không lộ khoá nội bộ).
-  const displayLabel = isSearch && search ? searchSourceLabel(search) : collectionKeyLabel(username);
+  const displayLabel = isSearch && search ? searchSourceLabel(search, pageTitle) : collectionKeyLabel(username);
   els.username.textContent = displayLabel;
-  els.hint.textContent = t(isSearch ? (search?.kind === 'hashtag' ? 'profile_hint_hashtag' : 'profile_hint_search') : 'profile_hint_active');
+  els.hint.textContent = t(isSearch && search ? `profile_hint_${search.kind}` : 'profile_hint_active');
   els.profileCard.classList.add('active');
-  els.avatar.textContent = isSearch ? (search?.kind === 'hashtag' ? '#' : '🔍') : username.slice(0, 2).toUpperCase();
+  els.avatar.textContent = isSearch && search ? SOURCE_AVATARS[search.kind] : username.slice(0, 2).toUpperCase();
 
   // Cập nhật queue add bar hint
   if (els.queueAddHint) els.queueAddHint.textContent = t('popup_queue_add_hint_user', { username: displayLabel });

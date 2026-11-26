@@ -2,6 +2,7 @@
 /**
  * options.js — Logic trang Cài đặt (v5.7.0)
  */
+import { collectionKeyLabel } from '../shared/collection-source.ts';
 import { formatNumber, registerTranslations, t } from '../lib/i18n.ts';
 import { alertDialog, confirmDialog } from '../lib/dialog.ts';
 import { initTheme, onThemeChange, parseThemePreference, setThemePreference } from '../shared/theme.ts';
@@ -705,7 +706,7 @@ function renderStorageSummary(root: HTMLElement, summary: StorageSummary): void 
     row.className = 'storage-profile-row'; // U29: trước đây style inline
     const label = document.createElement('span');
     label.textContent = t('opt_storage_profile_row', {
-      username: profile.username,
+      username: collectionKeyLabel(profile.username),
       media: formatNumber(profile.mediaItems),
       urls: formatNumber(profile.downloadedUrls),
       size: formatBytes(profile.approximateBytes),
@@ -715,7 +716,7 @@ function renderStorageSummary(root: HTMLElement, summary: StorageSummary): void 
     button.type = 'button';
     button.dataset.clearProfile = profile.username;
     button.textContent = t('opt_storage_clear_profile');
-    button.setAttribute('aria-label', t('opt_storage_clear_profile_aria', { username: profile.username }));
+    button.setAttribute('aria-label', t('opt_storage_clear_profile_aria', { username: collectionKeyLabel(profile.username) }));
     row.append(label, button);
     root.append(row);
   }
@@ -768,11 +769,11 @@ async function clearAllProfileStorage(): Promise<void> {
 async function handleStorageSummaryClick(event: Event): Promise<void> {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-clear-profile]');
   const username = button?.dataset.clearProfile;
-  if (!username || !await confirmDialog(t('opt_clear_profile_confirm', { username }))) return;
+  if (!username || !await confirmDialog(t('opt_clear_profile_confirm', { username: collectionKeyLabel(username) }))) return;
   const response = await chrome.runtime.sendMessage({ type: 'CLEAR_PROFILE_STORAGE', payload: { username } }) as ResponseFor<'CLEAR_PROFILE_STORAGE'>;
   if (!response.ok || !response.summary) { void alertDialog(response.error || t('opt_clear_profile_error')); return; }
   setStorageView({ kind: 'summary', summary: response.summary });
-  showSaveStatus(t('opt_status_profile_cleared', { username }));
+  showSaveStatus(t('opt_status_profile_cleared', { username: collectionKeyLabel(username) }));
 }
 
 window.exportSettings = exportSettings;

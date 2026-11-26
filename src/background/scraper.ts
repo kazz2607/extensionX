@@ -9,7 +9,7 @@ import { filterMediaItems, isVideoThumbnailUrl } from '../shared/media-filter.ts
 import { recordDiagnostic } from './diagnostics.ts';
 import { canTransitionCollectPhase, type CollectPhase } from '../shared/collect-state.ts';
 import { isCollectPageFor, isXProfileUrlForUsername, normalizeUrlForDedup } from '../shared/validation.ts';
-import { isSearchSourceKey } from '../shared/collection-source.ts';
+import { collectionSourceUrl, isSearchSourceKey } from '../shared/collection-source.ts';
 import { resolveFailedItem } from './failed-items.ts';
 import { t } from '../lib/i18n.ts';
 
@@ -556,7 +556,7 @@ async function persistSession(username: string) {
       });
 
       let profileUrl = `https://x.com/${username}/media`;
-      if (isSearchSourceKey(username)) profileUrl = searchTabUrl(username) ?? 'https://x.com/search';
+      if (isSearchSourceKey(username)) profileUrl = searchTabUrl(username) ?? collectionSourceUrl(username) ?? 'https://x.com/search';
       else if (username === '_bookmarks_') profileUrl = 'https://x.com/i/bookmarks';
       else if (username.endsWith('_likes')) profileUrl = `https://x.com/${username.replace('_likes', '')}/likes`;
 

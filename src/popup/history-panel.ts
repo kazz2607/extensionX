@@ -7,6 +7,7 @@
 import type { HistoryEntry } from '../types.ts';
 import { migrateDownloadHistoryStorage } from '../shared/download-history.ts';
 import { t } from '../lib/i18n.ts';
+import { collectionKeyLabel } from '../shared/collection-source.ts';
 
 export type { HistoryEntry };
 
@@ -67,7 +68,7 @@ function _renderHistoryPage(): void {
     row.className = 'history-item';
     row.dataset.username = String(item.username || '').slice(0, 50);
     for (const [className, text] of [
-      ['history-item-icon', icon], ['history-item-name', `@${row.dataset.username}`],
+      ['history-item-icon', icon], ['history-item-name', collectionKeyLabel(row.dataset.username)],
       ['history-item-count', String(Number(item.count) || 0)], ['history-item-date', ds],
     ]) {
       const part = document.createElement('span');

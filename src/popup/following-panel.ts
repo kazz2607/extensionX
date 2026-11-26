@@ -180,7 +180,7 @@ function renderFollowingCandidates(state: FollowingScanState): void {
     checkbox.type = 'checkbox';
     checkbox.checked = candidate.selected;
     checkbox.dataset.followingId = candidate.userId;
-    checkbox.setAttribute('aria-label', t('popup_select_user', { username: candidate.username }));
+    checkbox.setAttribute('aria-label', t('popup_select_user', { username: `@${candidate.username}` }));
     const info = document.createElement('div');
     info.className = 'cleanup-user-info';
     const name = document.createElement('div');

@@ -7,6 +7,7 @@
  *
  *   /search?q=cat photos  → _search_cat_photos_h<hash>
  *   /hashtag/Cats         → _hashtag_cats_h<hash>
+ *   /i/lists/1234567      → _list_0001234567 (F1b, 9.0.0)
  *
  * Khoá chỉ gồm [a-z0-9_] (khớp USERNAME_PATTERN), xác định theo truy vấn đã
  * chuẩn hoá (cùng truy vấn → cùng khoá, dữ liệu cộng dồn giữa các lần thu thập),
@@ -19,16 +20,22 @@
  * content script, MAIN world, popup).
  */
 
-export type SearchSourceKind = 'search' | 'hashtag';
+export type SearchSourceKind = 'search' | 'hashtag' | 'list';
 
 export interface SearchSource {
   kind: SearchSourceKind;
-  /** Truy vấn gốc, dễ đọc (hashtag không kèm dấu #). */
+  /** Truy vấn gốc, dễ đọc (hashtag không kèm dấu #; list: id của list). */
   query: string;
   key: string;
 }
 
 const SEARCH_PREFIX = '_search_';
+/**
+ * F1b: id list là số; đệm tới 10 chữ số để khoá luôn dài ≥ 16 ký tự (handle X
+ * tối đa 15) — không trùng tài khoản thật — và vẫn suy ngược ra id được.
+ */
+const LIST_PREFIX = '_list_';
+const LIST_KEY = /^_list_(\d{10,20})$/;
 const HASHTAG_PREFIX = '_hashtag_';
 const MAX_QUERY_LENGTH = 500;
 const READABLE_PART_MAX = 24;
@@ -62,11 +69,28 @@ export function searchSourceKey(kind: SearchSourceKind, query: string): string {
   return `${prefix}${readable ? `${readable}_` : ''}h${fnv1a(`${kind}:${normalized}`)}`;
 }
 
-export function isSearchSourceKey(key: unknown): boolean {
-  return typeof key === 'string' && /^_(?:search|hashtag)_(?:[a-z0-9_]*_)?h[a-z0-9]{7}$/.test(key);
+export function listSourceKey(listId: string): string {
+  return `${LIST_PREFIX}${listId.padStart(10, '0')}`;
 }
 
-/** Nhận diện trang Search (`/search?q=`) hoặc Hashtag (`/hashtag/<tag>`) trên x.com. */
+/** Id list từ khoá `_list_…`, null nếu không phải khoá list. */
+export function listIdFromKey(key: unknown): string | null {
+  const match = typeof key === 'string' ? LIST_KEY.exec(key) : null;
+  return match ? match[1].replace(/^0+(?=\d)/, '') : null;
+}
+
+/** Khoá của một nguồn không phải profile (Search, Hashtag, List). */
+export function isSearchSourceKey(key: unknown): boolean {
+  return typeof key === 'string' && (/^_(?:search|hashtag)_(?:[a-z0-9_]*_)?h[a-z0-9]{7}$/.test(key) || LIST_KEY.test(key));
+}
+
+/** URL mở lại được từ khoá (List); Search/Hashtag chỉ lưu hash nên không suy ngược được. */
+export function collectionSourceUrl(key: string): string | null {
+  const listId = listIdFromKey(key);
+  return listId ? `https://x.com/i/lists/${listId}` : null;
+}
+
+/** Nhận diện trang Search (`/search?q=`), Hashtag (`/hashtag/<tag>`) hoặc List (`/i/lists/<id>`) trên x.com. */
 export function searchSourceFromUrl(value: unknown): SearchSource | null {
   if (typeof value !== 'string' || value.length > 2_048) return null;
   let url: URL;
@@ -83,6 +107,9 @@ export function searchSourceFromUrl(value: unknown): SearchSource | null {
     if (!query || query.length > MAX_QUERY_LENGTH) return null;
     return { kind: 'search', query, key: searchSourceKey('search', query) };
   }
+  // F1b: chỉ trang tweet của list; /members, /followers, /info không có media.
+  const list = path.match(/^\/i\/lists\/(\d{1,20})$/);
+  if (list) return { kind: 'list', query: list[1], key: listSourceKey(list[1]) };
   const hashtag = path.match(/^\/hashtag\/([^/]+)$/);
   if (hashtag) {
     let tag: string;
@@ -97,9 +124,20 @@ export function searchSourceFromUrl(value: unknown): SearchSource | null {
   return null;
 }
 
-/** Nhãn hiển thị cho popup: "🔍 cat photos" / "#cats"; null nếu không phải Search/Hashtag. */
-export function searchSourceLabel(source: SearchSource): string {
+/**
+ * Nhãn hiển thị cho popup: "🔍 cat photos" / "#cats" / "📋 <tên list>". Tên list
+ * lấy từ tiêu đề tab ("Tên list / X") khi có, không thì dùng id.
+ */
+export function searchSourceLabel(source: SearchSource, pageTitle?: string): string {
+  if (source.kind === 'list') return `📋 ${listNameFromTitle(pageTitle) || source.query}`;
   return source.kind === 'hashtag' ? `#${source.query}` : `🔍 ${source.query}`;
+}
+
+/** "(3) Photographers / X" → "Photographers"; rỗng khi tiêu đề không theo mẫu của X. */
+export function listNameFromTitle(title: unknown): string {
+  if (typeof title !== 'string') return '';
+  const match = /^(?:\(\d+\+?\)\s*)?(.+?)\s+\/\s+(?:X|Twitter)$/.exec(title.trim());
+  return match ? match[1].slice(0, 80) : '';
 }
 
 /**
@@ -107,6 +145,9 @@ export function searchSourceLabel(source: SearchSource): string {
  * đọc đã chuẩn hoá ("🔍 cat photos", "#cats"). Profile thường giữ dạng "@name".
  */
 export function collectionKeyLabel(key: string): string {
+  const listId = listIdFromKey(key);
+  // Tên list không suy ra được từ khoá; id đủ để nhận ra và mở lại list.
+  if (listId) return `📋 ${listId}`;
   const match = key.match(/^_(search|hashtag)_(?:([a-z0-9_]*)_)?h[a-z0-9]{7}$/);
   if (!match) return `@${key}`;
   const readable = (match[2] ?? '').replace(/_/g, ' ').trim() || '…';

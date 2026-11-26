@@ -14,6 +14,7 @@ document.querySelectorAll('[data-manifest-version]').forEach((el) => {
 import type { FailedItem, HistoryEntry, JobSchedule, MediaItem, NotificationEvent, QueueItem, SavedJob, SavedJobInput } from '../types.ts';
 import { DOWNLOAD_ERROR_REASONS } from '../shared/download-errors.ts';
 import { collectionKeyLabel } from '../shared/collection-source.ts';
+import { collectionKeyFromInput } from '../shared/validation.ts';
 import type { MessageType, ResponseFor } from '../shared/messages.ts';
 
 interface CenterData {
@@ -96,7 +97,9 @@ function render(): void {
 }
 
 function p2Payload(): Record<string, unknown> {
-  return { username: byId<HTMLInputElement>('p2-username').value.trim().replace(/^@/, ''), filterType: byId<HTMLSelectElement>('p2-filter').value };
+  // F1c: nhận cả #hashtag và URL Search/List, không chỉ username.
+  const raw = byId<HTMLInputElement>('p2-username').value;
+  return { username: collectionKeyFromInput(raw) ?? raw.trim().replace(/^@/, ''), filterType: byId<HTMLSelectElement>('p2-filter').value };
 }
 
 function downloadText(filename: string, content: string, type: string): void {
@@ -108,7 +111,7 @@ function renderScheduleOptions(): void {
   const select = byId<HTMLSelectElement>('schedule-job');
   const selected = select.value;
   const options = [new Option(t('dc_select_saved_job'), '')];
-  options.push(...data.jobs.map((job) => new Option(`${job.name} · @${job.username}`, job.id)));
+  options.push(...data.jobs.map((job) => new Option(`${job.name} · ${collectionKeyLabel(job.username)}`, job.id)));
   select.replaceChildren(...options);
   select.value = selected;
   const list = byId('schedule-list');
@@ -267,7 +270,7 @@ function renderQueue(): void {
   for (const item of items.slice(0, queueWindow)) {
     const row = document.createElement('article'); row.className = 'item';
     const main = document.createElement('div');
-    const title = document.createElement('h3'); title.className = 'item-title'; title.textContent = `@${item.username}`;
+    const title = document.createElement('h3'); title.className = 'item-title'; title.textContent = collectionKeyLabel(item.username);
     const badge = document.createElement('span'); badge.className = `status ${item.status}`; badge.textContent = labelOr(`dc_status_${item.status}`, item.status); title.append(badge);
     const meta = document.createElement('p'); meta.className = 'item-meta'; meta.textContent = `${t('dc_media_count', { n: item.mediaCount })} · ${filterTypeLabel(item.filterType)}${item.keyword ? ` · “${item.keyword}”` : ''}`;
     main.append(title, meta);
@@ -292,7 +295,7 @@ function renderJobs(): void {
     const row = document.createElement('article'); row.className = 'item';
     const main = document.createElement('div');
     const title = document.createElement('h3'); title.className = 'item-title'; title.textContent = job.name;
-    const meta = document.createElement('p'); meta.className = 'item-meta'; meta.textContent = `@${job.username} · ${filterTypeLabel(job.filterType)}${job.keyword ? ` · “${job.keyword}”` : ''}`;
+    const meta = document.createElement('p'); meta.className = 'item-meta'; meta.textContent = `${collectionKeyLabel(job.username)} · ${filterTypeLabel(job.filterType)}${job.keyword ? ` · “${job.keyword}”` : ''}`;
     main.append(title, meta);
     const detail = document.createElement('div'); detail.className = 'item-detail'; detail.textContent = `${job.dateFrom || t('dc_any_date')} → ${job.dateTo || t('dc_now')} · ${job.skipDuplicates ? t('dc_skip_dupes') : t('dc_allow_redownload')}`;
     const actions = document.createElement('div'); actions.className = 'item-actions';
@@ -310,7 +313,7 @@ function renderHistory(): void {
   for (const entry of history.slice(0, historyWindow)) {
     const row = document.createElement('article'); row.className = 'item';
     const main = document.createElement('div');
-    const title = document.createElement('h3'); title.className = 'item-title'; title.textContent = `@${entry.username}`;
+    const title = document.createElement('h3'); title.className = 'item-title'; title.textContent = collectionKeyLabel(entry.username);
     const badge = document.createElement('span'); badge.className = `status ${entry.status ?? 'completed'}`; badge.textContent = labelOr(`dc_status_${entry.status ?? 'completed'}`, entry.status ?? 'completed'); title.append(badge);
     const meta = document.createElement('p'); meta.className = 'item-meta'; meta.textContent = `${filterTypeLabel(entry.filter)} · ${new Date(entry.date).toLocaleString(locale())}`; main.append(title, meta);
     const detail = document.createElement('div'); detail.className = 'item-detail'; detail.textContent = t('dc_history_summary', { success: entry.success ?? entry.count, failed: entry.failed ?? 0, skipped: entry.skipped ?? 0 });
@@ -334,7 +337,7 @@ function setValue(id: string, value: string): void { byId<HTMLInputElement | HTM
 
 function openJobDialog(job?: SavedJob, username = ''): void {
   setValue('job-id', job?.id ?? '');
-  setValue('job-name', job?.name ?? (username ? t('dc_job_default_name', { username }) : ''));
+  setValue('job-name', job?.name ?? (username ? t('dc_job_default_name', { username: collectionKeyLabel(username) }) : ''));
   setValue('job-username', job?.username ?? username);
   setValue('job-filter', job?.filterType ?? 'all');
   setValue('job-keyword', job?.keyword ?? '');
@@ -457,10 +460,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
+    const source = collectionKeyFromInput(byId<HTMLInputElement>('job-username').value);
+    if (!source) { byId('form-error').textContent = t('dc_source_invalid'); return; }
     const job: SavedJobInput = {
       ...(byId<HTMLInputElement>('job-id').value ? { id: byId<HTMLInputElement>('job-id').value } : {}),
       name: byId<HTMLInputElement>('job-name').value,
-      username: byId<HTMLInputElement>('job-username').value.replace(/^@/, ''),
+      username: source,
       filterType: byId<HTMLSelectElement>('job-filter').value as SavedJobInput['filterType'],
       keyword: byId<HTMLInputElement>('job-keyword').value,
       dateFrom: byId<HTMLInputElement>('job-date-from').value,

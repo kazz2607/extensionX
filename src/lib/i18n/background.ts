@@ -58,7 +58,7 @@ export const BACKGROUND_STRINGS: TranslationTable = {
     // Notification events (downloader.ts / p2-messages.ts)
     bg_event_download_partial: 'Download partially completed',
     bg_event_download_done: 'Download completed',
-    bg_event_download_summary: '@{username}: {success} succeeded, {failed} failed, {skipped} skipped.',
+    bg_event_download_summary: '{username}: {success} succeeded, {failed} failed, {skipped} skipped.',
     bg_event_schedule_started: 'Scheduled download started',
     bg_event_schedule_started_msg: 'Saved Job “{name}” was triggered.',
     bg_event_schedule_skipped: 'Scheduled download skipped',
@@ -116,7 +116,7 @@ export const BACKGROUND_STRINGS: TranslationTable = {
     bg_notif_total: 'Tổng: {total} files',
     bg_event_download_partial: 'Download hoàn tất một phần',
     bg_event_download_done: 'Download hoàn tất',
-    bg_event_download_summary: '@{username}: {success} thành công, {failed} lỗi, {skipped} bỏ qua.',
+    bg_event_download_summary: '{username}: {success} thành công, {failed} lỗi, {skipped} bỏ qua.',
     bg_event_schedule_started: 'Lịch tải đã bắt đầu',
     bg_event_schedule_started_msg: 'Saved Job “{name}” đã được kích hoạt.',
     bg_event_schedule_skipped: 'Lịch tải đã bỏ qua',

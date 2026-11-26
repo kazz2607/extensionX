@@ -59,7 +59,7 @@
         </div>
       </div>
       <div class="p2-controls">
-        <label><span data-i18n="dc_profile_label">Profile</span><input id="p2-username" maxlength="50" placeholder="NASA" /></label>
+        <label><span data-i18n="dc_profile_label">Profile</span><input id="p2-username" maxlength="2048" placeholder="NASA, #cats, x.com/i/lists/…" data-i18n-placeholder="dc_source_placeholder" /></label>
         <label><span data-i18n="dc_media_type_label">Media type</span><select id="p2-filter"><option value="all" data-i18n="tab_all">All</option><option value="images" data-i18n="tab_images">Images</option><option value="videos" data-i18n="tab_videos">Videos</option><option value="gifs" data-i18n="tab_gifs">GIFs</option></select></label>
         <label class="wide"><span data-i18n="dc_folder_rule_label">Folder rule</span><input id="p2-folder-rule" maxlength="300" value="{username}/{year}/{month}/{type}" /></label>
       </div>
@@ -139,7 +139,7 @@
       <input id="job-id" type="hidden" />
       <div class="form-grid">
         <label><span data-i18n="dc_job_name_label">Job name</span><input id="job-name" required maxlength="80" placeholder="This month's images" data-i18n-placeholder="dc_job_name_placeholder" /></label>
-        <label><span data-i18n="dc_username_label">Username</span><input id="job-username" required maxlength="50" pattern="[A-Za-z0-9_]+" placeholder="NASA" /></label>
+        <label><span data-i18n="dc_username_label">Username or source</span><input id="job-username" required maxlength="2048" placeholder="NASA, #cats, x.com/i/lists/…" data-i18n-placeholder="dc_source_placeholder" /></label>
         <label><span data-i18n="dc_media_type_label">Media type</span><select id="job-filter"><option value="all" data-i18n="tab_all">All</option><option value="images" data-i18n="tab_images">Images</option><option value="videos" data-i18n="tab_videos">Videos</option><option value="gifs" data-i18n="tab_gifs">GIFs</option></select></label>
         <label><span data-i18n="dc_keyword_label">Keyword</span><input id="job-keyword" maxlength="200" placeholder="#launch" /></label>
         <label><span data-i18n="dc_date_from_label">From date</span><input id="job-date-from" type="date" /></label>

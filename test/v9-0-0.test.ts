@@ -4,6 +4,8 @@ import { extractMediaFromResponse, pickVideoVariant } from '../src/shared/graphq
 import { isValidMediaItem, isValidVariantList } from '../src/shared/validation.ts';
 import { createFailedItem, parseFailedItems, serializeFailedItems, upsertFailedItem } from '../src/shared/failed-items.ts';
 import type { MediaItem } from '../src/types.ts';
+import { collectionKeyLabel, collectionSourceUrl, isSearchSourceKey, listIdFromKey, listNameFromTitle, listSourceKey, searchSourceFromUrl, searchSourceKey, searchSourceLabel } from '../src/shared/collection-source.ts';
+import { collectionKeyFromInput, isCollectMediaPageUrl, isCollectPageFor, isValidUsername, usernameFromXUrl } from '../src/shared/validation.ts';
 
 const vid = (size: string) => `https://video.twimg.com/ext_tw_video/1850000000000000001/pu/vid/${size}/a.mp4`;
 
@@ -66,4 +68,54 @@ test('F3b: failed videos remember their lower qualities, round-trip storage and 
 
   // A stored record with a forged variant is dropped, not trusted.
   assert.deepEqual(parseFailedItems({ items: [{ ...first, variants: ['https://evil.example/x.mp4'] }] }), []);
+});
+
+
+test('F1b: X List pages are a collection source with a reversible key', () => {
+  const list = searchSourceFromUrl('https://x.com/i/lists/1585430245762441216');
+  assert.deepEqual(list, { kind: 'list', query: '1585430245762441216', key: '_list_1585430245762441216' });
+  // Short (old) list ids are padded so the key is longer than any X handle (15).
+  assert.equal(listSourceKey('1234567'), '_list_0001234567');
+  assert.ok(listSourceKey('1').length >= 16);
+  assert.equal(listIdFromKey('_list_0001234567'), '1234567');
+  assert.equal(listIdFromKey('_list_123'), null, 'a 9-character handle is not a list key');
+  assert.equal(collectionSourceUrl('_list_0001234567'), 'https://x.com/i/lists/1234567');
+  assert.equal(collectionSourceUrl(searchSourceKey('search', 'cats')), null, 'search keys are one-way');
+  assert.equal(isSearchSourceKey('_list_0001234567'), true);
+  assert.equal(isValidUsername('_list_0001234567'), true, 'fits the existing username-shaped key');
+
+  for (const page of ['https://x.com/i/lists/123/members', 'https://x.com/i/lists/123/followers', 'https://x.com/i/lists/abc', 'https://x.com/i/lists']) {
+    assert.equal(searchSourceFromUrl(page), null, page);
+  }
+  const url = 'https://x.com/i/lists/1234567';
+  assert.equal(usernameFromXUrl(url), '_list_0001234567');
+  assert.equal(isCollectMediaPageUrl(url), true);
+  assert.equal(isCollectPageFor(url, '_list_0001234567'), true);
+  assert.equal(usernameFromXUrl('https://x.com/i/lists/1234567/members'), null);
+});
+
+test('F1b: List labels use the tab title when there is one, the id otherwise', () => {
+  assert.equal(listNameFromTitle('Photographers / X'), 'Photographers');
+  assert.equal(listNameFromTitle('(12) Space / news / X'), 'Space / news');
+  assert.equal(listNameFromTitle('Home'), '');
+  const source = searchSourceFromUrl('https://x.com/i/lists/1234567')!;
+  assert.equal(searchSourceLabel(source, 'Photographers / X'), '📋 Photographers');
+  assert.equal(searchSourceLabel(source), '📋 1234567');
+  assert.equal(collectionKeyLabel('_list_0001234567'), '📋 1234567');
+  assert.equal(collectionKeyLabel('NASA'), '@NASA');
+});
+
+test('F1c: a Saved Job source can be a handle, a #hashtag or an X link', () => {
+  assert.equal(collectionKeyFromInput('NASA'), 'NASA');
+  assert.equal(collectionKeyFromInput(' @NASA '), 'NASA');
+  assert.equal(collectionKeyFromInput('#Cats'), searchSourceKey('hashtag', 'Cats'));
+  assert.equal(collectionKeyFromInput('#cats'), usernameFromXUrl('https://x.com/hashtag/Cats'), 'same key as collecting the hashtag page');
+  assert.equal(collectionKeyFromInput('https://x.com/search?q=cat%20photos&src=typed_query'), searchSourceKey('search', 'cat photos'));
+  assert.equal(collectionKeyFromInput('x.com/i/lists/1234567'), '_list_0001234567');
+  assert.equal(collectionKeyFromInput('https://mobile.twitter.com/NASA/media'), 'NASA');
+  assert.equal(collectionKeyFromInput('https://x.com/i/bookmarks'), '_bookmarks_');
+  assert.equal(collectionKeyFromInput(searchSourceKey('search', 'cats')), searchSourceKey('search', 'cats'), 'stored keys round-trip when a job is edited');
+  for (const bad of ['', '#', '# two words', 'https://evil.example/NASA', 'https://x.com/home', 'not a handle!', 'x'.repeat(51)]) {
+    assert.equal(collectionKeyFromInput(bad), null, JSON.stringify(bad));
+  }
 });

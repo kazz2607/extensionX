@@ -1,4 +1,5 @@
 
+import { collectionKeyLabel } from '../shared/collection-source.ts';
 import { mediaStore, downloadedStore, tabState, downloadCoordinator, pendingHlsRequests, activeDownloads, trimMediaCache } from './state.ts';
 import { broadcastToPopup, broadcastToTab, sanitizeFolder, broadcastFABState, sleep } from './utils.ts';
 import { showDownloadNotification, fetchVideoForTweetWithRefresh, loadDownloadedUrls, isAlreadyDownloaded, markDownloaded, ensureMediaStoreLoaded } from './scraper.ts';
@@ -667,7 +668,7 @@ async function startDownload(username: string, options: DownloadOptions = {}): P
     await addNotificationEvent(
       failed > 0 ? (success > 0 ? 'warning' : 'error') : 'success',
       t(failed > 0 ? 'bg_event_download_partial' : 'bg_event_download_done'),
-      t('bg_event_download_summary', { username, success, failed, skipped }),
+      t('bg_event_download_summary', { username: collectionKeyLabel(username), success, failed, skipped }),
     ).catch(() => {});
     // UI-01: Truyền errors array để popup có thể hiện chi tiết lỗi
     broadcastToPopup('DOWNLOAD_DONE', { username, success, failed, total, skipped, errors: activeErrors.slice(0, 20) });
