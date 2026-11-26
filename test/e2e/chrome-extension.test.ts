@@ -1255,3 +1255,56 @@ test('v9.0.1 L29 a tweet-button download holds the download slot and Stop ends i
   await waitFor(async () => /xmd-error/.test(await buttonClass()), 'the tweet button leaves the loading state after Stop');
   assert.doesNotMatch(await buttonClass(), /xmd-loading/);
 });
+
+test('v9.1.0 S19 Telegram media is saved by the content script without the scripting permission', { timeout: 60_000 }, async (t) => {
+  const extensionDir = await prepareTestExtension();
+  const profileDir = await mkdtemp(join(tmpdir(), 'extensionx-telegram-profile-'));
+  const context = await chromium.launchPersistentContext(profileDir, {
+    executablePath: chromePath,
+    headless: process.env.PLAYWRIGHT_HEADED !== 'true',
+    acceptDownloads: true,
+    args: [`--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`, '--no-first-run'],
+  });
+  t.after(async () => {
+    await context.close();
+    await rm(extensionDir, { recursive: true, force: true });
+    await rm(profileDir, { recursive: true, force: true });
+  });
+  // A chat message whose photo is a blob: URL created by the page, as Telegram Web does.
+  await context.route('https://web.telegram.org/**', (route) => route.fulfill({
+    status: 200,
+    contentType: 'text/html',
+    body: `<!doctype html><html><body><div class="message"><div class="message-media"><img class="media-photo" alt="photo" /></div></div>
+      <script>
+        const canvas = document.createElement('canvas');
+        canvas.width = 300; canvas.height = 240;
+        const ctx = canvas.getContext('2d'); ctx.fillStyle = '#1d9bf0'; ctx.fillRect(0, 0, 300, 240);
+        canvas.toBlob((blob) => { document.querySelector('img').src = URL.createObjectURL(blob); }, 'image/png');
+        // Telegram's router swallows same-origin link clicks; the extension must stop that.
+        document.addEventListener('click', (event) => { if (event.target.closest && event.target.closest('a')) event.preventDefault(); });
+      </script></body></html>`,
+  }));
+  const id = await extensionId(context);
+  const telegram = await context.newPage();
+  await telegram.goto('https://web.telegram.org/k/');
+  const button = telegram.locator('.ext-x-tg-download-btn');
+  await button.waitFor({ timeout: 15_000 });
+  await button.click();
+
+  const options = await context.newPage();
+  await options.goto(`chrome-extension://${id}/options/options.html`);
+  const saved = () => options.evaluate(() => new Promise<Array<{ filename: string; state: string; url: string }>>((resolve) => {
+    chrome.downloads.search({}, (items) => resolve(items.map((item) => ({ filename: item.filename, state: item.state, url: item.url }))));
+  }));
+  const deadline = Date.now() + 15_000;
+  while (!(await saved()).some((item) => item.state === 'complete') && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 250));
+  const files = await saved();
+  assert.equal(files.length, 1, JSON.stringify(files));
+  assert.equal(files[0].state, 'complete');
+  assert.match(files[0].url, /^blob:https:\/\/web\.telegram\.org\//);
+  t.after(() => rm(files[0].filename, { force: true }));
+  // The permission really is gone from the loaded extension.
+  const permissions = await options.evaluate(() => chrome.permissions.getAll());
+  assert.equal(permissions.permissions?.includes('scripting'), false);
+  assert.equal(permissions.origins?.some((origin) => origin.includes('*.x.com')), false);
+});

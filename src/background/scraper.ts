@@ -286,7 +286,8 @@ async function startCollecting(username: string, tabId?: number): Promise<boolea
       }
     }
     if (!tabId) {
-      const patterns = ['https://x.com/*', 'https://twitter.com/*', 'https://*.x.com/*', 'https://*.twitter.com/*'];
+      // S19: chỉ x.com/twitter.com — đúng các trang content script chạy (và host được cấp quyền).
+      const patterns = ['https://x.com/*', 'https://twitter.com/*'];
       const activeTabs = await chrome.tabs.query({ active: true, currentWindow: true, url: patterns });
       tabId = activeTabs.find((tab) => isXProfileUrlForUsername(tab.url, username))?.id;
       if (!tabId) {

@@ -1,10 +1,11 @@
-import type { ExtensionMessage } from '../shared/messages';
 import { loadI18n, registerTranslations, t } from '../lib/i18n.ts';
 import { TELEGRAM_STRINGS } from '../lib/i18n/content.ts';
 import {
+  isTelegramDownloadUrl,
   isTelegramStreamUrl,
   parseTelegramStreamInfo,
   pickLatestVideoStreamUrl,
+  telegramDownloadFilename,
   telegramMediaFilename,
   type StreamRequestRecord,
   type TelegramMediaKind,
@@ -44,13 +45,23 @@ function mediaMimeType(element: HTMLElement): string {
   return '';
 }
 
-function downloadDataUrlLocal(url: string, filename: string): void {
-  // data: URLs are too large to pass to the background script (exceeds 256KB limit)
-  // and do not require Service Worker interception, so they can be downloaded
-  // directly in the isolated world using a standard a.click().
+/**
+ * S19 (9.1.0): lưu file bằng <a download> ngay trong content script. Thẻ nằm
+ * trong DOM của trang nên yêu cầu tải vẫn là của document Telegram (blob: của
+ * trang dùng được, URL stream vẫn qua Service Worker của Telegram) — trước đây
+ * service worker phải chèn script vào MAIN world, cần quyền `scripting`.
+ * URL và tên file được kiểm tra như trước (S18): chỉ blob/stream của
+ * web.telegram.org hoặc data: ảnh/video, đuôi file theo loại media thật.
+ */
+function clickDownloadLink(url: string, filename: string): void {
+  const cleaned = filename.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 200);
+  const safeFilename = cleaned && isTelegramDownloadUrl(url) ? telegramDownloadFilename(url, cleaned) : null;
+  if (!safeFilename) throw new Error('Invalid Telegram download request');
   const a = document.createElement('a');
   a.href = url;
-  a.download = filename;
+  a.download = safeFilename;
+  // Router SPA của Telegram bắt click trên link cùng origin và preventDefault.
+  a.addEventListener('click', (event) => event.stopPropagation());
   a.style.display = 'none';
   document.body.appendChild(a);
   a.click();
@@ -87,13 +98,6 @@ class StreamDownloadError extends Error {
   constructor(reason: string) {
     super(t('tg_stream_failed', { reason }));
     this.name = 'StreamDownloadError';
-  }
-}
-
-class StaleExtensionError extends Error {
-  constructor() {
-    super(t('tg_stale_extension'));
-    this.name = 'StaleExtensionError';
   }
 }
 
@@ -227,25 +231,13 @@ async function handleDownloadClick(
     const filename = telegramMediaFilename(kind, url, mimeType);
     console.log('[ExtensionX] Downloading Telegram media:', url.slice(0, 120));
 
-    if (url.startsWith('data:')) {
-      downloadDataUrlLocal(url, filename);
-    } else {
-      // Sau khi extension được tải lại/cập nhật, script cũ vẫn còn trên tab nhưng chrome.runtime
-      // đã bị vô hiệu (undefined) — báo rõ thay vì lỗi "Cannot read properties of undefined".
-      if (!chrome.runtime?.id) throw new StaleExtensionError();
-      const message: ExtensionMessage = {
-        type: 'TG_DOWNLOAD_MEDIA',
-        payload: { url, filename, isVideo: kind === 'video' },
-      };
-      const response = await chrome.runtime.sendMessage(message) as { ok?: boolean; error?: string } | undefined;
-      if (!response?.ok) throw new Error(response?.error || 'Download was rejected');
-    }
+    clickDownloadLink(url, filename);
     setButtonState(button, 'success');
   } catch (error) {
     setButtonState(
       button,
       'error',
-      error instanceof StaleExtensionError || error instanceof StreamDownloadError ? error.message : undefined,
+      error instanceof StreamDownloadError ? error.message : undefined,
     );
     console.error('[ExtensionX] Telegram download failed:', error);
   }

@@ -14,7 +14,7 @@ export type MessageType =
   | 'GET_DOWNLOADED_COUNT' | 'CLEAR_DOWNLOADED' | 'CLEAR_ALL_DOWNLOADED' | 'EXPORT_CSV' | 'EXPORT_MANIFEST' | 'DOWNLOAD_TWEET'
   | 'GET_SAVED_SESSION' | 'RESTORE_SESSION' | 'RESTORE_SESSION_CANCEL' | 'STOP_DOWNLOAD' | 'RETRY_FAILED'
   | 'UPDATE_BEARER' | 'UPDATE_QUERY_ID' | 'EXPORT_QUEUE' | 'IMPORT_QUEUE' | 'SHORTCUT_DOWNLOAD'
-  | 'START_FOLLOWING_SCROLL' | 'STOP_FOLLOWING_SCROLL' | 'GET_FOLLOWING_SCROLL_STATE' | 'HLS_DONE' | 'TG_DOWNLOAD_MEDIA'
+  | 'START_FOLLOWING_SCROLL' | 'STOP_FOLLOWING_SCROLL' | 'GET_FOLLOWING_SCROLL_STATE' | 'HLS_DONE'
   | 'START_FOLLOWING_SCAN' | 'FOLLOWING_SCAN_PAGE' | 'GET_FOLLOWING_SCAN_STATE' | 'STOP_FOLLOWING_SCAN' | 'START_UNFOLLOW'
   | 'GET_DOWNLOAD_CENTER' | 'GET_SAVED_JOBS' | 'SAVE_SAVED_JOB' | 'DELETE_SAVED_JOB' | 'RUN_SAVED_JOB'
   | 'GET_STORAGE_SUMMARY' | 'PRUNE_STORAGE' | 'CLEAR_PROFILE_STORAGE' | 'CLEAR_ALL_PROFILE_STORAGE'
@@ -66,7 +66,6 @@ export type ExtensionMessage =
   | { type: 'GET_GALLERY_PAGE'; payload: MediaFilterPayload & { offset?: number; limit?: number } }
   | { type: 'SET_JOB_SCHEDULE'; payload: { schedule: { jobId: string; enabled: boolean; intervalMinutes: number } } }
   | { type: 'DOWNLOAD_ZIP_CHUNKS'; payload: MediaFilterPayload & { chunkSize?: number } }
-  | { type: 'TG_DOWNLOAD_MEDIA'; payload: { url: string; filename: string; isVideo: boolean } }
   | { type: 'OFFSCREEN_SAVE_BLOB'; payload: { url: string; filename: string; username?: string } }
   | { type: 'ZIP_DONE'; payload: { archives?: number; files?: number; skipped?: number; error?: string } }
   | { type: 'RETRY_FAILED_ITEMS'; payload: { ids: string[]; lowerQuality?: boolean } }
@@ -170,7 +169,7 @@ const MESSAGE_TYPES: ReadonlySet<string> = new Set<MessageType>([
   'GET_DOWNLOADED_COUNT', 'CLEAR_DOWNLOADED', 'CLEAR_ALL_DOWNLOADED', 'EXPORT_CSV', 'EXPORT_MANIFEST', 'DOWNLOAD_TWEET',
   'GET_SAVED_SESSION', 'RESTORE_SESSION', 'RESTORE_SESSION_CANCEL', 'STOP_DOWNLOAD', 'RETRY_FAILED',
   'UPDATE_BEARER', 'UPDATE_QUERY_ID', 'EXPORT_QUEUE', 'IMPORT_QUEUE', 'SHORTCUT_DOWNLOAD',
-  'START_FOLLOWING_SCROLL', 'STOP_FOLLOWING_SCROLL', 'GET_FOLLOWING_SCROLL_STATE', 'HLS_DONE', 'TG_DOWNLOAD_MEDIA',
+  'START_FOLLOWING_SCROLL', 'STOP_FOLLOWING_SCROLL', 'GET_FOLLOWING_SCROLL_STATE', 'HLS_DONE',
   'START_FOLLOWING_SCAN', 'FOLLOWING_SCAN_PAGE', 'GET_FOLLOWING_SCAN_STATE', 'STOP_FOLLOWING_SCAN', 'START_UNFOLLOW',
   'GET_DOWNLOAD_CENTER', 'GET_SAVED_JOBS', 'SAVE_SAVED_JOB', 'DELETE_SAVED_JOB', 'RUN_SAVED_JOB',
   'GET_STORAGE_SUMMARY', 'PRUNE_STORAGE', 'CLEAR_PROFILE_STORAGE', 'CLEAR_ALL_PROFILE_STORAGE',
@@ -200,7 +199,7 @@ const PAYLOAD_KEYS: Readonly<Record<MessageType, readonly string[]>> = {
   UPDATE_QUERY_ID: ['queryId', 'opName'], EXPORT_QUEUE: [], IMPORT_QUEUE: ['data'], SHORTCUT_DOWNLOAD: ['url'],
   START_FOLLOWING_SCROLL: ['targetUrl'], STOP_FOLLOWING_SCROLL: [], GET_FOLLOWING_SCROLL_STATE: [],
   START_FOLLOWING_SCAN: ['targetUrl'], FOLLOWING_SCAN_PAGE: ['candidates', 'cursor'], GET_FOLLOWING_SCAN_STATE: [], STOP_FOLLOWING_SCAN: [], START_UNFOLLOW: ['ids', 'confirmed'],
-  HLS_DONE: [], TG_DOWNLOAD_MEDIA: ['url', 'filename', 'isVideo'],
+  HLS_DONE: [],
   GET_DOWNLOAD_CENTER: [], GET_SAVED_JOBS: [], SAVE_SAVED_JOB: ['job'],
   DELETE_SAVED_JOB: ['id'], RUN_SAVED_JOB: ['id'],
   GET_STORAGE_SUMMARY: [], PRUNE_STORAGE: [], CLEAR_PROFILE_STORAGE: ['username'], CLEAR_ALL_PROFILE_STORAGE: [],
@@ -218,7 +217,7 @@ const PAYLOAD_KEYS: Readonly<Record<MessageType, readonly string[]>> = {
 /** Commands a content script on X/Telegram may send. Everything else is popup/options/Download Center only. */
 const CONTENT_SCRIPT_TYPES: ReadonlySet<MessageType> = new Set<MessageType>([
   'MEDIA_FOUND', 'PAGE_LOADED', 'DIAGNOSTIC_METRIC', 'START_COLLECTING', 'STOP_COLLECTING', 'START_DOWNLOAD',
-  'UPDATE_BEARER', 'UPDATE_QUERY_ID', 'FOLLOWING_SCAN_PAGE', 'DOWNLOAD_TWEET', 'SHORTCUT_DOWNLOAD', 'TG_DOWNLOAD_MEDIA',
+  'UPDATE_BEARER', 'UPDATE_QUERY_ID', 'FOLLOWING_SCAN_PAGE', 'DOWNLOAD_TWEET', 'SHORTCUT_DOWNLOAD',
 ]);
 const OFFSCREEN_TYPES: ReadonlySet<MessageType> = new Set<MessageType>(['HLS_DONE', 'OFFSCREEN_SAVE_BLOB', 'ZIP_DONE']);
 export const OFFSCREEN_DOCUMENT_PATH = 'offscreen/offscreen.html';
@@ -234,14 +233,15 @@ export function isAllowedSender(type: MessageType, senderUrl: string | undefined
   if (senderUrl.startsWith(extensionOrigin)) return !OFFSCREEN_TYPES.has(type);
   if (!CONTENT_SCRIPT_TYPES.has(type)) return false;
   // S16: mỗi lệnh chỉ nhận từ đúng trang — content script Telegram không được
-  // gửi lệnh của X (vd. START_COLLECTING với username tuỳ ý) và ngược lại.
+  // gửi lệnh của X (vd. START_COLLECTING với username tuỳ ý). Từ 9.1.0 (S19)
+  // Telegram tự lưu file trong trang nên không còn lệnh nào từ web.telegram.org,
+  // và chỉ x.com/twitter.com (nơi content script chạy) được gửi lệnh.
   let host = '';
   try {
     const url = new URL(senderUrl);
     if (url.protocol === 'https:') host = url.hostname;
   } catch { /* host rỗng: từ chối */ }
-  if (type === 'TG_DOWNLOAD_MEDIA') return host === 'web.telegram.org';
-  return host === 'x.com' || host === 'twitter.com' || host.endsWith('.x.com') || host.endsWith('.twitter.com');
+  return host === 'x.com' || host === 'twitter.com';
 }
 
 /** Cheap boundary check before command-specific validation in the service worker. */

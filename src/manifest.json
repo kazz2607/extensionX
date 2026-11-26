@@ -60,14 +60,14 @@
   "permissions": [
     "downloads",
     "storage",
-    "scripting",
     "offscreen",
     "alarms",
     "notifications"
   ],
   "host_permissions": [
-    "https://*.x.com/*",
-    "https://*.twitter.com/*",
+    "https://x.com/*",
+    "https://api.x.com/*",
+    "https://twitter.com/*",
     "https://pbs.twimg.com/*",
     "https://video.twimg.com/*",
     "https://cdn.syndication.twimg.com/*",

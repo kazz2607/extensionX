@@ -8,7 +8,6 @@ import { setDynamicBearer, setDynamicQueryId } from './tweet-api.ts';
 import { canonicalizeMediaItem, isCollectMediaPageUrl, isTrustedMediaUrl, isValidDownloadOptions, isValidMediaItem, isValidUsername, isXProfileUrlForUsername, isXUrl, normalizeMediaUrlToOrig } from '../shared/validation.ts';
 import { OFFSCREEN_DOCUMENT_PATH, type ParsedRuntimeMessage } from '../shared/messages.ts';
 import { recordDiagnostic } from './diagnostics.ts';
-import { isTelegramDownloadUrl, isTelegramWebUrl, telegramDownloadFilename } from '../shared/telegram-media.ts';
 import type { Stats, MediaItem } from '../types.ts';
 import { collectMediaMatches, createMediaMatcher, type MediaQueryCriteria } from '../shared/media-query.ts';
 import { selectThreadMediaUrls } from '../shared/media-filter.ts';
@@ -538,50 +537,6 @@ export function handleMediaMessage(
       } catch (err) {
         sendResponse({ error: err instanceof Error ? err.message : String(err) });
       }
-      return true;
-    }
-
-
-    // Pha 6: Telegram Web Download
-    case 'TG_DOWNLOAD_MEDIA': {
-      const { url, filename } = payload || {};
-      if (!sender.tab?.id || !isTelegramWebUrl(sender.tab.url) || typeof url !== 'string' || typeof filename !== 'string') {
-        sendResponse({ error: 'Missing url or filename' });
-        return true;
-      }
-      const cleaned = filename.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 200);
-      const safeFilename = cleaned && isTelegramDownloadUrl(url) ? telegramDownloadFilename(url, cleaned) : null;
-      if (!safeFilename) {
-        sendResponse({ error: 'Invalid Telegram download request' });
-        return false;
-      }
-
-      chrome.scripting.executeScript({
-        target: { tabId: sender.tab.id },
-        world: 'MAIN',
-        func: (downloadUrl: string, downloadFilename: string) => {
-          try {
-            const a = document.createElement('a');
-            a.href = downloadUrl;
-            a.download = downloadFilename;
-            // Stop propagation to prevent Telegram's SPA router from intercepting the click
-            // and calling e.preventDefault() on same-origin URLs.
-            a.addEventListener('click', (e) => e.stopPropagation());
-            a.style.display = 'none';
-            document.body.appendChild(a);
-            a.click();
-            setTimeout(() => a.remove(), 2000);
-          } catch (e) {
-            console.error('[ExtensionX] Main world download trigger failed', e);
-          }
-        },
-        args: [url, safeFilename]
-      }).then(() => {
-        sendResponse({ ok: true });
-      }).catch(err => {
-        console.error('[SW] TG_DOWNLOAD_MEDIA executeScript error:', err);
-        sendResponse({ error: err.message });
-      });
       return true;
     }
 

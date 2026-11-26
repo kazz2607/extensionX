@@ -53,8 +53,8 @@ test('S16: content-script commands are bound to the page origin that sends them'
   const origin = 'chrome-extension://abc/';
   assert.equal(isAllowedSender('START_COLLECTING', 'https://x.com/alice/media', origin), true);
   assert.equal(isAllowedSender('START_COLLECTING', 'https://web.telegram.org/k/', origin), false);
-  assert.equal(isAllowedSender('TG_DOWNLOAD_MEDIA', 'https://web.telegram.org/k/', origin), true);
-  assert.equal(isAllowedSender('TG_DOWNLOAD_MEDIA', 'https://x.com/alice', origin), false);
+  // 9.1.0 (S19): Telegram saves files in its own page; it sends no runtime command at all.
+  assert.equal(isAllowedSender('MEDIA_FOUND', 'https://web.telegram.org/k/', origin), false);
   assert.equal(isAllowedSender('MEDIA_FOUND', 'https://evil.example/x.com', origin), false);
   assert.equal(isAllowedSender('MEDIA_FOUND', 'http://x.com/alice', origin), false, 'https only');
 });
