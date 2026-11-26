@@ -1119,3 +1119,63 @@ test('v9.0.0 F3b failed videos are retried at the next lower quality until one w
   const none = await send({ type: 'RETRY_FAILED_ITEMS', payload: { ids: [failedId], lowerQuality: true } }) as { ok?: boolean };
   assert.equal(none.ok, false);
 });
+test('v9.0.0 F6 a tweet page offers the media of the author\'s own thread, not other people\'s replies', { timeout: 60_000 }, async (t) => {
+  const extensionDir = await prepareTestExtension();
+  const profileDir = await mkdtemp(join(tmpdir(), 'extensionx-thread-profile-'));
+  const context = await chromium.launchPersistentContext(profileDir, {
+    executablePath: chromePath,
+    headless: process.env.PLAYWRIGHT_HEADED !== 'true',
+    args: [`--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`, '--no-first-run'],
+  });
+  t.after(async () => {
+    await context.close();
+    await rm(extensionDir, { recursive: true, force: true });
+    await rm(profileDir, { recursive: true, force: true });
+  });
+  const root = '1850000000000000100';
+  const tweet = (id: string, author: string, media: unknown) => ({
+    tweet_results: { result: {
+      core: { user_results: { result: { core: { screen_name: author }, legacy: { name: author } } } },
+      legacy: { id_str: id, conversation_id_str: root, full_text: `${author} ${id}`, extended_entities: { media: [media] } },
+    } },
+  });
+  const photo = (name: string) => ({ type: 'photo', id_str: name, media_url_https: `https://pbs.twimg.com/media/${name}.jpg` });
+  const thread = { data: { threaded_conversation_with_injections_v2: { instructions: [{ type: 'TimelineAddEntries', entries: [
+    { content: { itemContent: tweet(root, 'NASA', photo('thread-root')) } },
+    { content: { itemContent: tweet('1850000000000000101', 'NASA', { type: 'video', id_str: 'v', video_info: { variants: [
+      { content_type: 'video/mp4', bitrate: 2_000_000, url: 'https://video.twimg.com/ext_tw_video/1850000000000000101/pu/vid/1280x720/self.mp4' },
+      { content_type: 'video/mp4', bitrate: 600_000, url: 'https://video.twimg.com/ext_tw_video/1850000000000000101/pu/vid/480x270/self.mp4' },
+    ] } }) } },
+    { content: { itemContent: tweet('1850000000000000102', 'someone_else', photo('thread-reply-by-other')) } },
+  ] }] } } };
+  await context.route('https://x.com/**', (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.startsWith('/i/api/')) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(thread) });
+    return route.fulfill({ status: 200, contentType: 'text/html', body: `<!doctype html><html><head><title>NASA on X</title></head><body><main>tweet</main>
+      <script>setTimeout(() => fetch('/i/api/graphql/AAAAAAAAAAAAAAAAAAAAAA/TweetDetail?variables=%7B%7D'), 500);</script></body></html>` });
+  });
+  const id = await extensionId(context);
+  const page = await context.newPage();
+  await page.goto(`https://x.com/NASA/status/${root}`);
+
+  const options = await context.newPage();
+  await options.goto(`chrome-extension://${id}/options/options.html`);
+  const send = (message: unknown) => options.evaluate((m) => chrome.runtime.sendMessage(m), message);
+  // A tweet page collects into the author's key, other people's replies included (unchanged).
+  await waitForCount(async () => ((await send({ type: 'GET_MEDIA_COUNT', payload: { username: 'NASA' } })) as { count: number }).count, 3);
+
+  const threadUrls = async (tweetId: string) => ((await send({ type: 'GET_THREAD_MEDIA', payload: { username: 'NASA', tweetId } })) as { urls: string[] }).urls;
+  const fromRoot = await threadUrls(root);
+  assert.equal(fromRoot.length, 2, JSON.stringify(fromRoot));
+  assert.ok(fromRoot.some((url) => url.includes('thread-root')));
+  assert.ok(fromRoot.some((url) => url.includes('1280x720/self.mp4')), 'the best quality of the author\'s own reply');
+  assert.ok(!fromRoot.some((url) => url.includes('reply-by-other')), 'other people\'s replies are not part of the thread');
+  // Opened on the author's reply: the conversation comes from that tweet's media.
+  assert.deepEqual((await threadUrls('1850000000000000101')).sort(), [...fromRoot].sort());
+  // Opened on someone else's reply: that tweet's own media plus the page author's thread.
+  const fromReply = await threadUrls('1850000000000000102');
+  assert.equal(fromReply.length, 3, 'the opened tweet itself is always included');
+  // Unknown tweet without media: nothing to download; forged input is refused quietly.
+  assert.deepEqual(await threadUrls('1850000000000000199'), []);
+  assert.deepEqual(await threadUrls('not-a-tweet'), []);
+});

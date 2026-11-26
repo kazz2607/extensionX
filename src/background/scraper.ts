@@ -522,6 +522,26 @@ function searchTabUrl(username: string): string | undefined {
   return undefined;
 }
 
+/**
+ * F6: media lưu trước 9.0.0 không có hội thoại/tác giả. Khi GraphQL gửi lại cùng
+ * URL (vd. mở trang tweet), bổ sung hai trường này cho bản đã lưu để tải thread
+ * không bỏ sót; các trường khác giữ nguyên.
+ */
+function enrichMediaItems(username: string, items: readonly MediaItem[]): void {
+  const store = mediaStore.get(username);
+  let changed = false;
+  for (const item of items) {
+    const stored = item.conversationId ? store?.get(item.url) : undefined;
+    if (!stored || stored.conversationId) continue;
+    stored.conversationId = item.conversationId;
+    stored.authorHandle = item.authorHandle;
+    if (!dirtyMediaStore.has(username)) dirtyMediaStore.set(username, new Map());
+    dirtyMediaStore.get(username)!.set(stored.url, stored);
+    changed = true;
+  }
+  if (changed) persistSession(username);
+}
+
 async function persistSession(username: string) {
   // Hủy timer cũ (nếu có) để debounce
   const existing = _persistDebounceMap.get(username);
@@ -734,7 +754,7 @@ async function showDownloadNotification(username: string, success: number, faile
 
 export {
   requestCsrfRefresh, fetchVideoForTweetWithRefresh,
-  addMediaItems, ensureMediaStoreLoaded, applyOptionsFilter, tweetDateFromId,
+  addMediaItems, enrichMediaItems, ensureMediaStoreLoaded, applyOptionsFilter, tweetDateFromId,
   checkAutoScroll, startCollecting, stopCollecting, stopCollectingForTab, scrollLoop,
   persistSession, clearSession, reloadMediaCache,
   loadDownloadedUrls, isAlreadyDownloaded, markDownloaded, cancelDownloadedPersist, showDownloadNotification

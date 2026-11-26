@@ -19,6 +19,8 @@ interface GraphqlNode {
   id_str?: string;
   full_text?: string;
   favorite_count?: unknown;
+  conversation_id_str?: unknown;
+  core?: { user_results?: { result?: { core?: { screen_name?: unknown }; legacy?: { screen_name?: unknown } } } };
   extended_entities?: { media?: unknown };
   entities?: { media?: unknown };
 }
@@ -65,15 +67,32 @@ export function pickVideoVariant(variants: readonly RawVideoVariant[]): PickedVi
   return hls && urlOf(hls) ? { url: urlOf(hls), isHls: true, bitrate: hls.bitrate || 0, lower: [] } : null;
 }
 
+function threadFields(conversationId: string | undefined, authorHandle: string | undefined): { conversationId?: string; authorHandle?: string } {
+  return conversationId && authorHandle ? { conversationId, authorHandle } : {};
+}
+
 function getImageExt(url: string): string {
   const m = url.match(/\.(jpg|jpeg|png|webp|gif)(?:[?#]|$)/i);
   return m ? m[1].toLowerCase() : 'jpg';
 }
 
-/** Duyệt đệ quy `value`, đẩy media tìm được vào `results` theo thứ tự gặp. */
-export function extractMediaFromResponse(value: unknown, results: unknown[], skipKeys: ReadonlySet<string> = GRAPHQL_SKIP_KEYS, depth = 0): void {
+const HANDLE = /^[A-Za-z0-9_]{1,15}$/;
+const NUMERIC_ID = /^\d{1,20}$/;
+
+/**
+ * Duyệt đệ quy `value`, đẩy media tìm được vào `results` theo thứ tự gặp.
+ * `author`: handle tác giả của tweet đang duyệt (F6) — đọc ở object tweet
+ * (`core.user_results.result`) rồi truyền xuống `legacy` chứa media, vì nhánh
+ * `user_results` không được duyệt (P21).
+ */
+export function extractMediaFromResponse(value: unknown, results: unknown[], skipKeys: ReadonlySet<string> = GRAPHQL_SKIP_KEYS, depth = 0, author?: string): void {
   if (depth > MAX_DEPTH || !value || typeof value !== 'object') return;
   const obj = value as GraphqlNode;
+  const user = obj.core?.user_results?.result;
+  const handle = user?.core?.screen_name ?? user?.legacy?.screen_name;
+  const nodeAuthor = typeof handle === 'string' && HANDLE.test(handle) ? handle : author;
+  // F6: hội thoại + tác giả để tải cả thread; chỉ gắn cho media của chính tweet này.
+  const conversationId = typeof obj.conversation_id_str === 'string' && NUMERIC_ID.test(obj.conversation_id_str) ? obj.conversation_id_str : undefined;
 
   const mediaList = (obj.extended_entities && Array.isArray(obj.extended_entities.media))
     ? obj.extended_entities.media
@@ -101,6 +120,7 @@ export function extractMediaFromResponse(value: unknown, results: unknown[], ski
             tweetText: obj.full_text || '',
             likeCount,
             ...(picked.lower.length ? { variants: picked.lower } : {}),
+            ...(ownMedia ? threadFields(conversationId, nodeAuthor) : {}),
           });
         }
       } else if (type === 'photo') {
@@ -124,6 +144,7 @@ export function extractMediaFromResponse(value: unknown, results: unknown[], ski
             mediaKey: media.media_key || media.id_str || tweetId,
             tweetText: obj.full_text || '',
             likeCount,
+            ...(ownMedia ? threadFields(conversationId, nodeAuthor) : {}),
           });
         }
       }
@@ -134,7 +155,7 @@ export function extractMediaFromResponse(value: unknown, results: unknown[], ski
     if (skipKeys.has(key)) continue;
     const child = obj[key];
     if (child !== null && typeof child === 'object') {
-      extractMediaFromResponse(child, results, skipKeys, depth + 1);
+      extractMediaFromResponse(child, results, skipKeys, depth + 1, nodeAuthor);
     }
   }
 }

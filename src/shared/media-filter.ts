@@ -10,6 +10,22 @@ export function isVideoThumbnailUrl(url: string): boolean {
   }
 }
 
+/**
+ * F6: URL media của một thread — các tweet cùng hội thoại do chính tác giả viết
+ * (bỏ trả lời của người khác). Hội thoại lấy từ media của tweet đang mở; tweet
+ * đó không có media thì coi như đang mở tweet đầu thread (id hội thoại = id tweet).
+ * Media của chính tweet đang mở luôn được tính, kể cả khi chỉ thấy qua DOM.
+ */
+export function selectThreadMediaUrls(items: Iterable<MediaItem>, author: string, focalTweetId: string): string[] {
+  const list = [...items].filter((item) => item.type !== 'video_placeholder' && !(item.type === 'image' && isVideoThumbnailUrl(item.url)));
+  const conversationId = list.find((item) => item.tweetId === focalTweetId && item.conversationId)?.conversationId ?? focalTweetId;
+  const handle = author.toLowerCase();
+  return list
+    .filter((item) => item.tweetId === focalTweetId
+      || (item.conversationId === conversationId && item.authorHandle?.toLowerCase() === handle))
+    .map((item) => item.url);
+}
+
 /** A side-effect-free version of the collection filter, usable in regression tests. */
 export function filterMediaItems(items: readonly MediaItem[], options: Options, currentCount = 0): MediaItem[] {
   const mediaTypes = options.mediaTypes ?? {};

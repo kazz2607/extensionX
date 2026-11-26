@@ -4,7 +4,7 @@ import type { BackupSection } from './backup.ts';
 import type { LocalDiagnostics } from './diagnostics.ts';
 
 export type MessageType =
-  | 'MEDIA_FOUND' | 'PAGE_LOADED' | 'GET_MEDIA_COUNT' | 'GET_STATS' | 'GET_ALL_USERNAMES' | 'GET_TAB_STATE'
+  | 'MEDIA_FOUND' | 'PAGE_LOADED' | 'GET_MEDIA_COUNT' | 'GET_THREAD_MEDIA' | 'GET_STATS' | 'GET_ALL_USERNAMES' | 'GET_TAB_STATE'
   | 'CLEAR_MEDIA' | 'START_COLLECTING' | 'STOP_COLLECTING' | 'START_DOWNLOAD' | 'ADD_TO_QUEUE'
   | 'REMOVE_FROM_QUEUE' | 'GET_QUEUE' | 'CLEAR_QUEUE' | 'START_QUEUE' | 'GET_DOWNLOAD_STATE'
   | 'RETRY_QUEUE_ITEM' | 'TOGGLE_QUEUE_PAUSE' | 'REORDER_QUEUE_ITEM'
@@ -40,6 +40,7 @@ export type ExtensionMessage =
   | { type: 'MEDIA_FOUND'; payload: { username: string; mediaItems: MediaItem[] } }
   | { type: 'PAGE_LOADED'; payload: { username: string; url: string; isMediaPage: boolean; ct0?: string } }
   | { type: 'GET_MEDIA_COUNT' | 'GET_STATS' | 'GET_TAB_STATE' | 'CLEAR_MEDIA' | 'START_COLLECTING' | 'STOP_COLLECTING' | 'GET_DOWNLOADED_COUNT' | 'CLEAR_DOWNLOADED' | 'EXPORT_MANIFEST' | 'RESTORE_SESSION' | 'RESTORE_SESSION_CANCEL'; payload: UsernamePayload }
+  | { type: 'GET_THREAD_MEDIA'; payload: UsernamePayload & { tweetId: string } }
   | { type: 'START_DOWNLOAD'; payload: UsernamePayload & { options: DownloadOptions } }
   | { type: 'GET_MEDIA_COUNT_FILTERED' | 'GET_MEDIA_ITEMS_FILTERED'; payload: MediaFilterPayload }
   | { type: 'ADD_TO_QUEUE'; payload: UsernamePayload & { filterType?: string; skipDuplicates?: boolean; keyword?: string } }
@@ -84,6 +85,7 @@ export type ParsedRuntimeMessage = ExtensionMessage | {
 
 export interface MessageResponseMap {
   GET_MEDIA_COUNT: { count?: number; error?: string };
+  GET_THREAD_MEDIA: { urls: string[] };
   GET_STATS: { stats?: Stats; error?: string };
   GET_ALL_USERNAMES: { usernames: Array<{ username: string; count: number; stats?: Stats }> };
   GET_TAB_STATE: { isCollecting?: boolean; scrollCount?: number; error?: string };
@@ -158,7 +160,7 @@ export type ResponseFor<T extends MessageType> = T extends keyof MessageResponse
 
 const MAX_MESSAGE_BYTES = 256_000;
 const MESSAGE_TYPES: ReadonlySet<string> = new Set<MessageType>([
-  'MEDIA_FOUND', 'PAGE_LOADED', 'GET_MEDIA_COUNT', 'GET_STATS', 'GET_ALL_USERNAMES', 'GET_TAB_STATE',
+  'MEDIA_FOUND', 'PAGE_LOADED', 'GET_MEDIA_COUNT', 'GET_THREAD_MEDIA', 'GET_STATS', 'GET_ALL_USERNAMES', 'GET_TAB_STATE',
   'CLEAR_MEDIA', 'START_COLLECTING', 'STOP_COLLECTING', 'START_DOWNLOAD', 'ADD_TO_QUEUE',
   'REMOVE_FROM_QUEUE', 'GET_QUEUE', 'CLEAR_QUEUE', 'START_QUEUE', 'GET_DOWNLOAD_STATE',
   'RETRY_QUEUE_ITEM', 'TOGGLE_QUEUE_PAUSE', 'REORDER_QUEUE_ITEM',
@@ -182,7 +184,7 @@ const MESSAGE_TYPES: ReadonlySet<string> = new Set<MessageType>([
 const PAYLOAD_KEYS: Readonly<Record<MessageType, readonly string[]>> = {
   MEDIA_FOUND: ['username', 'mediaItems', 'sourceUrl', 'pageUrl'],
   PAGE_LOADED: ['username', 'ct0', 'url', 'isMediaPage'],
-  GET_MEDIA_COUNT: ['username'], GET_STATS: ['username'], GET_ALL_USERNAMES: [], GET_TAB_STATE: ['username'],
+  GET_MEDIA_COUNT: ['username'], GET_THREAD_MEDIA: ['username', 'tweetId'], GET_STATS: ['username'], GET_ALL_USERNAMES: [], GET_TAB_STATE: ['username'],
   CLEAR_MEDIA: ['username'], START_COLLECTING: ['username'], STOP_COLLECTING: ['username'],
   START_DOWNLOAD: ['username', 'options'], ADD_TO_QUEUE: ['username', 'filterType', 'skipDuplicates', 'keyword'],
   REMOVE_FROM_QUEUE: ['id'], GET_QUEUE: [], CLEAR_QUEUE: [], START_QUEUE: [], GET_DOWNLOAD_STATE: [],

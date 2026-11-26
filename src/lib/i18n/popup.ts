@@ -203,6 +203,7 @@ export const POPUP_STRINGS: TranslationTable = {
     popup_toast_queue_no_media: 'No media yet — collect first',
     popup_toast_queue_exists: '{username} is already in the queue',
     popup_toast_queue_added: '✓ Added {username} to the queue',
+    popup_thread_download: 'Download this thread ({n})',
     popup_toast_queue_add_failed: 'Error adding to the queue',
 
     // History
@@ -466,6 +467,7 @@ export const POPUP_STRINGS: TranslationTable = {
     popup_toast_queue_no_media: 'Chưa có media — hãy thu thập trước',
     popup_toast_queue_exists: '{username} đã trong hàng đợi',
     popup_toast_queue_added: '✓ Đã thêm {username} vào queue',
+    popup_thread_download: 'Tải cả thread này ({n})',
     popup_toast_queue_add_failed: 'Lỗi khi thêm vào queue',
 
     // History

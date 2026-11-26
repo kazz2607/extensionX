@@ -43,6 +43,7 @@ let _csvOffset = 0;          // PERF-04: CSV pagination offset (reset khi đổi
 let _downloadedCount = 0;    // P4: Duplicate detection count for preview
 let _concurrency = 3;        // P4: Concurrency level for warning
 let _lastErrors: string[] = []; // P4: Stored error strings for copy log button
+let threadUrls: string[] = [];  // F6: media của thread đang mở (trang tweet)
 
 // ─── DOM ───────────────────────────────────────────────────────────────────────
 // Mọi id dùng qua các helper này đều trỏ tới element tĩnh có sẵn trong
@@ -463,6 +464,25 @@ async function detectCurrentTab() {
 
 const SOURCE_AVATARS = { search: '🔍', hashtag: '#', list: '📋' } as const;
 
+const STATUS_PATH = /^\/[A-Za-z0-9_]{1,15}\/status\/(\d{10,20})(?:\/|$)/;
+
+/**
+ * F6: trên trang tweet (`/<user>/status/<id>`), hiện nút tải mọi media của thread —
+ * các tweet cùng hội thoại do chính tác giả viết. Ẩn khi thread chưa có media.
+ */
+async function refreshThreadButton(username: string, pageUrl?: string): Promise<void> {
+  const button = document.getElementById('btn-thread') as HTMLButtonElement | null;
+  if (!button) return;
+  let tweetId: string | undefined;
+  try { tweetId = pageUrl ? STATUS_PATH.exec(new URL(pageUrl).pathname)?.[1] : undefined; } catch { tweetId = undefined; }
+  threadUrls = tweetId ? (await sendBG('GET_THREAD_MEDIA', { username, tweetId }))?.urls ?? [] : [];
+  if (currentUsername !== username) return;
+  button.hidden = threadUrls.length === 0;
+  const label = document.getElementById('btn-thread-text');
+  if (label) label.textContent = t('popup_thread_download', { n: threadUrls.length });
+  updateButtons();
+}
+
 async function setCurrentUser(username: string, pageUrl?: string, pageTitle?: string) {
   if (currentUsername !== username) _csvOffset = 0;
   currentUsername = username;
@@ -477,6 +497,8 @@ async function setCurrentUser(username: string, pageUrl?: string, pageTitle?: st
   els.hint.textContent = t(isSearch && search ? `profile_hint_${search.kind}` : 'profile_hint_active');
   els.profileCard.classList.add('active');
   els.avatar.textContent = isSearch && search ? SOURCE_AVATARS[search.kind] : username.slice(0, 2).toUpperCase();
+
+  void refreshThreadButton(username, pageUrl);
 
   // Cập nhật queue add bar hint
   if (els.queueAddHint) els.queueAddHint.textContent = t('popup_queue_add_hint_user', { username: displayLabel });
@@ -637,6 +659,8 @@ function updateButtons() {
   els.btnClear.disabled    = !hasUser || totalCount === 0;
   if (els.btnQueueAdd)    els.btnQueueAdd.disabled    = !hasUser || filteredCount === 0;
   if (els.btnQueueAddBar) els.btnQueueAddBar.disabled = !hasUser;
+  const btnThread = document.getElementById('btn-thread') as HTMLButtonElement | null;
+  if (btnThread) btnThread.disabled = isDownloading || threadUrls.length === 0;
 
   // Bug 2: Hiện nút Stop khi đang tải, ẩn khi rảnh. Stop THAY CHỖ Download (không
   // chen thêm) để .btn-row luôn đúng 4 nút hiển thị cùng lúc, tránh tràn dòng.
@@ -788,6 +812,10 @@ function setupListeners() {
 
   // Download
   els.btnDownload.addEventListener('click', () => void beginDownload());
+  // F6: bỏ bộ lọc loại/ngày/từ khoá của popup — tải đúng các file của thread.
+  document.getElementById('btn-thread')?.addEventListener('click', () => {
+    if (threadUrls.length) void beginDownload({ selectedUrls: [...threadUrls], filterType: 'all', dateFrom: undefined, dateTo: undefined, keyword: undefined });
+  });
 
   // Add to Queue (action row button)
   if (els.btnQueueAdd) {

@@ -16,6 +16,9 @@ export interface MediaItem {
    * lại khi bản cao nhất lỗi. Tuỳ chọn, bản cũ bỏ qua.
    */
   variants?: string[];
+  /** F6 (9.0.0): hội thoại và handle tác giả của tweet chứa media — để tải cả thread. */
+  conversationId?: string;
+  authorHandle?: string;
   addedAt?: number;
   username?: string;
 }

@@ -557,6 +557,22 @@ html {
   box-shadow: 0 4px 16px rgba(244, 33, 46, 0.3);
 }
 
+/* F6: tải cả thread — hàng riêng dưới .btn-row (hàng đó giữ đúng 4 nút) */
+.btn--thread {
+  margin-top: 6px;
+  background: var(--accent-glow);
+  color: var(--accent);
+  border: 1px solid var(--accent-glow);
+}
+
+.btn--thread:not(:disabled):hover {
+  border-color: var(--accent);
+}
+
+.btn--thread[hidden] {
+  display: none;
+}
+
 /* Bottom row */
 .btn-row {
   display: grid;

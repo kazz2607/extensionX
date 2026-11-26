@@ -1,6 +1,6 @@
 import { mediaStore, statsStore, tabState, downloadedStore, downloadCoordinator, pendingHlsRequests, setCsrfToken, dirtyMediaStore } from './state.ts';
 import { continueCollectOnPageLoad } from '../shared/collect-state.ts';
-import { addMediaItems, cancelDownloadedPersist, ensureMediaStoreLoaded, applyOptionsFilter, checkAutoScroll, startCollecting, stopCollecting, clearSession, fetchVideoForTweetWithRefresh, loadDownloadedUrls } from './scraper.ts';
+import { addMediaItems, enrichMediaItems, cancelDownloadedPersist, ensureMediaStoreLoaded, applyOptionsFilter, checkAutoScroll, startCollecting, stopCollecting, clearSession, fetchVideoForTweetWithRefresh, loadDownloadedUrls } from './scraper.ts';
 import { startDownload, handleDownloadTweet, saveOffscreenBlob } from './downloader.ts';
 import { updateBadge, broadcastToPopup, updateFAB } from './utils.ts';
 import { mediaRepository } from './indexeddb.ts';
@@ -11,6 +11,7 @@ import { recordDiagnostic } from './diagnostics.ts';
 import { isTelegramDownloadUrl, isTelegramWebUrl, telegramDownloadFilename } from '../shared/telegram-media.ts';
 import type { Stats, MediaItem } from '../types.ts';
 import { collectMediaMatches, createMediaMatcher, type MediaQueryCriteria } from '../shared/media-query.ts';
+import { selectThreadMediaUrls } from '../shared/media-filter.ts';
 import { t } from '../lib/i18n.ts';
 
 const MAX_MEDIA_BATCH = 200;
@@ -142,6 +143,7 @@ export function handleMediaMessage(
         // Also de-duplicate within the batch (a tweet and its quote can carry
         // the same media) so duplicates cannot use up maxMedia slots either.
         const known = mediaStore.get(username);
+        if (known) enrichMediaItems(username, direct);
         const fresh = [...new Map(direct.filter((item) => !known?.has(item.url)).map((item) => [item.url, item])).values()];
         if (fresh.length > 0) {
           fresh.forEach((item) => { item.username = username; });
@@ -218,6 +220,17 @@ export function handleMediaMessage(
         const store = await ensureMediaStoreLoaded(payload.username);
         sendResponse({ count: store?.size || 0 });
       })();
+      return true;
+    }
+
+    // F6: media của thread đang mở (popup tải qua selectedUrls như Download Picker).
+    case 'GET_THREAD_MEDIA': {
+      const { username, tweetId } = payload || {};
+      if (!isValidUsername(username) || typeof tweetId !== 'string' || !/^\d{10,20}$/.test(tweetId)) { sendResponse({ urls: [] }); return false; }
+      void ensureMediaStoreLoaded(username).then(
+        (store) => sendResponse({ urls: selectThreadMediaUrls(store?.values() ?? [], username, tweetId).slice(0, 2_000) }),
+        () => sendResponse({ urls: [] }),
+      );
       return true;
     }
 

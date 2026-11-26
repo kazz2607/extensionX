@@ -6,6 +6,7 @@ import { createFailedItem, parseFailedItems, serializeFailedItems, upsertFailedI
 import type { MediaItem } from '../src/types.ts';
 import { collectionKeyLabel, collectionSourceUrl, isSearchSourceKey, listIdFromKey, listNameFromTitle, listSourceKey, searchSourceFromUrl, searchSourceKey, searchSourceLabel } from '../src/shared/collection-source.ts';
 import { collectionKeyFromInput, isCollectMediaPageUrl, isCollectPageFor, isValidUsername, usernameFromXUrl } from '../src/shared/validation.ts';
+import { selectThreadMediaUrls } from '../src/shared/media-filter.ts';
 
 const vid = (size: string) => `https://video.twimg.com/ext_tw_video/1850000000000000001/pu/vid/${size}/a.mp4`;
 
@@ -118,4 +119,44 @@ test('F1c: a Saved Job source can be a handle, a #hashtag or an X link', () => {
   for (const bad of ['', '#', '# two words', 'https://evil.example/NASA', 'https://x.com/home', 'not a handle!', 'x'.repeat(51)]) {
     assert.equal(collectionKeyFromInput(bad), null, JSON.stringify(bad));
   }
+});
+
+test('F6: media carry the conversation and the author of their own tweet only', () => {
+  const photo = (name: string, source?: string) => ({ type: 'photo', id_str: name, media_url_https: `https://pbs.twimg.com/media/${name}.jpg`, ...(source ? { source_status_id_str: source } : {}) });
+  const node = (id: string, author: string, extra: Record<string, unknown> = {}, media: unknown[] = []) => ({
+    core: { user_results: { result: { core: { screen_name: author } } } },
+    legacy: { id_str: id, conversation_id_str: '100', extended_entities: { media }, ...extra },
+  });
+  const payload = { entries: [
+    node('1850000000000000001', 'NASA', {}, [photo('own')]),
+    // A quote keeps its own author; a retweet wrapper's copy of the original media gets nothing.
+    node('1850000000000000002', 'NASA', { quoted_status_result: { result: node('1850000000000000003', 'ESA', {}, [photo('quoted')]) } }),
+    node('1850000000000000004', 'NASA', {}, [photo('shared', '1850000000000000009')]),
+  ] };
+  const found: Array<{ url: string; conversationId?: string; authorHandle?: string }> = [];
+  extractMediaFromResponse(payload, found);
+  const by = (name: string) => found.find((item) => item.url.includes(`/${name}.`));
+  assert.deepEqual([by('own')?.conversationId, by('own')?.authorHandle], ['100', 'NASA']);
+  assert.equal(by('quoted')?.authorHandle, 'ESA');
+  assert.equal(by('shared')?.authorHandle, undefined);
+  assert.equal(found.every((item) => isValidMediaItem({ type: 'image', ...item })), true);
+  assert.equal(isValidMediaItem({ type: 'image', url: 'https://pbs.twimg.com/media/a.jpg', authorHandle: 'not a handle' }), false);
+  assert.equal(isValidMediaItem({ type: 'image', url: 'https://pbs.twimg.com/media/a.jpg', conversationId: '12a' }), false);
+});
+
+test('F6: a thread is the author\'s own tweets in the conversation of the opened tweet', () => {
+  const item = (url: string, tweetId: string, conversationId?: string, authorHandle?: string): MediaItem =>
+    ({ type: 'image', url, tweetId, ...(conversationId ? { conversationId, authorHandle } : {}) });
+  const store = [
+    item('root', '100', '100', 'NASA'),
+    item('self-reply', '101', '100', 'nasa'),
+    item('other-reply', '102', '100', 'someone'),
+    item('other-thread', '200', '200', 'NASA'),
+    item('dom-only', '103'),
+    { type: 'video_placeholder', url: '', tweetId: '101' } as MediaItem,
+  ];
+  assert.deepEqual(selectThreadMediaUrls(store, 'NASA', '101'), ['root', 'self-reply']);
+  assert.deepEqual(selectThreadMediaUrls(store, 'NASA', '100'), ['root', 'self-reply'], 'the root: conversation id = tweet id');
+  assert.deepEqual(selectThreadMediaUrls(store, 'NASA', '103'), ['dom-only'], 'media seen only in the DOM still counts for the opened tweet');
+  assert.deepEqual(selectThreadMediaUrls(store, 'NASA', '999'), []);
 });

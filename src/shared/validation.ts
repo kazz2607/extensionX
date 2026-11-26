@@ -166,6 +166,8 @@ export function isValidMediaItem(value: unknown): value is MediaItem {
   if (item.width !== undefined && (!Number.isInteger(item.width) || item.width < 0 || item.width > 20_000)) return false;
   if (item.height !== undefined && (!Number.isInteger(item.height) || item.height < 0 || item.height > 20_000)) return false;
   if (item.variants !== undefined && !isValidVariantList(item.variants)) return false;
+  if (item.conversationId !== undefined && (typeof item.conversationId !== 'string' || !/^\d{1,20}$/.test(item.conversationId))) return false;
+  if (item.authorHandle !== undefined && (typeof item.authorHandle !== 'string' || !/^[A-Za-z0-9_]{1,15}$/.test(item.authorHandle))) return false;
   return true;
 }
 
